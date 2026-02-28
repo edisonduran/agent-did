@@ -1,339 +1,241 @@
-# Curso práctico (2 horas) — Agent-DID RFC-001
+# RFC-001 Agent-DID — 2-Hour Practical Course
 
-## 0) Objetivo del curso
+## Course Overview
 
-Al finalizar este curso vas a poder:
-
-1. Explicar RFC-001 en términos técnicos y de negocio.
-2. Ejecutar el flujo completo create → sign → verify → resolve → revoke.
-3. Interpretar conformance y smokes operativos.
-4. Entender la política on-chain de revocación/delegación.
-5. Defender decisiones de arquitectura (on-chain/off-chain, resolver HA, interoperabilidad).
-
----
-
-## 1) Estructura del curso (120 min)
-
-- **Módulo 1 (15 min):** Fundamentos y problema que resuelve
-- **Módulo 2 (20 min):** Modelo RFC-001 y arquitectura
-- **Módulo 3 (25 min):** SDK explicado de extremo a extremo
-- **Módulo 4 (20 min):** Resolver de producción y operación HA
-- **Módulo 5 (20 min):** Contrato EVM y política de revocación
-- **Módulo 6 (15 min):** Validación, conformance y cierre
-- **Q&A (5 min)**
+| Field | Detail |
+|---|---|
+| Duration | 2 hours (6 modules) |
+| Level | Intermediate |
+| Prerequisites | Basic cryptography, Ethereum/EVM basics, Node.js/TypeScript |
+| Outcome | Participants can create, resolve, sign, and verify Agent-DIDs end-to-end |
 
 ---
 
-## 2) Requisitos previos
+## Module 1 — Fundamentals (15 min)
 
-No necesitas saber todo de blockchain, pero sí:
+### 1.1 What is Decentralized Identity?
 
-- uso básico de terminal,
-- lectura básica de JSON,
-- noción básica de firma digital (privada firma / pública verifica).
+- Self-sovereign identity vs. centralized identity.
+- W3C DID Core 1.0 overview.
+- Why AI agents need their own identity layer.
 
-Entorno recomendado:
+### 1.2 The Agent-DID Thesis
 
-- Node.js 18+
-- npm
-- Repo clonado en local
+- Persistent identity for autonomous agents.
+- Hybrid architecture: minimal on-chain anchor, full off-chain document.
+- Key properties: tamper-evidence, revocability, interoperability.
 
----
+### 1.3 Exercise — Concept Map
 
-## 3) Módulo 1 — Fundamentos (15 min)
+Draw a diagram connecting: DID, DID Document, Verification Method, Agent Metadata, Registry, Resolver.
 
-### 3.1 Qué es Agent-DID
-
-- Un estándar para identidad verificable de agentes de IA.
-- Provee autenticidad, trazabilidad y gobernanza.
-
-### 3.2 Qué problema resuelve
-
-- Suplantación de agentes.
-- Falta de control de vigencia.
-- Dificultad para auditar cambios.
-
-### 3.3 Resultado esperado
-
-Al final del módulo debes poder explicar en 30 segundos:
-
-> “Agent-DID es un pasaporte criptográfico para agentes que permite verificar quién los controla, qué versión/estado tienen y si están vigentes.”
+**Expected time:** 5 min.
 
 ---
 
-## 4) Módulo 2 — Especificación y arquitectura (20 min)
+## Module 2 — Specification & Architecture (20 min)
 
-### 4.1 Documento DID (off-chain)
+### 2.1 RFC-001 Structure
 
-Campos clave:
+- DID Method: `did:agent-did:<multibase-pubkey>`.
+- Document anatomy: `id`, `verificationMethod`, `authentication`, `agentMetadata`, `created`, `updated`.
+- On-chain vs. off-chain split.
 
-- `id`
-- `controller`
-- `created` / `updated`
-- `agentMetadata.coreModelHash`
-- `agentMetadata.systemPromptHash`
-- `verificationMethod`
-- `authentication`
+### 2.2 Architecture Diagram
 
-### 4.2 Registry (on-chain)
-
-- Ancla identidad mínima.
-- Mantiene estado de revocación.
-- Guarda referencia al documento (`documentRef`).
-
-### 4.3 Resolver universal
-
-- Consulta registry.
-- Obtiene documento en fuentes HTTP/IPFS/JSON-RPC.
-- Usa caché y failover.
-
-### 4.4 Ejercicio corto (3 min)
-
-Responde:
-
-1. ¿Por qué no guardar todo on-chain?
-2. ¿Qué pasa si `documentRef` no se resuelve?
-
-Respuesta esperada:
-
-1. Costo/rigidez; off-chain da flexibilidad.
-2. Debe activarse failover y, si todo falla, error operativo.
-
----
-
-## 5) Módulo 3 — SDK end-to-end (25 min)
-
-### 5.1 APIs esenciales
-
-- `create(params)`
-- `signMessage(payload, privateKey)`
-- `verifySignature(did, payload, signature)`
-- `signHttpRequest(params)`
-- `verifyHttpRequestSignature(...)`
-- `resolve(did)`
-- `updateDidDocument(...)`
-- `rotateVerificationMethod(...)`
-- `revokeDid(did)`
-
-### 5.2 Laboratorio guiado (10 min)
-
-Ejecuta:
-
-```bash
-npm run conformance:rfc001
+```
+┌─────────────────┐     ┌──────────────┐     ┌───────────────┐
+│   SDK Client    │────▶│  EVM Registry │────▶│  DID Document │
+│ (AgentIdentity) │     │  (Solidity)   │     │   (Off-chain) │
+└─────────────────┘     └──────────────┘     └───────────────┘
+        │                                            ▲
+        │              ┌──────────────┐              │
+        └─────────────▶│   Resolver   │──────────────┘
+                       └──────────────┘
 ```
 
-Luego revisa estos archivos:
+### 2.3 Exercise — Identify Components
 
-- `sdk/examples/e2e-smoke.js`
-- `sdk/src/core/AgentIdentity.ts`
-- `sdk/tests/AgentIdentity.test.ts`
+Given a sample DID Document, label each field and explain its purpose.
 
-### 5.3 Qué observar
-
-- Flujo de firma válido antes de revocación.
-- Verificación inválida después de revocación.
-- Comportamiento de firmas HTTP con componentes protegidos.
+**Expected time:** 5 min.
 
 ---
 
-## 6) Módulo 4 — Operación HA del resolver (20 min)
+## Module 3 — SDK End-to-End (25 min)
 
-### 6.1 Capacidades implementadas
-
-- caché TTL,
-- failover multi-endpoint,
-- soporte `ipfs://` por gateways,
-- telemetría de eventos.
-
-### 6.2 Drills operativos
-
-Ejecuta:
+### 3.1 Installation
 
 ```bash
-npm run smoke:ha
-npm run smoke:rpc
+npm install @agent-did/sdk
 ```
 
-### 6.3 Lectura operativa
+### 3.2 Create an Agent Identity
 
-- Runbook: `docs/RFC-001-Resolver-HA-Runbook.md`
-- Busca SLO, alertas y plan de incidente.
+```typescript
+import { AgentIdentity } from '@agent-did/sdk';
 
-### 6.4 Pregunta de control
+const agent = await AgentIdentity.create({
+  name: 'CourseAgent',
+  version: '1.0.0',
+  capabilities: ['data-analysis', 'nlp'],
+});
 
-Si el endpoint primario cae, ¿qué debe pasar?
+console.log('DID:', agent.did);
+console.log('Document:', JSON.stringify(agent.didDocument, null, 2));
+```
 
-Respuesta esperada:
+### 3.3 Sign and Verify
 
-- resolver sigue con secundarios,
-- emite eventos de failover,
-- mantiene continuidad de resolución.
+```typescript
+const message = 'Hello from the course!';
+const signature = await agent.sign(message);
+const isValid = await agent.verifySignature(message, signature);
+console.log('Valid:', isValid); // true
+```
+
+### 3.4 Key Rotation
+
+```typescript
+await agent.rotateVerificationMethod();
+// New key is now active; previous key is revoked
+```
+
+### 3.5 Exercise — Full Lifecycle
+
+1. Create an agent identity.
+2. Sign a message.
+3. Verify the signature.
+4. Rotate the key.
+5. Verify the old signature fails with the new key context.
+6. Sign a new message and verify with the new key.
+
+**Expected time:** 10 min.
 
 ---
 
-## 7) Módulo 5 — Contrato y gobernanza (20 min)
+## Module 4 — Universal Resolver & HA (20 min)
 
-### 7.1 Funciones clave del contrato
+### 4.1 Resolver Architecture
 
-- `registerAgent`
-- `setDocumentRef`
-- `revokeAgent`
-- `getAgentRecord`
-- `isRevoked`
+- `InMemoryDIDResolver` — local, for testing.
+- `UniversalResolverClient` — production, with caching and multi-source fallback.
+- `HttpDIDDocumentSource` / `JsonRpcDIDDocumentSource` — pluggable document sources.
 
-### 7.2 Política formal (SHOULD-04)
+### 4.2 Resolution Flow
 
-- `setRevocationDelegate`
-- `isRevocationDelegate`
-- `transferAgentOwnership`
+1. Client calls `resolve(did)`.
+2. Resolver checks cache → if hit, return.
+3. If miss, query on-chain registry for document reference.
+4. Fetch off-chain document.
+5. Validate document integrity.
+6. Cache and return.
 
-Regla:
+### 4.3 High Availability Concepts
 
-- revoca `owner` o delegado autorizado por DID.
+- Multi-zone deployment.
+- SLO targets: 99.9% availability, p95 ≤ 750 ms.
+- Failover and cache-stale strategies.
 
-### 7.3 Prueba operativa
+### 4.4 Exercise — Resolver Configuration
+
+Configure a `UniversalResolverClient` with two HTTP sources and verify resolution works when one source is unavailable.
+
+**Expected time:** 5 min.
+
+---
+
+## Module 5 — EVM Smart Contract (20 min)
+
+### 5.1 AgentRegistry.sol Overview
+
+- `registerAgent(did, owner, documentHash)` — registers a new DID.
+- `getAgentRecord(did)` — returns on-chain record.
+- `revokeAgent(did)` — revokes a DID.
+- `updateDidDocument(did, newDocumentHash)` — updates document reference.
+- Events: `AgentRegistered`, `AgentRevoked`, `AgentUpdated`.
+
+### 5.2 Deployment with Hardhat
 
 ```bash
-npm run smoke:policy
+cd contracts
+npm install
+npx hardhat compile
+npx hardhat run scripts/deploy-agent-registry.js --network localhost
 ```
 
-### 7.4 Qué valida esta prueba
+### 5.3 Revocation Policy
 
-- no autorizado no puede revocar,
-- delegado sí puede (si fue autorizado),
-- ownership transfer cambia control efectivo.
+- Only the owner can revoke.
+- Revocation is permanent (no un-revoke).
+- Revoked DIDs fail resolution.
+
+### 5.4 Exercise — Contract Interaction
+
+1. Deploy the contract locally.
+2. Register an agent DID.
+3. Query the on-chain record.
+4. Revoke the DID.
+5. Verify resolution now fails.
+
+**Expected time:** 10 min.
 
 ---
 
-## 8) Módulo 6 — Conformance y lectura de resultados (15 min)
+## Module 6 — Validation & Conformance (15 min)
 
-### 8.1 Comando maestro
+### 6.1 Conformance Suite
 
 ```bash
-npm run conformance:rfc001
+cd sdk
+npm test
+node ../scripts/conformance-rfc001.js
 ```
 
-### 8.2 Qué incluye
+### 6.2 MUST vs. SHOULD Controls
 
-- SDK build
-- SDK tests
-- smoke:policy
-- smoke:ha
-- smoke:rpc
-- smoke:e2e
-- resumen MUST/SHOULD desde checklist
+- **MUST**: 11 controls that are mandatory for compliance.
+- **SHOULD**: 5 controls that are recommended but not blocking.
 
-### 8.3 Criterio de éxito actual del proyecto
+### 6.3 Smoke Tests
 
-- MUST: 11 PASS
-- SHOULD: 5 PASS
+```bash
+node scripts/e2e-smoke.js
+node scripts/resolver-ha-smoke.js
+node scripts/revocation-policy-smoke.js
+```
 
----
+### 6.4 Exercise — Run and Interpret
 
-## 9) Casos de uso explicados (para presentar a negocio)
+1. Run the conformance suite.
+2. Identify which controls pass/fail.
+3. For any PARTIAL controls, explain what is missing.
 
-### Caso 1: API Zero-Trust para agentes
-
-- Agente firma request HTTP.
-- API verifica DID + firma + no revocado.
-- Reduce riesgo de bot spoofing.
-
-### Caso 2: Flota de agentes corporativos
-
-- Cada agente con DID único.
-- Controller central + políticas de revocación.
-- Trazabilidad y compliance por agente.
-
-### Caso 3: Respuesta a incidente
-
-- Agente comprometido.
-- Owner/delegate revoca.
-- Todas las validaciones posteriores fallan.
-
-### Caso 4: Interoperabilidad entre implementaciones
-
-- Vectores compartidos (`fixtures`).
-- Distintas implementaciones validan misma firma/vector.
-- Menor ambigüedad de integración.
+**Expected time:** 5 min.
 
 ---
 
-## 10) Checklist de evaluación del alumno
+## Final Assessment — 10 Questions
 
-## Nivel 1 — Comprensión
-
-- [ ] Puede explicar qué es Agent-DID en 1 minuto.
-- [ ] Distingue on-chain vs off-chain.
-- [ ] Entiende `controller` vs `owner` vs `delegate`.
-
-## Nivel 2 — Operación
-
-- [ ] Ejecuta `conformance:rfc001` sin ayuda.
-- [ ] Interpreta resumen MUST/SHOULD.
-- [ ] Identifica qué smoke valida cada riesgo.
-
-## Nivel 3 — Implementación
-
-- [ ] Explica APIs principales del SDK.
-- [ ] Explica política de revocación del contrato.
-- [ ] Diseña un caso de uso propio con flujo completo.
+1. What standard does `did:agent-did` extend? → W3C DID Core 1.0
+2. What algorithm does Agent-DID use for signing? → Ed25519
+3. What is stored on-chain vs. off-chain? → Anchor/revocation on-chain; full document off-chain
+4. How is a DID derived from the public key? → Multibase encoding of the Ed25519 public key
+5. What happens when a key is rotated? → New key becomes active; old key is revoked
+6. What is the purpose of `agentMetadata`? → Stores agent capabilities, version, integrity hashes
+7. How does the resolver find the DID Document? → Queries on-chain registry for document reference, then fetches off-chain
+8. Can a revoked DID be reactivated? → No, revocation is permanent
+9. What is the SLO target for resolver availability? → 99.9%
+10. How many MUST controls exist in the conformance checklist? → 11
 
 ---
 
-## 11) Examen rápido (10 preguntas)
+## Recommended Study Plan
 
-1. ¿Qué valida `verifySignature` además de la firma?
-2. ¿Por qué se usa `documentRef`?
-3. ¿Qué diferencia hay entre `resolve` y `verifySignature`?
-4. ¿Qué protege `content-digest` en firma HTTP?
-5. ¿Qué evento de resolver indica caché efectiva?
-6. ¿Cuándo usar `rotateVerificationMethod`?
-7. ¿Quién puede revocar on-chain?
-8. ¿Qué prueba valida failover RPC?
-9. ¿Qué prueba valida política de delegación?
-10. ¿Cuál es el criterio de conformidad actual?
-
-Clave resumida:
-
-1) revocación + clave activa, 2) anclaje on-chain, 3) resolución vs autenticidad, 4) integridad de body, 5) `cache-hit`, 6) higiene de llaves, 7) owner/delegate, 8) `smoke:rpc`, 9) `smoke:policy`, 10) MUST/SHOULD en PASS.
-
----
-
-## 12) Plan de estudio posterior (si quieres profundizar)
-
-Semana 1:
-
-- Repetir laboratorio completo 3 veces.
-- Explicar con tus palabras cada módulo.
-
-Semana 2:
-
-- Diseñar un caso de uso real de tu empresa.
-- Mapear riesgos + controles RFC por etapa.
-
-Semana 3:
-
-- Probar integración de un servicio externo con firma HTTP.
-- Añadir un test de regresión específico para ese servicio.
-
----
-
-## 13) Materiales recomendados para ti (orden)
-
-1. `docs/Manual-Capacitacion-RFC-001.md`
-2. `docs/RFC-001-Agent-DID-Specification.md`
-3. `docs/RFC-001-Compliance-Checklist.md`
-4. `docs/RFC-001-Resolver-HA-Runbook.md`
-5. `sdk/examples/e2e-smoke.js`
-
----
-
-## 14) Cierre
-
-Si dominas este curso, ya puedes:
-
-- liderar una sesión técnica de RFC-001,
-- defender la arquitectura frente a seguridad/arquitectura,
-- ejecutar y explicar evidencias de conformidad,
-- operar el sistema en condiciones reales de resiliencia.
+| Day | Activity | Duration |
+|---|---|---|
+| 1 | Read RFC-001 Specification | 45 min |
+| 2 | Complete Modules 1-3 (exercises) | 60 min |
+| 3 | Complete Modules 4-6 (exercises) | 55 min |
+| 4 | Run full conformance + smoke tests | 30 min |
+| 5 | Review assessment, revisit weak areas | 30 min |

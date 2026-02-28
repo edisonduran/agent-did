@@ -1,74 +1,97 @@
-# RFC-001 Resolver HA Runbook
+# RFC-001 Universal Resolver — High Availability Runbook
 
-## Objetivo
+## 1. Production Profile
 
-Establecer prácticas operativas para un `Universal Resolver` con alta disponibilidad (HA), cache y failover verificable para cumplimiento de RFC-001.
+| Aspect | Target |
+|---|---|
+| DID Document sources | ≥ 3 endpoints per source type |
+| Deployment zones | Multi-zone (min. 2 AZ or regions) |
+| Cache layer | Distributed (Redis/Memcached) with TTL ≤ 300 s |
+| Health check interval | ≤ 30 s |
 
-## Alcance
+---
 
-- Resolver universal con múltiples fuentes (`HTTP`, `IPFS`, `JSON-RPC`).
-- Cache con TTL y observabilidad por evento de resolución.
-- Pruebas periódicas de resiliencia mediante drill automatizado.
+## 2. SLO / SLA
 
-## Perfil recomendado de producción
+| Metric | Target |
+|---|---|
+| Availability | ≥ 99.9 % (monthly) |
+| Resolution latency p95 | ≤ 750 ms |
+| Resolution latency p99 | ≤ 1500 ms |
+| Cache hit rate | ≥ 70 % after warm-up |
+| MTTR | ≤ 30 min |
 
-1. **Topología mínima**
-   - 3 endpoints por fuente lógica (ej. `rpc-a`, `rpc-b`, `rpc-c`).
-   - Distribución multi-zona por proveedor/región.
-   - Balanceo por prioridad + failover secuencial.
+---
 
-2. **Parámetros de operación**
-   - `cacheTtlMs`: 30s–120s según volatilidad del documento.
-   - Timeout por endpoint: 1s–3s (aplicado en cliente/infra).
-   - Reintentos por endpoint: 0–1 (preferir cambio de endpoint).
+## 3. Signals & Alerts
 
-3. **Fuentes de resolución**
-   - HTTP/IPFS para referencias de documento (`documentRef`).
-   - JSON-RPC para backend canónico de resolución.
-   - Fallback de resolver local/in-memory solo para contingencia controlada.
+| Signal | Threshold | Alert Severity |
+|---|---|---|
+| Error rate (5xx) | > 1 % over 5 min | Critical |
+| Latency p95 | > 750 ms for 5 min | Warning |
+| Latency p99 | > 1500 ms for 5 min | Critical |
+| Cache hit rate | < 50 % for 10 min | Warning |
+| Source health check failure | 2 consecutive | Critical |
+| Certificate expiry | < 14 days | Warning |
 
-## SLO/SLA operativos (base)
+---
 
-- **Disponibilidad de resolución**: >= 99.9% mensual.
-- **Latencia p95 de resolución**: <= 750 ms.
-- **Error rate de resolución**: <= 1.0% (ventana 5 min).
-- **Failover success rate**: >= 99% cuando un endpoint primario falla.
+## 4. HA Drill Procedure
 
-## Señales y alertas
+### 4.1 Objective
 
-Monitorear eventos emitidos por resolver (`cache-hit`, `cache-miss`, `registry-lookup`, `source-fetch`, `source-fetched`, `fallback`, `resolved`, `error`).
+Validate failover behavior by simulating a primary-source failure and verifying continuity.
 
-Alertar cuando:
+### 4.2 Steps
 
-- `error` > 1% en 5 minutos.
-- `fallback` > 10% sostenido en 15 minutos.
-- `resolved` cae por debajo de umbral esperado.
-- p95 de `durationMs` excede 750 ms por 10 minutos.
+1. **Baseline**: Record current metrics (latency, availability, cache hit rate).
+2. **Simulate failure**: Disconnect or block traffic to the primary DID document source.
+3. **Observe**: Verify resolver falls back to secondary source within the health check interval.
+4. **Validate**: Confirm resolution still succeeds and latency stays within SLO.
+5. **Restore**: Re-enable primary source and verify normal traffic distribution.
+6. **Document**: Record results, any anomalies, and corrective actions.
 
-## Procedimiento de drill HA
+### 4.3 Frequency
 
-Ejecutar:
+- Quarterly in staging environment.
+- Annually in production (scheduled maintenance window).
 
-- `npm run smoke:ha`
+---
 
-Validaciones del drill:
+## 5. Incident Response
 
-1. Endpoint primario falla de forma controlada.
-2. Resolver continúa en endpoint secundario/terciario.
-3. DID se resuelve correctamente.
-4. Se observan eventos de failover y resolución final.
-5. Se verifica cache hit en segunda resolución.
+### Severity Classification
 
-## Respuesta a incidentes
+| Severity | Description | Response Time |
+|---|---|---|
+| P1 — Critical | Resolver completely unable to resolve DIDs | ≤ 15 min |
+| P2 — High | Degraded performance (SLO breach) | ≤ 30 min |
+| P3 — Medium | Partial impairment, workaround available | ≤ 2 h |
+| P4 — Low | Cosmetic or non-impactful issue | Next business day |
 
-1. Confirmar degradación (`error`, `fallback`, p95 latencia).
-2. Aislar endpoint defectuoso del pool.
-3. Forzar enrutamiento a endpoints sanos.
-4. Ejecutar `smoke:ha` post-mitigación.
-5. Registrar RCA y acciones preventivas.
+### Escalation Chain
 
-## Evidencia de cumplimiento
+1. On-call engineer → 15 min
+2. Team lead → 30 min
+3. Architecture owner → 1 h
 
-- Script de drill: `scripts/resolver-ha-smoke.js`
-- Ejecución en pipeline de conformidad: `scripts/conformance-rfc001.js`
-- Estado de cumplimiento: `docs/RFC-001-Compliance-Checklist.md`
+### Standard Recovery Actions
+
+| Symptom | Action |
+|---|---|
+| All sources down | Serve from cache (stale-while-revalidate), engage provider support |
+| Single source down | Automatic failover; validate fallback metrics |
+| High latency | Check cache layer health, scale read replicas |
+| Cache poisoning suspected | Flush cache, enable strict validation, investigate origin |
+
+---
+
+## 6. Compliance Evidence
+
+For each audit cycle, collect and archive:
+
+- Monthly SLO report (availability + latency percentiles).
+- HA drill report (procedure + results + corrective actions).
+- Incident post-mortems (if any P1/P2 occurred).
+- Configuration snapshots (source endpoints, cache TTL, alert thresholds).
+- Certificate rotation log.

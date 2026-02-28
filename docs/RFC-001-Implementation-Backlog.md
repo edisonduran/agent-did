@@ -1,152 +1,164 @@
 # RFC-001 Implementation Backlog
 
-## Objetivo
+## Objective
 
-Traducir los hallazgos de `RFC-001-Compliance-Checklist` a trabajo implementable con prioridad, dependencias y criterios de aceptación verificables.
-
----
-
-## Épica P1 — Conformidad robusta RFC-001
-
-### P1-01 — Evolución de documento DID (`updateDidDocument`)
-
-**Problema:** El RFC exige identidad persistente con estado mutable, pero el SDK no expone actualización/versionado del documento.
-
-**Alcance técnico:**
-
-- Agregar API `updateDidDocument(did, patch)` en `AgentIdentity`.
-- Validar que `id` permanece estable y `updated` cambia.
-- Permitir actualización de `agentMetadata` (incluyendo hashes y capacidades).
-
-**Criterios de aceptación:**
-
-1. Existe método público y tipado en el SDK.
-2. Test cubre actualización exitosa y rechazo de DID inexistente/revocado.
-3. `resolve(did)` devuelve versión actualizada del documento.
-
-**Dependencias:** Ninguna.
+Translate the findings from `RFC-001-Compliance-Checklist` into implementable work with priority, dependencies, and verifiable acceptance criteria.
 
 ---
 
-### P1-02 — Soporte de múltiples `verificationMethod` + rotación de claves
+## Epic P1 — Robust RFC-001 Conformance
 
-**Problema:** `verifySignature` usa solo `verificationMethod[0]`; no hay política de rotación.
+### P1-01 — DID Document Evolution (`updateDidDocument`)
 
-**Alcance técnico:**
+**Problem:** The RFC requires persistent identity with mutable state, but the SDK did not expose document update/versioning.
 
-- Extender modelo para múltiples claves activas.
-- Agregar API de rotación (`rotateVerificationMethod` o equivalente).
-- Actualizar verificador para seleccionar clave por `keyid` o fallback controlado.
+**Technical Scope:**
 
-**Criterios de aceptación:**
+- Add `updateDidDocument(did, patch)` API in `AgentIdentity`.
+- Validate that `id` remains stable and `updated` changes.
+- Allow updates to `agentMetadata` (including hashes and capabilities).
 
-1. Verificación funciona para clave activa nueva.
-2. Clave revocada/obsoleta falla en verificación.
-3. Tests cubren al menos 2 ciclos de rotación.
+**Acceptance Criteria:**
 
-**Dependencias:** P1-01.
+1. Public typed method exists in the SDK.
+2. Tests cover successful update and rejection for non-existent/revoked DIDs.
+3. `resolve(did)` returns updated document version.
 
----
+**Dependencies:** None.
 
-### P1-03 — Anchoring del documento en registry (`documentUri`/`documentHash`)
-
-**Problema:** El RFC exige referencia on-chain al documento; el contrato actual no la guarda.
-
-**Alcance técnico:**
-
-- Extender `AgentRegistry.sol` con `documentUri` o `documentHash`.
-- Actualizar ABI/adaptadores (`EvmAgentRegistry`, `EthersAgentRegistryContractClient`).
-- Registrar referencia desde `create` y actualizarla desde `updateDidDocument`.
-
-**Criterios de aceptación:**
-
-1. `getAgentRecord` retorna referencia de documento.
-2. Smoke test verifica create + resolve usando referencia on-chain.
-3. Compatibilidad ABI documentada (versionado de contrato).
-
-**Dependencias:** P1-01.
+**Status:** ✅ Completed.
 
 ---
 
-## Épica P2 — Producción e interoperabilidad
+### P1-02 — Multiple `verificationMethod` Support + Key Rotation
 
-### P2-01 — Resolver universal de producción (RPC + IPFS + caché)
+**Problem:** `verifySignature` initially used only `verificationMethod[0]`; no rotation policy existed.
 
-**Problema:** Resolver por defecto en memoria no cumple objetivo operativo de interoperabilidad.
+**Technical Scope:**
 
-**Alcance técnico:**
+- Extend model for multiple active keys.
+- Add rotation API (`rotateVerificationMethod` or equivalent).
+- Update verifier to select key by `keyid` or controlled fallback.
 
-- Crear `UniversalResolverClient` con:
-  - resolución por DID a registro on-chain,
-  - fetch de documento off-chain,
-  - caché TTL.
-- Mantener `InMemoryDIDResolver` para tests/local.
+**Acceptance Criteria:**
 
-**Criterios de aceptación:**
+1. Verification works for new active key.
+2. Revoked/obsolete key fails verification.
+3. Tests cover at least 2 rotation cycles.
 
-1. Resolución funciona para DID no creado en proceso local.
-2. Métrica básica de caché (hit/miss) disponible.
-3. Tests de integración con adaptador mock de red.
+**Dependencies:** P1-01.
 
-**Dependencias:** P1-03.
+**Status:** ✅ Completed.
 
 ---
 
-### P2-02 — Normalización temporal (ISO vs Unix)
+### P1-03 — Document Anchoring in Registry (`documentUri`/`documentHash`)
 
-**Problema:** SDK usa ISO-8601 y contrato usa Unix-string.
+**Problem:** The RFC requires an on-chain reference to the document; the contract needed to store it.
 
-**Alcance técnico:**
+**Technical Scope:**
 
-- Definir formato canónico (recomendado: ISO-8601 en documento, Unix en contrato con conversión explícita).
-- Añadir conversores utilitarios y validaciones de formato.
+- Extend `AgentRegistry.sol` with `documentUri` or `documentHash`.
+- Update ABI/adapters (`EvmAgentRegistry`, `EthersAgentRegistryContractClient`).
+- Register reference from `create` and update it from `updateDidDocument`.
 
-**Criterios de aceptación:**
+**Acceptance Criteria:**
 
-1. Regla temporal documentada en RFC + checklist.
-2. Sin ambigüedad en tipos/serialización del SDK.
-3. Tests de serialización/deserialización pasan.
+1. `getAgentRecord` returns document reference.
+2. Smoke test verifies create + resolve using on-chain reference.
+3. ABI compatibility documented (contract versioning).
 
-**Dependencias:** P1-03.
+**Dependencies:** P1-01.
 
----
-
-### P2-03 — Conformance suite MUST/SHOULD automatizada
-
-**Problema:** La conformidad está documentada, pero no automatizada en pipeline.
-
-**Alcance técnico:**
-
-- Crear suite `conformance:rfc001`.
-- Mapear cada MUST a un caso de prueba trazable.
-- Agregar salida resumida de cumplimiento.
-
-**Criterios de aceptación:**
-
-1. Pipeline reporta estado por control (PASS/PARTIAL/FAIL).
-2. Suite falla si cualquier MUST falla.
-3. Evidencia de ejecución en CI local o workflow.
-
-**Dependencias:** P1-01, P1-02, P1-03.
+**Status:** ✅ Completed.
 
 ---
 
-## Orden de ejecución recomendado
+## Epic P2 — Production and Interoperability
 
-1. P1-01
-2. P1-02
-3. P1-03
-4. P2-01
-5. P2-02
-6. P2-03
+### P2-01 — Production Universal Resolver (RPC + IPFS + Cache)
+
+**Problem:** Default in-memory resolver does not meet the operational interoperability objective.
+
+**Technical Scope:**
+
+- Create `UniversalResolverClient` with:
+  - resolution by DID to on-chain record,
+  - off-chain document fetch,
+  - TTL cache.
+- Maintain `InMemoryDIDResolver` for tests/local.
+
+**Acceptance Criteria:**
+
+1. Resolution works for DIDs not created in the local process.
+2. Basic cache metrics (hit/miss) available.
+3. Integration tests with network mock adapter.
+
+**Dependencies:** P1-03.
+
+**Status:** ✅ Completed.
 
 ---
 
-## Definición de Done global
+### P2-02 — Temporal Normalization (ISO vs Unix)
 
-Una tarea se considera cerrada cuando:
+**Problem:** SDK uses ISO-8601 and contract uses Unix-string.
 
-1. Implementación mergeada en rama principal.
-2. Tests unitarios/integración asociados en verde.
-3. Referencias de documentación actualizadas (`RFC`, `Checklist`, `README`).
-4. Smoke relevante ejecutado sin regresiones.
+**Technical Scope:**
+
+- Define canonical format (recommended: ISO-8601 in document, Unix in contract with explicit conversion).
+- Add utility converters and format validations.
+
+**Acceptance Criteria:**
+
+1. Temporal rule documented in RFC + checklist.
+2. No ambiguity in SDK types/serialization.
+3. Serialization/deserialization tests pass.
+
+**Dependencies:** P1-03.
+
+**Status:** ✅ Completed.
+
+---
+
+### P2-03 — Automated MUST/SHOULD Conformance Suite
+
+**Problem:** Conformance was documented but not automated in a pipeline.
+
+**Technical Scope:**
+
+- Create `conformance:rfc001` suite.
+- Map each MUST to a traceable test case.
+- Add summarized compliance output.
+
+**Acceptance Criteria:**
+
+1. Pipeline reports status per control (PASS/PARTIAL/FAIL).
+2. Suite fails if any MUST fails.
+3. Execution evidence in local CI or workflow.
+
+**Dependencies:** P1-01, P1-02, P1-03.
+
+**Status:** ✅ Completed.
+
+---
+
+## Recommended Execution Order
+
+1. P1-01 ✅
+2. P1-02 ✅
+3. P1-03 ✅
+4. P2-01 ✅
+5. P2-02 ✅
+6. P2-03 ✅
+
+---
+
+## Global Definition of Done
+
+A task is considered closed when:
+
+1. Implementation merged into main branch.
+2. Associated unit/integration tests green.
+3. Documentation references updated (`RFC`, `Checklist`, `README`).
+4. Relevant smoke executed without regressions.

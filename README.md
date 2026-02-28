@@ -1,57 +1,58 @@
-# Agent-DID: Identidad verificable para agentes de IA
+# Agent-DID: Verifiable Identity for AI Agents
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 
-Proyecto de referencia para el estándar **Agent-DID (RFC-001)**: identidad descentralizada de agentes con firma criptográfica, resolución de documentos, revocación y trazabilidad de evolución.
+Reference project for the **Agent-DID (RFC-001)** standard: decentralized identity for AI agents with cryptographic signing, document resolution, revocation, and evolution traceability.
 
-## Estado actual
+## Current Status
 
-El proyecto ya no está solo en fase de especificación: incluye implementación funcional y pipeline de validación.
+The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
 
-- **RFC-001** consolidado y operativo: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
-- **Checklist de conformidad**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
-- **Resultado vigente**: MUST `11/11 PASS` y SHOULD `5/5 PASS`
+- **RFC-001** consolidated and operational: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
+- **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
 
-## Componentes principales
+## Main Components
 
-### 1) SDK TypeScript (`sdk/`)
+### 1) TypeScript SDK (`sdk/`)
 
-Incluye:
+Includes:
 
-- Creación de Agent-DID documents (`create`)
-- Firma y verificación Ed25519 (`signMessage`, `verifySignature`)
-- Firma/verificación HTTP (`signHttpRequest`, `verifyHttpRequestSignature`)
-- Resolución DID con caché/failover (`UniversalResolverClient`)
-- Fuentes de documento por `HTTP/IPFS` y `JSON-RPC`
-- Revocación, actualización de documento, rotación de claves e historial
+- Agent-DID document creation (`create`)
+- Ed25519 signing and verification (`signMessage`, `verifySignature`)
+- HTTP signing/verification (`signHttpRequest`, `verifyHttpRequestSignature`)
+- DID resolution with cache/failover (`UniversalResolverClient`)
+- Document sources via `HTTP/IPFS` and `JSON-RPC`
+- Revocation, document update, key rotation, and history
 
-### 2) Registry EVM (`contracts/`)
+### 2) EVM Registry (`contracts/`)
 
-Contrato `AgentRegistry` con:
+`AgentRegistry` contract with:
 
-- Registro y revocación de DIDs
-- Referencia on-chain al documento (`documentRef`)
-- Política formal de acceso de revocación:
-	- revocación por `owner` o delegado autorizado por DID
-	- delegación explícita (`setRevocationDelegate`)
-	- transferencia de ownership (`transferAgentOwnership`)
+- DID registration and revocation
+- On-chain document reference (`documentRef`)
+- Formal revocation access policy:
+	- revocation by `owner` or DID-authorized delegate
+	- explicit delegation (`setRevocationDelegate`)
+	- ownership transfer (`transferAgentOwnership`)
 
-### 3) Validación y drills (`scripts/`)
+### 3) Validation and Drills (`scripts/`)
 
-- Conformidad completa: `npm run conformance:rfc001`
-- E2E SDK + contrato: `npm run smoke:e2e`
-- Drill de alta disponibilidad resolver: `npm run smoke:ha`
-- Smoke de resolución JSON-RPC: `npm run smoke:rpc`
-- Smoke de política de revocación: `npm run smoke:policy`
+- Full conformance: `npm run conformance:rfc001`
+- E2E SDK + contract: `npm run smoke:e2e`
+- Resolver high-availability drill: `npm run smoke:ha`
+- JSON-RPC resolution smoke: `npm run smoke:rpc`
+- Revocation policy smoke: `npm run smoke:policy`
 
-## Ejecutar localmente
+## Running Locally
 
-### Requisitos
+### Requirements
 
 - Node.js 18+
 - npm
 
-### Instalación
+### Installation
 
 ```bash
 npm install
@@ -59,29 +60,29 @@ npm --prefix sdk install
 npm --prefix contracts install
 ```
 
-### Verificación rápida recomendada
+### Recommended Quick Verification
 
 ```bash
 npm run conformance:rfc001
 ```
 
-Este comando ejecuta build/tests del SDK y smokes operativos (policy, HA, RPC, E2E).
+This command runs SDK build/tests and operational smokes (policy, HA, RPC, E2E).
 
-## Documentación clave
+## Key Documentation
 
-- Especificación principal: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
-- Checklist de cumplimiento: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
-- Runbook HA de resolver: [docs/RFC-001-Resolver-HA-Runbook.md](docs/RFC-001-Resolver-HA-Runbook.md)
-- Guía de contribución: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Main specification: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- Compliance checklist: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
+- Resolver HA runbook: [docs/RFC-001-Resolver-HA-Runbook.md](docs/RFC-001-Resolver-HA-Runbook.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Roadmap
 
-RFC-001 está implementado y conforme. Las próximas iteraciones pueden enfocarse en:
+RFC-001 is implemented and conformant. Next iterations may focus on:
 
-- Nuevos RFCs (delegación avanzada, aprobaciones A2H)
-- Integraciones externas y adopción de fixtures compartidos entre implementaciones
-- Hardening operacional/CI para entornos de producción multi-región
+- New RFCs (advanced delegation, A2H approvals)
+- External integrations and shared fixture adoption across implementations
+- Operational/CI hardening for multi-region production environments
 
-## Licencia
+## License
 
-MIT.
+[MIT](LICENSE)

@@ -1,85 +1,85 @@
 # RFC-001 Compliance Checklist (Agent-DID)
 
-## Propósito
+## Purpose
 
-Este checklist traduce RFC-001 a controles verificables para evaluar conformidad de implementación.
+This checklist translates RFC-001 into verifiable controls to evaluate implementation conformance.
 
-Comando de verificación automatizada:
+Automated verification command:
 
 - `npm run conformance:rfc001`
 
-Escala usada:
+Scale used:
 
-- **PASS:** Cumple completamente.
-- **PARTIAL:** Cumple parcialmente / con limitaciones.
-- **FAIL:** No implementado o no verificable.
+- **PASS:** Fully compliant.
+- **PARTIAL:** Partially compliant / with limitations.
+- **FAIL:** Not implemented or not verifiable.
 
 ---
 
-## A. Controles MUST (obligatorios)
+## A. MUST Controls (Mandatory)
 
-| ID | Control | Estado actual | Evidencia | Acción requerida |
+| ID | Control | Current Status | Evidence | Required Action |
 | :-- | :-- | :-- | :-- | :-- |
-| MUST-01 | Emitir documento Agent-DID con campos obligatorios (`id`, `controller`, `created`, `updated`, `agentMetadata.coreModelHash`, `agentMetadata.systemPromptHash`, `verificationMethod`, `authentication`) | PASS | `sdk/src/core/types.ts`, `sdk/src/core/AgentIdentity.ts` | Mantener pruebas de regresión de esquema. |
-| MUST-02 | Soportar `create(params)` | PASS | `sdk/src/core/AgentIdentity.ts` | Ninguna inmediata. |
-| MUST-03 | Soportar `signMessage(payload, privateKey)` | PASS | `sdk/src/core/AgentIdentity.ts` | Añadir vector de pruebas interoperables (futuro). |
-| MUST-04 | Soportar `signHttpRequest(params)` con `@request-target`, `host`, `date`, `content-digest`, identidad del agente | PASS | `sdk/src/core/AgentIdentity.ts` (firma/verifica componentes requeridos, soporta etiquetas múltiples y diccionarios de firma), `sdk/tests/AgentIdentity.test.ts` (casos positivos/negativos, tamper, algoritmo no soportado, labels alternativos, múltiples firmas) | Mantener fixtures interoperables y regresión continua en CI. |
-| MUST-05 | Soportar `resolve(did)` | PASS | `sdk/src/core/AgentIdentity.ts` (`useProductionResolver`, `useProductionResolverFromHttp`, `useProductionResolverFromJsonRpc`), `sdk/src/resolver/UniversalResolverClient.ts` (cache + eventos), `sdk/src/resolver/HttpDIDDocumentSource.ts` (failover multi-endpoint + `ipfs://` gateways), `sdk/src/resolver/JsonRpcDIDDocumentSource.ts` (failover RPC), `sdk/tests/UniversalResolverClient.test.ts`, `sdk/tests/HttpDIDDocumentSource.test.ts`, `sdk/tests/JsonRpcDIDDocumentSource.test.ts`, `scripts/rpc-resolver-smoke.js` | Mantener monitoreo operativo y pruebas periódicas sobre infraestructura real. |
-| MUST-06 | Soportar `verifySignature(did, payload, signature)` y fallar si revocado | PASS | `sdk/src/core/AgentIdentity.ts`, tests | Mantener pruebas con `keyId` y rotación. |
-| MUST-07 | Soportar `revokeDid(did)` | PASS | `sdk/src/core/AgentIdentity.ts`, `sdk/src/registry/*` | Añadir política de autorización explícita en interfaces. |
-| MUST-08 | Registry con operaciones mínimas (`registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`) | PASS | `contracts/src/AgentRegistry.sol`, `sdk/src/registry/*` | Mantener ABI estable y versionada. |
-| MUST-09 | Verificación de conformidad: firma válida antes de revocación e inválida después | PASS | tests smoke + unit (`npm run smoke:e2e`) | Añadir escenario con red externa en CI. |
-| MUST-10 | Soportar ciclo de evolución (`updated` + rotación o actualización de `verificationMethod`) | PASS | `sdk/src/core/AgentIdentity.ts`, `sdk/tests/AgentIdentity.test.ts` | Extender con trazabilidad histórica de versiones (SHOULD). |
-| MUST-11 | Separación mínima on-chain/off-chain con referencia al documento | PASS | `contracts/src/AgentRegistry.sol`, `sdk/src/core/AgentIdentity.ts`, `sdk/src/registry/*`, `npm run smoke:e2e` | Mantener compatibilidad ABI y versionado. |
+| MUST-01 | Emit Agent-DID document with required fields (`id`, `controller`, `created`, `updated`, `agentMetadata.coreModelHash`, `agentMetadata.systemPromptHash`, `verificationMethod`, `authentication`) | PASS | `sdk/src/core/types.ts`, `sdk/src/core/AgentIdentity.ts` | Maintain schema regression tests. |
+| MUST-02 | Support `create(params)` | PASS | `sdk/src/core/AgentIdentity.ts` | None immediate. |
+| MUST-03 | Support `signMessage(payload, privateKey)` | PASS | `sdk/src/core/AgentIdentity.ts` | Add interoperable test vectors (future). |
+| MUST-04 | Support `signHttpRequest(params)` with `@request-target`, `host`, `date`, `content-digest`, agent identity | PASS | `sdk/src/core/AgentIdentity.ts` (signs/verifies required components, supports multiple labels and signature dictionaries), `sdk/tests/AgentIdentity.test.ts` (positive/negative cases, tamper, unsupported algorithm, alternate labels, multiple signatures) | Maintain interoperable fixtures and continuous regression in CI. |
+| MUST-05 | Support `resolve(did)` | PASS | `sdk/src/core/AgentIdentity.ts` (`useProductionResolver`, `useProductionResolverFromHttp`, `useProductionResolverFromJsonRpc`), `sdk/src/resolver/UniversalResolverClient.ts` (cache + events), `sdk/src/resolver/HttpDIDDocumentSource.ts` (multi-endpoint failover + `ipfs://` gateways), `sdk/src/resolver/JsonRpcDIDDocumentSource.ts` (RPC failover), `sdk/tests/UniversalResolverClient.test.ts`, `sdk/tests/HttpDIDDocumentSource.test.ts`, `sdk/tests/JsonRpcDIDDocumentSource.test.ts`, `scripts/rpc-resolver-smoke.js` | Maintain operational monitoring and periodic testing against real infrastructure. |
+| MUST-06 | Support `verifySignature(did, payload, signature)` and fail if revoked | PASS | `sdk/src/core/AgentIdentity.ts`, tests | Maintain tests with `keyId` and rotation. |
+| MUST-07 | Support `revokeDid(did)` | PASS | `sdk/src/core/AgentIdentity.ts`, `sdk/src/registry/*` | Add explicit authorization policy in interfaces. |
+| MUST-08 | Registry with minimum operations (`registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`) | PASS | `contracts/src/AgentRegistry.sol`, `sdk/src/registry/*` | Maintain stable and versioned ABI. |
+| MUST-09 | Conformance verification: valid signature before revocation and invalid after | PASS | smoke + unit tests (`npm run smoke:e2e`) | Add external network scenario in CI. |
+| MUST-10 | Support evolution cycle (`updated` + rotation or update of `verificationMethod`) | PASS | `sdk/src/core/AgentIdentity.ts`, `sdk/tests/AgentIdentity.test.ts` | Extend with historical version traceability (SHOULD). |
+| MUST-11 | Minimum on-chain/off-chain separation with document reference | PASS | `contracts/src/AgentRegistry.sol`, `sdk/src/core/AgentIdentity.ts`, `sdk/src/registry/*`, `npm run smoke:e2e` | Maintain ABI compatibility and versioning. |
 
 ---
 
-## B. Controles SHOULD (recomendados)
+## B. SHOULD Controls (Recommended)
 
-| ID | Control | Estado actual | Evidencia | Acción recomendada |
+| ID | Control | Current Status | Evidence | Recommended Action |
 | :-- | :-- | :-- | :-- | :-- |
-| SHOULD-01 | Resolver universal serverless con caché y alta disponibilidad | PASS | `sdk/src/resolver/UniversalResolverClient.ts` (telemetría de resolución), `sdk/src/resolver/HttpDIDDocumentSource.ts` (failover entre endpoints + gateways IPFS), `sdk/src/resolver/JsonRpcDIDDocumentSource.ts` (failover entre endpoints RPC), `sdk/src/core/AgentIdentity.ts` (`useProductionResolverFromHttp`, `useProductionResolverFromJsonRpc`), `scripts/resolver-ha-smoke.js`, `docs/RFC-001-Resolver-HA-Runbook.md`, `sdk/tests/UniversalResolverClient.test.ts`, `sdk/tests/HttpDIDDocumentSource.test.ts`, `sdk/tests/JsonRpcDIDDocumentSource.test.ts` | Mantener ejecución periódica del drill HA y revisión de SLO/alertas por release. |
-| SHOULD-02 | Normalización temporal homogénea entre capa SDK y contrato | PASS | `sdk/src/core/time.ts`, `sdk/src/registry/EthersAgentRegistryContractClient.ts`, `sdk/tests/time.test.ts` | Mantener contratos claros: on-chain Unix-string, SDK expone ISO normalizado. |
-| SHOULD-03 | Modo de verificación interoperable con implementaciones externas | PASS | `sdk/tests/fixtures/interop-vectors.json`, `sdk/tests/InteropVectors.test.ts`, `sdk/src/core/AgentIdentity.ts` (verifySignature/verifyHttpRequestSignature) | Mantener y versionar fixtures compartidos por release. |
-| SHOULD-04 | Políticas de control de acceso de revocación a nivel contrato | PASS | `contracts/src/AgentRegistry.sol` (`setRevocationDelegate`, `transferAgentOwnership`, `isRevocationDelegate`, `revokeAgent` con `owner|delegate`), `contracts/scripts/revocation-policy-check.js`, `scripts/revocation-policy-smoke.js` | Mantener revisiones de gobernanza y rotación de custodios por release. |
-| SHOULD-05 | Trazabilidad de evolución de documento por versión | PASS | `sdk/src/core/AgentIdentity.ts`, `sdk/tests/AgentIdentity.test.ts` | Mantener persistencia histórica al migrar a backend externo. |
+| SHOULD-01 | Universal serverless resolver with cache and high availability | PASS | `sdk/src/resolver/UniversalResolverClient.ts` (resolution telemetry), `sdk/src/resolver/HttpDIDDocumentSource.ts` (endpoint failover + IPFS gateways), `sdk/src/resolver/JsonRpcDIDDocumentSource.ts` (RPC endpoint failover), `sdk/src/core/AgentIdentity.ts` (`useProductionResolverFromHttp`, `useProductionResolverFromJsonRpc`), `scripts/resolver-ha-smoke.js`, `docs/RFC-001-Resolver-HA-Runbook.md`, `sdk/tests/UniversalResolverClient.test.ts`, `sdk/tests/HttpDIDDocumentSource.test.ts`, `sdk/tests/JsonRpcDIDDocumentSource.test.ts` | Maintain periodic HA drill execution and SLO/alert review per release. |
+| SHOULD-02 | Homogeneous temporal normalization between SDK and contract layers | PASS | `sdk/src/core/time.ts`, `sdk/src/registry/EthersAgentRegistryContractClient.ts`, `sdk/tests/time.test.ts` | Maintain clear contracts: on-chain Unix-string, SDK exposes normalized ISO. |
+| SHOULD-03 | Interoperable verification mode with external implementations | PASS | `sdk/tests/fixtures/interop-vectors.json`, `sdk/tests/InteropVectors.test.ts`, `sdk/src/core/AgentIdentity.ts` (verifySignature/verifyHttpRequestSignature) | Maintain and version shared fixtures per release. |
+| SHOULD-04 | Contract-level revocation access control policies | PASS | `contracts/src/AgentRegistry.sol` (`setRevocationDelegate`, `transferAgentOwnership`, `isRevocationDelegate`, `revokeAgent` with `owner\|delegate`), `contracts/scripts/revocation-policy-check.js`, `scripts/revocation-policy-smoke.js` | Maintain governance reviews and custodian rotation per release. |
+| SHOULD-05 | Document evolution traceability by version | PASS | `sdk/src/core/AgentIdentity.ts`, `sdk/tests/AgentIdentity.test.ts` | Maintain historical persistence when migrating to external backend. |
 
 ---
 
-## C. Resumen ejecutivo de conformidad
+## C. Executive Conformance Summary
 
 - **MUST:** 11 PASS / 0 PARTIAL / 0 FAIL
 - **SHOULD:** 5 PASS / 0 PARTIAL / 0 FAIL
 
-Lectura rápida:
+Quick read:
 
-1. El núcleo funcional del estándar ya está operativo para create/sign/resolve/verify/revoke.
-2. No hay brechas MUST: todos los controles obligatorios están en PASS.
-3. La brecha principal de producción es resolver universal real (actualmente en memoria).
+1. The functional core of the standard is operational for create/sign/resolve/verify/revoke.
+2. No MUST gaps: all mandatory controls are in PASS.
+3. The main production gap is a real universal resolver (currently in-memory by default).
 
 ---
 
-## D. Plan de cierre sugerido (priorizado)
+## D. Suggested Closure Plan (Prioritized)
 
-Backlog ejecutable asociado:
+Associated executable backlog:
 
 - `docs/RFC-001-Implementation-Backlog.md`
 
-### P1 (bloqueante para conformidad robusta)
+### P1 (blocking for robust conformance)
 
-1. ✅ Completado.
+1. ✅ Completed.
 
-### P2 (producción)
+### P2 (production)
 
-1. Implementar resolver universal (RPC + IPFS + cache).
-2. Normalizar timestamps (ISO o Unix, uno solo).
-3. Añadir smoke test de red externa (`smoke:e2e:ci`).
+1. Implement universal resolver (RPC + IPFS + cache).
+2. Normalize timestamps (ISO or Unix, single canonical format).
+3. Add external network smoke test (`smoke:e2e:ci`).
 
 ---
 
-## E. Criterio de salida (“RFC-001 conformant”)
+## E. Exit Criteria ("RFC-001 conformant")
 
-Una implementación se marca como conforme cuando:
+An implementation is marked as conformant when:
 
-1. Todos los controles MUST están en PASS.
-2. Al menos 3 controles SHOULD están en PASS y ninguno en FAIL para despliegue productivo.
+1. All MUST controls are in PASS.
+2. At least 3 SHOULD controls are in PASS and none in FAIL for production deployment.

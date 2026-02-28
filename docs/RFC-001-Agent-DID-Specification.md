@@ -1,51 +1,51 @@
-# RFC-001: Agent-DID (Especificación Unificada)
+# RFC-001: Agent-DID (Unified Specification)
 
-## Estado del documento
+## Document Status
 
-- **Estado:** Draft activo
-- **Versión:** 0.2-unified
-- **Fecha:** 2026-02-26
-- **Alcance:** Este RFC es el documento canónico y único de la especificación Agent-DID. Incluye modelo de datos, arquitectura de referencia y lineamientos de implementación SDK.
-
----
-
-## 1. Resumen
-
-Agent-DID define una identidad criptográfica verificable para agentes de IA autónomos. Su objetivo es permitir que cualquier actor (humano, organización, API o agente) pueda comprobar de forma confiable:
-
-1. Quién controla el agente.
-2. Qué “cerebro” ejecuta (modelo/base prompt) sin exponer IP sensible.
-3. Qué capacidades o certificaciones declara.
-4. Si su identidad está vigente, evolucionada o revocada.
-
-El estándar extiende DIDs/VCs de W3C con metadatos específicos para IA y adopta una arquitectura híbrida off-chain/on-chain para equilibrar costo, velocidad y confianza.
+- **Status:** Active Draft
+- **Version:** 0.2-unified
+- **Date:** 2026-02-28
+- **Scope:** This RFC is the canonical and sole document for the Agent-DID specification. It includes the data model, reference architecture, and SDK implementation guidelines.
 
 ---
 
-## 2. Relación con estándares existentes
+## 1. Summary
 
-- **W3C DID / DID Document:** Base de identidad descentralizada.
-- **W3C Verifiable Credentials (VC):** Soporte para certificaciones de cumplimiento.
-- **ERC-4337 / Account Abstraction (opcional):** Cuenta autónoma para pagos y operaciones económicas del agente.
-- **HTTP Message Signatures / Web Bot Auth (emergente):** Firma de requests HTTP para autenticación A2A/API.
+Agent-DID defines a verifiable cryptographic identity for autonomous AI agents. Its goal is to allow any actor (human, organization, API, or agent) to reliably verify:
 
-Agent-DID no reemplaza estos estándares; los orquesta para el caso específico de agentes autónomos.
+1. Who controls the agent.
+2. What "brain" it runs (model/base prompt) without exposing sensitive IP.
+3. What capabilities or certifications it declares.
+4. Whether its identity is active, evolved, or revoked.
 
----
-
-## 3. Principios de diseño
-
-1. **Identidad persistente, estado mutable:** El DID se mantiene; el documento puede evolucionar.
-2. **Mínimo dato on-chain:** Sólo anclaje y revocación; metadatos completos en almacenamiento descentralizado.
-3. **Criptografía fuerte por defecto:** Ed25519 recomendado para firma frecuente.
-4. **Blockchain-agnostic:** Compatible con múltiples redes, con implementaciones de referencia en EVM.
-5. **Interoperabilidad:** Esquema JSON-LD y resolución universal.
+The standard extends W3C DIDs/VCs with AI-specific metadata and adopts a hybrid off-chain/on-chain architecture to balance cost, speed, and trust.
 
 ---
 
-## 4. Estructura del Agent-DID Document
+## 2. Relationship with Existing Standards
 
-### 4.1 Esquema base JSON-LD
+- **W3C DID / DID Document:** Foundation for decentralized identity.
+- **W3C Verifiable Credentials (VC):** Support for compliance certifications.
+- **ERC-4337 / Account Abstraction (optional):** Autonomous account for agent payments and economic operations.
+- **HTTP Message Signatures / Web Bot Auth (emerging):** HTTP request signing for A2A/API authentication.
+
+Agent-DID does not replace these standards; it orchestrates them for the specific case of autonomous agents.
+
+---
+
+## 3. Design Principles
+
+1. **Persistent identity, mutable state:** The DID remains stable; the document can evolve.
+2. **Minimal on-chain data:** Only anchoring and revocation; full metadata in decentralized storage.
+3. **Strong cryptography by default:** Ed25519 recommended for frequent signing.
+4. **Blockchain-agnostic:** Compatible with multiple networks, with reference implementations on EVM.
+5. **Interoperability:** JSON-LD schema and universal resolution.
+
+---
+
+## 4. Agent-DID Document Structure
+
+### 4.1 Base JSON-LD Schema
 
 ```json
 {
@@ -56,10 +56,10 @@ Agent-DID no reemplaza estos estándares; los orquesta para el caso específico 
   "updated": "2026-02-22T14:00:00Z",
   "agentMetadata": {
     "name": "SupportBot-X",
-    "description": "Agente de soporte técnico nivel 1",
+    "description": "Level 1 technical support agent",
     "version": "1.0.0",
-    "coreModelHash": "hash://sha256/... o ipfs://...",
-    "systemPromptHash": "hash://sha256/... o ipfs://...",
+    "coreModelHash": "hash://sha256/... or ipfs://...",
+    "systemPromptHash": "hash://sha256/... or ipfs://...",
     "capabilities": ["read:kb", "write:ticket"],
     "memberOf": "did:fleet:0xCorporateSupportFleet"
   },
@@ -84,98 +84,98 @@ Agent-DID no reemplaza estos estándares; los orquesta para el caso específico 
 }
 ```
 
-### 4.2 Definición normativa de campos
+### 4.2 Normative Field Definitions
 
-| Campo | Requisito | Descripción |
+| Field | Requirement | Description |
 | :--- | :--- | :--- |
-| `id` | **REQUIRED** | DID único del agente (`did:agent:<network>:<id>`). |
-| `controller` | **REQUIRED** | DID o identificador del controlador humano/corporativo. |
-| `created` / `updated` | **REQUIRED** | Timestamps ISO-8601 del documento. |
-| `agentMetadata.coreModelHash` | **REQUIRED** | Hash/URI inmutable del modelo base. |
-| `agentMetadata.systemPromptHash` | **REQUIRED** | Hash/URI inmutable del prompt base. |
-| `verificationMethod` | **REQUIRED** | Claves públicas válidas para verificación de firma. |
-| `authentication` | **REQUIRED** | Referencias a métodos válidos de autenticación. |
-| `complianceCertifications` | OPTIONAL | Evidencias VC y auditorías. |
-| `agentMetadata.capabilities` | OPTIONAL | Capacidades declaradas/autorizadas. |
-| `agentMetadata.memberOf` | OPTIONAL | Vinculación a flota/cohorte de agentes. |
+| `id` | **REQUIRED** | Unique agent DID (`did:agent:<network>:<id>`). |
+| `controller` | **REQUIRED** | DID or identifier of the human/corporate controller. |
+| `created` / `updated` | **REQUIRED** | ISO-8601 timestamps of the document. |
+| `agentMetadata.coreModelHash` | **REQUIRED** | Immutable hash/URI of the base model. |
+| `agentMetadata.systemPromptHash` | **REQUIRED** | Immutable hash/URI of the base prompt. |
+| `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
+| `authentication` | **REQUIRED** | References to valid authentication methods. |
+| `complianceCertifications` | OPTIONAL | VC evidence and audits. |
+| `agentMetadata.capabilities` | OPTIONAL | Declared/authorized capabilities. |
+| `agentMetadata.memberOf` | OPTIONAL | Link to agent fleet/cohort. |
 
 ---
 
-## 5. Arquitectura de referencia
+## 5. Reference Architecture
 
-### 5.1 Modelo híbrido (off-chain / on-chain)
+### 5.1 Hybrid Model (off-chain / on-chain)
 
 ```mermaid
 graph TD
     subgraph Off-chain
-        A[Runtime del agente] --> B[Par de claves Ed25519]
-        A --> C[Firma de mensajes / HTTP]
-        A --> D[Documento JSON-LD]
+        A[Agent Runtime] --> B[Ed25519 Key Pair]
+        A --> C[Message / HTTP Signing]
+        A --> D[JSON-LD Document]
     end
 
     subgraph On-chain
-        E[Agent Registry] --> F[Anclaje DID + controlador + URI]
-        E --> G[Estado de revocación]
-        H[Cuenta inteligente opcional] --> A
+        E[Agent Registry] --> F[DID Anchor + Controller + URI]
+        E --> G[Revocation State]
+        H[Optional Smart Account] --> A
     end
 
     I[Universal Resolver] --> E
     I --> D
 ```
 
-### 5.2 Componentes obligatorios
+### 5.2 Mandatory Components
 
-1. **Agent Registry (on-chain o equivalente):** registro/revocación de DID.
-2. **Universal Resolver:** resolución DID → documento completo.
-3. **SDK cliente:** creación, firma, verificación y operación de lifecycle.
+1. **Agent Registry (on-chain or equivalent):** DID registration/revocation.
+2. **Universal Resolver:** DID → full document resolution.
+3. **Client SDK:** creation, signing, verification, and lifecycle operations.
 
-### 5.3 Qué va on-chain vs off-chain
+### 5.3 On-chain vs Off-chain
 
-- **On-chain mínimo:** DID, controlador, referencia al documento, estado de revocación.
-- **Off-chain:** documento JSON-LD completo, VC extensivos, metadatos no críticos para consenso.
-- **Perfil de resolución recomendado (producción):** fuentes HTTP/IPFS y JSON-RPC con múltiples endpoints/gateways, caché con TTL, telemetría de resolución y failover ante errores transitorios.
-- **Guía operativa HA:** ver `docs/RFC-001-Resolver-HA-Runbook.md` para SLO, alertas y drill de resiliencia.
-
----
-
-## 6. Flujos operativos normativos
-
-### 6.1 Registro
-
-1. El controlador genera DID y claves del agente.
-2. Se construye documento JSON-LD con hashes del modelo/prompt.
-3. Se ancla en registry la referencia del DID y su controlador.
-
-### 6.2 Resolución y verificación
-
-1. Consumidor obtiene `Signature-Agent` o DID del emisor.
-2. Resuelve DID vía resolver universal (con fallback/failover en perfil productivo).
-3. Verifica firma con `verificationMethod`.
-4. Verifica estado no revocado en registry.
-
-### 6.3 Evolución
-
-1. El DID permanece estable.
-2. `updated` y hashes cambian en nueva versión del documento.
-3. Registry apunta a la nueva referencia del documento.
-
-### 6.4 Revocación
-
-1. El controlador (o política definida) marca DID revocado.
-2. Toda verificación posterior debe fallar para autenticación activa.
-3. En despliegue EVM de referencia, la política de contrato permite revocación por `owner` o delegado autorizado por DID, con transferencia explícita de ownership.
-
-### 6.5 Firma HTTP (Web Bot Auth)
-
-- El agente firma componentes HTTP (`@request-target`, `host`, `date`, `content-digest`).
-- Debe incluir encabezado de identidad del agente (`Signature-Agent` o equivalente).
-- El servidor valida firma + DID + estado de revocación antes de autorizar.
+- **Minimal on-chain:** DID, controller, document reference, revocation state.
+- **Off-chain:** full JSON-LD document, extensive VCs, metadata not critical for consensus.
+- **Recommended production resolution profile:** HTTP/IPFS and JSON-RPC sources with multiple endpoints/gateways, TTL cache, resolution telemetry, and transient error failover.
+- **HA operational guide:** see `docs/RFC-001-Resolver-HA-Runbook.md` for SLO, alerts, and resilience drills.
 
 ---
 
-## 7. Lineamientos de implementación SDK (referencia)
+## 6. Normative Operational Flows
 
-El SDK de referencia (TypeScript/Python) debe exponer al menos:
+### 6.1 Registration
+
+1. The controller generates the DID and agent keys.
+2. A JSON-LD document is built with model/prompt hashes.
+3. The DID reference and its controller are anchored in the registry.
+
+### 6.2 Resolution and Verification
+
+1. Consumer obtains `Signature-Agent` or the issuer's DID.
+2. Resolves DID via universal resolver (with fallback/failover in production profile).
+3. Verifies signature with `verificationMethod`.
+4. Verifies non-revoked state in registry.
+
+### 6.3 Evolution
+
+1. The DID remains stable.
+2. `updated` and hashes change in the new document version.
+3. Registry points to the new document reference.
+
+### 6.4 Revocation
+
+1. The controller (or defined policy) marks the DID as revoked.
+2. All subsequent verifications must fail for active authentication.
+3. In the reference EVM deployment, the contract policy allows revocation by `owner` or DID-authorized delegate, with explicit ownership transfer.
+
+### 6.5 HTTP Signing (Web Bot Auth)
+
+- The agent signs HTTP components (`@request-target`, `host`, `date`, `content-digest`).
+- Must include an agent identity header (`Signature-Agent` or equivalent).
+- The server validates signature + DID + revocation state before authorizing.
+
+---
+
+## 7. SDK Implementation Guidelines (Reference)
+
+The reference SDK (TypeScript/Python) must expose at minimum:
 
 1. `create(params)`
 2. `signMessage(payload, privateKey)`
@@ -184,9 +184,9 @@ El SDK de referencia (TypeScript/Python) debe exponer al menos:
 5. `verifySignature(did, payload, signature)`
 6. `revokeDid(did)`
 
-### 7.1 Contrato/registry de referencia (EVM)
+### 7.1 Reference Contract/Registry (EVM)
 
-ABI mínima recomendada:
+Recommended minimum ABI:
 
 ```solidity
 function registerAgent(string did, string controller) external;
@@ -198,111 +198,111 @@ function getAgentRecord(string did)
 function isRevoked(string did) external view returns (bool);
 ```
 
-### 7.2 Fixtures de interoperabilidad
+### 7.2 Interoperability Fixtures
 
-Para validar compatibilidad de verificación entre implementaciones, mantener vectores compartidos versionados (mensaje y HTTP signatures) y ejecutarlos en CI.
+To validate verification compatibility between implementations, maintain versioned shared vectors (message and HTTP signatures) and run them in CI.
 
-Referencia actual de fixtures:
+Current fixture reference:
 
 - `sdk/tests/fixtures/interop-vectors.json`
 - `sdk/tests/InteropVectors.test.ts`
 
-### 7.3 Mapeo rápido: RFC → SDK
+### 7.3 Quick Mapping: RFC → SDK
 
-| Flujo RFC | API/artefacto SDK de referencia |
+| RFC Flow | Reference SDK API/Artifact |
 | :-- | :-- |
-| Registro de identidad (6.1) | `AgentIdentity.create(params)` |
-| Firma de payload (6.2) | `signMessage(payload, privateKey)` |
-| Firma HTTP (6.5) | `signHttpRequest(params)` |
-| Resolución DID (6.2) | `AgentIdentity.resolve(did)` |
-| Verificación de firma (6.2) | `AgentIdentity.verifySignature(...)` y `verifyHttpRequestSignature(...)` |
-| Evolución de documento (6.3) | `updateDidDocument(did, patch)` |
-| Rotación de claves (8.2) | `rotateVerificationMethod(did)` |
-| Revocación (6.4) | `revokeDid(did)` |
-| Resolver producción (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
-| Integración EVM (5.2) | `EthersAgentRegistryContractClient` + `EvmAgentRegistry` |
+| Identity Registration (6.1) | `AgentIdentity.create(params)` |
+| Payload Signing (6.2) | `signMessage(payload, privateKey)` |
+| HTTP Signing (6.5) | `signHttpRequest(params)` |
+| DID Resolution (6.2) | `AgentIdentity.resolve(did)` |
+| Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
+| Document Evolution (6.3) | `updateDidDocument(did, patch)` |
+| Key Rotation (8.2) | `rotateVerificationMethod(did)` |
+| Revocation (6.4) | `revokeDid(did)` |
+| Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
+| EVM Integration (5.2) | `EthersAgentRegistryContractClient` + `EvmAgentRegistry` |
 
-### 7.4 Flujo mínimo end-to-end (onboarding)
+### 7.4 Minimum End-to-End Flow (Onboarding)
 
-1. Crear identidad del agente con `create(params)`.
-2. Firmar un payload con `signMessage`.
-3. Verificar ese payload con `verifySignature` usando el DID emitido.
-4. Resolver el DID con `resolve` y validar estado vigente.
-5. Revocar con `revokeDid` y confirmar que una verificación posterior falla.
+1. Create the agent identity with `create(params)`.
+2. Sign a payload with `signMessage`.
+3. Verify that payload with `verifySignature` using the issued DID.
+4. Resolve the DID with `resolve` and validate active state.
+5. Revoke with `revokeDid` and confirm that subsequent verification fails.
 
-Ejemplos ejecutables:
+Executable examples:
 
 - `sdk/examples/e2e-smoke.js`
 - `sdk/examples/evm-registry-wiring.ts`
 
-Comando recomendado de validación completa:
+Recommended full validation command:
 
 - `npm run conformance:rfc001`
 
-### 7.5 Errores esperados y comportamiento
+### 7.5 Expected Errors and Behavior
 
-- **DID no encontrado:** la resolución falla (`DID not found` o equivalente del resolver).
-- **DID revocado:** `resolve`/`verifySignature` deben fallar o retornar inválido.
-- **Firma inválida/tampered payload:** verificación retorna `false`.
-- **`Signature-Input` incompatible:** verificación HTTP retorna `false`.
-- **`documentRef` no resoluble:** resolver intenta failover; si todos fallan, error.
-
----
-
-## 8. Seguridad y privacidad
-
-1. **No publicar prompts en claro:** usar hashes verificables.
-2. **Rotación de claves:** definir política de rotación y actualización de `verificationMethod`.
-3. **Revocación inmediata:** requisito crítico para compromiso de llaves.
-4. **Principio de mínimo privilegio:** capacidades explícitas y acotadas.
-5. **Auditoría:** mantener evidencia de versiones y cambios de estado.
+- **DID not found:** resolution fails (`DID not found` or resolver equivalent).
+- **DID revoked:** `resolve`/`verifySignature` must fail or return invalid.
+- **Invalid signature/tampered payload:** verification returns `false`.
+- **Incompatible `Signature-Input`:** HTTP verification returns `false`.
+- **Unresolvable `documentRef`:** resolver attempts failover; if all fail, error.
 
 ---
 
-## 9. Casos de uso de referencia
+## 8. Security and Privacy
 
-1. Agentes independientes en plataformas sociales/económicas.
-2. Gobernanza corporativa y cumplimiento auditado.
-3. Flotas masivas de agentes con identidad individual.
-4. Integración con APIs Zero-Trust mediante firma HTTP.
-5. Comercio agente-a-agente con no repudio criptográfico.
-
----
-
-## 10. Cumplimiento y conformidad
-
-Un implementador se considera **conforme RFC-001** si cumple:
-
-1. Emite documento compatible con sección 4.
-2. Implementa flujos de registro/resolución/verificación/revocación (sección 6).
-3. Puede demostrar verificación de firma contra DID resuelto y estado no revocado.
-4. Respeta separación mínima on-chain/off-chain descrita en sección 5.3.
+1. **Do not publish prompts in plaintext:** use verifiable hashes.
+2. **Key rotation:** define rotation policy and `verificationMethod` update.
+3. **Immediate revocation:** critical requirement for key compromise.
+4. **Principle of least privilege:** explicit and bounded capabilities.
+5. **Auditing:** maintain evidence of versions and state changes.
 
 ---
 
-## 11. Gobierno del RFC
+## 9. Reference Use Cases
 
-- Cambios mayores: nueva versión RFC (ej. RFC-002).
-- Cambios menores compatibles: revisión de esta versión (`0.2.x`).
-- Cualquier extensión debe preservar interoperabilidad del esquema base.
+1. Independent agents on social/economic platforms.
+2. Corporate governance and audited compliance.
+3. Massive agent fleets with individual identity.
+4. Integration with Zero-Trust APIs via HTTP signing.
+5. Agent-to-agent commerce with cryptographic non-repudiation.
 
-### 11.1 Evaluación de conformidad
+---
 
-La evaluación operativa de cumplimiento se mantiene en:
+## 10. Compliance and Conformance
+
+An implementer is considered **RFC-001 conformant** if it:
+
+1. Emits a document compatible with section 4.
+2. Implements registration/resolution/verification/revocation flows (section 6).
+3. Can demonstrate signature verification against a resolved DID and non-revoked state.
+4. Respects the minimum on-chain/off-chain separation described in section 5.3.
+
+---
+
+## 11. RFC Governance
+
+- Major changes: new RFC version (e.g., RFC-002).
+- Compatible minor changes: revision of this version (`0.2.x`).
+- Any extension must preserve interoperability of the base schema.
+
+### 11.1 Conformance Evaluation
+
+The operational compliance evaluation is maintained in:
 
 - `docs/RFC-001-Compliance-Checklist.md`
 
 ---
 
-## 12. Glosario operativo
+## 12. Operational Glossary
 
-- **Controller:** identidad humana/organizacional que gobierna el agente en el documento DID.
-- **Owner (on-chain):** cuenta EVM con control operativo del registro del DID en contrato.
-- **Delegate:** cuenta autorizada por `owner` para acciones de revocación.
-- **DocumentRef:** referencia on-chain al documento off-chain del agente.
-- **Universal Resolver:** componente que combina lookup de registry + obtención de documento + caché/failover.
+- **Controller:** human/organizational identity that governs the agent in the DID document.
+- **Owner (on-chain):** EVM account with operational control of the DID registration in the contract.
+- **Delegate:** account authorized by `owner` for revocation actions.
+- **DocumentRef:** on-chain reference to the agent's off-chain document.
+- **Universal Resolver:** component that combines registry lookup + document retrieval + cache/failover.
 
 ---
 
-**Licencia:** MIT  
-**Documento canónico:** `docs/RFC-001-Agent-DID-Specification.md`
+**License:** MIT
+**Canonical document:** `docs/RFC-001-Agent-DID-Specification.md`
