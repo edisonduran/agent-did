@@ -3610,189 +3610,1051 @@ Content-Digest garantiza que el mensaje no ha sido modificado, mientras que sign
 - Conocer el sistema de registry (InMemory y EVM)
 - Entender caching, failover y observabilidad
 
-### 6.1 Resolver — ¿Qué es y por qué importa?
-- Componente que traduce un DID → su DID Document
-- Sin resolver, nadie puede verificar la identidad de un agente
-- Analogía: el resolver es al DID lo que DNS es a un dominio
+### 6.1 ¿Qué problema resuelven los Resolvers y los Registries?
 
-### 6.2 InMemoryDIDResolver
-- `Map<string, AgentDIDDocument>` en memoria
-- Operaciones: `registerDocument()`, `resolve()`, `remove()`
-- Deep-clona documentos (JSON.parse/stringify) para evitar mutación accidental
-- Uso: testing, desarrollo local, demos
+`AgentIdentity` usa dos dependencias estáticas:
 
-### 6.3 UniversalResolverClient — El resolver de producción
-- **Componentes:** Registry + DocumentSource + FallbackResolver + Cache
-- **Flujo de resolución:**
-  1. Busca en cache (TTL-based) → si hit, retorna inmediatamente
-  2. Si miss, consulta el registry (on-chain) → obtiene `documentRef`
-  3. Busca el documento en el document source (HTTP, JSON-RPC, IPFS)
-  4. Si falla, intenta fallback resolver (ej: InMemory)
-  5. Valida que el DID del documento coincida
-  6. Cachea y retorna
-- **Cache TTL:** configurable (default 60s)
-- **Observabilidad:** emite `ResolverResolutionEvent` en cada etapa
-  - Stages: `cache-hit`, `cache-miss`, `registry-lookup`, `source-fetch`, `source-fetched`, `fallback`, `resolved`, `error`
-- **Estadísticas:** `getCacheStats()` → `{ hits, misses, size }`
+```typescript
+private static resolver: DIDResolver = new InMemoryDIDResolver();
+private static registry: AgentRegistry = new InMemoryAgentRegistry();
+```
 
-### 6.4 HttpDIDDocumentSource
-- Obtiene documentos por HTTP/HTTPS
-- **IPFS support:** detecta `ipfs://` → resuelve vía gateways configurables
-  - Default gateways: Cloudflare IPFS + ipfs.io
-- **Multi-URL failover:** si hay múltiples endpoints, intenta cada uno
-- **Inyección de fetch:** puedes pasar tu propia implementación de `fetch`
-- **Manejo de errores:** distingue entre 404 (null) y errors de red (throw)
+Son las **dos piernas** del sistema de identidad:
 
-### 6.5 JsonRpcDIDDocumentSource
-- Obtiene documentos vía JSON-RPC 2.0
-- Método por defecto: `agent_resolveDocumentRef`
-- **Multi-endpoint failover:** intenta cada endpoint secuencialmente
-- **Custom transport:** puedes inyectar tu propio mecanismo de transporte
-- **Error codes:** 404 y -32004 se tratan como "not found" (null)
-- **Custom headers:** configurable (ej: auth tokens)
+```
+                    ┌──────────────────────────────────────────┐
+                    │          AgentIdentity (Fachada)          │
+                    └──────┬──────────────────────┬────────────┘
+                           │                      │
+                    ┌──────▼──────┐        ┌──────▼──────┐
+                    │  RESOLVER   │        │  REGISTRY   │
+                    │             │        │             │
+                    │ "¿Quién es  │        │ "¿Existe?   │
+                    │  este DID?" │        │  ¿Está      │
+                    │             │        │  revocado?" │
+                    │ Retorna el  │        │             │
+                    │ DID Document│        │ Retorna el  │
+                    │ COMPLETO    │        │ ANCLA       │
+                    │ (off-chain) │        │ MÍNIMA      │
+                    │             │        │ (on-chain)  │
+                    └─────────────┘        └─────────────┘
+```
 
-### 6.6 Registry — ¿Qué es?
-- Componente que almacena el ancla mínima de cada DID
-- Record: `{ did, controller, createdAt, revokedAt?, documentRef? }`
-- Operaciones: `register()`, `revoke()`, `getRecord()`, `isRevoked()`, `setDocumentReference()`
-- Dos implementaciones: InMemory y EVM
+**Analogía**: El **Registry** es como el registro civil — sabe que "esta persona existe, nació en tal fecha, está viva o muerta". El **Resolver** es como tu expediente médico completo — tiene todos los detalles, pero necesitas saber dónde buscarlo.
 
-### 6.7 InMemoryAgentRegistry
-- `Map<string, AgentRegistryRecord>` en memoria
-- Registro idempotente (si ya existe, no error)
-- Guard checks: setDocumentReference y revoke requieren que exista el DID
+La separación tiene una razón económica: almacenar datos on-chain cuesta gas. El **registry** solo guarda lo mínimo on-chain (DID + controller + referencia). El **resolver** almacena el documento completo off-chain (HTTP, IPFS, JSON-RPC) donde es gratis o muy barato.
 
-### 6.8 EvmAgentRegistry — Adaptador blockchain
-- Implementa `AgentRegistry` delegando a `EvmAgentRegistryContract`
-- Soporta confirmación de transacción opcional (`awaitTransactionConfirmation`)
-- Register: llama `registerAgent()` + opcionalmente `setDocumentRef()`
-- Revoke: llama `revokeAgent()`
-- Normaliza timestamps Unix → ISO-8601
+### 6.2 Las interfaces — El contrato que toda implementación debe cumplir
 
-### 6.9 EthersAgentRegistryContractClient
-- Wraps de ethers.js Contract para implementar `EvmAgentRegistryContract`
-- Decodifica tuplas on-chain (tanto array como object form)
-- Usa `normalizeTimestampToIso()` para convertir Unix strings a ISO
+#### `DIDResolver` — 3 métodos
 
-### 6.10 Configuración de perfiles de producción
-- `useProductionResolverFromHttp()`: conecta HTTP + IPFS gateways + cache + events
-- `useProductionResolverFromJsonRpc()`: conecta JSON-RPC endpoints + cache + events
-- `useProductionResolver()`: configuración manual con componentes custom
+```typescript
+// sdk/src/resolver/types.ts
+export interface DIDResolver {
+  registerDocument(document: AgentDIDDocument): void;  // Almacenar documento
+  resolve(did: string): Promise<AgentDIDDocument>;      // Buscar documento por DID
+  remove(did: string): void;                             // Eliminar documento
+}
+```
 
-### Ejercicios del Módulo 6
-1. Configura un UniversalResolverClient con 2 endpoints HTTP y verifica que el failover funciona
-2. Explica qué pasa cuando un endpoint HTTP falla pero el de IPFS está disponible
-3. ¿Por qué el cache TTL es importante para disponibilidad?
-4. Traza el flujo de resolución cuando el DID no está en cache
+#### `DIDDocumentSource` — La fuente de documentos
+
+```typescript
+export interface DIDDocumentSource {
+  getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+  storeByReference?(documentRef: string, document: AgentDIDDocument): Promise<void>;  // Opcional
+}
+```
+
+`storeByReference` es **opcional** (`?`) porque algunas fuentes son de solo lectura (ej: IPFS público).
+
+#### `AgentRegistry` — 5 métodos
+
+```typescript
+// sdk/src/registry/types.ts
+export interface AgentRegistryRecord {
+  did: string;
+  controller: string;
+  createdAt: string;
+  revokedAt?: string;      // undefined si está vivo
+  documentRef?: string;     // Referencia al documento (hash para buscar off-chain)
+}
+
+export interface AgentRegistry {
+  register(did: string, controller: string, documentRef?: string): Promise<void>;
+  setDocumentReference(did: string, documentRef: string): Promise<void>;
+  revoke(did: string): Promise<void>;
+  getRecord(did: string): Promise<AgentRegistryRecord | null>;
+  isRevoked(did: string): Promise<boolean>;
+}
+```
+
+Todos los métodos son `async` (`Promise`) porque las implementaciones reales (EVM) involucran transacciones blockchain.
+
+#### `EvmAgentRegistryContract` — El contrato EVM
+
+```typescript
+// sdk/src/registry/evm-types.ts
+export interface EvmTxResponse {
+  wait?: () => Promise<unknown>;  // Esperar confirmación del bloque
+}
+
+export interface EvmAgentRegistryContract {
+  registerAgent(did: string, controller: string, documentRef?: string): Promise<EvmTxResponse | void>;
+  setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void>;
+  revokeAgent(did: string): Promise<EvmTxResponse | void>;
+  getAgentRecord(did: string): Promise<AgentRegistryRecord | null>;
+  isRevoked?(did: string): Promise<boolean>;  // OPCIONAL
+}
+```
+
+`isRevoked` es **opcional** en esta interfaz porque no todos los contratos Solidity implementan una función dedicada `isRevoked()`. Si no existe, `EvmAgentRegistry` lo calcula a partir de `getAgentRecord()` verificando `record.revokedAt`.
+
+### 6.3 `InMemoryDIDResolver` — El resolver de testing
+
+~25 líneas, el archivo más simple del SDK:
+
+```typescript
+export class InMemoryDIDResolver implements DIDResolver {
+  private readonly documentStore = new Map<string, AgentDIDDocument>();
+
+  public registerDocument(document: AgentDIDDocument): void {
+    // Deep clone al ESCRIBIR: evita que el llamante mute el store
+    this.documentStore.set(document.id, JSON.parse(JSON.stringify(document)));
+  }
+
+  public async resolve(did: string): Promise<AgentDIDDocument> {
+    const document = this.documentStore.get(did);
+    if (!document) throw new Error(`DID not found: ${did}`);
+    // Deep clone al LEER: evita que el receptor mute el store
+    return JSON.parse(JSON.stringify(document));
+  }
+
+  public remove(did: string): void {
+    this.documentStore.delete(did);
+  }
+}
+```
+
+**Double Deep Clone**: Clona al escribir y al leer. La clonación al escribir protege contra mutación post-escritura (el llamante modifica el objeto original después de registrarlo). La clonación al leer protege contra mutación post-lectura (el receptor modifica el objeto retornado y corrompe el store interno).
+
+### 6.4 `UniversalResolverClient` — El resolver de producción
+
+Coordina 4 piezas:
+
+```
+┌─ UniversalResolverClient ────────────────────────────────────┐
+│                                                               │
+│   ┌──────────┐    ┌──────────┐    ┌───────────────┐          │
+│   │  CACHE   │    │ REGISTRY │    │ DOCUMENT      │          │
+│   │ Map +TTL │    │ (on-chain│    │ SOURCE        │          │
+│   │ hits/    │    │  lookup) │    │ (HTTP/RPC/    │          │
+│   │ misses   │    │          │    │  IPFS)        │          │
+│   └──────────┘    └──────────┘    └───────────────┘          │
+│                                                               │
+│   ┌──────────────────────┐    ┌───────────────────────────┐  │
+│   │ FALLBACK RESOLVER    │    │ OBSERVABILITY             │  │
+│   │ (InMemory o custom)  │    │ onResolutionEvent()       │  │
+│   └──────────────────────┘    └───────────────────────────┘  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Configuración:**
+
+```typescript
+export interface UniversalResolverConfig {
+  registry: AgentRegistry;                    // REQUERIDO: dónde buscar registros
+  documentSource: DIDDocumentSource;          // REQUERIDO: dónde buscar documentos
+  fallbackResolver?: DIDResolver;             // OPCIONAL: plan B
+  cacheTtlMs?: number;                        // OPCIONAL: TTL cache (default 60_000ms)
+  onResolutionEvent?: (event) => void;        // OPCIONAL: callback de observabilidad
+}
+```
+
+**Flujo de `resolve()` paso a paso:**
+
+```
+resolve("did:agent:polygon:0xABC123")
+      │
+      ▼
+ ┌─ PASO 1: Cache ──────────────────────────────────────────────┐
+ │  const cached = this.cache.get(did);                         │
+ │  if (cached && cached.expiresAt > Date.now()) {              │
+ │    this.hits++;  emit('cache-hit');                           │
+ │    return clone(cached.document);  ← RUTA RÁPIDA (~0ms)     │
+ │  }                                                           │
+ │  this.misses++;  emit('cache-miss');                          │
+ └───────────────┬──────────────────────────────────────────────┘
+                 │ (no cache o expirado)
+                 ▼
+ ┌─ PASO 2: Registry Lookup ────────────────────────────────────┐
+ │  emit('registry-lookup');                                    │
+ │  const record = await this.registry.getRecord(did);          │
+ │  if (!record)        → resolveWithFallback("not found")      │
+ │  if (!record.docRef) → resolveWithFallback("no docRef")      │
+ └───────────────┬──────────────────────────────────────────────┘
+                 │ (tiene documentRef)
+                 ▼
+ ┌─ PASO 3: Document Source Fetch ──────────────────────────────┐
+ │  emit('source-fetch', documentRef=...);                      │
+ │  const resolved = await documentSource.getByReference(ref)   │
+ │    .catch(() → resolveWithFallback());                       │
+ │  if (!resolved)           → resolveWithFallback()            │
+ │  if (resolved.id !== did) → throw Error("DID mismatch")     │
+ │                         ↑ SEGURIDAD: anti-spoofing           │
+ └───────────────┬──────────────────────────────────────────────┘
+                 │ (documento válido)
+                 ▼
+ ┌─ PASO 4: Cachear + Retornar ─────────────────────────────────┐
+ │  this.cache.set(did, { document, expiresAt: now + TTL });    │
+ │  emit('resolved');                                           │
+ │  return clone(resolved);                                     │
+ └──────────────────────────────────────────────────────────────┘
+```
+
+**Verificación anti-spoofing:** `if (resolved.id !== did) throw Error("DID mismatch")` — sin este check, un servidor malicioso podría devolver el documento de OTRO agente → impersonación. Garantiza que el documento pertenece exactamente al DID solicitado.
+
+**Mecanismo de fallback:** Si el document source falla, intenta el fallback resolver. El resultado del fallback **también se cachea** — si el source principal se cayó y miles de requests llegan, solo el primero golpea el fallback.
+
+**Cache TTL (default 60s):** Equilibrio entre reflejar cambios rápido (como rotación de clave) y rendimiento. TTL bajo (5s) = más llamadas al registry; TTL alto (10min) = rotaciones de clave tardan en propagarse.
+
+**Observabilidad — `onResolutionEvent`:**
+
+```typescript
+interface ResolverResolutionEvent {
+  did: string;
+  stage: 'cache-hit' | 'cache-miss' | 'registry-lookup' | 'source-fetch' 
+       | 'source-fetched' | 'fallback' | 'resolved' | 'error';
+  durationMs: number;
+  message?: string;
+}
+```
+
+Permite construir tableros de monitoreo: cada etapa emite un evento con duración en milisegundos. Ideal para detectar latencias en registry lookup, slowness en document source, o exceso de fallbacks.
+
+**`getCacheStats()`:** Retorna `{ hits, misses, size }`. Un hit ratio bajo indica TTL demasiado corto o muchos DIDs únicos.
+
+### 6.5 `HttpDIDDocumentSource` — Documentos por HTTP/IPFS
+
+```typescript
+export class HttpDIDDocumentSource implements DIDDocumentSource {
+  constructor(config: HttpDIDDocumentSourceConfig = {}) {
+    this.referenceToUrl = config.referenceToUrl || ((ref) => ref);       // Default: la ref ES la URL
+    this.referenceToUrls = config.referenceToUrls;
+    this.fetchFn = config.fetchFn || globalThis.fetch;                    // Default: fetch nativo
+    this.ipfsGateways = config.ipfsGateways || [
+      'https://cloudflare-ipfs.com/ipfs/',
+      'https://ipfs.io/ipfs/'
+    ];
+  }
+}
+```
+
+**Resolución de URLs candidatas — Lógica IPFS:**
+
+```typescript
+private resolveCandidateUrls(documentRef: string): string[] {
+  if (this.referenceToUrls) return this.referenceToUrls(documentRef);  // Custom
+
+  if (documentRef.startsWith('ipfs://')) {
+    const cidPath = documentRef.slice('ipfs://'.length).replace(/^\/+/, '');
+    return this.ipfsGateways.map((gw) => `${gw}${cidPath}`);
+    // "ipfs://QmABC123" → ["https://cloudflare-ipfs.com/ipfs/QmABC123",
+    //                       "https://ipfs.io/ipfs/QmABC123"]
+  }
+
+  return [this.referenceToUrl(documentRef)];  // La referencia ES la URL
+}
+```
+
+Una referencia `ipfs://QmABC123` se convierte en **múltiples URLs** (una por gateway) — failover gratuito.
+
+**Algoritmo de fetch con failover:** Intenta cada URL secuencialmente. Tres resultados posibles:
+1. **OK** → retorna el documento
+2. **Todos 404** → retorna `null` (no existe, no es error — quizá no se ha publicado)
+3. **Error real (500, timeout, red)** → lanza error (problema de infraestructura que debe propagarse)
+
+**Inyección de `fetchFn`:** Para testing (mock sin HTTP real), Node.js < 18 (sin fetch nativo), o custom (interceptores, retry, logging).
+
+### 6.6 `JsonRpcDIDDocumentSource` — Documentos por JSON-RPC 2.0
+
+```typescript
+export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
+  constructor(config: JsonRpcDIDDocumentSourceConfig = {}) {
+    this.endpoints = config.endpoints || (config.endpoint ? [config.endpoint] : []);
+    this.method = config.method || 'agent_resolveDocumentRef';
+    this.buildParams = config.buildParams || ((ref) => [ref]);
+    this.transport = config.transport || this.defaultTransport;
+    this.headers = { 'content-type': 'application/json', ...(config.headers || {}) };
+
+    if (this.endpoints.length === 0) throw new Error('requires at least one endpoint');
+  }
+}
+```
+
+**Protocolo JSON-RPC 2.0:**
+
+```json
+// Request:
+{ "jsonrpc": "2.0", "id": 1709830000000, "method": "agent_resolveDocumentRef",
+  "params": ["hash://sha256/abc123..."] }
+
+// Respuesta éxito:
+{ "result": { "@context": [...], "id": "did:agent:polygon:0x...", ... } }
+
+// Respuesta error:
+{ "error": { "code": -32004, "message": "Document not found" } }
+```
+
+- **Failover multi-endpoint:** intenta cada endpoint secuencialmente
+- **Códigos `-32004` y `404`**: tratados como "not found" (skip, no error)
+- **Custom transport/headers:** inyectables para auth tokens, retry, logging
+- **Fail-fast:** si no hay endpoints configurados, lanza error en el constructor
+
+### 6.7 `InMemoryAgentRegistry` — El registry de testing
+
+```typescript
+export class InMemoryAgentRegistry implements AgentRegistry {
+  private readonly records = new Map<string, AgentRegistryRecord>();
+
+  async register(did, controller, documentRef?): Promise<void> {
+    if (this.records.get(did)) return;  // IDEMPOTENTE: no error si ya existe
+    this.records.set(did, { did, controller, createdAt: new Date().toISOString(), documentRef });
+  }
+
+  async setDocumentReference(did, documentRef): Promise<void> {
+    if (!this.records.get(did)) throw new Error(`DID not found: ${did}`);  // GUARD
+    this.records.set(did, { ...existing, documentRef });
+  }
+
+  async revoke(did): Promise<void> {
+    if (!this.records.get(did)) throw new Error(`DID not found: ${did}`);  // GUARD
+    this.records.set(did, { ...existing, revokedAt: new Date().toISOString() });
+  }
+
+  async getRecord(did): Promise<AgentRegistryRecord | null> {
+    return this.records.get(did) || null;
+  }
+
+  async isRevoked(did): Promise<boolean> {
+    return Boolean(this.records.get(did)?.revokedAt);
+  }
+}
+```
+
+**`register()` idempotente, `setDocumentReference()`/`revoke()` con guards.** Refleja el smart contract: registrar un DID existente no revierte, pero operar sobre un DID inexistente sí hace `revert`.
+
+### 6.8 `EvmAgentRegistry` — El adaptador blockchain
+
+Puente entre la interfaz `AgentRegistry` y un smart contract EVM real:
+
+```
+ AgentIdentity                EvmAgentRegistry              ContractClient           Smart Contract
+      │                            │                              │                       │
+      │  registry.register(did)    │                              │                       │
+      ├───────────────────────────►│  contractClient              │                       │
+      │                            │  .registerAgent(did,ctrl)    │                       │
+      │                            ├─────────────────────────────►│  registerAgent(       │
+      │                            │                              │    bytes32, address)   │
+      │                            │           tx                 │  ────────────────────► │
+      │                            │◄─────────────────────────────┤  ◄──── tx receipt     │
+      │                            │  if(awaitConfirmation)       │                       │
+      │                            │    await tx.wait()           │                       │
+      │  ◄── void (completado) ────┤                              │                       │
+```
+
+**`awaitTransactionConfirmation`:** Default `true` (espera que se mine en bloque). Con `false`, fire-and-forget (para demos o bulk uploads). En Polygon ~2-4s de espera; en Ethereum mainnet 12-15s.
+
+**`register()` con DocumentRef:** Ejecuta potencialmente **dos transacciones** separadas (registerAgent + setDocumentRef). Si la primera se confirma pero la segunda falla, el DID queda registrado on-chain pero sin `documentRef` — un registro huérfano irresolvable desde el document source.
+
+### 6.9 `EthersAgentRegistryContractClient` — El wrapper de ethers.js
+
+La capa más baja — conecta directamente con `ethers.Contract`:
+
+```typescript
+export class EthersAgentRegistryContractClient implements EvmAgentRegistryContract {
+  constructor(contract: EthersLikeContract) {
+    this.contract = contract;
+  }
+}
+```
+
+**Decodificación dual de respuestas:** ethers.js puede retornar datos del contrato como array (tupla Solidity legacy) u objeto (forma moderna). El client maneja ambos:
+
+```typescript
+// Array: ["did:agent:...", "0xCtrl...", "1740787200", "", ""]
+if (Array.isArray(rawRecord)) {
+  const [recordDid, controller, createdAt, revokedAt, documentRef] = rawRecord;
+  return { did: String(recordDid), ...,
+    createdAt: normalizeTimestampToIso(String(createdAt)) || String(createdAt), ... };
+}
+
+// Objeto: { did: "...", controller: "...", createdAt: "1740787200" }
+return { did: String(rawRecord.did), ...,
+  createdAt: normalizeTimestampToIso(String(rawRecord.createdAt)) || ..., ... };
+```
+
+Aquí reaparece `normalizeTimestampToIso()` de SHOULD-02 — convierte timestamps Unix del contrato (`"1740787200"`) a ISO-8601 (`"2025-02-28T22:40:00.000Z"`).
+
+**Guard checks tipo-seguro:** Cada método verifica que el contrato inyectado tenga esa función: `if (!this.contract.registerAgent) throw new Error('method not available')`.
+
+### 6.10 La arquitectura completa — Todo conectado
+
+```
+┌─ Desarrollador ─────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   AgentIdentity.useProductionResolverFromHttp({                             │
+│     registry: new EvmAgentRegistry({                                        │
+│       contractClient: new EthersAgentRegistryContractClient(contract)        │
+│     }),                                                                     │
+│     ipfsGateways: ['https://cloudflare-ipfs.com/ipfs/'],                    │
+│     cacheTtlMs: 120_000,                                                    │
+│     onResolutionEvent: (e) => monitor.log(e)                                │
+│   });                                                                       │
+│                                                                             │
+│   // A partir de aquí, create/verify/resolve usan infraestructura real      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ Internamente se arma esta cadena:
+
+  AgentIdentity.resolver = new UniversalResolverClient({
+    registry:        EvmAgentRegistry → EthersContractClient → Polygon Contract
+    documentSource:  HttpDIDDocumentSource → IPFS Gateways / HTTP servers
+    fallbackResolver: InMemoryDIDResolver (plan B)
+    cacheTtlMs:      120_000
+    onResolutionEvent: monitor.log()
+  });
+```
+
+**Cadena completa de capas en `resolve(did)`:**
+
+```
+Capa 1: AgentIdentity.resolve(did) → verifica revocación + delega
+Capa 2: UniversalResolverClient.resolve(did) → cache, coordinación
+Capa 3: EvmAgentRegistry.getRecord(did) → delega al contract client
+Capa 4: EthersAgentRegistryContractClient.getAgentRecord(did) → obtiene documentRef
+Capa 5: HttpDIDDocumentSource.getByReference(documentRef) → resuelve URLs
+Capa 6: fetch(url) → bytes llegan desde la red
+```
+
+6 capas entre la llamada del desarrollador y los bytes del documento desde la red.
+
+**Resumen de responsabilidades:**
+
+| Componente | Capa | Responsabilidad | Estado |
+|---|---|---|---|
+| `InMemoryDIDResolver` | Resolver | Testing — Map en RAM | Sincrónico, efímero |
+| `UniversalResolverClient` | Resolver | Producción — cache + fallback + observabilidad | Coordina todo |
+| `HttpDIDDocumentSource` | Document Source | Fetch HTTP/IPFS con failover multi-URL | I/O de red |
+| `JsonRpcDIDDocumentSource` | Document Source | JSON-RPC 2.0 con failover multi-endpoint | I/O de red |
+| `InMemoryAgentRegistry` | Registry | Testing — Map en RAM | Sincrónico, efímero |
+| `EvmAgentRegistry` | Registry | Producción — adapter a smart contract EVM | Transacciones blockchain |
+| `EthersAgentRegistryContractClient` | Contract Client | Wrapper de ethers.js — decodifica respuestas | Más bajo nivel |
 
 ### Talking Points para la comunidad
-- "El resolver es diseñado para producción: cache TTL, failover multi-endpoint, IPFS gateways, observabilidad"
-- "Soportamos HTTP y JSON-RPC como fuentes — compatible con cualquier infraestructura"
-- "La telemetría de resolución permite monitorear SLOs en producción real"
-- "IPFS nos da almacenamiento descentralizado sin costo de gas para los documentos completos"
+- *"El resolver es diseñado para producción: cache TTL, failover multi-endpoint, IPFS gateways, observabilidad"*
+- *"Soportamos HTTP y JSON-RPC como fuentes — compatible con cualquier infraestructura"*
+- *"La telemetría de resolución permite monitorear SLOs en producción real"*
+- *"IPFS nos da almacenamiento descentralizado sin costo de gas para los documentos completos"*
+- *"La separación resolver/registry optimiza costos: lo mínimo on-chain, lo completo off-chain"*
+- *"Hay 6 capas entre tu llamada y los bytes de la red — cada una con una responsabilidad clara"*
+
+---
+
+### Ejercicios del Módulo 6
+
+**Ejercicio 1:** ¿Por qué `InMemoryDIDResolver` clona los documentos tanto al escribir (`registerDocument`) como al leer (`resolve`)? ¿Qué vulnerabilidad evita cada clonación?
+
+**Respuesta del estudiante:**
+La clonación evita que el documento sea modificado por referencia, fuese el caso de que se retornara o se escribiera con la referencia del objeto, correríamos el riesgo de que los clientes o cualquier otro modificara las propiedades del documento.
+
+**Evaluación: 7.0/10**
+- ✅ Concepto de referencia correcto — entiende que sin clonar hay riesgo de mutación
+- ⚠️ Faltó distinguir qué evita CADA clonación por separado: la clonación al escribir protege contra mutación post-escritura (el llamante modifica el objeto original después de registrarlo y corrompe el store), la clonación al leer protege contra mutación post-lectura (el receptor modifica el objeto retornado y corrompe el store). Son dos vectores de ataque distintos.
+
+---
+
+**Ejercicio 2:** En `UniversalResolverClient.resolve()`, hay una línea que dice `if (resolved.id !== did) throw new Error("DID mismatch")`. ¿Qué ataque previene? Describe un escenario concreto.
+
+**Respuesta del estudiante:**
+Esta verificación evita que se esté tratando de un documento diferente, a esto se le llama seguridad anti-spoofing. Con ello evitamos por ejemplo que un servidor malicioso devuelva el documento de otro agente (impersonalización). Es la garantía de que el documento pertenece al DID que solicitamos.
+
+**Evaluación: 8.5/10**
+- ✅ Identifica anti-spoofing, impersonación y la garantía de pertenencia — excelente
+- ⚠️ Podría haberse trazado el flujo completo del ataque: atacante controla el document source HTTP → pides `did:agent:polygon:0xVICTIMA` → servidor retorna documento de `did:agent:polygon:0xATACANTE` (con su clave pública) → sin el check, aceptas ese documento → el atacante puede firmar mensajes que parecen venir de la víctima.
+
+---
+
+**Ejercicio 3:** `HttpDIDDocumentSource` distingue entre "todas dieron 404" (null) y "error real" (throw). ¿Por qué? ¿Qué pasaría si siempre retornara null?
+
+**Respuesta del estudiante:**
+Esta distinción es importante, porque si todas las búsquedas dan 404, no se considera un error, quizás el documento aún no se ha publicado, pero un error de otro tipo tal como un 500 o timeout, es un error de infraestructura que debe propagarse.
+
+**Evaluación: 7.0/10**
+- ✅ Primera parte correcta — distinción semántica clara entre "no existe" y "error de infraestructura"
+- ⚠️ No respondió la segunda parte de la pregunta: si siempre retornara `null`, el `UniversalResolverClient` trataría errores de infraestructura (servidor caído, timeout) como si el documento no existiera → caería al fallback silenciosamente → **nunca sabrías que tu infraestructura está rota**. Las fallas silenciosas son el peor tipo de falla en producción.
+
+---
+
+**Ejercicio 4:** `EvmAgentRegistry.register()` ejecuta dos transacciones. ¿Qué pasa si la primera se confirma pero la segunda falla? ¿Cómo lo manejarías?
+
+**Respuesta del estudiante:**
+El hecho de que la segunda transacción falle, no implica un error grave puesto que indica que no se pudo hacer el registro en el Evm; Dado el caso que se tenga configurado un "wait for confirmation". Si no se tiene configurado un "wait", debería existir un mecanismo de verificación posterior en el fallback que verifique si se ha registrado o no la referencia del documento en la red de EVM.
+
+**Evaluación: 5.0/10**
+- ⚠️ **Sí es un problema grave**: la primera transacción (`registerAgent`) YA se confirmó on-chain — el DID existe. Pero sin `documentRef` (segunda transacción falló), cuando alguien intenta resolver ese DID: `registry.getRecord(did)` → `{ documentRef: undefined }` → el UniversalResolverClient dice "Missing documentRef" → cae al fallback. El agente existe on-chain pero es **irresolvable** — un registro huérfano.
+- ⚠️ Manejo concreto esperado: (1) Retry automático de `setDocumentRef` con backoff exponencial, (2) Job de reconciliación que detecte registros sin `documentRef` y los repare, (3) Hacer el register atómico en una sola transacción del contrato (requiere modificar Solidity).
+
+---
+
+**Ejercicio 5:** Cadena completa de `useProductionResolverFromHttp()`. ¿Cuántas capas hay entre `resolve(did)` y los bytes de red?
+
+**Respuesta del estudiante:**
+Diagrama de estructura correcto. "Hay dos capas: Abstracción de los contratos (interfaces), Implementación de las interfaces que terminan en comunicación directa con la blockchain."
+
+**Evaluación: 5.5/10**
+- ✅ El diagrama de estructura es correcto — bien reproducido
+- ⚠️ La cuenta de capas es incorrecta. Son **6 capas**, no 2:
+  - Capa 1: `AgentIdentity.resolve()` — verifica revocación + delega
+  - Capa 2: `UniversalResolverClient.resolve()` — cache, coordinación
+  - Capa 3: `EvmAgentRegistry.getRecord()` — delega al contract client
+  - Capa 4: `EthersAgentRegistryContractClient.getAgentRecord()` — obtiene documentRef
+  - Capa 5: `HttpDIDDocumentSource.getByReference()` — resuelve URLs
+  - Capa 6: `fetch(url)` — bytes desde la red
+
+---
+
+**Ejercicio 6:** ¿Por qué `register()` es idempotente pero `revoke()` lanza error si no existe? ¿Qué comportamiento del smart contract refleja?
+
+**Respuesta del estudiante:**
+La idempotencia garantiza que el documento no sea registrado más de una vez. Si estamos tratando de hacer un revoke contra algo que no existe, indica la posibilidad de un bug que debe ser propagado como error para su posterior análisis.
+
+**Evaluación: 7.0/10**
+- ✅ Razonamiento lógico correcto en ambos casos
+- ⚠️ Faltó conectar explícitamente con el smart contract como pedía la pregunta: `register` idempotente refleja que en Solidity `registerAgent()` con DID existente simplemente no hace nada (no revierte). `revoke` con guard refleja que en Solidity `revokeAgent()` sobre DID inexistente hace `revert` (la transacción se revierte completamente). Son comportamientos del contrato que InMemory replica fielmente.
+
+---
+
+### Evaluación consolidada — Módulo 6
+
+| Ejercicio | Nota | Fortaleza | Área de mejora |
+|-----------|------|-----------|----------------|
+| 1. Double Deep Clone | 7.0 | Concepto de referencia | Distinguir cada dirección |
+| 2. Anti-spoofing | 8.5 | Escenario de impersonación | Trazar flujo completo del ataque |
+| 3. 404 vs error real | 7.0 | Distinción semántica | Responder ambas partes |
+| 4. Dos transacciones | 5.0 | — | Identificar registro huérfano |
+| 5. Cadena de capas | 5.5 | Diagrama correcto | 6 capas, no 2 |
+| 6. Idempotencia vs guard | 7.0 | Razonamiento lógico | Conectar con Solidity revert |
+
+**Promedio Módulo 6: 6.7/10** ✅ Aprobado
+
+**Progreso general:**
+
+| Módulo | Promedio | Tendencia |
+|--------|---------|-----------|
+| Módulo 1 | 7.8/10 | — |
+| Módulo 2 | 8.0/10 | ↑ |
+| Módulo 3 | 7.2/10 | ↓ |
+| Módulo 4 | 7.8/10 | ↑ |
+| Módulo 5 | 6.5/10 | ↓ |
+| Módulo 6 | 6.7/10 | → |
+| Módulo 7 | 6.8/10 | → |
+
+**Resultado final: 7.3/10 — CURSO APROBADO** ✅
+
+**Análisis:** Los módulos conceptuales (1-4) promedian ~7.7, los módulos técnicos profundos (5-7) promedian ~6.7. Patrón claro: la comprensión conceptual y de diseño es sólida, pero al trazar flujos paso a paso, contar capas concretas o identificar estados de falla intermedios, falta precisión. Fortaleza destacada: visión arquitectónica y analogías (E4-M7 = 9.0, mejor nota del curso). Área crítica: precisión técnica en detalles (ISO vs Unix, OpenZeppelin, unidades).
 
 ---
 
 ## Módulo 7 — Smart Contract, Seguridad y Preparación para la Comunidad
 
 ### Objetivos de aprendizaje
-- Entender el smart contract `AgentRegistry.sol` en detalle
-- Conocer el modelo de seguridad: delegación, transferencia de ownership, políticas de revocación
-- Comprender las 11+5 validaciones de conformancia
-- Prepararse para presentar el proyecto a la comunidad
+- Entender el smart contract `AgentRegistry.sol` línea por línea
+- Dominar el modelo de seguridad: delegación de revocación, transferencia de ownership, políticas de acceso
+- Comprender los 16 controles de conformancia (11 MUST + 5 SHOULD) y cómo se validan
+- Trazar el flujo completo de `revocation-policy-check.js` (10 pasos)
+- Prepararse para presentar el proyecto a la comunidad con respuestas a las 8 preguntas frecuentes
 
-### 7.1 AgentRegistry.sol — Anatomía
-- **Struct `AgentRecord`:** did, controller, createdAt, revokedAt, documentRef, exists, owner
-- **Almacenamiento:** `mapping(string => AgentRecord)` — DID string como key
-- **Timestamps:** almacenados como string de Unix epoch (convertidos con `_timestampToString()`)
+### 7.1 AgentRegistry.sol — Anatomía completa
 
-### 7.2 Funciones del contrato
-| Función | Acceso | Descripción |
-|---|---|---|
-| `registerAgent(did, controller)` | Público (una vez) | Registra nuevo agente, asigna `msg.sender` como owner |
-| `revokeAgent(did)` | Owner + delegados | Revoca DID permanentemente |
-| `setDocumentRef(did, documentRef)` | Solo owner | Actualiza referencia al documento off-chain |
-| `setRevocationDelegate(did, delegate, authorized)` | Solo owner | Autoriza/desautoriza delegados de revocación |
-| `transferAgentOwnership(did, newOwner)` | Solo owner | Transfiere ownership operativo |
-| `getAgentRecord(did)` | View (público) | Retorna el registro on-chain |
-| `isRevoked(did)` | View (público) | Verifica estado de revocación |
-| `isRevocationDelegate(did, delegate)` | View (público) | Verifica si una dirección es delegado |
+El smart contract tiene **157 líneas**, **cero dependencias externas** (no usa OpenZeppelin), y está escrito en Solidity ^0.8.24. Este minimalismo es una decisión de diseño deliberada: reduce superficie de ataque, elimina riesgo de supply chain y facilita la auditoría.
 
-### 7.3 Eventos
-- `AgentRegistered(did, controller, createdAt)` — agente registrado
-- `AgentRevoked(did, revokedAt)` — agente revocado
-- `RevocationDelegateUpdated(did, delegate, authorized)` — delegado actualizado
-- `AgentOwnershipTransferred(did, previousOwner, newOwner)` — ownership transferido
+#### Struct `AgentRecord`
 
-### 7.4 Modelo de revocación
-- **Owner revocation:** el owner del registro puede revocar directamente
-- **Delegated revocation:** el owner puede autorizar delegados con `setRevocationDelegate()`
-- **Authorization check:** `_isAuthorizedRevoker()` → owner || delegado autorizado
-- **Permanencia:** una vez revocado, no hay mecanismo de "un-revoke"
-- **Caso de uso:** una organización puede tener un equipo de seguridad como delegados de revocación
+```solidity
+struct AgentRecord {
+    string did;          // El DID completo "did:agent:polygon:0x..."
+    string controller;   // El DID del controller "did:ethr:0x..."
+    string createdAt;    // Unix timestamp como string (ej: "1710500000")
+    string revokedAt;    // Vacío "" si activo, timestamp si revocado
+    string documentRef;  // Referencia al documento off-chain (IPFS hash, URL)
+    bool exists;         // Guard para diferenciar "no existe" de "existe con defaults"
+    address owner;       // Dirección Ethereum con control operativo
+}
+```
 
-### 7.5 Ownership Transfer
-- El owner puede transferir el control operativo a otra dirección
-- Emite evento para auditabilidad
-- No afecta al `controller` del DID Document (son capas diferentes)
+**Decisión arquitectónica — `string` para timestamps:**
+El contrato usa `string` en lugar de `uint256` para timestamps. Esto es porque `_timestampToString()` convierte `block.timestamp` a su representación en texto. El SDK (`time.ts`) después normaliza estos Unix timestamps a ISO 8601 con `normalizeTimestampToIso()`. Esto permite que el dato on-chain sea legible sin decodificación y que el SDK presente formato humano.
 
-### 7.6 Seguridad y modelo de amenazas
-| Amenaza | Mitigación |
-|---|---|
-| Robo de clave privada | Revocación inmediata, keys nunca salen del proceso del agente |
-| Suplantación de DID | DID derivado de hash criptográfico, verificable |
-| Manipulación de documento | Hash on-chain asegura integridad |
-| Replay attack HTTP | Timestamp en firmas + skew máximo (300s) |
-| Manipulación de registry | Smart contract con control de acceso owner-only |
+#### Almacenamiento
+
+```solidity
+mapping(string => AgentRecord) private records;
+mapping(string => mapping(address => bool)) private revocationDelegates;
+```
+
+Dos mappings:
+1. **`records`** — DID string → AgentRecord. El DID como string es la key, no un hash. Esto consume más gas que usar `bytes32`, pero permite que el DID sea legible directamente en events y queries.
+2. **`revocationDelegates`** — DID → dirección → bool. Mapping anidado para delegación granular por agente.
+
+### 7.2 Las 8 funciones del contrato
+
+| # | Función | Tipo | Acceso | Descripción |
+|---|---------|------|--------|-------------|
+| 1 | `registerAgent(did, controller)` | Escritura | Público (una sola vez por DID) | Registra nuevo agente, asigna `msg.sender` como owner |
+| 2 | `revokeAgent(did)` | Escritura | Owner + delegados autorizados | Revoca DID permanentemente (irreversible) |
+| 3 | `setRevocationDelegate(did, delegate, authorized)` | Escritura | Solo owner | Autoriza o desautoriza delegados de revocación |
+| 4 | `transferAgentOwnership(did, newOwner)` | Escritura | Solo owner | Transfiere ownership operativo a otra dirección |
+| 5 | `setDocumentRef(did, documentRef)` | Escritura | Solo owner | Actualiza la referencia al documento off-chain |
+| 6 | `getAgentRecord(did)` | View (lectura) | Público | Retorna los 5 campos del registro (sin `exists` ni `owner`) |
+| 7 | `isRevoked(did)` | View (lectura) | Público | Retorna `true` si el agente fue revocado |
+| 8 | `isRevocationDelegate(did, delegate)` | View (lectura) | Público | Verifica si una dirección es delegado autorizado |
+
+#### Análisis profundo de cada función
+
+**1. `registerAgent()` — Registro con guards**
+
+```solidity
+function registerAgent(string calldata did, string calldata controller) external {
+    require(bytes(did).length > 0, "did required");
+    require(bytes(controller).length > 0, "controller required");
+    require(!records[did].exists, "already registered");   // ← Guard de unicidad
+
+    string memory nowIso = _timestampToString(block.timestamp);
+
+    records[did] = AgentRecord({
+        did: did,
+        controller: controller,
+        createdAt: nowIso,
+        revokedAt: "",        // ← Vacío = no revocado
+        documentRef: "",      // ← Se establece después con setDocumentRef()
+        exists: true,         // ← Guard activado
+        owner: msg.sender     // ← Quien registra es el owner
+    });
+
+    emit AgentRegistered(did, controller, nowIso);
+}
+```
+
+**Puntos clave:**
+- `calldata` en lugar de `memory` — ahorro de gas porque los strings no se copian
+- `require(!records[did].exists)` hace **revert** si el DID ya existe — la transacción se revierte completamente y el gas consumido hasta ese punto se pierde
+- `msg.sender` se convierte automáticamente en owner — no se puede registrar y asignar a otro
+
+**2. `revokeAgent()` — Revocación con delegación**
+
+```solidity
+function revokeAgent(string calldata did) external {
+    AgentRecord storage record = records[did];
+    require(record.exists, "not found");
+    require(bytes(record.revokedAt).length == 0, "already revoked");
+    require(_isAuthorizedRevoker(did, msg.sender), "not authorized");
+
+    string memory nowIso = _timestampToString(block.timestamp);
+    record.revokedAt = nowIso;
+
+    emit AgentRevoked(did, nowIso);
+}
+```
+
+**Puntos clave:**
+- `storage` (no `memory`) — modifica directamente el estado on-chain
+- Triple require: existe, no revocado, autorizado
+- `_isAuthorizedRevoker()` verifica: `owner || delegado autorizado`
+- Una vez revocado, `revokedAt` tiene valor y el segundo `require` bloquea re-revocación
+- **Irreversible** — no existe función `unrevokeAgent()`
+
+**3. `setRevocationDelegate()` — Delegación granular**
+
+```solidity
+function setRevocationDelegate(string calldata did, address delegate, bool authorized) external {
+    AgentRecord storage record = records[did];
+    require(record.exists, "not found");
+    require(record.owner == msg.sender, "only owner");
+    require(delegate != address(0), "delegate required");
+
+    revocationDelegates[did][delegate] = authorized;
+    emit RevocationDelegateUpdated(did, delegate, authorized);
+}
+```
+
+**Puntos clave:**
+- `authorized = true` → autoriza, `authorized = false` → desautoriza
+- Solo el owner puede delegar — los delegados NO pueden delegar a otros
+- Cada delegado es por DID específico — delegar para un agente no da acceso a otros
+
+**4. `transferAgentOwnership()` — Transferencia de ownership**
+
+```solidity
+function transferAgentOwnership(string calldata did, address newOwner) external {
+    AgentRecord storage record = records[did];
+    require(record.exists, "not found");
+    require(record.owner == msg.sender, "only owner");
+    require(newOwner != address(0), "newOwner required");
+
+    address previousOwner = record.owner;
+    record.owner = newOwner;
+
+    emit AgentOwnershipTransferred(did, previousOwner, newOwner);
+}
+```
+
+**Puntos clave:**
+- Transferencia inmediata — el previous owner pierde acceso en la misma transacción
+- Los delegados existentes **permanecen** — el nuevo owner debe desautorizarlos explícitamente si lo desea
+- El `controller` del DID Document (capa off-chain) NO cambia — son capas independientes
+
+**5-8. Funciones view y `setDocumentRef()`**
+
+`setDocumentRef()` actualiza la referencia off-chain (hash IPFS, URL). Solo el owner puede hacerlo.
+
+`getAgentRecord()` retorna 5 campos (did, controller, createdAt, revokedAt, documentRef) — **no expone** `exists` ni `owner` por diseño. Hace `revert` si el DID no existe.
+
+`isRevoked()` retorna `false` si el DID no existe (diseño **fail-late** — no revierte). Esto permite verificar sin conocer de antemano si el DID fue registrado.
+
+`isRevocationDelegate()` simplemente lee el mapping anidado.
+
+### 7.3 Los 4 eventos
+
+```solidity
+event AgentRegistered(string did, string controller, string createdAt);
+event AgentRevoked(string did, string revokedAt);
+event RevocationDelegateUpdated(string did, address delegate, bool authorized);
+event AgentOwnershipTransferred(string did, address previousOwner, address newOwner);
+```
+
+Los eventos son fundamentales para:
+1. **Indexación off-chain** — servicios como The Graph pueden indexar todos los agentes registrados
+2. **Auditoría** — cada acción crítica queda en el log inmutable de la blockchain
+3. **Notificaciones** — servicios pueden suscribirse a eventos de revocación para reacción inmediata
+4. **Trazabilidad** — la cadena completa de ownership es reconstruible desde los eventos
+
+### 7.4 Modelo de revocación y delegación
+
+#### Flujo completo del script `revocation-policy-check.js`
+
+Este script valida el modelo de delegación en 10 pasos:
+
+```
+Paso 1: Obtener 4 signers → [deployer, owner, delegate, newOwner]
+Paso 2: owner registra didOne
+Paso 3: delegate intenta revocar didOne → REVERT "not authorized" ✓
+Paso 4: owner autoriza delegate con setRevocationDelegate(didOne, delegate, true)
+Paso 5: Verificar isRevocationDelegate(didOne, delegate) === true ✓
+Paso 6: delegate revoca didOne exitosamente ✓
+Paso 7: owner registra didTwo
+Paso 8: owner transfiere ownership de didTwo a newOwner
+Paso 9: owner intenta delegar en didTwo → REVERT "only owner" ✓
+         (ya no es owner, la transferencia fue inmediata)
+Paso 10: newOwner delega a delegate → delegate revoca didTwo ✓
+```
+
+```
+┌──────────┐           ┌──────────┐           ┌──────────┐
+│  owner   │──register──▶│  didOne  │◀──revoke──│ delegate │
+│          │──delegate──▶│          │           │          │
+│          │             └──────────┘           └──────────┘
+│          │
+│          │──register──▶┌──────────┐──transfer──▶┌──────────┐
+│          │             │  didTwo  │             │ newOwner │
+│          │             └──────────┘             │          │
+│  ✗ ya no │──delegate──▶    REVERT               │──delegate──▶ delegate
+│  es owner│                                     │          │
+└──────────┘                                     └──────────┘
+```
+
+#### Principios del modelo
+
+1. **Owner revocation:** el owner puede revocar directamente sin delegados
+2. **Delegated revocation:** el owner puede autorizar delegados con `setRevocationDelegate()`
+3. **Authorization check:** `_isAuthorizedRevoker()` → `owner || revocationDelegates[did][actor]`
+4. **Permanencia:** una vez revocado, no hay mecanismo de "un-revoke" — irreversible
+5. **Granularidad:** cada delegado es autorizado por DID específico, no globalmente
+6. **No-transitivity:** los delegados NO pueden delegar a otros
+
+**Caso de uso empresarial:** una organización tiene 50 agentes IA. El CISO autoriza al equipo de seguridad (3 direcciones) como delegados de revocación. Si un agente es comprometido, cualquiera del equipo puede revocar sin esperar al owner original. Si el CISO rota, se transfiere ownership y el nuevo CISO gestiona los delegados.
+
+### 7.5 Ownership vs Controller — Dos capas independientes
+
+| Concepto | Capa | Quién lo controla | Qué puede hacer |
+|----------|------|-------------------|-----------------|
+| **Owner** | On-chain (Solidity) | `address` en `AgentRecord.owner` | `setDocumentRef`, `transferAgentOwnership`, `setRevocationDelegate`, `revokeAgent` |
+| **Controller** | Off-chain (DID Document) | DID string en `controller` | Autorizar cambios al DID Document según W3C DID Core |
+
+**Escenario de outsourcing:**
+Una empresa (owner: `0xCompany`) contrata a un proveedor para operar un agente IA. El controller del DID Document es el proveedor (`did:ethr:0xProvider`). Si el proveedor compromete seguridad:
+1. La empresa (owner) revoca el agente on-chain → inmediato
+2. La empresa transfiere ownership a otra dirección interna
+3. El controller del DID Document queda obsoleto — el agente revocado ya no es verificable
+
+**Escenario de flota:**
+Una empresa opera 100 agentes. El owner on-chain es la empresa (una dirección), pero cada agente tiene su propio controller (la instancia del agente). Ownership centralizado para gobernanza, controller distribuido para operación.
+
+### 7.6 Seguridad — Modelo de amenazas
+
+| Amenaza | Vector | Mitigación en Agent-DID | Capa |
+|---------|--------|--------------------------|------|
+| Robo de clave privada | Acceso al proceso del agente | Revocación inmediata, claves nunca salen del proceso, delegados pre-autorizados | On-chain + SDK |
+| Suplantación de DID | Crear DID falso que parezca legítimo | DID derivado de hash criptográfico (`sha256(publicKey + network + controller)`) | SDK |
+| Manipulación de documento | Alterar DID Document después de publicar | `documentRef` on-chain sirve como ancla de integridad (hash verificable) | On-chain |
+| Replay attack HTTP | Reutilizar firma HTTP válida | Timestamp en firmas + clock skew máximo (300s) + nonce en components | SDK |
+| Manipulación de registry | Modificar registro sin autorización | Smart contract con control de acceso: `require(owner == msg.sender)` | Solidity |
+| Supply chain attack | Dependencia comprometida inyecta código malicioso | Zero dependencias en contrato, mínimas en SDK (`@noble/curves`, `ethers`) | Diseño |
+| Denial of service | Spam de registros para llenar storage | Gas cost natural de Ethereum limita spam, cada registro cuesta ETH | EVM |
+| Key rotation failure | Clave vieja sigue siendo aceptada | `verificationMethod` se actualiza, `verifySignature` usa lista actual | SDK |
 
 ### 7.7 Mejores prácticas de seguridad
-1. Almacenar claves privadas en secure enclaves o HSMs
-2. TLS para toda comunicación con resolvers
-3. Validar hash del documento vs ancla on-chain en cada resolución
-4. Rate limiting en endpoints de resolver
-5. Monitorear eventos de revocación inesperados
-6. Rotación proactiva de claves (recomendado cada 90 días)
-7. Principio de mínimo privilegio en capabilities declaradas
+
+1. **Almacenar claves privadas en secure enclaves o HSMs** — nunca en variables de entorno en texto plano
+2. **TLS para toda comunicación con resolvers** — HTTP y JSON-RPC endpoints deben usar HTTPS
+3. **Validar hash del documento vs ancla on-chain** en cada resolución — `documentRef` como prueba de integridad
+4. **Rate limiting en endpoints de resolver** — prevenir ataques de enumeración y DoS
+5. **Monitorear eventos de revocación inesperados** — suscribirse a `AgentRevoked` para detección temprana
+6. **Rotación proactiva de claves** — recomendado cada 90 días, usar `updateVerificationMethod()`
+7. **Principio de mínimo privilegio en capabilities** — declarar solo las capabilities que el agente realmente necesita
+8. **Pre-autorizar delegados de revocación** — antes de que ocurra un incidente, tener el plan de respuesta listo
+9. **Auditar dependencias regularmente** — `npm audit`, verificar que `@noble/curves` y `ethers` estén actualizados
 
 ### 7.8 Conformancia — Los 16 controles
-- **11 MUST:** campos requeridos, operaciones core, separación on/off-chain
-- **5 SHOULD:** resolver universal, normalización temporal, interoperabilidad, políticas de revocación, trazabilidad
-- **Estado actual:** 16/16 PASS
-- **Comando de validación:** `npm run conformance:rfc001`
+
+El sistema de conformancia se ejecuta con:
+
+```bash
+npm run conformance:rfc001
+```
+
+Este comando ejecuta `scripts/conformance-rfc001.js`, que realiza:
+
+1. **6 verificaciones técnicas** (en secuencia, se detiene en el primer fallo):
+   - SDK build (`npm --prefix sdk run build`)
+   - SDK tests (`npm --prefix sdk test`)
+   - Revocation policy smoke (`npm run smoke:policy`)
+   - HA resolver drill (`npm run smoke:ha`)
+   - RPC resolver smoke (`npm run smoke:rpc`)
+   - E2E smoke (`npm run smoke:e2e`)
+
+2. **Parseo del checklist** (`docs/RFC-001-Compliance-Checklist.md`):
+   - Lee el archivo Markdown
+   - Extrae filas con prefijo `MUST-` y `SHOULD-`
+   - Cuenta: PASS, PARTIAL, FAIL, UNKNOWN
+   - Muestra resumen ejecutivo
+
+#### Los 11 MUST Controls (Obligatorios)
+
+| ID | Control | Estado | Evidencia clave |
+|----|---------|--------|-----------------|
+| MUST-01 | DID Document con campos requeridos (`id`, `controller`, `created`, `updated`, `agentMetadata`, `verificationMethod`, `authentication`) | PASS | `types.ts`, `AgentIdentity.ts` |
+| MUST-02 | Operación `create(params)` | PASS | `AgentIdentity.ts` |
+| MUST-03 | `signMessage(payload, privateKey)` | PASS | `AgentIdentity.ts` |
+| MUST-04 | `signHttpRequest()` con RFC 9421 (`@request-target`, `host`, `date`, `content-digest`, identity) | PASS | Tests positivos/negativos, tamper, múltiples firmas |
+| MUST-05 | `resolve(did)` con múltiples fuentes | PASS | HTTP failover, IPFS gateways, JSON-RPC failover |
+| MUST-06 | `verifySignature()` + fallo si revocado | PASS | Tests con `keyId` y rotación |
+| MUST-07 | `revokeDid(did)` | PASS | Registry + contract |
+| MUST-08 | Registry mínimo (`registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`) | PASS | `AgentRegistry.sol`, SDK registry |
+| MUST-09 | Firma válida antes de revocación, inválida después | PASS | `npm run smoke:e2e` |
+| MUST-10 | Evolución (`updated` + rotación de `verificationMethod`) | PASS | Tests de evolución |
+| MUST-11 | Separación on-chain/off-chain con referencia de documento | PASS | `documentRef` en contrato |
+
+#### Los 5 SHOULD Controls (Recomendados)
+
+| ID | Control | Estado | Evidencia clave |
+|----|---------|--------|-----------------|
+| SHOULD-01 | Resolver universal con cache y alta disponibilidad | PASS | `UniversalResolverClient.ts`, failover HTTP + RPC, HA runbook |
+| SHOULD-02 | Normalización temporal homogénea SDK ↔ contrato | PASS | `time.ts`, Unix on-chain → ISO en SDK |
+| SHOULD-03 | Verificación interoperable con implementaciones externas | PASS | `interop-vectors.json`, `InteropVectors.test.ts` |
+| SHOULD-04 | Políticas de control de acceso para revocación | PASS | `setRevocationDelegate`, `transferAgentOwnership`, `revocation-policy-check.js` |
+| SHOULD-05 | Trazabilidad de evolución de documento por versión | PASS | Tests de evolución, `updated` en DID Document |
+
+**Resumen ejecutivo:** 11/11 MUST PASS + 5/5 SHOULD PASS = **16/16 controles conformantes**
 
 ### 7.9 Preparación para la comunidad
+
+#### Deploy del contrato — `deploy-agent-registry.js`
+
+```javascript
+const AgentRegistry = await hre.ethers.getContractFactory('AgentRegistry');
+const contract = await AgentRegistry.deploy();   // Zero constructor params
+await contract.waitForDeployment();
+```
+
+**4 líneas.** Sin constructor params, sin inicializadores, sin proxies. El contrato es **inmutable** — una vez desplegado, no hay upgrade path. Si se necesita una nueva versión, se despliega un contrato nuevo y se migran los registros (migrando solo el estado, no el código).
+
 #### ¿Qué preguntas te van a hacer?
-1. "¿En qué se diferencia de did:ethr o did:web?" → Metadatos de agente, protección IP, flotas
-2. "¿Por qué no usan ZKPs?" → Roadmap Phase 3 (F3-03), se planea para verificación de capabilities
-3. "¿Cómo escala?" → Mínimo on-chain, off-chain escalable horizontalmente
-4. "¿Funciona con LangChain/CrewAI?" → Plugin en roadmap (F1-03, F2-04)
-5. "¿Hay auditoría del contrato?" → En roadmap (F1-05 Slither/Mythril, F3-04 formal)
-6. "¿Qué blockchain usan?" → Cualquier EVM, referencia en Polygon
-7. "¿Cómo revoco si pierdo las claves?" → Delegados de revocación autorizados previamente
-8. "¿Es compatible con W3C?" → Sí, extiende DID Core 1.0
 
-#### Estructura recomendada para la presentación
-1. **Problema** (2 min): los agentes IA actúan sin identidad verificable
-2. **Solución** (3 min): Agent-DID — pasaporte digital para agentes
-3. **Demo en vivo** (5 min): crear → firmar → verificar → revocar
-4. **Arquitectura** (3 min): diagrama híbrido on-chain/off-chain
-5. **RFC-001** (2 min): estándar abierto, 16/16 controles pasando
-6. **Roadmap** (2 min): Python SDK, LangChain plugin, W3C submission
-7. **Call to action** (1 min): contribuir, usar, dar feedback
+| # | Pregunta | Respuesta preparada |
+|---|----------|---------------------|
+| 1 | "¿En qué se diferencia de did:ethr o did:web?" | Agent-DID agrega metadatos de agente IA (model hash, system prompt hash, capabilities), protección de IP, y gobernanza de flotas. did:ethr es solo identidad genérica. |
+| 2 | "¿Por qué no usan ZKPs?" | Está en el roadmap Phase 3 (F3-03) para verificación de capabilities sin revelar contenido. Actualmente usamos hashes para protección de IP. |
+| 3 | "¿Cómo escala?" | Mínimo on-chain (solo registro y revocación), documentos off-chain escalables horizontalmente. Un registro son ~200 bytes on-chain, el documento completo puede estar en IPFS. |
+| 4 | "¿Funciona con LangChain/CrewAI?" | Plugin en roadmap (F1-03, F2-04). El SDK es framework-agnostic — cualquier agente que pueda ejecutar TypeScript/JavaScript puede usarlo. |
+| 5 | "¿Hay auditoría del contrato?" | En roadmap: F1-05 análisis estático con Slither/Mythril, F3-04 verificación formal. El contrato son 157 líneas con zero dependencias — la superficie de auditoría es mínima. |
+| 6 | "¿Qué blockchain usan?" | Cualquier cadena EVM compatible (Ethereum, Polygon, Arbitrum, etc.). La implementación de referencia usa Polygon por costos de gas más bajos. |
+| 7 | "¿Cómo revoco si pierdo las claves?" | Delegados de revocación pre-autorizados. Si el owner pierde acceso, un delegado puede revocar. Por eso es crítico configurar delegados ANTES de que ocurra el incidente. |
+| 8 | "¿Es compatible con W3C?" | Sí, extiende W3C DID Core 1.0 con el namespace `agentMetadata`. Los campos base (`id`, `controller`, `verificationMethod`, `authentication`) son estándar W3C. |
 
-### Ejercicios del Módulo 7
-1. Lee `AgentRegistry.sol` completo y explica cada función
-2. ¿En qué escenario usarías `setRevocationDelegate()`?
-3. Ejecuta `npm run conformance:rfc001` y lee cada resultado
-4. Prepara una demostración en vivo del flujo crear → firmar → verificar → revocar
-5. Practica respondiendo las 8 preguntas frecuentes de la sección 7.9
+#### Estructura recomendada para la presentación (18 minutos)
+
+| Bloque | Duración | Contenido | Tip |
+|--------|----------|-----------|-----|
+| Problema | 2 min | Los agentes IA actúan sin identidad verificable — no puedes saber si quien te habla es quien dice ser | Usar ejemplo concreto: agente bancario suplantado |
+| Solución | 3 min | Agent-DID — pasaporte digital para agentes IA | Mostrar DID Document real, señalar `agentMetadata` |
+| Demo en vivo | 5 min | `create → signMessage → signHttp → verifySignature → revoke → verify fails` | Tener script preparado, no improvisar |
+| Arquitectura | 3 min | Diagrama híbrido on-chain/off-chain | Usar el diagrama de capas del Módulo 1 |
+| RFC-001 | 2 min | Estándar abierto, 16/16 controles pasando | Ejecutar `npm run conformance:rfc001` en vivo |
+| Roadmap | 2 min | Python SDK, LangChain plugin, ZKPs, W3C submission | Mostrar backlog en GitHub |
+| Call to action | 1 min | Contribuir, usar, dar feedback | Tener QR con repo |
 
 ### Talking Points para la comunidad
+
 - "RFC-001 es un estándar abierto — no un producto propietario"
 - "Tenemos 16 controles de conformancia comprobados en CI"
 - "El contrato soporta delegación de revocación — modelo de gobernanza empresarial"
 - "Toda la operación cripto usa bibliotecas auditadas — no reinventamos la rueda"
 - "El roadmap incluye Python SDK, plugins para frameworks de agentes, y submission a W3C"
+- "157 líneas de Solidity, zero dependencias — auditabilidad máxima"
+- "Separación on-chain/off-chain — solo lo esencial va a la blockchain"
+
+---
+
+### Ejercicios del Módulo 7
+
+**Ejercicio 1:** Si `registerAgent()` se llama con un DID que ya existe, ¿qué pasa exactamente? ¿Cuánto gas se pierde? ¿Qué riesgo oculta la idempotencia?
+
+**Respuesta del estudiante:**
+Si el DID ya existe, registerAgent() falla con el mensaje "already registered" y la transacción se revierte. Se pierde el gas consumido hasta el punto del revert. El riesgo principal es que el registro existente bloquee silenciosamente nuevos intentos sin hacer evidente que ya fue registrado con un controller diferente.
+
+**Evaluación: 6.0/10**
+- ✅ Correcto que la transacción se revierte con "already registered"
+- ✅ Identifica parcialmente el riesgo del bloqueo silencioso
+- ⚠️ El gas NO se pierde "hasta el punto del revert" — en un `require` fail, se consume todo el gas incluido hasta ese punto del execution path, pero el estado se revierte completamente. En la práctica, el gas consumido es mínimo porque el `require` está temprano en la función (3 checks antes de cualquier storage write).
+- ⚠️ La **idempotencia** no es el diseño aquí — el contrato **NO es idempotente**, hace `revert`. Idempotente sería si la segunda llamada simplemente no hiciera nada y retornara exitosamente. El riesgo real es que la idempotencia del `InMemoryAgentRegistry` del SDK (que sí es idempotente — simplemente ignora el segundo registro) puede **ocultar conflictos de identidad**: si dos agentes intentan registrar el mismo DID, el primero gana silenciosamente. En el contrato, al menos el revert te alerta.
+
+---
+
+**Ejercicio 2:** ¿Por qué `isRevoked()` retorna `false` para un DID que no existe, pero `getAgentRecord()` hace `revert`? ¿Qué patrón de diseño refleja?
+
+**Respuesta del estudiante:**
+`isRevoked()` retorna `false` porque semánticamente un DID que no existe no puede estar revocado — la ausencia de registro implica ausencia de revocación. `getAgentRecord()` hace revert porque si pides los datos de un agente que no existe, es un error del caller que debe propagarse. El patrón es: las consultas de estado booleano son tolerantes, las consultas de datos completos son estrictas.
+
+**Evaluación: 8.0/10**
+- ✅ Excelente razonamiento semántico sobre por qué `false` es correcto para inexistente
+- ✅ Buena distinción entre consultas booleanas tolerantes y consultas de datos estrictas
+- ⚠️ Faltó nombrar el patrón: **fail-late** design pattern. `isRevoked()` es fail-late (permite que el flujo continúe y el caller decide), `getAgentRecord()` es **fail-fast** (corta inmediatamente). Esto permite encadenar: `if (!isRevoked(did)) { record = getAgentRecord(did); }` — si ambas hicieran revert, habría que hacer try/catch en Solidity (más costoso en gas).
+
+---
+
+**Ejercicio 3:** ¿Qué diferencia hay entre que un owner llame `revokeAgent(did)` y que llame `setRevocationDelegate(did, delegate, false)`? La pregunta es sobre la diferencia funcional y de resultado final.
+
+**Respuesta del estudiante:**
+`revokeAgent(did)` revoca permanentemente el DID — el agente queda inutilizable para siempre. `setRevocationDelegate(did, delegate, false)` simplemente desautoriza a un delegado específico, pero el agente sigue activo. La diferencia es: uno destruye la identidad, el otro reduce permisos de gobernanza.
+
+**Evaluación: 6.5/10**
+- ✅ Correcto que `revokeAgent` es permanente y `setRevocationDelegate(false)` solo quita permisos
+- ✅ Buena metáfora "destruye identidad vs reduce permisos de gobernanza"
+- ⚠️ La pregunta pedía la diferencia funcional completa. Faltó destacar: (1) `revokeAgent` puede ser llamado por owner O por delegados — `setRevocationDelegate` solo por owner. (2) `revokeAgent` modifica `records[did].revokedAt` (dato del agente) — `setRevocationDelegate` modifica `revocationDelegates[did][delegate]` (dato de gobernanza). Son mappings completamente diferentes. (3) Después de `revokeAgent`, incluso el owner no puede hacer nada más útil con ese DID (solo `getAgentRecord` y `isRevoked` siguen funcionando).
+
+---
+
+**Ejercicio 4:** ¿Cuál es la relación entre `owner` (on-chain) y `controller` (off-chain)? Dame un escenario real donde sean diferentes entidades.
+
+**Respuesta del estudiante:**
+El `owner` es la dirección Ethereum que controla las operaciones on-chain (revocar, transferir, delegar). El `controller` es el DID que controla el DID Document según W3C. Pueden ser diferentes: una empresa (owner: `0xCompanyWallet`) contrata a un proveedor de ML (controller: `did:ethr:0xMLProvider`) para operar un agente de análisis. La empresa mantiene el poder de revocación on-chain, pero el proveedor gestiona las claves y la operación del agente. Si el proveedor es comprometido, la empresa revoca inmediatamente sin necesidad de acceso a las claves del agente. Es como un landlord (owner) vs tenant (controller) — el tenant opera el espacio, pero el landlord puede terminar el contrato.
+
+**Evaluación: 9.0/10**
+- ✅ Distinción perfecta entre owner (on-chain) y controller (off-chain)
+- ✅ Escenario real excelente con empresa + proveedor ML
+- ✅ La analogía landlord/tenant es precisa y memorable
+- ✅ Identificó correctamente que el owner puede revocar sin acceso a las claves del agente
+- ⚠️ Para el 10: mencionar que `transferAgentOwnership` cambia owner pero NO controller, y que `controller` se establece una sola vez en `registerAgent` y no hay función para cambiarlo on-chain — es inmutable en el contrato.
+
+---
+
+**Ejercicio 5:** Si tuvieras que migrar de `InMemoryAgentRegistry` a `EvmAgentRegistry` en producción, ¿qué pasos seguirías? ¿Qué se pierde, qué se preserva?
+
+**Respuesta del estudiante:**
+Pasos: (1) Desplegar AgentRegistry.sol en la red EVM elegida, (2) Configurar el SDK con `useEvmRegistry(contractAddress, signer)`, (3) Re-registrar todos los agentes existentes con `registerAgent()` en el contrato, (4) Actualizar los documentos off-chain para que el resolver apunte a la nueva fuente. Se preserva: la estructura de los DID Documents, las claves, los metadatos. Se pierde: el historial de timestamps (los nuevos serán del momento de re-registro, no los originales), y cualquier estado de revocación previo debe ser re-aplicado manualmente.
+
+**Evaluación: 7.0/10**
+- ✅ Los 4 pasos son correctos en secuencia
+- ✅ Identifica correctamente que los timestamps se pierden (createdAt será el del re-registro)
+- ✅ Buena observación sobre re-aplicar revocaciones
+- ⚠️ Faltó precisión en el plan: el paso 2 debería incluir la configuración del `provider` (conexión RPC a la red) además del `contractAddress` y `signer`
+- ⚠️ Error por omisión: los documentos off-chain NO necesitan "re-procesamiento" — si están en IPFS, los hashes son los mismos. Solo se necesita `setDocumentRef()` en el contrato para cada agente migrado.
+- ⚠️ Faltó mencionar que la migración implica gas costs por cada `registerAgent()` — con 100 agentes, eso es un costo significativo que debe presupuestarse.
+
+---
+
+**Ejercicio 6:** ¿Por qué el contrato no usa OpenZeppelin? ¿Qué gana y qué pierde? ¿Los timestamps son ISO o Unix?
+
+**Respuesta del estudiante:**
+No se usa OpenZeppelin porque no es posible en este contexto — el contrato necesita ser completamente autónomo sin dependencias externas. Gana: simplicidad, auditabilidad completa de 157 líneas, zero supply chain risk. Pierde: patrones probados como Ownable, Pausable, AccessControl que ya están auditados. Los timestamps se almacenan en formato ISO 8601 que es el estándar del DID Document.
+
+**Evaluación: 4.0/10**
+- ✅ Correctos los beneficios: simplicidad, auditabilidad, zero supply chain risk
+- ✅ Correctos los trade-offs: pierde patrones como Ownable, Pausable, AccessControl
+- ❌ **Error factual 1:** "No es posible" usar OpenZeppelin — SÍ es posible, es una **decisión de diseño**, no una limitación técnica. Cualquier contrato Solidity puede importar OpenZeppelin con `import "@openzeppelin/contracts/access/Ownable.sol"`. La decisión deliberada fue minimizar la superficie de ataque y las dependencias.
+- ❌ **Error factual 2:** Los timestamps NO se almacenan en ISO 8601 en el contrato. Se almacenan como **Unix timestamp strings** — `_timestampToString(block.timestamp)` convierte el `uint256` de `block.timestamp` (Unix epoch en segundos) a su representación string (ej: `"1710500000"`). Es el SDK (`time.ts` → `normalizeTimestampToIso()`) quien convierte de Unix string a ISO 8601 para consumo de la aplicación.
+
+---
+
+### Evaluación consolidada — Módulo 7
+
+| Ejercicio | Nota | Fortaleza | Área de mejora |
+|-----------|------|-----------|----------------|
+| 1. registerAgent revert | 6.0 | Identifica bloqueo silencioso | Gas en revert, idempotencia vs guard |
+| 2. isRevoked vs getAgentRecord | 8.0 | Razonamiento semántico | Nombrar fail-late pattern |
+| 3. revokeAgent vs delegate(false) | 6.5 | Metáfora correcta | Identificar mappings diferentes |
+| 4. Owner vs Controller | 9.0 | Escenario real excelente | Inmutabilidad del controller |
+| 5. Migración InMemory → EVM | 7.0 | Secuencia correcta | Gas costs, documentos off-chain |
+| 6. OpenZeppelin y timestamps | 4.0 | Trade-offs correctos | Dos errores factuales |
+
+**Promedio Módulo 7: 6.8/10** ✅ Aprobado
+
+---
+
+## Evaluación Final del Curso
+
+### Progreso por módulo
+
+| Módulo | Tema | Promedio | Tendencia |
+|--------|------|---------|-----------|
+| Módulo 1 | Fundamentos e identidad digital | 7.8/10 | — |
+| Módulo 2 | DID Documents y W3C | 8.0/10 | ↑ |
+| Módulo 3 | Criptografía aplicada | 7.2/10 | ↓ |
+| Módulo 4 | RFC-001, Compliance y Gobernanza | 7.8/10 | ↑ |
+| Módulo 5 | SDK — AgentIdentity en profundidad | 6.5/10 | ↓ |
+| Módulo 6 | Resolvers y Registry | 6.7/10 | → |
+| Módulo 7 | Smart Contract, Seguridad y Comunidad | 6.8/10 | → |
+
+### Resultado final: **7.3/10 — CURSO APROBADO** ✅
+
+### Perfil del estudiante
+
+**Fortalezas destacadas:**
+- **Visión arquitectónica** — excelente comprensión de decisiones de diseño y trade-offs (E4-M7 = 9.0, mejor nota del curso)
+- **Razonamiento semántico** — entiende el "por qué" detrás de cada decisión técnica
+- **Analogías y metáforas** — landlord/tenant, pasaporte digital, escudos — facilitan la comunicación con audiencias mixtas
+- **Diseño de sistemas** — conceptos como separación de capas, mínimo privilegio, gobernanza delegada están bien internalizados
+
+**Áreas de mejora:**
+- **Precisión técnica** — confusiones como ISO vs Unix, "no es posible" vs decisión de diseño, 16 bits vs 16 bytes (M5)
+- **Leer exactamente la pregunta** — tendencia a responder una versión ligeramente diferente de lo preguntado
+- **Trazar flujos paso a paso** — en módulos técnicos (5-7), las respuestas son conceptualmente correctas pero faltan los detalles concretos (qué variable, qué línea, qué mapping)
+- **Conteo de capas** — cuando se pide enumerar componentes concretos, verificar contra el código real
+
+### Recomendación para la presentación
+
+El estudiante tiene **base sólida para presentar** ante la comunidad. Las fortalezas en visión arquitectónica y analogías son ideales para una audiencia mixta. **Consejo clave:** antes de la presentación, practicar las 8 preguntas frecuentes de la sección 7.9 y para cada respuesta técnica, tener preparada la referencia exacta al código (archivo, línea, función) — esto convertirá las respuestas de "conceptualmente correctas" a "técnicamente precisas".
 
 ---
 
