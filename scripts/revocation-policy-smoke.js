@@ -4,6 +4,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const CONTRACTS_DIR = path.join(ROOT, 'contracts');
 const VERBOSE_SMOKE = process.env.VERBOSE_SMOKE === '1';
+const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 function run(command, cwd, env = process.env) {
   return execSync(command, {
@@ -58,7 +59,7 @@ function stopProcessTree(pid) {
   }
 
   try {
-    process.kill(pid, 'SIGTERM');
+    process.kill(-pid, 'SIGTERM');
   } catch {
     // noop
   }
@@ -73,9 +74,10 @@ function parseDeployedAddress(output) {
 }
 
 async function main() {
-  const nodeProcess = spawn('npm', ['run', 'node:local'], {
+  const nodeProcess = spawn(NPM_COMMAND, ['run', 'node:local'], {
     cwd: CONTRACTS_DIR,
-    shell: true,
+    shell: process.platform === 'win32',
+    detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
