@@ -46,7 +46,9 @@ The project follows a 3-phase roadmap. Items marked with **🔓 Open** are activ
 | F1-03 | **LangChain plugin** — inject Agent-DID identity into agent chains | Integration | 🔓 Open |
 | F1-04 | **Submit RFC-001 to DIF** (Decentralized Identity Foundation) | Standards | 🔓 Open |
 | F1-05 | **Automated smart contract audit** (Slither/Mythril) | Security | 🔓 Open |
-| F1-06 | **CI/CD pipeline** with GitHub Actions (build + test + conformance per PR) | DevOps | 🔓 Open |
+| F1-06 | **CI/CD pipeline** with GitHub Actions (build + test + conformance per PR) | DevOps | ✅ Done |
+
+GitHub Actions now installs the repository workspaces and runs the RFC-001 conformance suite from `.github/workflows/ci.yml` on pushes, pull requests, and manual dispatches.
 
 ### Phase 2 — Ecosystem Expansion (3-6 months)
 

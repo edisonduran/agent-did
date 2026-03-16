@@ -95,7 +95,9 @@ RFC-001 is implemented and fully conformant. The project follows a 3-phase roadm
 | F1-03 | LangChain plugin for Agent-DID identity | Open |
 | F1-04 | Submit RFC-001 to DIF | Open |
 | F1-05 | Automated smart contract audit (Slither/Mythril) | Open |
-| F1-06 | CI/CD pipeline with GitHub Actions | Open |
+| F1-06 | CI/CD pipeline with GitHub Actions | Done |
+
+The repository now includes a GitHub Actions workflow at `.github/workflows/ci.yml` that installs the root, SDK, and contract workspaces and runs `npm run conformance:rfc001` on pushes, pull requests, and manual dispatches.
 
 ### Phase 2 — Ecosystem Expansion (3-6 months)
 

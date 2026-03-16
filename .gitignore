@@ -9,4 +9,6 @@ coverage/
 # BMAD Method artifacts
 _bmad/
 _bmad-output/
-.github/
+.github/*
+!.github/workflows/
+!.github/workflows/**
