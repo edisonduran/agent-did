@@ -78,7 +78,8 @@ This command runs SDK build/tests and operational smokes (policy, HA, RPC, E2E).
 - Complete SDK course (7 modules, English): [docs/Curso-Completo-Agent-DID-SDK-EN.md](docs/Curso-Completo-Agent-DID-SDK-EN.md)
 - 2-hour practical course: [docs/RFC-001-2h-Practical-Course.md](docs/RFC-001-2h-Practical-Course.md)
 - Training manual: [docs/RFC-001-Training-Manual.md](docs/RFC-001-Training-Manual.md)
-- Strategic assessment & roadmap: [_bmad-output/planning-artifacts/Strategic-Assessment-Agent-DID.md](_bmad-output/planning-artifacts/Strategic-Assessment-Agent-DID.md)
+- Strategic assessment & roadmap (Spanish): [docs/Strategic-Assessment-Agent-DID-ES.md](docs/Strategic-Assessment-Agent-DID-ES.md)
+- Strategic assessment & roadmap (English): [docs/Strategic-Assessment-Agent-DID-EN.md](docs/Strategic-Assessment-Agent-DID-EN.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Roadmap
