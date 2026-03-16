@@ -2,7 +2,7 @@
 
 Thank you for considering contributing to Agent-DID! We are building the foundational identity layer for the AI economy, and every contribution matters.
 
-> **Project status:** The TypeScript SDK is published (`@agent-did/sdk`), RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the EVM smart contract is functional. See the [Roadmap](#-roadmap--where-to-contribute) below for what's next.
+> **Project status:** The TypeScript SDK is published (`@agent-did/sdk`), RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the EVM smart contract is functional. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
 
 ---
 
@@ -29,7 +29,7 @@ Open an Issue tagged `[RFC]` to start a discussion.
 
 ### 3. Improve Documentation
 
-All docs are in English under `docs/`. Improvements to the specification, training materials, or runbooks are always welcome. Tag your issue or PR with `[Docs]`.
+Docs are available in English and Spanish under `docs/`. Improvements to the specification, training materials, or runbooks are always welcome. Tag your issue or PR with `[Docs]`.
 
 ---
 
@@ -55,9 +55,11 @@ The project follows a 3-phase roadmap. Items marked with **🔓 Open** are activ
 | F2-01 | **Python SDK** with feature parity | Technical | 🔓 Open |
 | F2-02 | **Google A2A proof-of-concept** — Agent-DID as identity layer for A2A | Integration | 🔓 Open |
 | F2-03 | **Production resolver** with persistent backend (IPFS/Arweave + HTTP) | Technical | 🔓 Open |
-| F2-04 | **CrewAI and AutoGen plugins** | Integration | 🔓 Open |
-| F2-05 | **Public testnet deployment** with documentation | Infrastructure | 🔓 Open |
-| F2-06 | Publish theoretical paper as formal whitepaper | Marketing | 🔓 Open |
+| F2-04 | **Microsoft Agent Framework (Semantic Kernel) plugin** | Integration | 🔓 Open |
+| F2-05 | **CrewAI plugin** | Integration | 🔓 Open |
+| F2-06 | **Public testnet deployment** with documentation | Infrastructure | 🔓 Open |
+| F2-07 | Publish theoretical paper as formal whitepaper | Marketing | 🔓 Open |
+| F2-08 | **Azure AI Agent Service integration** | Integration | 🔓 Open |
 
 ### Phase 3 — Maturity & Standardization (6-12 months)
 

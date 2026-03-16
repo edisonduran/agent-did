@@ -94,7 +94,7 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | BT-01 | Resolver en memoria por defecto (no persistente) | No apto para producción real | Alta | Implementar backend persistente (Redis/IPFS/Arweave) |
 | BT-02 | Sin auditoría de seguridad del contrato | Riesgo para despliegue en mainnet | Alta | Auditoría con Slither/Mythril como mínimo; auditoría formal para mainnet |
 | BT-03 | Sin ZKP implementado | El paper teórico los menciona pero el SDK no los soporta | Media | Integrar librería ZKP (snarkjs o similar) para verificación de capabilities |
-| BT-04 | Sin integración con frameworks de agentes | Limita adopción inmediata | Alta | Plugins para LangChain, CrewAI, AutoGen |
+| BT-04 | Sin integración con frameworks de agentes | Limita adopción inmediata | Alta | Plugins para LangChain, CrewAI, Microsoft Agent Framework |
 | BT-05 | Sin soporte Python | Excluye el ecosistema dominante de IA/ML | Media-Alta | SDK Python como prioridad P2 |
 | BT-06 | Sin CI/CD observable | Pruebas corren localmente; no hay pipeline automatizado | Media | GitHub Actions con conformance automatizada |
 | BT-07 | RFC auto-dirigido, no ratificado | Sin respaldo de cuerpo de estándares | Media | Someter a DIF o W3C para revisión |

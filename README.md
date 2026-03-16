@@ -90,7 +90,7 @@ RFC-001 is implemented and fully conformant. The project follows a 3-phase roadm
 
 | # | Item | Status |
 |---|---|---|
-| F1-01 | Publish SDK to npm (`@agent-did/sdk`) | Open |
+| F1-01 | Publish SDK to npm (`@agent-did/sdk`) | Done |
 | F1-02 | Translate all docs to English | Done (course + strategic assessment + README) |
 | F1-03 | LangChain plugin for Agent-DID identity | Open |
 | F1-04 | Submit RFC-001 to DIF | Open |

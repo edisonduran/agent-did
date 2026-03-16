@@ -46,7 +46,7 @@ Nivel 0: Chatbot                 → Responde preguntas, no actúa
 Nivel 1: Asistente con tools     → Llama APIs cuando se lo pides (Copilot, ChatGPT con plugins)
 Nivel 2: Agente semi-autónomo    → Planifica pasos y ejecuta tareas (LangChain agents)
 Nivel 3: Agente autónomo         → Actúa solo: llama APIs, ejecuta código, toma decisiones
-Nivel 4: Multi-agente            → Múltiples agentes se coordinan entre sí (CrewAI, AutoGen)
+Nivel 4: Multi-agente            → Múltiples agentes se coordinan entre sí (CrewAI, Microsoft Agent Framework)
 Nivel 5: Agente económico        → Maneja dinero, firma contratos, opera en mercados
 ```
 
@@ -598,7 +598,7 @@ Alguien clona tu agente de atención al cliente y lo despliega en un sitio de ph
 
 #### Escenario 3: Ataque entre agentes
 
-En un sistema multi-agente (CrewAI, AutoGen), un agente malicioso se hace pasar por el "agente coordinador" y envía instrucciones falsas a los demás.
+En un sistema multi-agente (CrewAI, Microsoft Agent Framework), un agente malicioso se hace pasar por el "agente coordinador" y envía instrucciones falsas a los demás.
 
 - **Sin Agent-DID:** los agentes confían en cualquier mensaje que llegue por el canal.
 - **Con Agent-DID:** cada mensaje está firmado → los agentes verifican la identidad del emisor antes de actuar.
