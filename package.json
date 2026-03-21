@@ -6,7 +6,8 @@
     "smoke:ha": "node scripts/resolver-ha-smoke.js",
     "smoke:policy": "node scripts/revocation-policy-smoke.js",
     "smoke:rpc": "node scripts/rpc-resolver-smoke.js",
-    "conformance:rfc001": "node scripts/conformance-rfc001.js"
+    "conformance:rfc001": "node scripts/conformance-rfc001.js",
+    "test:python": "cd sdk-python && python -m pytest tests/ -v --tb=short"
   },
   "dependencies": {
     "@noble/ed25519": "^3.0.0",

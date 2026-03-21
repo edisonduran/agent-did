@@ -1,0 +1,29 @@
+{
+  "did": "did:agent:polygon:0xinteropfixture",
+  "controller": "did:ethr:0xfixturecontroller",
+  "verificationMethod": {
+    "id": "did:agent:polygon:0xinteropfixture#key-1",
+    "type": "Ed25519VerificationKey2020",
+    "controller": "did:ethr:0xfixturecontroller",
+    "publicKeyMultibase": "z678cd8acdfbc5713c5eec46e89b0934543fe7e51602794360f421eba84cb1a5a"
+  },
+  "messageVector": {
+    "payload": "interop-message:v1",
+    "signatureHex": "aa5a5535a83b073888ca98605bffa187438f69a5d56bf04032bd9f79eda1e362237cd5d72b1a9b289def1ba0b934f3e16dfd50f810b25087769f95874e12af00"
+  },
+  "httpVector": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/interop?mode=fixture",
+    "body": "{\"fixture\":true}",
+    "date": "Mon, 01 Jan 2024 00:00:00 GMT",
+    "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
+    "headers": {
+      "Signature": "sigA=:tLVTpkg69lbgl+757SAOwlnHe2zSF4Hc98HGdyRPGbdkwjO/3mCQzd3Wb37dRLQQ6MeMKfjvHS0yVkUKH+/lAg==:, legacy=:ZmFrZVNpZw==:",
+      "Signature-Input": "sigA=(\"@request-target\" \"host\" \"date\" \"content-digest\" \"x-extra\");created=1704067200;keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\", legacy=(\"@request-target\");created=1;keyid=\"did:agent:polygon:0xinteropfixture#legacy\";alg=\"ed25519\"",
+      "Signature-Agent": "did:agent:polygon:0xinteropfixture",
+      "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
+      "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+    },
+    "maxCreatedSkewSeconds": 999999999
+  }
+}

@@ -76,6 +76,7 @@ function main() {
   const checks = [
     { name: 'SDK build', cmd: 'npm --prefix sdk run build' },
     { name: 'SDK tests', cmd: 'npm --prefix sdk test' },
+    { name: 'Python SDK tests', cmd: 'npm run test:python' },
     { name: 'Revocation policy smoke', cmd: 'npm run smoke:policy' },
     { name: 'HA resolver drill', cmd: 'npm run smoke:ha' },
     { name: 'RPC resolver smoke', cmd: 'npm run smoke:rpc' },

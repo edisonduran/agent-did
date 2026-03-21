@@ -218,6 +218,8 @@ Current status: F1-03 is already completed and the implementation is available i
 | F2-07 | Publication of theoretical paper as formal whitepaper | Marketing | Technical credibility |
 | F2-08 | Explore integration with Azure AI Agent Service | Integration | Identity layer for Azure-hosted agents |
 
+Phase 2 status: F2-01 completed — Python SDK implemented with full TypeScript SDK parity (74 tests, 86% coverage, ruff clean, interop vectors passing). Available at `sdk-python/`. CI integrated in `.github/workflows/ci.yml`.
+
 ### Phase 3 — Maturity and standardization (6-12 months)
 
 | # | Action | Type | Expected impact |
