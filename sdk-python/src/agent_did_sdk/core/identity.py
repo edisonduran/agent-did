@@ -12,7 +12,8 @@ from datetime import datetime, timezone
 from typing import ClassVar, TypedDict
 from urllib.parse import urlparse
 
-from eth_utils import keccak, to_checksum_address
+from eth_utils.address import to_checksum_address
+from eth_utils.crypto import keccak
 from nacl.signing import SigningKey, VerifyKey
 
 from ..crypto.hash import (
