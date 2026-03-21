@@ -1,5 +1,35 @@
 import { ethers } from 'ethers';
 
+function isTimestampKey(key: string | undefined): boolean {
+  return key === 'created' || key === 'updated' || key === 'timestamp';
+}
+
+function normalizeTimestampValue(value: string): string {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? value : new Date(timestamp).toISOString();
+}
+
+function canonicalizeJsonValue(value: unknown, key?: string): unknown {
+  if (typeof value === 'string' && isTimestampKey(key)) {
+    return normalizeTimestampValue(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeJsonValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entryValue]) => entryValue !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([entryKey, entryValue]) => [entryKey, canonicalizeJsonValue(entryValue, entryKey)]);
+
+    return Object.fromEntries(entries);
+  }
+
+  return value;
+}
+
 /**
  * Generates a deterministic SHA-256 hash of a string payload.
  * Used to protect intellectual property (like system prompts) while allowing verification.
@@ -39,4 +69,12 @@ export function formatHashUri(hashHex: string): string {
 export function generateAgentMetadataHash(payload: string): string {
   const rawHash = hashPayload(payload);
   return formatHashUri(rawHash);
+}
+
+export function canonicalizeJson(value: unknown): string {
+  return JSON.stringify(canonicalizeJsonValue(value));
+}
+
+export function generateCanonicalDocumentHash(document: unknown): string {
+  return generateAgentMetadataHash(canonicalizeJson(document));
 }

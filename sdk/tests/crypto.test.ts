@@ -1,7 +1,20 @@
-import { hashPayload, formatHashUri, generateAgentMetadataHash } from '../src/crypto/hash';
+import fs from 'fs';
+import path from 'path';
+import {
+  hashPayload,
+  formatHashUri,
+  generateAgentMetadataHash,
+  canonicalizeJson,
+  generateCanonicalDocumentHash
+} from '../src/crypto/hash';
 
 describe('Crypto Hash Module', () => {
   const samplePrompt = "You are a helpful customer support agent.";
+  const canonicalFixturePath = path.join(__dirname, '..', '..', 'fixtures', 'canonical-document-reference.json');
+  const canonicalFixture = JSON.parse(fs.readFileSync(canonicalFixturePath, 'utf8')) as {
+    document: Record<string, unknown>;
+    expectedDocumentRef: string;
+  };
 
   it('should generate a deterministic hash for a given payload', () => {
     const hash1 = hashPayload(samplePrompt);
@@ -28,5 +41,35 @@ describe('Crypto Hash Module', () => {
     
     expect(uri).toBeDefined();
     expect(uri.startsWith('hash://sha256/')).toBe(true);
+  });
+
+  it('should canonicalize object keys and timestamps before hashing', () => {
+    const left = {
+      updated: '2024-01-01T00:00:00+00:00',
+      agentMetadata: {
+        systemPromptHash: 'hash://sha256/prompt',
+        coreModelHash: 'hash://sha256/model',
+        version: '1.0.0',
+        name: 'Fixture'
+      },
+      created: '2024-01-01T00:00:00Z'
+    };
+    const right = {
+      created: '2024-01-01T00:00:00.000Z',
+      agentMetadata: {
+        name: 'Fixture',
+        version: '1.0.0',
+        coreModelHash: 'hash://sha256/model',
+        systemPromptHash: 'hash://sha256/prompt'
+      },
+      updated: '2024-01-01T00:00:00.000Z'
+    };
+
+    expect(canonicalizeJson(left)).toEqual(canonicalizeJson(right));
+    expect(generateCanonicalDocumentHash(left)).toEqual(generateCanonicalDocumentHash(right));
+  });
+
+  it('should match the shared canonical document reference fixture', () => {
+    expect(generateCanonicalDocumentHash(canonicalFixture.document)).toEqual(canonicalFixture.expectedDocumentRef);
   });
 });

@@ -37,4 +37,14 @@ def normalize_timestamp_to_iso(value: str | None) -> str | None:
     """If *value* is a Unix-seconds string convert it, otherwise return as-is."""
     if not value:
         return None
-    return unix_string_to_iso(value) if is_unix_timestamp_string(value) else value
+
+    if is_unix_timestamp_string(value):
+        return unix_string_to_iso(value)
+
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"Invalid ISO timestamp: {value}") from exc
+
+    dt_utc = dt.astimezone(timezone.utc)
+    return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt_utc.microsecond // 1000:03d}Z"

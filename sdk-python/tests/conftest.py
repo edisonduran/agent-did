@@ -22,5 +22,11 @@ def _reset_agent_identity() -> None:
 
 @pytest.fixture()
 def interop_vectors() -> dict:
-    path = pathlib.Path(__file__).parent / "fixtures" / "interop-vectors.json"
+    path = pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "interop-vectors.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture()
+def canonical_document_fixture() -> dict:
+    path = pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "canonical-document-reference.json"
     return json.loads(path.read_text(encoding="utf-8"))

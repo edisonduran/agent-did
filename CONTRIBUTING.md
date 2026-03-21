@@ -2,7 +2,7 @@
 
 Thank you for considering contributing to Agent-DID! We are building the foundational identity layer for the AI economy, and every contribution matters.
 
-> **Project status:** The TypeScript SDK is published (`@agent-did/sdk`), RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the EVM smart contract is functional. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
+> **Project status:** The TypeScript SDK is published (`@agent-did/sdk`), the Python SDK is implemented with dedicated CI in `sdk-python/`, RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the EVM smart contract is functional. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
 
 ---
 
@@ -22,12 +22,13 @@ Open an Issue tagged `[RFC]` to start a discussion.
 
 1. Fork the repository.
 2. Create a branch from `master` (`git checkout -b feature/your-feature`).
-3. Write code + tests. Ensure `npm test` passes in the relevant package.
+3. Write code + tests. Ensure the relevant stack-native test workflow passes in the affected package.
 4. Run conformance: `npm run conformance:rfc001` from the project root.
 5. If you touch the LangChain integration, also run `npm run test:langchain` from the project root.
-6. If you touch the Solidity contract or audit automation, also run `npm run audit:contracts` with Docker running.
-7. Commit with a descriptive message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(sdk): add batch DID resolution`).
-8. Open a Pull Request against `master`.
+6. If you touch `sdk-python/`, also run the canonical Python workflow in `sdk-python/README.md`.
+7. If you touch the Solidity contract or audit automation, also run `npm run audit:contracts` with Docker running.
+8. Commit with a descriptive message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(sdk): add batch DID resolution`).
+9. Open a Pull Request against `master`.
 
 ### 3. Improve Documentation
 
@@ -64,7 +65,7 @@ The implemented LangChain package lives in [integrations/langchain/README.md](in
 
 | # | Item | Type | Status |
 |---|---|---|---|
-| F2-01 | **Python SDK** with feature parity | Technical | 🔓 Open |
+| F2-01 | **Python SDK** with feature parity | Technical | ✅ Done |
 | F2-02 | **Google A2A proof-of-concept** — Agent-DID as identity layer for A2A | Integration | 🔓 Open |
 | F2-03 | **Production resolver** with persistent backend (IPFS/Arweave + HTTP) | Technical | 🔓 Open |
 | F2-04 | **Microsoft Agent Framework (Semantic Kernel) integration** | Integration | 🔓 Open |
@@ -98,6 +99,7 @@ npm install
 npm --prefix sdk install
 npm --prefix contracts install
 npm --prefix integrations/langchain install
+python -m pip install -e "./sdk-python[dev]"
 
 # Run SDK tests
 cd sdk && npm test
@@ -110,12 +112,19 @@ npm run audit:contracts
 
 # Run full conformance
 npm run conformance:rfc001
+
+# Run Python SDK checks
+cd sdk-python
+python -m ruff check src/ tests/ scripts/
+python -m mypy --strict src/
+python -m pytest tests/ -q
 ```
 
 ### Requirements
 
 - Node.js 18+
 - npm
+- Python 3.10+
 
 ---
 
@@ -127,7 +136,7 @@ When opening an issue, use one of these tags in the title:
 |---|---|
 | `[RFC]` | Specification discussions, normative changes |
 | `[SDK-TS]` | TypeScript SDK bugs, features, improvements |
-| `[SDK-PY]` | Python SDK development (F2-01) |
+| `[SDK-PY]` | Python SDK bugs, features, parity, and maintenance |
 | `[Contract]` | Smart contract changes, audit findings |
 | `[Integration]` | Framework integrations (LangChain, CrewAI, A2A) |
 | `[DevOps]` | CI/CD, testing infrastructure |

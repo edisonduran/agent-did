@@ -26,6 +26,17 @@ Includes:
 - Document sources via `HTTP/IPFS` and `JSON-RPC`
 - Revocation, document update, key rotation, and history
 
+### 1b) Python SDK (`sdk-python/`)
+
+Includes the same core lifecycle primitives as the TypeScript SDK:
+
+- Agent-DID document creation (`create`)
+- Ed25519 signing and verification (`sign_message`, `verify_signature`)
+- HTTP signing/verification (`sign_http_request`, `verify_http_request_signature`)
+- DID resolution with cache/failover (`UniversalResolverClient`)
+- Revocation, document update, key rotation, and history
+- Dedicated Python CI with lint, type-check, coverage, conformance, and smoke tests
+
 ### 2) EVM Registry (`contracts/`)
 
 `AgentRegistry` contract with:
@@ -48,7 +59,7 @@ Includes:
 ## Integrations
 
 - LangChain JS 1.x: implemented in [integrations/langchain/README.md](integrations/langchain/README.md)
-- LangChain Python: design scaffold available in [integrations/langchain-python/README.md](integrations/langchain-python/README.md), dependent on the future Python SDK (F2-01)
+- LangChain Python: design scaffold available in [integrations/langchain-python/README.md](integrations/langchain-python/README.md), ready to build on top of the implemented Python SDK
 - Microsoft Agent Framework (Semantic Kernel): design scaffold available in [integrations/microsoft-agent-framework/README.md](integrations/microsoft-agent-framework/README.md), roadmap item F2-04
 - CrewAI: design scaffold available in [integrations/crewai/README.md](integrations/crewai/README.md), roadmap item F2-05
 - Azure AI Agent Service: planned roadmap item F2-08
@@ -66,6 +77,7 @@ Includes:
 npm install
 npm --prefix sdk install
 npm --prefix contracts install
+python -m pip install -e "./sdk-python[dev]"
 ```
 
 ### Recommended Quick Verification
@@ -82,6 +94,26 @@ If you are working on the LangChain package, also run:
 npm run test:langchain
 ```
 
+If you are working on the Python SDK, the canonical local workflow is:
+
+```bash
+cd sdk-python
+python -m pip install -e ".[dev]"
+ruff check src/ tests/ scripts/
+mypy --strict src/
+pytest --cov=agent_did_sdk --cov-fail-under=85 -q
+python scripts/conformance_rfc001.py
+```
+
+Repository-level shortcuts also exist:
+
+```bash
+npm run python:test
+npm run python:conformance
+```
+
+These `npm` commands are convenience wrappers only; the Python SDK remains Python-native in local development and CI.
+
 If you are working on the smart contract security track, run:
 
 ```bash
@@ -97,6 +129,8 @@ By default the audit gate is strict: any unmatched finding at severity `Low` or 
 - Main specification: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - Compliance checklist: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - Implementation backlog: [docs/RFC-001-Implementation-Backlog.md](docs/RFC-001-Implementation-Backlog.md)
+- TS ↔ Python parity matrix: [docs/F2-01-TS-Python-Parity-Matrix.md](docs/F2-01-TS-Python-Parity-Matrix.md)
+- SDK release checklist: [docs/SDK-Release-Checklist.md](docs/SDK-Release-Checklist.md)
 - Resolver HA runbook: [docs/RFC-001-Resolver-HA-Runbook.md](docs/RFC-001-Resolver-HA-Runbook.md)
 - Complete SDK course (7 modules, Spanish): [docs/Complete-Agent-DID-SDK-Course-ES.md](docs/Complete-Agent-DID-SDK-Course-ES.md)
 - Complete SDK course (7 modules, English): [docs/Complete-Agent-DID-SDK-Course-EN.md](docs/Complete-Agent-DID-SDK-Course-EN.md)
@@ -125,6 +159,8 @@ The repository now includes a GitHub Actions workflow at `.github/workflows/ci.y
 
 That workflow also installs and tests the LangChain integration package in `integrations/langchain`.
 
+Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.
+
 Smart contract audit automation is available through `npm run audit:contracts` and the dedicated GitHub Actions workflow at `.github/workflows/contract-audit.yml`, which runs Slither and Mythril and uploads the resulting reports as CI artifacts.
 
 The audit runner preserves the raw JSON reports, classifies only exact known-noise matches in the generated summary, and applies a severity-aware gate to unmatched findings.
@@ -137,7 +173,7 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 
 | # | Item | Status |
 |---|---|---|
-| F2-01 | Python SDK with feature parity | Open |
+| F2-01 | Python SDK with feature parity | Done |
 | F2-02 | Google A2A proof-of-concept | Open |
 | F2-03 | Production resolver (IPFS/Arweave + HTTP) | Open |
 | F2-04 | Microsoft Agent Framework (Semantic Kernel) integration | Open |
@@ -145,6 +181,10 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 | F2-06 | Public testnet deployment | Open |
 | F2-07 | Formal whitepaper publication | Open |
 | F2-08 | Azure AI Agent Service integration | Open |
+
+The next Python-focused consolidation track is semantic parity: canonical `documentRef` generation, shared cross-language fixtures, and keeping the separate Python CI aligned with the TypeScript quality bar.
+
+The next Python integration track is implementation of the LangChain Python scaffold, with execution steps documented in [docs/F1-03-LangChain-Python-Implementation-Checklist.md](docs/F1-03-LangChain-Python-Implementation-Checklist.md).
 
 ### Phase 3 — Maturity & Standardization (6-12 months)
 

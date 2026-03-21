@@ -52,7 +52,11 @@ class TestNormalizeTimestampToIso:
 
     def test_iso_passthrough(self) -> None:
         iso = "2024-06-15T12:00:00Z"
-        assert normalize_timestamp_to_iso(iso) == iso
+        assert normalize_timestamp_to_iso(iso) == "2024-06-15T12:00:00.000Z"
+
+    def test_iso_offset_canonicalization(self) -> None:
+        iso = "2024-06-15T12:00:00+00:00"
+        assert normalize_timestamp_to_iso(iso) == "2024-06-15T12:00:00.000Z"
 
     def test_none_returns_none(self) -> None:
         assert normalize_timestamp_to_iso(None) is None

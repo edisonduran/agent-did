@@ -2,7 +2,13 @@
 
 import pytest
 
-from agent_did_sdk.crypto.hash import format_hash_uri, generate_agent_metadata_hash, hash_payload
+from agent_did_sdk.crypto.hash import (
+    canonicalize_json,
+    format_hash_uri,
+    generate_agent_metadata_hash,
+    generate_canonical_document_hash,
+    hash_payload,
+)
 
 
 class TestHashPayload:
@@ -37,3 +43,30 @@ class TestGenerateAgentMetadataHash:
 
     def test_deterministic(self) -> None:
         assert generate_agent_metadata_hash("x") == generate_agent_metadata_hash("x")
+
+
+class TestCanonicalDocumentHash:
+    def test_canonicalizes_keys_and_timestamps(self) -> None:
+        left = {
+            "updated": "2024-01-01T00:00:00+00:00",
+            "agentMetadata": {
+                "systemPromptHash": "hash://sha256/prompt",
+                "coreModelHash": "hash://sha256/model",
+                "version": "1.0.0",
+                "name": "Fixture",
+            },
+            "created": "2024-01-01T00:00:00Z",
+        }
+        right = {
+            "created": "2024-01-01T00:00:00.000Z",
+            "agentMetadata": {
+                "name": "Fixture",
+                "version": "1.0.0",
+                "coreModelHash": "hash://sha256/model",
+                "systemPromptHash": "hash://sha256/prompt",
+            },
+            "updated": "2024-01-01T00:00:00.000Z",
+        }
+
+        assert canonicalize_json(left) == canonicalize_json(right)
+        assert generate_canonical_document_hash(left) == generate_canonical_document_hash(right)

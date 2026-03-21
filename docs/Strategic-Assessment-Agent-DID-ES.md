@@ -26,8 +26,10 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 |---|---|---|
 | Especificación RFC-001 | `docs/RFC-001-Agent-DID-Specification.md` | Draft activo v0.2-unified |
 | SDK TypeScript | `sdk/` | Funcional — 14 archivos fuente, 584 LOC clase central |
+| SDK Python | `sdk-python/` | Funcional — pipeline Python dedicado, fixtures compartidos y suite propia |
 | Smart Contract EVM | `contracts/src/AgentRegistry.sol` | Funcional — Solidity 0.8.24, optimizer habilitado |
 | Tests | `sdk/tests/` | 8 suites cubriendo ciclo completo |
+| Tests Python | `sdk-python/tests/` | Suite dedicada con lint, mypy, coverage, conformance y smokes |
 | Conformidad | `docs/RFC-001-Compliance-Checklist.md` | 11/11 MUST PASS + 5/5 SHOULD PASS |
 | Documentación | `docs/` | RFC + checklist + backlog + runbook HA + curso 2h + manual |
 | Paper teórico | `Seguridad de Agentes de IA_ Firma Digital.md` | Completo (296 líneas) |
@@ -95,8 +97,8 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | BT-02 | Sin auditoría de seguridad del contrato | Riesgo para despliegue en mainnet | Alta | Auditoría con Slither/Mythril como mínimo; auditoría formal para mainnet |
 | BT-03 | Sin ZKP implementado | El paper teórico los menciona pero el SDK no los soporta | Media | Integrar librería ZKP (snarkjs o similar) para verificación de capabilities |
 | BT-04 | Sin integración con frameworks de agentes | Limita adopción inmediata | Alta | Integraciones para LangChain, CrewAI, Microsoft Agent Framework |
-| BT-05 | Sin soporte Python | Excluye el ecosistema dominante de IA/ML | Media-Alta | SDK Python como prioridad P2 |
-| BT-06 | Sin CI/CD observable | Pruebas corren localmente; no hay pipeline automatizado | Media | GitHub Actions con conformance automatizada |
+| BT-05 | Paridad semántica cross-SDK todavía en consolidación | Riesgo de divergencias sutiles entre SDKs | Media | Mantener fixtures compartidos y canonicalización estricta de `documentRef` |
+| BT-06 | CI fragmentado entre stacks | Requiere disciplina para sostener criterios equivalentes | Media | Mantener pipelines separados con gates equivalentes y fixtures comunes |
 | BT-07 | RFC auto-dirigido, no ratificado | Sin respaldo de cuerpo de estándares | Media | Someter a DIF o W3C para revisión |
 
 **Veredicto técnico: VIABLE.** La arquitectura es sólida, las decisiones criptográficas son correctas y el código demuestra madurez de ingeniería. Las brechas son cerrables con esfuerzo incremental.
@@ -178,9 +180,9 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | Dimensión | Puntuación | Justificación |
 |---|---|---|
 | Especificación técnica | ★★★★★ (5/5) | RFC-001 es completa, normativa y bien estructurada con campos MUST/SHOULD claros |
-| Implementación SDK | ★★★★☆ (4/5) | Funcional con buena cobertura; falta SDK Python |
+| Implementación SDK | ★★★★★ (5/5) | TypeScript y Python implementados, con paridad funcional y trabajo activo en paridad semántica |
 | Smart Contract | ★★★★☆ (4/5) | Funcional y limpio; falta auditoría formal |
-| Testing | ★★★★☆ (4/5) | 8 suites con interop vectors; falta CI automatizado |
+| Testing | ★★★★☆ (4/5) | TS y Python con suites propias, interop vectors compartidos y CI dedicado por stack |
 | Documentación | ★★★★★ (5/5) | RFC + checklist + backlog + runbook + curso 2h + paper teórico de 296 líneas |
 | Producción-readiness | ★★☆☆☆ (2/5) | Resolver en memoria, sin pipeline CI/CD, sin auditoría de contrato |
 | Adopción / Comunidad | ★☆☆☆☆ (1/5) | Proyecto greenfield sin adopción externa todavía |
@@ -218,7 +220,7 @@ Estado actual: F1-03 ya fue completado y la implementación está disponible en 
 | F2-07 | Publicación de paper teórico como whitepaper formal | Marketing | Credibilidad técnica |
 | F2-08 | Explorar integración con Azure AI Agent Service | Integración | Identity layer para agentes hospedados en Azure |
 
-Estado actual Fase 2: F2-01 completado — SDK Python implementado con paridad completa al SDK TypeScript (74 tests, 86% cobertura, ruff clean, interop vectors passing). Disponible en `sdk-python/`. CI integrado en `.github/workflows/ci.yml`.
+Estado actual Fase 2: F2-01 completado — SDK Python implementado, con CI separado en `.github/workflows/ci-python.yml`, fixtures de interoperabilidad compartidos y consolidación activa de paridad semántica con el SDK TypeScript.
 
 ### Fase 3 — Madurez y estándar (6-12 meses)
 

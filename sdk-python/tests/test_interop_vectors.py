@@ -9,6 +9,7 @@ from agent_did_sdk.core.types import (
     AgentDIDDocument,
     VerifyHttpRequestSignatureParams,
 )
+from agent_did_sdk.crypto.hash import generate_canonical_document_hash
 
 
 class TestInteropMessageVector:
@@ -59,3 +60,10 @@ class TestInteropHttpVector:
             )
         )
         assert is_valid is True
+
+
+class TestCanonicalDocumentReferenceVector:
+    def test_canonical_document_ref_matches_shared_fixture(self, canonical_document_fixture: dict) -> None:
+        assert generate_canonical_document_hash(
+            canonical_document_fixture["document"]
+        ) == canonical_document_fixture["expectedDocumentRef"]

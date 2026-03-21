@@ -2,7 +2,9 @@
 
 Python SDK for the **Agent-DID Specification (RFC-001)** — create, sign, resolve, verify and revoke Agent-DIDs.
 
-Full feature parity with the TypeScript SDK (`@agent-did/sdk`).
+Functional parity with the TypeScript SDK (`@agent-did/sdk`), with a dedicated Python CI pipeline and shared interoperability fixtures.
+
+Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.md`.
 
 Pythonic surface conventions apply:
 
@@ -124,6 +126,25 @@ AgentIdentity.use_production_resolver_from_http(
 ```
 
 ## Testing
+
+Canonical local workflow:
+
+```bash
+cd sdk-python
+python -m pip install -e ".[dev]"
+ruff check src/ tests/ scripts/
+mypy --strict src/
+pytest --cov=agent_did_sdk --cov-fail-under=85 -q
+```
+
+Repository-level convenience wrappers are also available from the repo root:
+
+```bash
+npm run python:test
+npm run python:conformance
+```
+
+These `npm` commands are only monorepo shortcuts. The canonical Python commands remain the native `python`, `pytest`, `ruff`, and `mypy` commands shown above.
 
 ```bash
 cd sdk-python

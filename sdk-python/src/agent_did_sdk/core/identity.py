@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import os
 import re
 import time
@@ -16,7 +15,10 @@ from urllib.parse import urlparse
 from nacl.signing import SigningKey, VerifyKey
 from web3 import Web3
 
-from ..crypto.hash import generate_agent_metadata_hash
+from ..crypto.hash import (
+    generate_agent_metadata_hash,
+    generate_canonical_document_hash,
+)
 from ..registry.in_memory import InMemoryAgentRegistry
 from ..registry.types import AgentRegistry
 from ..resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
@@ -28,6 +30,7 @@ from ..resolver.types import (
     UniversalResolverConfig,
 )
 from ..resolver.universal import UniversalResolverClient
+from .time_utils import normalize_timestamp_to_iso
 from .types import (
     AgentDIDDocument,
     AgentDocumentHistoryAction,
@@ -97,6 +100,10 @@ class AgentIdentity:
         self._signer_address = config.signer_address
         self._network = config.network
 
+    @staticmethod
+    def _now_iso_timestamp() -> str:
+        return normalize_timestamp_to_iso(datetime.now(timezone.utc).isoformat())  # type: ignore[return-value]
+
     # ------------------------------------------------------------------
     # Instance methods
     # ------------------------------------------------------------------
@@ -104,7 +111,7 @@ class AgentIdentity:
     async def create(self, params: CreateAgentParams) -> CreateAgentResult:
         """Create a new Agent-DID document (passport) from raw parameters."""
         controller_did = f"did:ethr:{self._signer_address}"
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = AgentIdentity._now_iso_timestamp()
         nonce = os.urandom(16).hex()
         raw_id = Web3.keccak(text=f"{self._signer_address}-{timestamp}-{nonce}").hex()
         agent_did = f"did:agent:{self._network}:{raw_id}"
@@ -395,7 +402,7 @@ class AgentIdentity:
                 "id": existing.id,
                 "controller": existing.controller,
                 "created": existing.created,
-                "updated": datetime.now(timezone.utc).isoformat(),
+                "updated": cls._now_iso_timestamp(),
                 "agentMetadata": existing.agent_metadata.model_dump(by_alias=True, exclude_none=True),
                 "verificationMethod": all_vms,
                 "authentication": [vm_id],
@@ -475,7 +482,7 @@ class AgentIdentity:
 
     @staticmethod
     def _compute_document_reference(document: AgentDIDDocument) -> str:
-        return generate_agent_metadata_hash(json.dumps(document.model_dump_jsonld(), sort_keys=False))
+        return generate_canonical_document_hash(document.model_dump_jsonld())
 
     @staticmethod
     def _compute_content_digest(body: str | None) -> str:
@@ -541,7 +548,7 @@ class AgentIdentity:
             did=did,
             revision=len(current) + 1,
             action=action,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=cls._now_iso_timestamp(),
             version=document.agent_metadata.version,
             document_ref=cls._compute_document_reference(document),
         )

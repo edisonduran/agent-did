@@ -6,7 +6,7 @@ import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
 import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 
 describe('Interoperability Vectors', () => {
-  const fixturePath = path.join(__dirname, 'fixtures', 'interop-vectors.json');
+  const fixturePath = path.join(__dirname, '..', '..', 'fixtures', 'interop-vectors.json');
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as {
     did: string;
     controller: string;

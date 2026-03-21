@@ -143,6 +143,29 @@ Translate the findings from `RFC-001-Compliance-Checklist` into implementable wo
 
 ---
 
+### P2-04 — Cross-SDK Canonicalization and Shared Fixtures
+
+**Problem:** TypeScript and Python reached feature parity, but document reference hashing and timestamp serialization still needed an explicit canonical contract to guarantee deterministic interoperability.
+
+**Technical Scope:**
+
+- Canonicalize DID-document serialization before computing `documentRef` in both SDKs.
+- Normalize ISO timestamps to a shared UTC `YYYY-MM-DDTHH:mm:ss.SSSZ` format.
+- Move interop vectors to shared repository fixtures consumed by both SDK test suites.
+- Clarify local Python commands versus monorepo `npm` wrappers.
+
+**Acceptance Criteria:**
+
+1. Equivalent DID documents produce the same `documentRef` in TypeScript and Python.
+2. Shared fixtures are consumed by both SDK test suites.
+3. Documentation explains the canonical Python workflow and the optional root-level wrappers.
+
+**Dependencies:** P2-01, P2-02, P2-03.
+
+**Status:** ✅ Completed.
+
+---
+
 ## Recommended Execution Order
 
 1. P1-01 ✅
@@ -151,6 +174,7 @@ Translate the findings from `RFC-001-Compliance-Checklist` into implementable wo
 4. P2-01 ✅
 5. P2-02 ✅
 6. P2-03 ✅
+7. P2-04 ✅
 
 ---
 

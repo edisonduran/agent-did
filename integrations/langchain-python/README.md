@@ -1,18 +1,18 @@
 # agent-did-langchain
 
-Scaffold de diseno para la futura integracion de Agent-DID con LangChain Python.
+Scaffold de diseno para la integracion de Agent-DID con LangChain Python.
 
-Importante: esta variante complementa la integracion ya implementada en TypeScript/JavaScript. Su ejecucion queda bloqueada hasta que exista el SDK Python de Agent-DID.
+Importante: esta variante complementa la integracion ya implementada en TypeScript/JavaScript. El SDK Python ya existe; el trabajo pendiente ahora es implementar esta integracion sobre esa base.
 
 ## Estado
 
 - Estado actual: `design-scaffold`
 - Lenguaje objetivo: Python
-- Dependencia bloqueante: SDK Python de Agent-DID (F2-01)
+- Dependencia previa resuelta: SDK Python de Agent-DID (F2-01)
 - Relacion con roadmap: complemento Python de la integracion LangChain ya entregada en JS
 - Implementacion: pendiente
 
-Este directorio no contiene una integracion funcional todavia. Su objetivo es dejar documentada la forma esperada del adaptador Python y las superficies de LangChain OSS Python que resultan relevantes para Agent-DID.
+Este directorio no contiene una integracion funcional todavia. Su objetivo actual es dejar documentada la forma esperada del adaptador Python y servir como punto de partida para la implementacion.
 
 ## Hallazgos tecnicos confirmados
 
@@ -53,6 +53,10 @@ integration = create_agent_did_langchain_integration(
 ```
 
 La forma concreta del adaptador debera acoplarse a las primitivas oficiales de LangChain Python disponibles en el momento de implementarlo.
+
+## Checklist operativo
+
+La ejecucion del scaffold a paquete funcional esta desglosada en [../../docs/F1-03-LangChain-Python-Implementation-Checklist.md](../../docs/F1-03-LangChain-Python-Implementation-Checklist.md).
 
 ## Componentes previstos
 

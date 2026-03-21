@@ -13,15 +13,15 @@ import {
   VerifyHttpRequestSignatureParams,
   VerificationMethod
 } from './types';
-import { generateAgentMetadataHash } from '../crypto/hash';
-import { DIDResolver } from '../resolver/types';
+import { generateAgentMetadataHash, generateCanonicalDocumentHash } from '../crypto/hash';
+import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
 import { UniversalResolverClient } from '../resolver/UniversalResolverClient';
-import { DIDDocumentSource, ResolverResolutionEvent } from '../resolver/types';
 import { HttpDIDDocumentSource } from '../resolver/HttpDIDDocumentSource';
 import { JsonRpcDIDDocumentSource } from '../resolver/JsonRpcDIDDocumentSource';
 import { AgentRegistry } from '../registry/types';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
+import { normalizeTimestampToIso } from './time';
 
 export interface AgentIdentityConfig {
   signer: ethers.Signer; // The Creator's Wallet (Controller)
@@ -60,13 +60,17 @@ export interface ProductionJsonRpcResolverProfileConfig {
 export class AgentIdentity {
   private static resolver: DIDResolver = new InMemoryDIDResolver();
   private static registry: AgentRegistry = new InMemoryAgentRegistry();
-  private static documentHistoryStore: Map<string, AgentDocumentHistoryEntry[]> = new Map();
-  private signer: ethers.Signer;
-  private network: string;
+  private static readonly documentHistoryStore: Map<string, AgentDocumentHistoryEntry[]> = new Map();
+  private readonly signer: ethers.Signer;
+  private readonly network: string;
 
   constructor(config: AgentIdentityConfig) {
     this.signer = config.signer;
     this.network = config.network || 'polygon';
+  }
+
+  private static nowIsoTimestamp(): string {
+    return normalizeTimestampToIso(new Date().toISOString()) as string;
   }
 
   /**
@@ -82,7 +86,7 @@ export class AgentIdentity {
     const controllerDid = `did:ethr:${controllerAddress}`;
 
     // 2. Generate a unique Agent ID (Hash of controller + timestamp + random nonce)
-    const timestamp = new Date().toISOString();
+    const timestamp = AgentIdentity.nowIsoTimestamp();
     const nonce = ethers.hexlify(ethers.randomBytes(16));
     const rawAgentId = ethers.keccak256(ethers.toUtf8Bytes(`${controllerAddress}-${timestamp}-${nonce}`));
     const agentDid = `did:agent:${this.network}:${rawAgentId}`;
@@ -168,7 +172,6 @@ export class AgentIdentity {
       throw new Error("Agent DID is required");
     }
 
-    const urlObj = new URL(params.url);
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const dateHeader = new Date().toUTCString();
     const verificationMethodId = params.verificationMethodId || `${params.agentDid}#key-1`;
@@ -345,7 +348,7 @@ export class AgentIdentity {
     }
 
     const existing = await AgentIdentity.resolve(did);
-    const now = new Date().toISOString();
+    const now = AgentIdentity.nowIsoTimestamp();
 
     const updatedDocument: AgentDIDDocument = {
       ...existing,
@@ -397,7 +400,7 @@ export class AgentIdentity {
 
     const updatedDocument: AgentDIDDocument = {
       ...existing,
-      updated: new Date().toISOString(),
+      updated: AgentIdentity.nowIsoTimestamp(),
       verificationMethod: [...existing.verificationMethod, newVerificationMethod],
       authentication: [verificationMethodId]
     };
@@ -471,7 +474,7 @@ export class AgentIdentity {
   }
 
   private static computeDocumentReference(document: AgentDIDDocument): string {
-    return generateAgentMetadataHash(JSON.stringify(document));
+    return generateCanonicalDocumentHash(document);
   }
 
   private static computeContentDigest(body?: string): string {
@@ -582,7 +585,7 @@ export class AgentIdentity {
       did,
       revision: nextRevision,
       action,
-      timestamp: new Date().toISOString(),
+      timestamp: AgentIdentity.nowIsoTimestamp(),
       version: document.agentMetadata.version,
       documentRef: AgentIdentity.computeDocumentReference(document)
     };

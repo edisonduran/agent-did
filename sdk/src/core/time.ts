@@ -31,5 +31,14 @@ export function normalizeTimestampToIso(value?: string): string | undefined {
     return undefined;
   }
 
-  return isUnixTimestampString(value) ? unixStringToIso(value) : value;
+  if (isUnixTimestampString(value)) {
+    return unixStringToIso(value);
+  }
+
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) {
+    throw new Error(`Invalid ISO timestamp: ${value}`);
+  }
+
+  return new Date(ms).toISOString();
 }

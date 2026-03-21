@@ -1,7 +1,7 @@
 [project]
 name = "agent-did-langchain"
 version = "0.0.0"
-description = "Design scaffold for the future Python Agent-DID integration with LangChain."
+description = "Design scaffold for the Python Agent-DID integration with LangChain."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -13,4 +13,4 @@ dependencies = []
 [tool.agent-did]
 status = "design-scaffold"
 language = "python"
-depends_on = "F2-01"
+depends_on = "implementation"

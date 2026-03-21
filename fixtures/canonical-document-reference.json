@@ -1,0 +1,35 @@
+{
+  "document": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://agent-did.org/v1"
+    ],
+    "id": "did:agent:polygon:0xcanonicalfixture",
+    "controller": "did:ethr:0xfixturecontroller",
+    "created": "2024-01-01T00:00:00+00:00",
+    "updated": "2024-01-02T03:04:05Z",
+    "agentMetadata": {
+      "name": "CanonicalFixture",
+      "version": "1.2.3",
+      "description": "Shared fixture for canonical document references.",
+      "coreModelHash": "hash://sha256/model-fixture",
+      "systemPromptHash": "hash://sha256/prompt-fixture",
+      "capabilities": [
+        "resolve",
+        "verify"
+      ]
+    },
+    "verificationMethod": [
+      {
+        "id": "did:agent:polygon:0xcanonicalfixture#key-1",
+        "type": "Ed25519VerificationKey2020",
+        "controller": "did:ethr:0xfixturecontroller",
+        "publicKeyMultibase": "z678cd8acdfbc5713c5eec46e89b0934543fe7e51602794360f421eba84cb1a5a"
+      }
+    ],
+    "authentication": [
+      "did:agent:polygon:0xcanonicalfixture#key-1"
+    ]
+  },
+  "expectedDocumentRef": "hash://sha256/b866a80f6d27de0996b99cdc74dadb5df633b9b2eab30cd3195a6e9cc3333df9"
+}

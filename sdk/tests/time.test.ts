@@ -22,11 +22,11 @@ describe('Time utilities', () => {
   it('should normalize unix to ISO and keep ISO unchanged', () => {
     const unix = '1740566400';
     const normalizedFromUnix = normalizeTimestampToIso(unix);
-    const iso = '2026-02-26T10:20:30.000Z';
+    const iso = '2026-02-26T10:20:30Z';
     const normalizedFromIso = normalizeTimestampToIso(iso);
 
     expect(normalizedFromUnix).toBeDefined();
     expect(normalizedFromUnix?.endsWith('Z')).toBe(true);
-    expect(normalizedFromIso).toEqual(iso);
+    expect(normalizedFromIso).toEqual('2026-02-26T10:20:30.000Z');
   });
 });

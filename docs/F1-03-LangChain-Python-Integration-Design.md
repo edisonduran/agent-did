@@ -2,14 +2,14 @@
 
 ## Objetivo
 
-Planear la variante Python de la integracion LangChain para Agent-DID, de forma consistente con la integracion JS ya implementada y condicionada a la disponibilidad del futuro SDK Python de Agent-DID.
+Planear la variante Python de la integracion LangChain para Agent-DID, de forma consistente con la integracion JS ya implementada y apoyada en el SDK Python ya disponible.
 
 ## Estado actual
 
 - Hito relacionado: F1-03 ya completado para la integracion LangChain JS
 - Estado de esta variante: diseno y scaffold inicial
 - Paquete base: [../integrations/langchain-python/README.md](../integrations/langchain-python/README.md)
-- Dependencia bloqueante: SDK Python de Agent-DID (F2-01)
+- Dependencia previa resuelta: SDK Python de Agent-DID (F2-01)
 - Referencia funcional existente: [../integrations/langchain/README.md](../integrations/langchain/README.md)
 
 ## Hallazgos de investigacion
@@ -26,7 +26,7 @@ La documentacion oficial actual de LangChain Python confirma estas superficies r
 ## Principios de diseno
 
 1. Paridad conceptual con la integracion JS existente.
-2. Implementacion Python-first, dependiente del SDK Python.
+2. Implementacion Python-first, construida sobre el SDK Python ya implementado.
 3. Clave privada siempre encapsulada fuera del contexto del modelo.
 4. Operaciones sensibles con opt-in explicito.
 5. API pequena, clara y razonablemente equivalente entre lenguajes.
@@ -72,13 +72,19 @@ integration = create_agent_did_langchain_integration(
 
 ## Riesgos tecnicos
 
-- Dependencia total del futuro SDK Python de Agent-DID.
+- Riesgo de divergencia entre la API moderna de LangChain Python y la variante JS ya implementada.
 - Posibles diferencias entre la API moderna de LangChain Python y la ya usada en JS.
 - Riesgo de divergencia entre la variante Python y la JS si no se controla la API conceptual comun.
 
+## Estado actual del bloqueo
+
+El SDK Python ya no es un blocker.
+
+La siguiente iteracion depende de trabajo de implementacion en `integrations/langchain-python/`, no de una dependencia externa pendiente. El checklist operativo esta en [F1-03-LangChain-Python-Implementation-Checklist.md](F1-03-LangChain-Python-Implementation-Checklist.md).
+
 ## Recomendacion actual
 
-La siguiente iteracion deberia comenzar cuando exista el SDK Python de Agent-DID. En ese momento conviene portar primero el subconjunto minimo ya probado en JS: identidad actual, resolucion, verificacion y firma HTTP opt-in.
+La siguiente iteracion deberia portar primero el subconjunto minimo ya probado en JS: identidad actual, resolucion, verificacion y firma HTTP opt-in.
 
 ## Criterio de cierre
 

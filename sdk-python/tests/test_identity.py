@@ -30,6 +30,8 @@ class TestAgentIdentityCreate:
         assert doc.controller.startswith("did:ethr:")
         assert doc.agent_metadata.name == "TestBot"
         assert doc.agent_metadata.version == "1.0.0"
+        assert doc.created.endswith("Z")
+        assert doc.updated.endswith("Z")
         assert len(doc.verification_method) == 1
         assert doc.verification_method[0].public_key_multibase is not None
         assert len(result.agent_private_key) == 64  # 32 bytes hex
