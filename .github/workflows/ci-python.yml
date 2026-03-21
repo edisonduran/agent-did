@@ -48,3 +48,7 @@ jobs:
       - name: Run tests with coverage
         working-directory: sdk-python
         run: pytest --cov=agent_did_sdk --cov-fail-under=85 -q
+
+      - name: Run RFC-001 Python conformance
+        working-directory: sdk-python
+        run: python scripts/conformance_rfc001.py

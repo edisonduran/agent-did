@@ -66,6 +66,13 @@ pip install -e ".[dev]"
 pytest --cov
 ```
 
+RFC-001 Python conformance:
+
+```bash
+cd sdk-python
+python scripts/conformance_rfc001.py
+```
+
 ## License
 
 MIT
