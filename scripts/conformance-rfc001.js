@@ -76,7 +76,6 @@ function main() {
   const checks = [
     { name: 'SDK build', cmd: 'npm --prefix sdk run build' },
     { name: 'SDK tests', cmd: 'npm --prefix sdk test' },
-    { name: 'Python SDK tests', cmd: 'npm run test:python', optional: true },
     { name: 'Revocation policy smoke', cmd: 'npm run smoke:policy' },
     { name: 'HA resolver drill', cmd: 'npm run smoke:ha' },
     { name: 'RPC resolver smoke', cmd: 'npm run smoke:rpc' },
@@ -87,15 +86,10 @@ function main() {
   for (const check of checks) {
     console.log(`\\n[conformance] ${check.name}`);
     const result = run(check.cmd);
-    if (!result.ok && check.optional) {
-      console.warn(`[conformance] SKIPPED (optional): ${check.name}`);
-      checkResults.push({ ...check, ...result, skipped: true });
-    } else if (!result.ok) {
-      checkResults.push({ ...check, ...result });
+    checkResults.push({ ...check, ...result });
+    if (!result.ok) {
       console.error(`[conformance] FAILED: ${check.name}`);
       break;
-    } else {
-      checkResults.push({ ...check, ...result });
     }
   }
 
@@ -113,11 +107,11 @@ function main() {
   console.log(`- MUST: ${mustSummary.pass} PASS / ${mustSummary.partial} PARTIAL / ${mustSummary.fail} FAIL / ${mustSummary.unknown} UNKNOWN`);
   console.log(`- SHOULD: ${shouldSummary.pass} PASS / ${shouldSummary.partial} PARTIAL / ${shouldSummary.fail} FAIL / ${shouldSummary.unknown} UNKNOWN`);
 
-  const technicalChecksFailed = checkResults.some((check) => !check.ok && !check.skipped);
+  const technicalChecksFailed = checkResults.some((check) => !check.ok);
   const mustFailed = mustSummary.fail > 0;
 
   if (technicalChecksFailed) {
-    const failedNames = checkResults.filter((c) => !c.ok && !c.skipped).map((c) => c.name);
+    const failedNames = checkResults.filter((c) => !c.ok).map((c) => c.name);
     console.error(`\n[conformance] Technical checks failed: ${failedNames.join(', ')}`);
   }
 
