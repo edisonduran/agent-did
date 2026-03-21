@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ipaddress import ip_address
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlparse
 
 from agent_did_sdk import AgentIdentity, SignHttpRequestParams
@@ -64,12 +64,11 @@ def _with_prefix(prefix: str, name: str) -> str:
 
 
 def _serialize_document(document: Any) -> dict[str, Any]:
-    return cast(dict[str, Any], document.model_dump(by_alias=True, exclude_none=True))
+    return document.model_dump(by_alias=True, exclude_none=True)
 
 
 def _serialize_snapshot(runtime_identity: RuntimeIdentity) -> dict[str, Any]:
-    snapshot_payload = build_agent_did_identity_snapshot(runtime_identity).model_dump(exclude_none=True)
-    return cast(dict[str, Any], snapshot_payload)
+    return build_agent_did_identity_snapshot(runtime_identity).model_dump(exclude_none=True)
 
 
 def _structured_error(error: Exception) -> dict[str, str]:
