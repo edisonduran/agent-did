@@ -56,7 +56,7 @@ const isValid = await AgentIdentity.verifySignature(document.id, payload, signat
 // true ✓
 
 // 4. Revoke if compromised
-await identity.revokeDid(document.id);
+await AgentIdentity.revokeDid(document.id);
 // All subsequent verifications will fail
 ```
 
@@ -70,9 +70,9 @@ await identity.revokeDid(document.id);
 | Verify message signatures | `AgentIdentity.verifySignature(did, payload, sig)` | ✅ |
 | Verify HTTP signatures | `AgentIdentity.verifyHttpRequestSignature(params)` | ✅ |
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
-| Revoke DID | `identity.revokeDid(did)` | ✅ |
-| Update document | `identity.updateDidDocument(did, patch)` | ✅ |
-| Rotate verification keys | `identity.rotateVerificationMethod(did)` | ✅ |
+| Revoke DID | `AgentIdentity.revokeDid(did)` | ✅ |
+| Update document | `AgentIdentity.updateDidDocument(did, patch)` | ✅ |
+| Rotate verification keys | `AgentIdentity.rotateVerificationMethod(did)` | ✅ |
 | Document history/audit | `AgentIdentity.getDocumentHistory(did)` | ✅ |
 | EVM registry adapter | `EvmAgentRegistry` + `EthersAgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |

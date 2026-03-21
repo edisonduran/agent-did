@@ -4,6 +4,12 @@ Python SDK for the **Agent-DID Specification (RFC-001)** — create, sign, resol
 
 Full feature parity with the TypeScript SDK (`@agent-did/sdk`).
 
+Pythonic surface conventions apply:
+
+- constructor config uses `signer_address`
+- instance methods use `snake_case`
+- lifecycle-wide operations such as revoke/update/rotate/resolve remain class methods on `AgentIdentity`
+
 ## Installation
 
 ```bash
@@ -47,6 +53,23 @@ async def main():
 asyncio.run(main())
 ```
 
+## Features
+
+| Feature | API | Status |
+|---|---|---|
+| Create Agent-DID document | `identity.create(params)` | ✅ |
+| Sign messages (Ed25519) | `identity.sign_message(payload, key)` | ✅ |
+| Sign HTTP requests (Bot Auth) | `identity.sign_http_request(params)` | ✅ |
+| Verify message signatures | `AgentIdentity.verify_signature(did, payload, sig)` | ✅ |
+| Verify HTTP signatures | `AgentIdentity.verify_http_request_signature(params)` | ✅ |
+| Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
+| Revoke DID | `AgentIdentity.revoke_did(did)` | ✅ |
+| Update document | `AgentIdentity.update_did_document(did, patch)` | ✅ |
+| Rotate verification keys | `AgentIdentity.rotate_verification_method(did)` | ✅ |
+| Document history/audit | `AgentIdentity.get_document_history(did)` | ✅ |
+| EVM registry adapter | `EvmAgentRegistry` + `Web3AgentRegistryContractClient` | ✅ |
+| Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
+
 ## Modules
 
 | Module | Description |
@@ -57,6 +80,48 @@ asyncio.run(main())
 | `crypto.hash` | SHA-256 hashing with `hash://` URI format |
 | `registry.*` | Agent registry (in-memory, EVM adapter, Web3 client) |
 | `resolver.*` | DID resolver (in-memory, HTTP source, JSON-RPC source, universal) |
+
+## EVM Registry Integration
+
+Connect the SDK to a real on-chain `AgentRegistry` contract:
+
+```python
+from web3 import HTTPProvider, Web3
+
+from agent_did_sdk import AgentIdentity, EvmAgentRegistry, Web3AgentRegistryContractClient
+from agent_did_sdk.registry.evm_types import EvmAgentRegistryAdapterConfig
+
+provider = Web3(HTTPProvider("http://127.0.0.1:8545"))
+contract = provider.eth.contract(address=REGISTRY_ADDRESS, abi=ABI)
+
+registry = EvmAgentRegistry(
+    EvmAgentRegistryAdapterConfig(
+        contract_client=Web3AgentRegistryContractClient(contract),
+        await_transaction_confirmation=True,
+    )
+)
+
+AgentIdentity.set_registry(registry)
+```
+
+See full example: `examples/evm_registry_wiring.py`
+
+## Production Resolver
+
+Configure a production-grade resolver with failover and caching:
+
+```python
+from agent_did_sdk import AgentIdentity, ProductionHttpResolverProfileConfig
+
+AgentIdentity.use_production_resolver_from_http(
+    ProductionHttpResolverProfileConfig(
+        registry=evm_registry,
+        cache_ttl_ms=60_000,
+        ipfs_gateways=["https://gateway.pinata.cloud", "https://ipfs.io"],
+        on_resolution_event=lambda event: print("Resolution:", event.stage),
+    )
+)
+```
 
 ## Testing
 
@@ -71,6 +136,19 @@ RFC-001 Python conformance:
 ```bash
 cd sdk-python
 python scripts/conformance_rfc001.py
+```
+
+Operational smokes:
+
+```bash
+cd contracts
+npm ci
+
+cd ../sdk-python
+python scripts/rpc_resolver_smoke.py
+python scripts/resolver_ha_smoke.py
+python scripts/revocation_policy_smoke.py
+python scripts/e2e_smoke.py
 ```
 
 ## License

@@ -45,6 +45,12 @@ jobs:
       - name: Install LangChain integration dependencies
         run: npm --prefix integrations/langchain ci
 
+      - name: Run TypeScript SDK tests
+        run: npm --prefix sdk test
+
+      - name: Build TypeScript SDK
+        run: npm --prefix sdk run build
+
       - name: Run LangChain integration tests
         run: npm run test:langchain
 

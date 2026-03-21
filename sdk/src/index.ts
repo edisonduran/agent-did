@@ -15,6 +15,8 @@ export {
   VerificationMethod,
   AgentDIDDocument,
   CreateAgentParams,
+  CreateAgentResult,
+  SignHttpRequestParams,
   UpdateAgentDocumentParams,
   RotateVerificationMethodResult,
   VerifyHttpRequestSignatureParams
