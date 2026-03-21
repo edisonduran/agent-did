@@ -12,8 +12,8 @@ from datetime import datetime, timezone
 from typing import ClassVar, TypedDict
 from urllib.parse import urlparse
 
+from eth_utils import keccak, to_checksum_address
 from nacl.signing import SigningKey, VerifyKey
-from web3 import Web3
 
 from ..crypto.hash import (
     generate_agent_metadata_hash,
@@ -113,7 +113,7 @@ class AgentIdentity:
         controller_did = f"did:ethr:{self._signer_address}"
         timestamp = AgentIdentity._now_iso_timestamp()
         nonce = os.urandom(16).hex()
-        raw_id = Web3.keccak(text=f"{self._signer_address}-{timestamp}-{nonce}").hex()
+        raw_id = keccak(text=f"{self._signer_address}-{timestamp}-{nonce}").hex()
         agent_did = f"did:agent:{self._network}:{raw_id}"
 
         core_model_hash_uri = generate_agent_metadata_hash(params.core_model)
@@ -130,7 +130,7 @@ class AgentIdentity:
             type="Ed25519VerificationKey2020",
             controller=controller_did,
             publicKeyMultibase=f"z{public_key_hex}",
-            blockchainAccountId=f"eip155:1:{Web3.to_checksum_address(os.urandom(20))}",
+            blockchainAccountId=f"eip155:1:{to_checksum_address(os.urandom(20))}",
         )
 
         document = AgentDIDDocument(
