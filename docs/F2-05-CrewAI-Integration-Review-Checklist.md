@@ -32,6 +32,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] The intended factory name remains `create_agent_did_crewai_integration(...)`.
 - [ ] Public concepts remain centered on CrewAI-native surfaces: tools, structured observability, callbacks, guardrails and structured outputs.
 - [ ] Any newly introduced helper surface is documented in the README and reflected in the implementation checklist.
+- [ ] If tool-host wiring changes, `create_agent_kwargs(...)` and `create_task_kwargs(...)` still adapt shipped Agent-DID tools to CrewAI runtime-native `BaseTool` instances when CrewAI is installed.
 - [ ] Internal typing changes that affect CI, including helper properties and setters, preserve strict `mypy` compatibility on the supported Python matrix.
 
 ---
@@ -62,6 +63,7 @@ Run this checklist when a change affects one or more of the following:
 
 - [ ] At least one supported CI path still installs the optional `.[runtime]` extra.
 - [ ] The real-runtime smoke test still instantiates CrewAI `Agent`, `Task` and `Crew` with the shipped helper bundle.
+- [ ] Runtime smoke coverage still proves that the shipped helper bundle is accepted by CrewAI host validation on Python 3.12, including adapted tool objects.
 
 ## Test Topology
 

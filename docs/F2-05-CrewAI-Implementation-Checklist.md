@@ -30,6 +30,7 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 - [x] Add tools for current DID exposure, DID resolution and signature verification.
 - [x] Keep sensitive operations opt-in: HTTP signing, payload signing and key rotation.
 - [x] Ensure tool inputs and outputs are structured enough for `Task` and `Crew` composition.
+- [x] Adapt shipped Agent-DID tools to CrewAI runtime-native `BaseTool` instances when the optional CrewAI runtime is installed, while preserving lightweight local wrappers when it is not.
 
 ---
 
@@ -59,6 +60,7 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 - [x] Add package build validation once implementation exists.
 - [x] Keep strict `mypy` compatibility for the shipped package surface, including helper properties and setters exercised by the CI matrix on Python 3.12.
 - [x] Keep at least one CI smoke path that installs the optional CrewAI runtime and instantiates real `Agent`, `Task` and `Crew` objects with the published helper bundle.
+- [x] Ensure the real-runtime smoke path passes runtime-compatible tools into CrewAI `Agent` and `Task` construction instead of only package-local wrappers.
 - [x] Split the suite into clearer domains such as wiring, tool operations, security, observability and runtime smoke validation.
 
 ---
