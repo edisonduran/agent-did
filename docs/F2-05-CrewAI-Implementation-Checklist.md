@@ -36,6 +36,7 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 ## Callbacks And Guardrails
 
 - [x] Add step/task callback hooks for Agent-DID traceability.
+- [x] Expose structured observability primitives for callback fan-out and sanitized JSON logging.
 - [x] Define optional guardrails for outputs that must carry DID-derived guarantees.
 - [x] Ensure callback and guardrail paths do not leak private keys, raw payloads or raw signatures by default.
 
@@ -44,6 +45,8 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 ## Documentation And Examples
 
 - [x] Add at least one runnable example covering the integration bundle.
+- [x] Add a dedicated observability example for structured callback and logging flows.
+- [x] Add a production-style recipe with environment guards, structured outputs, guardrail wiring and secure HTTP signing.
 - [x] Document secure defaults and opt-in exposure flags in `integrations/crewai/README.md`.
 - [x] Keep the design doc, README and package metadata aligned in the same PR.
 
@@ -55,6 +58,8 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 - [x] Add tests for secure defaults and failure handling.
 - [x] Add package build validation once implementation exists.
 - [x] Keep strict `mypy` compatibility for the shipped package surface, including helper properties and setters exercised by the CI matrix on Python 3.12.
+- [x] Keep at least one CI smoke path that installs the optional CrewAI runtime and instantiates real `Agent`, `Task` and `Crew` objects with the published helper bundle.
+- [x] Split the suite into clearer domains such as wiring, tool operations, security, observability and runtime smoke validation.
 
 ---
 

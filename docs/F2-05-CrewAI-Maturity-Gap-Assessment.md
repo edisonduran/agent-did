@@ -15,8 +15,9 @@ CrewAI is already aligned with the repository standard for:
 - dedicated CI
 - root validation scripts
 - implementation and review governance artifacts
+- structured observability with fan-out composition and sanitized JSON logging
 - secure defaults for sensitive tools
-- runnable example, automated tests and package build validation
+- runnable example set, automated tests and package build validation
 
 That means CrewAI is no longer a scaffold. It is a functional integration with disciplined release hygiene.
 
@@ -43,140 +44,116 @@ The comparison is made across five dimensions:
 
 ## Remaining Gaps
 
-### P1 - Structured Observability Layer
+### Closed Since Last Review - Structured Observability Layer
 
 Current state:
 
-- CrewAI exposes sanitized `step_callback` and `task_callback` helpers.
-- The payload shape is lightweight and sufficient for traceability.
-
-Gap versus LangChain:
-
-- No dedicated observability module with typed events.
-- No fan-out composition equivalent to `compose_event_handlers(...)`.
-- No JSON logger adapter.
-- No LangSmith-oriented adapter or child-run projection model.
-- No explicit event taxonomy equivalent to the LangChain tool lifecycle events.
+- CrewAI now exposes a dedicated observability module with typed events.
+- The package now supports fan-out composition and sanitized JSON logging.
+- Tool lifecycle, identity snapshot refresh and CrewAI callback events are emitted with structured records.
 
 Why it matters:
 
-This is the biggest maturity gap. LangChain can already project Agent-DID activity into reusable observability backends. CrewAI currently emits sanitized callback payloads, but not a reusable observability surface.
+This removes the biggest previous maturity gap and gives CrewAI a reusable observability surface rather than callback-only traceability.
 
-Exit condition:
+Remaining delta versus LangChain:
 
-- A dedicated CrewAI observability module exists.
-- Event shapes are stable and documented.
-- Sanitized callback, JSON logging and optional tracing fan-out are supported.
-- Automated tests cover success, failure and redaction behavior.
+- No LangSmith-oriented adapter or child-run projection model yet.
+- No optional tracing backend beyond callback fan-out and JSON logging.
 
-### P1 - Runtime Validation Against Real CrewAI
+This is now a non-blocking observability delta, not the main maturity blocker.
+
+### Closed Since Last Review - Runtime Validation Against Real CrewAI
 
 Current state:
 
-- The integration is deliberately dependency-light.
-- The example supports optional runtime imports when `crewai` is available.
-
-Gap versus LangChain:
-
-- CI does not validate behavior against an installed real CrewAI runtime.
-- The package proves ergonomic compatibility, but not a stronger host-runtime contract under CI.
+- The integration remains deliberately dependency-light in its default install.
+- The package now exposes an optional `.[runtime]` extra for installing the real CrewAI host runtime.
+- CI on Python 3.12 installs that extra and runs a dedicated smoke test against real `Agent`, `Task` and `Crew` objects.
 
 Why it matters:
 
-The current surface is safe and practical, but it still behaves more like a strongly tested adapter than a runtime-verified host integration.
+This closes the biggest remaining runtime-realism gap and upgrades the package from compatibility-only confidence to CI-verified host-runtime compatibility.
 
-Exit condition:
+Remaining delta versus LangChain:
 
-- At least one CI path installs the real CrewAI runtime.
-- One or more smoke tests exercise `Agent`, `Task` and `Crew` with the shipped helper bundle.
-- Any intentionally unsupported host features remain explicitly documented.
+- The smoke path validates object instantiation and helper wiring, not a full LLM-backed crew execution path.
+- Any deeper host-runtime guarantees still depend on future production-style recipes or heavier end-to-end coverage.
 
-### P2 - More Granular Test Topology
+This is now a non-blocking runtime delta rather than a primary maturity blocker.
+
+### Closed Since Last Review - More Granular Test Topology
 
 Current state:
 
-- CrewAI tests cover the factory, secure defaults, rotation behavior, callback sanitization and guardrail blocking.
-
-Gap versus LangChain:
-
-- Tests are concentrated in two files.
-- There is no separated suite for context composition, snapshot helpers, sanitization internals or observability-specific semantics.
+- CrewAI tests now cover wiring, tool operations, security, observability behavior and runtime smoke validation in separate modules.
 
 Why it matters:
 
-The current suite is good enough for the shipped package, but it will become harder to evolve observability, runtime wiring or output contracts without more isolated regression boundaries.
+This removes the main topology problem and makes regressions fail in a narrower domain instead of through broad multi-purpose files.
 
-Exit condition:
+Remaining delta versus LangChain:
 
-- Tests are split into clearer domains such as context, snapshot, security, observability and integration wiring.
-- Future changes can fail narrowly instead of through broad end-to-end assertions.
+- CrewAI still has less depth around low-level helper internals such as snapshot-only or sanitization-only modules.
+- Further subdivision should be driven by package growth rather than by ceremony.
 
-### P2 - Example And Recipe Coverage
+This is now a non-blocking test-depth delta, not a primary maturity blocker.
+
+### Closed Since Last Review - Example And Recipe Coverage
 
 Current state:
 
-- CrewAI ships one runnable wiring example.
-
-Gap versus LangChain:
-
-- No dedicated observability example.
-- No production-style recipe with environment guards.
-- No example focused on structured outputs and guardrails as an operational pattern.
-- No example explicitly centered on secure HTTP signing flows.
+- CrewAI now ships a runnable wiring example, a dedicated observability example and a production-style recipe with environment guards.
+- The production recipe covers structured outputs, guardrail wiring, sanitized observability and secure HTTP signing configuration.
 
 Why it matters:
 
 Mature integrations are not only implemented; they are easy to operate and easy to copy correctly.
 
-Exit condition:
+Remaining delta versus LangChain:
 
-- CrewAI ships at least a base example, observability example and production-style recipe.
-- Optional advanced examples exist for structured outputs and secure HTTP signing.
+- CrewAI still has fewer single-purpose recipes than LangChain.
+- Structured outputs and signing flows are covered in the production recipe rather than in separate focused examples.
+
+This is now a non-blocking documentation and recipe delta, not a primary maturity blocker.
 
 ### P3 - Explicit Maturity Rubric
 
 Current state:
 
-- CrewAI has implementation and review checklists.
-- Those checklists ensure governance discipline.
-
-Gap versus LangChain:
-
-- CrewAI does not yet have an explicit maturity/parity matrix of its own.
-- There is no single document that states which deltas remain before calling it as mature as LangChain.
+- CrewAI now has a dedicated maturity rubric in `docs/F2-05-CrewAI-LangChain-Maturity-Rubric.md`.
+- The implementation and review checklists remain the governance layer around that rubric.
 
 Why it matters:
 
-Without a maturity rubric, “functional” can be mistaken for “fully mature”.
+This removes the last major ambiguity between "functional", "governed" and "comparable in maturity".
 
-Exit condition:
+Remaining delta versus LangChain:
 
-- This document or a successor becomes the canonical maturity rubric.
-- Review artifacts refer to it when maturity claims change.
+- CrewAI still documents some accepted divergences instead of mirroring every LangChain observability extension.
+- That difference is now explicit and governable rather than implicit.
+
+This is now a non-blocking parity-governance delta, not an open maturity blocker.
 
 ---
 
 ## Recommended Sequence
 
-1. Add structured observability primitives for CrewAI.
-2. Add a small runtime-verified CrewAI smoke path in CI.
-3. Expand examples into base, observability and production-style recipes.
-4. Split the test suite into more focused modules.
-5. Re-evaluate the maturity claim once the gaps above are closed.
+1. Re-evaluate maturity only when future divergences stop being intentionally documented and start changing operational guarantees.
 
 ---
 
 ## Decision Rule
 
-CrewAI can be described as “as mature as LangChain” only when:
+CrewAI can be described as “comparable en madurez operativa a LangChain” when:
 
 1. It preserves the current governance and CI discipline.
-2. It gains a reusable observability layer rather than callback-only traceability.
-3. It is validated against a real CrewAI runtime in at least one automated path.
-4. Its examples and tests reach a depth comparable to the operational guidance already available for LangChain.
+2. It is validated against a real CrewAI runtime in at least one automated path.
+3. Its examples and tests reach a depth comparable to the operational guidance already available for LangChain.
+4. Optional tracing backends are either implemented or explicitly accepted as an intentional divergence.
 
-Until then, the correct description is:
+Given the current state, the correct description is:
 
 - functional integration
 - aligned with repository governance
-- not yet at LangChain-level operational maturity
+- comparable in operational maturity to LangChain, with a few explicit non-blocking divergences

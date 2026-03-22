@@ -2,6 +2,7 @@
   "scripts": {
     "audit:contracts": "node scripts/contract-audit.js",
     "build:crewai": "cd integrations/crewai && python -m build",
+    "crewai:install-runtime": "cd integrations/crewai && python -m pip install -e \".[runtime]\"",
     "langchain-python:install-dev": "cd sdk-python && python -m pip install -e .[dev] && cd ..\\integrations\\langchain-python && python -m pip install -e .[dev]",
     "lint:crewai": "python -m ruff check integrations/crewai/src integrations/crewai/tests integrations/crewai/examples",
     "lint:langchain-python": "python -m ruff check integrations/langchain-python/src integrations/langchain-python/tests integrations/langchain-python/examples",
@@ -9,6 +10,7 @@
     "python:test": "cd sdk-python && python -m pytest tests/ -v --tb=short",
     "python:conformance": "cd sdk-python && python scripts/conformance_rfc001.py",
     "test:crewai": "python -m pytest integrations/crewai/tests -q",
+    "test:crewai-runtime": "python -m pytest integrations/crewai/tests/test_runtime_smoke.py -q",
     "test:langchain": "npm --prefix sdk run build && npm --prefix integrations/langchain test",
     "test:langchain-python": "python -m pytest integrations/langchain-python/tests -q",
     "typecheck:crewai": "python -m mypy integrations/crewai/src",

@@ -18,6 +18,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+runtime = [
+  "crewai<1.0",
+]
 dev = [
   "build>=1.2",
   "pytest>=8.0",

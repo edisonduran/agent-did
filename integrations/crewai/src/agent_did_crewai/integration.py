@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 
 from .config import AgentDidCrewAIConfig, AgentDidExposureConfig
 from .context import compose_system_prompt
+from .observability import AgentDidCrewAIEventHandler, AgentDidObserver
 from .snapshot import (
     AgentDidIdentitySnapshot,
     RuntimeIdentity,
@@ -26,6 +28,7 @@ class AgentDidCrewAIIntegration:
     agent_identity: AgentIdentity
     runtime_identity_handle: RuntimeIdentityHandle
     config: AgentDidCrewAIConfig
+    observer: AgentDidObserver
     tools: list[CrewAITool]
 
     @property
@@ -36,15 +39,28 @@ class AgentDidCrewAIIntegration:
     def identity_snapshot(self) -> AgentDidIdentitySnapshot:
         return build_agent_did_identity_snapshot(self.runtime_identity)
 
+    def _capture_identity_snapshot(self, reason: str) -> AgentDidIdentitySnapshot:
+        snapshot = self.identity_snapshot
+        self.observer.emit(
+            "agent_did.identity_snapshot.refreshed",
+            attributes={
+                "did": snapshot.did,
+                "authentication_key_id": snapshot.authentication_key_id,
+                "reason": reason,
+            },
+        )
+        return snapshot
+
     def get_current_identity(self) -> dict[str, Any]:
-        return self.identity_snapshot.model_dump(exclude_none=True)
+        return self._capture_identity_snapshot("get_current_identity").model_dump(exclude_none=True)
 
     def get_current_document(self) -> AgentDIDDocument:
         return self.runtime_identity.document
 
     def compose_system_prompt(self, base_prompt: str | None = None, additional_context: str | None = None) -> str:
         effective_additional_context = additional_context or self.config.additional_system_context
-        return compose_system_prompt(base_prompt, self.identity_snapshot, effective_additional_context)
+        snapshot = self._capture_identity_snapshot("compose_system_prompt")
+        return compose_system_prompt(base_prompt, snapshot, effective_additional_context)
 
     def create_agent_kwargs(self, base_prompt: str | None = None) -> dict[str, Any]:
         return {
@@ -98,6 +114,8 @@ def create_agent_did_crewai_integration(
     tool_prefix: str = "agent_did",
     additional_system_context: str | None = None,
     allow_private_network_targets: bool = False,
+    observability_handler: AgentDidCrewAIEventHandler | None = None,
+    logger: logging.Logger | None = None,
 ) -> AgentDidCrewAIIntegration:
     exposure = (
         expose if isinstance(expose, AgentDidExposureConfig) else AgentDidExposureConfig.model_validate(expose or {})
@@ -109,17 +127,20 @@ def create_agent_did_crewai_integration(
         additional_system_context=additional_system_context,
         allow_private_network_targets=allow_private_network_targets,
     )
+    observer = AgentDidObserver(event_handler=observability_handler, logger=logger)
     tools = create_agent_did_tools(
         agent_identity=agent_identity,
         runtime_identity_handle=runtime_identity_handle,
         expose=config.expose,
         tool_prefix=config.tool_prefix,
         allow_private_network_targets=config.allow_private_network_targets,
+        observer=observer,
     )
 
     return AgentDidCrewAIIntegration(
         agent_identity=agent_identity,
         runtime_identity_handle=runtime_identity_handle,
         config=config,
+        observer=observer,
         tools=tools,
     )

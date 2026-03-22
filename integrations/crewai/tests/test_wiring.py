@@ -29,14 +29,14 @@ async def test_factory_returns_expected_integration_object() -> None:
     assert integration.get_current_document().id == runtime_identity.document.id
 
     composed = integration.compose_system_prompt("Base role context")
-    kwargs = integration.create_agent_kwargs("CrewAI base prompt")
+    agent_kwargs = integration.create_agent_kwargs("CrewAI base prompt")
     task_kwargs = integration.create_task_kwargs(required_output_fields=["result"])
     crew_kwargs = integration.create_crew_kwargs()
 
     assert "Base role context" in composed
     assert "Use verifiable tools when they improve traceability." in composed
-    assert kwargs["tools"] == integration.tools
-    assert "CrewAI base prompt" in kwargs["backstory"]
+    assert agent_kwargs["tools"] == integration.tools
+    assert "CrewAI base prompt" in agent_kwargs["backstory"]
     assert task_kwargs["tools"] == integration.tools
     assert task_kwargs["output_pydantic"].model_fields["did"].is_required()
     assert task_kwargs["output_pydantic"].model_fields["result"].is_required()

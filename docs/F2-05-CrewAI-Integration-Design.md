@@ -7,7 +7,7 @@ Consolidar una integracion de Agent-DID para CrewAI orientada a Python, alineada
 ## Estado actual
 
 - Roadmap item: F2-05
-- Estado: integracion funcional con toolkit de tools, callbacks, guardrails y outputs estructurados
+- Estado: integracion funcional con toolkit de tools, observabilidad estructurada, callbacks, guardrails y outputs estructurados
 - Paquete base: [../integrations/crewai/README.md](../integrations/crewai/README.md)
 - Referencia funcional existente: [../integrations/langchain/README.md](../integrations/langchain/README.md)
 - Decision actual: mantener la cobertura funcional sobre tools, callbacks, guardrails y helpers explicitos de `Agent`, `Task` y `Crew`
@@ -36,6 +36,7 @@ La documentacion oficial de CrewAI confirma piezas relevantes para una integraci
 - Exponer DID actual, controlador, capacidades y clave activa.
 - Resolver documentos DID y verificar firmas desde tools reutilizables.
 - Firmar payloads o solicitudes HTTP mediante herramientas opt-in.
+- Emitir eventos estructurados Agent-DID para tool lifecycle, snapshots y callbacks saneados.
 - Adjuntar trazabilidad Agent-DID a callbacks de task o step.
 - Reforzar outputs con guardrails o validaciones basadas en firma y estructura.
 
@@ -67,12 +68,13 @@ integration = create_agent_did_crewai_integration(
 
 1. Factory principal del adaptador.
 2. Toolkit Agent-DID para CrewAI.
-3. Integracion con callbacks para trazabilidad.
+3. Integracion con observabilidad estructurada, callbacks y logging saneado.
 4. Guardrails opcionales para validar outputs y firmas.
 5. Helpers explicitos para `Agent`, `Task` y `Crew`.
 6. Outputs estructurados reutilizables para `output_pydantic`.
 7. Ejemplo runnable con wiring compatible con `Agent`, `Task` y `Crew`.
 8. Suite automatizada de pruebas Python y validacion de build.
+9. Smoke path opcional contra runtime real de CrewAI dentro del CI soportado.
 
 ## Riesgos tecnicos
 
@@ -82,7 +84,7 @@ integration = create_agent_did_crewai_integration(
 
 ## Recomendacion actual
 
-La siguiente iteracion de F2-05 ya no es cerrar el paquete base, sino cerrar los gaps de madurez operativa respecto de LangChain: observabilidad estructurada, validacion contra runtime real, mayor cobertura de ejemplos y una suite de pruebas mas granular.
+La siguiente iteracion de F2-05 ya no es cerrar el paquete base, sino cerrar los gaps operativos restantes respecto de LangChain: una suite de pruebas aun mas granular y una rubrica de madurez mas explicita. La validacion con runtime real de CrewAI ya queda cubierta por un smoke path dedicado en CI sobre Python 3.12, y la cobertura de ejemplos ya incluye wiring base, observabilidad y una receta production-style.
 
 ## Criterio de cierre
 
