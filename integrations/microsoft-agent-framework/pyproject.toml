@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-did-microsoft-agent-framework"
+version = "0.1.0"
+description = "Microsoft Agent Framework Python integration for Agent-DID identities, native tools and sanitized observability."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "Edison Munoz", email = "edison.munoz@agent-did.org" }
+]
+dependencies = [
+  "agent-did-sdk>=0.1.0",
+  "agent-framework>=1.0.0rc5,<1.1",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "pytest>=8.0,<9.0",
+  "pytest-asyncio>=0.23,<1.0",
+  "ruff>=0.4",
+  "mypy>=1.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+
+[tool.agent-did]
+status = "functional"
+roadmap = "F2-09"
+implementation = "functional"

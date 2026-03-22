@@ -61,7 +61,8 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 - LangChain JS 1.x: implemented in [integrations/langchain/README.md](integrations/langchain/README.md)
 - LangChain Python: functional MVP implemented in [integrations/langchain-python/README.md](integrations/langchain-python/README.md), with dedicated tests, opt-in key rotation, and hardened HTTP signing defaults
 - Semantic Kernel: functional Python integration with tools, session-context helpers, middleware-style identity injection and sanitized observability in [integrations/semantic-kernel/README.md](integrations/semantic-kernel/README.md), roadmap item F2-04
-- CrewAI: functional MVP implemented in [integrations/crewai/README.md](integrations/crewai/README.md), roadmap item F2-05
+- CrewAI: functional Python integration with callbacks, guardrails, structured outputs and runtime smoke coverage in [integrations/crewai/README.md](integrations/crewai/README.md), roadmap item F2-05
+- Microsoft Agent Framework: functional Python integration with native `Agent`/`tool(...)` wiring, `WorkflowBuilder` helpers, advanced orchestration coverage and sanitized observability in [integrations/microsoft-agent-framework/README.md](integrations/microsoft-agent-framework/README.md), roadmap item F2-09
 - Azure AI Agent Service: planned roadmap item F2-08
 
 ## Running Locally
@@ -187,6 +188,7 @@ Current CI split in GitHub Actions:
 - `CI — Python SDK & RFC-001 Conformance`: Python-native quality gates for `sdk-python/`, including conformance and Python smoke coverage on the primary runtime.
 - `CI — LangChain Python Integration`: dedicated validation for `integrations/langchain-python/`.
 - `CI - Semantic Kernel Integration`: dedicated validation for `integrations/semantic-kernel/`.
+- `CI — Microsoft Agent Framework Integration`: dedicated validation for `integrations/microsoft-agent-framework/`.
 - `Contract Audit`: Slither/Mythril security audit pipeline for `contracts/`.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.
@@ -206,11 +208,12 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 | F2-01 | Python SDK with feature parity | Done |
 | F2-02 | Google A2A proof-of-concept | Open |
 | F2-03 | Production resolver (IPFS/Arweave + HTTP) | Open |
-| F2-04 | Microsoft Agent Framework integration | Done |
-| F2-05 | CrewAI integration | Open |
+| F2-04 | Semantic Kernel integration | Done |
+| F2-05 | CrewAI integration | Done |
 | F2-06 | Public testnet deployment | Open |
 | F2-07 | Formal whitepaper publication | Open |
 | F2-08 | Azure AI Agent Service integration | Open |
+| F2-09 | Microsoft Agent Framework integration | Done |
 
 The next Python-focused consolidation track is semantic parity: canonical `documentRef` generation, shared cross-language fixtures, and keeping the separate Python CI aligned with the TypeScript quality bar.
 

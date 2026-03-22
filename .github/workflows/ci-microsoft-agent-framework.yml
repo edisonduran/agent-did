@@ -1,0 +1,175 @@
+name: CI — Microsoft Agent Framework Integration
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "integrations/microsoft-agent-framework/**"
+      - "sdk-python/**"
+      - "package.json"
+      - ".github/workflows/ci-microsoft-agent-framework.yml"
+  pull_request:
+    paths:
+      - "integrations/microsoft-agent-framework/**"
+      - "sdk-python/**"
+      - "package.json"
+      - ".github/workflows/ci-microsoft-agent-framework.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-microsoft-agent-framework-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  microsoft-agent-framework:
+    name: Microsoft Agent Framework Python ${{ matrix.python-version }} - Validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install SDK Python in dev mode
+        working-directory: sdk-python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install Microsoft Agent Framework integration in dev mode
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m ruff check src/ tests/ examples/
+
+      - name: Type-check integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m mypy src/
+
+      - name: Run integration tests
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pytest tests/ -q
+
+      - name: Run advanced workflow runtime smoke test
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pytest tests/test_runtime_smoke.py -q
+
+      - name: Verify public factory entrypoint
+        if: matrix.python-version == '3.12'
+        run: python -c "from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration; print(create_agent_did_microsoft_agent_framework_integration.__name__)"
+
+      - name: Run workflow recipe example
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python examples/agent_did_microsoft_agent_framework_workflow_recipe_example.py
+
+      - name: Run advanced workflow recipe example
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python examples/agent_did_microsoft_agent_framework_advanced_workflow_recipe_example.py
+
+      - name: Run production recipe example
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python examples/agent_did_microsoft_agent_framework_production_recipe_example.py
+
+      - name: Build integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m buildname: CI - Microsoft Agent Framework Integration
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "integrations/microsoft-agent-framework/**"
+      - "sdk-python/**"
+      - "package.json"
+      - ".github/workflows/ci-microsoft-agent-framework.yml"
+  pull_request:
+    paths:
+      - "integrations/microsoft-agent-framework/**"
+      - "sdk-python/**"
+      - "package.json"
+      - ".github/workflows/ci-microsoft-agent-framework.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-microsoft-agent-framework-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  microsoft-agent-framework:
+    name: Microsoft Agent Framework Python ${{ matrix.python-version }} - Validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install SDK Python in dev mode
+        working-directory: sdk-python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install Microsoft Agent Framework integration in dev mode
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pip install -e ".[dev]"
+
+      - name: Install Microsoft Agent Framework runtime extra
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pip install -e ".[runtime]"
+
+      - name: Lint integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m ruff check src/ tests/ examples/
+
+      - name: Type-check integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m mypy src/
+
+      - name: Run integration tests
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pytest tests/ -q
+
+      - name: Run semantic-kernel runtime smoke test
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m pytest tests/test_runtime_smoke.py -q
+
+      - name: Build integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/microsoft-agent-framework
+        run: python -m build

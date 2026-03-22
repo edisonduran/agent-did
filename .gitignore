@@ -10,6 +10,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.venv*/
+**/.venv*/
 
 # BMAD Method artifacts
 _bmad/
