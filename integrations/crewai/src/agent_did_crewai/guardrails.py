@@ -1,7 +1,5 @@
 """Lightweight guardrail helpers for CrewAI outputs."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Iterable
 from typing import Any, Tuple  # noqa: UP035
 

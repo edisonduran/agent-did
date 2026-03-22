@@ -43,6 +43,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] Private keys remain outside model-visible prompts and context.
 - [ ] Logs, callbacks and observability hooks do not expose raw secrets by default.
 - [ ] Guardrail callables remain acceptable to the installed CrewAI runtime, including the return signature required by `Task` validation.
+- [ ] Python 3.12 runtime inspection still observes a concrete `Tuple[bool, Any]` guardrail return annotation, not postponed string metadata.
 
 ## Observability
 
