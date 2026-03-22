@@ -1,4 +1,4 @@
-name: CI - Microsoft Agent Framework Integration
+name: CI - Semantic Kernel Integration
 
 on:
   push:
@@ -6,25 +6,25 @@ on:
       - master
       - main
     paths:
-      - "integrations/microsoft-agent-framework/**"
+      - "integrations/semantic-kernel/**"
       - "sdk-python/**"
       - "package.json"
-      - ".github/workflows/ci-microsoft-agent-framework.yml"
+      - ".github/workflows/ci-semantic-kernel.yml"
   pull_request:
     paths:
-      - "integrations/microsoft-agent-framework/**"
+      - "integrations/semantic-kernel/**"
       - "sdk-python/**"
       - "package.json"
-      - ".github/workflows/ci-microsoft-agent-framework.yml"
+      - ".github/workflows/ci-semantic-kernel.yml"
   workflow_dispatch:
 
 concurrency:
-  group: ci-microsoft-agent-framework-${{ github.ref }}
+  group: ci-semantic-kernel-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  microsoft-agent-framework:
-    name: Microsoft Agent Framework Python ${{ matrix.python-version }} - Validate
+  semantic-kernel:
+    name: Semantic Kernel Python ${{ matrix.python-version }} - Validate
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -47,35 +47,35 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Install Microsoft Agent Framework integration in dev mode
-        working-directory: integrations/microsoft-agent-framework
+      - name: Install Semantic Kernel integration in dev mode
+        working-directory: integrations/semantic-kernel
         run: python -m pip install -e ".[dev]"
 
-      - name: Install Microsoft Agent Framework runtime extra
+      - name: Install Semantic Kernel runtime extra
         if: matrix.python-version == '3.12'
-        working-directory: integrations/microsoft-agent-framework
+        working-directory: integrations/semantic-kernel
         run: python -m pip install -e ".[runtime]"
 
       - name: Lint integration package
         if: matrix.python-version == '3.12'
-        working-directory: integrations/microsoft-agent-framework
+        working-directory: integrations/semantic-kernel
         run: python -m ruff check src/ tests/ examples/
 
       - name: Type-check integration package
         if: matrix.python-version == '3.12'
-        working-directory: integrations/microsoft-agent-framework
+        working-directory: integrations/semantic-kernel
         run: python -m mypy src/
 
       - name: Run integration tests
-        working-directory: integrations/microsoft-agent-framework
+        working-directory: integrations/semantic-kernel
         run: python -m pytest tests/ -q
 
       - name: Run semantic-kernel runtime smoke test
         if: matrix.python-version == '3.12'
-        working-directory: integrations/microsoft-agent-framework
+        working-directory: integrations/semantic-kernel
         run: python -m pytest tests/test_runtime_smoke.py -q
 
       - name: Build integration package
         if: matrix.python-version == '3.12'
-        working-directory: integrations/microsoft-agent-framework
+        working-directory: integrations/semantic-kernel
         run: python -m build

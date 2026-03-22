@@ -60,7 +60,7 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 
 - LangChain JS 1.x: implemented in [integrations/langchain/README.md](integrations/langchain/README.md)
 - LangChain Python: functional MVP implemented in [integrations/langchain-python/README.md](integrations/langchain-python/README.md), with dedicated tests, opt-in key rotation, and hardened HTTP signing defaults
-- Microsoft Agent Framework: functional Python integration with tools, session-context helpers, middleware-style identity injection and sanitized observability in [integrations/microsoft-agent-framework/README.md](integrations/microsoft-agent-framework/README.md), roadmap item F2-04
+- Semantic Kernel: functional Python integration with tools, session-context helpers, middleware-style identity injection and sanitized observability in [integrations/semantic-kernel/README.md](integrations/semantic-kernel/README.md), roadmap item F2-04
 - CrewAI: functional MVP implemented in [integrations/crewai/README.md](integrations/crewai/README.md), roadmap item F2-05
 - Azure AI Agent Service: planned roadmap item F2-08
 
@@ -186,7 +186,7 @@ Current CI split in GitHub Actions:
 - `CI — LangChain JS Integration`: dedicated Node validation for `integrations/langchain/` against the local `sdk/`.
 - `CI — Python SDK & RFC-001 Conformance`: Python-native quality gates for `sdk-python/`, including conformance and Python smoke coverage on the primary runtime.
 - `CI — LangChain Python Integration`: dedicated validation for `integrations/langchain-python/`.
-- `CI - Microsoft Agent Framework Integration`: dedicated validation for `integrations/microsoft-agent-framework/`.
+- `CI - Semantic Kernel Integration`: dedicated validation for `integrations/semantic-kernel/`.
 - `Contract Audit`: Slither/Mythril security audit pipeline for `contracts/`.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.

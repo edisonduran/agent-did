@@ -1,4 +1,4 @@
-"""Structured observability primitives for the Microsoft Agent Framework integration."""
+"""Structured observability primitives for the Semantic Kernel integration."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .sanitization import sanitize_observability_attributes
 
-AgentDidEventHandler = Callable[["AgentDidMicrosoftAgentFrameworkObservabilityEvent"], None]
+AgentDidEventHandler = Callable[["AgentDidSemanticKernelObservabilityEvent"], None]
 
 
-class AgentDidMicrosoftAgentFrameworkObservabilityEvent(BaseModel):
+class AgentDidSemanticKernelObservabilityEvent(BaseModel):
     """Typed event emitted by tools, middleware and context helpers."""
 
     model_config = ConfigDict(extra="forbid")
@@ -24,7 +24,7 @@ class AgentDidMicrosoftAgentFrameworkObservabilityEvent(BaseModel):
     event_type: str
     level: str = "info"
     attributes: dict[str, Any] = Field(default_factory=dict)
-    source: str = "agent_did_microsoft_agent_framework"
+    source: str = "agent_did_semantic_kernel"
     timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))
 
 
@@ -34,7 +34,7 @@ class AgentDidObserver:
     logger: logging.Logger | None = None
 
     def emit(self, event_type: str, *, attributes: dict[str, Any] | None = None, level: str = "info") -> None:
-        event = AgentDidMicrosoftAgentFrameworkObservabilityEvent(
+        event = AgentDidSemanticKernelObservabilityEvent(
             event_type=event_type,
             level=level,
             attributes=sanitize_observability_attributes(attributes or {}),
@@ -49,14 +49,14 @@ class AgentDidObserver:
 def compose_event_handlers(*handlers: AgentDidEventHandler | None) -> AgentDidEventHandler:
     active_handlers = [handler for handler in handlers if handler is not None]
 
-    def _composed(event: AgentDidMicrosoftAgentFrameworkObservabilityEvent) -> None:
+    def _composed(event: AgentDidSemanticKernelObservabilityEvent) -> None:
         for handler in active_handlers:
             handler(event)
 
     return _composed
 
 
-def serialize_observability_event(event: AgentDidMicrosoftAgentFrameworkObservabilityEvent) -> dict[str, Any]:
+def serialize_observability_event(event: AgentDidSemanticKernelObservabilityEvent) -> dict[str, Any]:
     payload = event.model_dump(exclude_none=True)
     payload["attributes"] = sanitize_observability_attributes(payload.get("attributes", {}))
     return payload
@@ -70,7 +70,7 @@ def create_json_logger_event_handler(
 ) -> AgentDidEventHandler:
     sanitized_extra_fields = sanitize_observability_attributes(extra_fields or {})
 
-    def _handler(event: AgentDidMicrosoftAgentFrameworkObservabilityEvent) -> None:
+    def _handler(event: AgentDidSemanticKernelObservabilityEvent) -> None:
         payload = serialize_observability_event(event)
         if not include_timestamp:
             payload.pop("timestamp", None)
@@ -82,7 +82,7 @@ def create_json_logger_event_handler(
 
 __all__ = [
     "AgentDidEventHandler",
-    "AgentDidMicrosoftAgentFrameworkObservabilityEvent",
+    "AgentDidSemanticKernelObservabilityEvent",
     "AgentDidObserver",
     "compose_event_handlers",
     "create_json_logger_event_handler",

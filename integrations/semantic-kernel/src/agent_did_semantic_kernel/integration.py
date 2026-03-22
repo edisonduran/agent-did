@@ -1,4 +1,4 @@
-"""Public integration assembly for Agent-DID and Microsoft Agent Framework."""
+"""Public integration assembly for Agent-DID and Semantic Kernel."""
 
 from __future__ import annotations
 
@@ -9,22 +9,22 @@ from typing import Any
 
 from agent_did_sdk import AgentDIDDocument, AgentIdentity
 
-from .config import AgentDidExposureConfig, AgentDidMicrosoftAgentFrameworkConfig
+from .config import AgentDidExposureConfig, AgentDidSemanticKernelConfig
 from .context import compose_instructions
 from .observability import AgentDidEventHandler, AgentDidObserver
 from .snapshot import AgentDidIdentitySnapshot, RuntimeIdentity, build_agent_did_identity_snapshot
-from .tools import MicrosoftAgentFrameworkTool, create_agent_did_tools, create_host_tool_specs
+from .tools import SemanticKernelTool, create_agent_did_tools, create_host_tool_specs
 
 
 @dataclass(slots=True)
-class AgentDidMicrosoftAgentFrameworkIntegration:
-    """Ready-to-use integration bundle for Microsoft Agent Framework hosts."""
+class AgentDidSemanticKernelIntegration:
+    """Ready-to-use integration bundle for Semantic Kernel hosts."""
 
     agent_identity: AgentIdentity
     runtime_identity: RuntimeIdentity
-    config: AgentDidMicrosoftAgentFrameworkConfig
+    config: AgentDidSemanticKernelConfig
     observer: AgentDidObserver
-    tools: list[MicrosoftAgentFrameworkTool]
+    tools: list[SemanticKernelTool]
 
     def _capture_identity_snapshot(self, reason: str) -> AgentDidIdentitySnapshot:
         snapshot = build_agent_did_identity_snapshot(self.runtime_identity)
@@ -107,7 +107,7 @@ class AgentDidMicrosoftAgentFrameworkIntegration:
         )
 
 
-def create_agent_did_microsoft_agent_framework_integration(
+def create_agent_did_semantic_kernel_integration(
     *,
     agent_identity: AgentIdentity,
     runtime_identity: RuntimeIdentity,
@@ -117,13 +117,13 @@ def create_agent_did_microsoft_agent_framework_integration(
     allow_private_network_targets: bool = False,
     observability_handler: AgentDidEventHandler | None = None,
     logger: logging.Logger | None = None,
-) -> AgentDidMicrosoftAgentFrameworkIntegration:
+) -> AgentDidSemanticKernelIntegration:
     exposure = (
         expose
         if isinstance(expose, AgentDidExposureConfig)
         else AgentDidExposureConfig.model_validate(expose or {})
     )
-    config = AgentDidMicrosoftAgentFrameworkConfig(
+    config = AgentDidSemanticKernelConfig(
         expose=exposure,
         tool_prefix=tool_prefix,
         additional_instructions=additional_instructions,
@@ -139,7 +139,7 @@ def create_agent_did_microsoft_agent_framework_integration(
         observer=observer,
     )
 
-    return AgentDidMicrosoftAgentFrameworkIntegration(
+    return AgentDidSemanticKernelIntegration(
         agent_identity=agent_identity,
         runtime_identity=runtime_identity,
         config=config,

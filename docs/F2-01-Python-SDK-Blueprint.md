@@ -36,7 +36,7 @@ Construir un SDK Python que ofrezca **paridad funcional completa** con el SDK Ty
 2. Soporta HTTP Bot Auth (IETF HTTP Message Signatures).
 3. Se conecta al mismo smart contract `AgentRegistry.sol` vía Web3.py.
 4. Comparte los mismos **vectores de interoperabilidad** que el SDK TS para garantizar cross-language compatibility.
-5. Desbloquea las integraciones Python: LangChain-Python, CrewAI, Microsoft Agent Framework.
+5. Desbloquea las integraciones Python: LangChain-Python, CrewAI, Semantic Kernel.
 
 **Fuera de alcance (por ahora):**
 - ZKP para verificación de capabilities (F3-03).
@@ -556,7 +556,7 @@ Completar F2-01 desbloquea directamente:
 
 | Feature | Descripción | Impacto |
 |---------|-------------|---------|
-| **F2-04** | Microsoft Agent Framework Integration (Python) | Enterprise ecosystem |
+| **F2-04** | Semantic Kernel Integration (Python) | Microsoft ecosystem runtime |
 | **F2-05** | CrewAI Integration | Independent agent framework |
 | **LangChain Python** | integrations/langchain-python | Largest AI framework |
 | **SDK Python en PyPI** | Publicación open-source | Adopción orgánica Python/ML community |

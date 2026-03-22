@@ -1,8 +1,8 @@
-# F2-04 - Microsoft Agent Framework Parity Matrix
+# F2-04 - Semantic Kernel Parity Matrix
 
 ## Objetivo
 
-Comparar la integracion de Microsoft Agent Framework con las otras dos integraciones Python mas relevantes del repositorio:
+Comparar la integracion de Semantic Kernel con las otras dos integraciones Python mas relevantes del repositorio:
 
 - CrewAI
 - LangChain Python
@@ -17,7 +17,7 @@ La comparacion separa tres cosas que antes estaban mezcladas:
 
 ## Matriz
 
-| Dimension | Microsoft Agent Framework | CrewAI | LangChain Python |
+| Dimension | Semantic Kernel | CrewAI | LangChain Python |
 | --- | --- | --- | --- |
 | Factory publica y surface Python-first | Si | Si | Si |
 | Tools Agent-DID con defaults seguros | Si | Si | Si |
@@ -35,12 +35,12 @@ La comparacion separa tres cosas que antes estaban mezcladas:
 
 ## Lectura Correcta De La Matriz
 
-### Donde Microsoft Agent Framework ya tiene paridad real
+### Donde Semantic Kernel ya tiene paridad real
 
 - la integracion ya no es scaffold
 - el surface publico es funcional y consistente con el resto del repositorio
 - la postura de seguridad y saneamiento de observabilidad ya es comparable
-- ahora existe validacion automatizada contra un runtime real de Microsoft via `semantic-kernel`
+- ahora existe validacion automatizada contra un runtime real de Semantic Kernel via `semantic-kernel`
 
 ### Donde la paridad es suficiente pero no absoluta
 
@@ -59,6 +59,6 @@ La comparacion separa tres cosas que antes estaban mezcladas:
 
 La descripcion correcta del estado actual es:
 
-- Microsoft Agent Framework tiene paridad funcional con CrewAI y LangChain Python para la capa base de Agent-DID
-- Microsoft Agent Framework ya tiene paridad operativa suficiente con CrewAI porque ambos cuentan con smoke validation sobre un runtime real en CI
-- Microsoft Agent Framework todavia no replica toda la madurez documental y observabilidad avanzada de LangChain Python, pero esa diferencia ya es explicita y no bloquea la fase actual
+- Semantic Kernel tiene paridad funcional con CrewAI y LangChain Python para la capa base de Agent-DID
+- Semantic Kernel ya tiene paridad operativa suficiente con CrewAI porque ambos cuentan con smoke validation sobre un runtime real en CI
+- Semantic Kernel todavia no replica toda la madurez documental y observabilidad avanzada de LangChain Python, pero esa diferencia ya es explicita y no bloquea la fase actual

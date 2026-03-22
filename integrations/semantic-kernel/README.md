@@ -1,6 +1,6 @@
-# agent-did-microsoft-agent-framework
+# agent-did-semantic-kernel
 
-Integracion funcional de Agent-DID para Microsoft Agent Framework con foco en Python.
+Integracion funcional de Agent-DID para Semantic Kernel con foco en Python.
 
 Esta variante reutiliza el SDK Python real de Agent-DID para snapshot de identidad, resolucion, verificacion, firma opt-in, contexto de sesion, hooks tipo middleware y observabilidad estructurada sin exponer secretos al runtime visible por el modelo.
 
@@ -16,16 +16,13 @@ El paquete ya expone una factory publica, tools reutilizables, helpers para cont
 
 ## Hallazgos tecnicos confirmados
 
-Segun la documentacion oficial y la guia de migracion desde AutoGen, Microsoft Agent Framework expone al menos estas superficies utiles para Agent-DID:
+Segun la documentacion oficial y el runtime validado en CI, Semantic Kernel expone al menos estas superficies utiles para Agent-DID:
 
-- `Agent` como abstraccion principal para single-agent execution.
-- `tools` registrables y herramientas dinamicas por invocacion.
-- `AgentSession` para estado conversacional.
-- `middleware` para concerns transversales como seguridad, logging y validacion.
-- `WorkflowBuilder` y `executor` para orquestacion multi-agent basada en data flow.
-- `request_info()` y `send_responses_streaming()` para human-in-the-loop.
-- `checkpoint_storage` para persistencia y reanudacion.
-- `setup_observability()` para trazabilidad operativa.
+- `Kernel` como host principal para plugins y funciones.
+- `KernelPlugin` y `kernel_function(...)` para registrar tools Agent-DID con schemas compatibles.
+- `Kernel.invoke(...)` para ejecutar tools a traves del runtime real sin requerir una corrida LLM completa.
+- `ChatCompletionAgent` como host agentico validado en la recipe operativa y el smoke test.
+- composicion Python-first sin obligar una dependencia runtime en la instalacion por defecto.
 
 ## Decision de lenguaje
 
@@ -37,7 +34,7 @@ La decision implementada para F2-04 es:
 
 ## Objetivo
 
-Integrar Agent-DID como capa de identidad verificable para agentes ejecutados sobre Microsoft Agent Framework, de forma equivalente a lo ya disponible para LangChain:
+Integrar Agent-DID como capa de identidad verificable para agentes ejecutados sobre Semantic Kernel, de forma equivalente a lo ya disponible para LangChain:
 
 - inyectar DID, controlador, capacidades y clave activa en el contexto operativo del agente,
 - exponer herramientas para inspeccionar identidad, verificar firmas y resolver documentos,
@@ -47,20 +44,20 @@ Integrar Agent-DID como capa de identidad verificable para agentes ejecutados so
 ## Uso rapido
 
 ```python
-from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
+from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
 
 identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1234567890123456789012345678901234567890"))
 runtime_identity = await identity.create(
     CreateAgentParams(
-        name="maf_assistant",
+      name="semantic_kernel_assistant",
         core_model="gpt-4.1-mini",
         system_prompt="Eres un agente verificable y trazable.",
         capabilities=["identity:resolve", "signature:verify"],
     )
 )
 
-integration = create_agent_did_microsoft_agent_framework_integration(
+integration = create_agent_did_semantic_kernel_integration(
     agent_identity=identity,
     runtime_identity=runtime_identity,
     expose={"sign_http": True, "document_history": True},
@@ -81,11 +78,11 @@ El bundle devuelto incluye:
 - `create_context_middleware(...)` para hooks ligeros de enriquecimiento de contexto
 - `create_semantic_kernel_plugin(...)` para registrar las tools en un runtime real de `semantic-kernel`
 
-La API publica tambien exporta el alias conceptual `createAgentDidMicrosoftAgentFrameworkIntegration(...)` para mantener continuidad con los artefactos de diseno, aunque la superficie Python-first recomendada es `create_agent_did_microsoft_agent_framework_integration(...)`.
+La API publica tambien exporta el alias conceptual `createAgentDidSemanticKernelIntegration(...)` para mantener continuidad con los artefactos de diseno, aunque la superficie Python-first recomendada es `create_agent_did_semantic_kernel_integration(...)`.
 
 ## Runtime real con semantic-kernel
 
-La integracion sigue siendo liviana por defecto, pero ahora expone un extra opcional `runtime` para validar y usar un runtime real de Microsoft mediante `semantic-kernel`.
+La integracion sigue siendo liviana por defecto, pero ahora expone un extra opcional `runtime` para validar y usar un runtime real de Semantic Kernel mediante `semantic-kernel`.
 
 ```bash
 python -m pip install -e ".[runtime]"
@@ -132,10 +129,10 @@ Use esta receta cuando quiera validar en local tres cosas a la vez sin depender 
 Ejecute:
 
 ```bash
-cd integrations/microsoft-agent-framework
+cd integrations/semantic-kernel
 python -m pip install -e .[dev]
 python -m pip install -e .[runtime]
-python examples/agent_did_microsoft_agent_framework_operational_recipe_example.py
+python examples/agent_did_semantic_kernel_operational_recipe_example.py
 ```
 
 La recipe:
@@ -148,7 +145,7 @@ La recipe:
 
 Artefacto runnable asociado:
 
-- `examples/agent_did_microsoft_agent_framework_operational_recipe_example.py`
+- `examples/agent_did_semantic_kernel_operational_recipe_example.py`
 
 ## Observabilidad
 
@@ -157,13 +154,13 @@ La factory publica acepta instrumentacion opcional sin acoplar el paquete a un b
 ```python
 import logging
 
-from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
-from agent_did_microsoft_agent_framework.observability import compose_event_handlers, create_json_logger_event_handler
+from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
+from agent_did_semantic_kernel.observability import compose_event_handlers, create_json_logger_event_handler
 
-logger = logging.getLogger("agent_did_microsoft_agent_framework")
+logger = logging.getLogger("agent_did_semantic_kernel")
 events = []
 
-integration = create_agent_did_microsoft_agent_framework_integration(
+integration = create_agent_did_semantic_kernel_integration(
   agent_identity=agent_identity,
   runtime_identity=runtime_identity,
   expose={"sign_http": True, "sign_payload": True},
@@ -196,7 +193,7 @@ Eventos emitidos:
 ```bash
 cd sdk-python
 python -m pip install -e .[dev]
-cd ../integrations/microsoft-agent-framework
+cd ../integrations/semantic-kernel
 python -m pip install -e .[dev]
 python -m ruff check src/ tests/ examples/
 python -m mypy src/
@@ -208,13 +205,13 @@ python -m build
 
 ## Gobernanza de implementacion
 
-- Checklist de implementacion: [../../docs/F2-04-Microsoft-Agent-Framework-Implementation-Checklist.md](../../docs/F2-04-Microsoft-Agent-Framework-Implementation-Checklist.md)
-- Checklist de review recurrente: [../../docs/F2-04-Microsoft-Agent-Framework-Integration-Review-Checklist.md](../../docs/F2-04-Microsoft-Agent-Framework-Integration-Review-Checklist.md)
-- Matriz de paridad: [../../docs/F2-04-Microsoft-Agent-Framework-Parity-Matrix.md](../../docs/F2-04-Microsoft-Agent-Framework-Parity-Matrix.md)
-- Evaluacion de brecha de madurez: [../../docs/F2-04-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md](../../docs/F2-04-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md)
+- Checklist de implementacion: [../../docs/F2-04-Semantic-Kernel-Implementation-Checklist.md](../../docs/F2-04-Semantic-Kernel-Implementation-Checklist.md)
+- Checklist de review recurrente: [../../docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md](../../docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md)
+- Matriz de paridad: [../../docs/F2-04-Semantic-Kernel-Parity-Matrix.md](../../docs/F2-04-Semantic-Kernel-Parity-Matrix.md)
+- Evaluacion de brecha de madurez: [../../docs/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md](../../docs/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md)
 
 ## Referencias
 
 - Implementacion de referencia actual: [../langchain/README.md](../langchain/README.md)
-- Documento de diseno: [../../docs/F2-04-Microsoft-Agent-Framework-Integration-Design.md](../../docs/F2-04-Microsoft-Agent-Framework-Integration-Design.md)
-- Documentacion oficial: https://learn.microsoft.com/agent-framework/
+- Documento de diseno: [../../docs/F2-04-Semantic-Kernel-Integration-Design.md](../../docs/F2-04-Semantic-Kernel-Integration-Design.md)
+- Documentacion oficial: https://github.com/microsoft/semantic-kernel

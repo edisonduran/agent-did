@@ -21,7 +21,7 @@ Use this checklist whenever a change affects one or more of the following:
 - `integrations/langchain/**`
 - `integrations/langchain-python/**`
 - `integrations/crewai/**`
-- `integrations/microsoft-agent-framework/**`
+- `integrations/semantic-kernel/**`
 - `fixtures/**`
 - shared RFC-001 lifecycle semantics
 - canonical `documentRef` generation
@@ -38,7 +38,7 @@ Mark each item before cutting or approving an SDK-affecting release.
 - [ ] If LangChain integrations are affected, the parity matrix in `docs/F1-03-LangChain-TS-Python-Integration-Parity-Matrix.md` is still accurate.
 - [ ] If LangChain integrations are affected, the recurring review in `docs/F1-03-LangChain-Integration-Parity-Review-Checklist.md` was completed.
 - [ ] If the CrewAI integration is affected, `docs/F2-05-CrewAI-Implementation-Checklist.md` and `docs/F2-05-CrewAI-Integration-Review-Checklist.md` were reviewed.
-- [ ] If the Microsoft Agent Framework scaffold is affected, `docs/F2-04-Microsoft-Agent-Framework-Implementation-Checklist.md` and `docs/F2-04-Microsoft-Agent-Framework-Integration-Review-Checklist.md` were reviewed.
+- [ ] If the Semantic Kernel integration is affected, `docs/F2-04-Semantic-Kernel-Implementation-Checklist.md` and `docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md` were reviewed.
 - [ ] Shared fixtures in `fixtures/` still represent the intended cross-language contract.
 - [ ] Documentation does not describe existing Python SDK capabilities as future work.
 - [ ] CHANGELOG or release notes are prepared if the release is user-visible.
@@ -158,13 +158,13 @@ Checklist:
 
 ---
 
-## Microsoft Agent Framework Scaffold Checks
+## Semantic Kernel Integration Checks
 
-- [ ] `integrations/microsoft-agent-framework/README.md` still describes the package as scaffold-only, not as a shipped integration.
-- [ ] Microsoft Agent Framework docs do not describe the Python SDK as future work.
-- [ ] `docs/F2-04-Microsoft-Agent-Framework-Implementation-Checklist.md` still reflects the next concrete delivery steps.
-- [ ] `docs/F2-04-Microsoft-Agent-Framework-Integration-Review-Checklist.md` still reflects the current runtime, security and documentation review surface.
-- [ ] `integrations/microsoft-agent-framework/src/index.js` still exposes the expected factory placeholder and status constant.
+- [ ] `integrations/semantic-kernel/README.md` still describes the package as a shipped Python integration with optional `.[runtime]` validation.
+- [ ] Semantic Kernel docs do not describe the Python SDK as future work.
+- [ ] `docs/F2-04-Semantic-Kernel-Implementation-Checklist.md` still reflects the shipped completion state or the next concrete delta.
+- [ ] `docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md` still reflects the current runtime, security and documentation review surface.
+- [ ] `integrations/semantic-kernel/src/agent_did_semantic_kernel/__init__.py` still exposes the expected factory and package status constant.
 
 ---
 
@@ -222,8 +222,8 @@ An SDK-affecting change is ready for release when:
 - `docs/F2-01-TS-Python-Parity-Matrix.md`
 - `docs/F1-03-LangChain-TS-Python-Integration-Parity-Matrix.md`
 - `docs/F1-03-LangChain-Integration-Parity-Review-Checklist.md`
-- `docs/F2-04-Microsoft-Agent-Framework-Implementation-Checklist.md`
-- `docs/F2-04-Microsoft-Agent-Framework-Integration-Review-Checklist.md`
+- `docs/F2-04-Semantic-Kernel-Implementation-Checklist.md`
+- `docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md`
 - `docs/F2-05-CrewAI-Implementation-Checklist.md`
 - `docs/F2-05-CrewAI-Integration-Review-Checklist.md`
 - `docs/RFC-001-Implementation-Backlog.md`

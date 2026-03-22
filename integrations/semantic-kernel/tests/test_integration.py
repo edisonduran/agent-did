@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
 
-from agent_did_microsoft_agent_framework import (
+from agent_did_semantic_kernel import (
     PACKAGE_STATUS,
-    create_agent_did_microsoft_agent_framework_integration,
-    createAgentDidMicrosoftAgentFrameworkIntegration,
+    create_agent_did_semantic_kernel_integration,
+    createAgentDidSemanticKernelIntegration,
 )
 
 
@@ -16,20 +16,20 @@ async def test_factory_returns_expected_integration_object() -> None:
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5656565656565656565656565656565656565656"))
     runtime_identity = await identity.create(
         CreateAgentParams(
-            name="MicrosoftAgentFrameworkBot",
+            name="SemanticKernelBot",
             core_model="gpt-4.1-mini",
             system_prompt="Integration test",
         )
     )
 
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
         additional_instructions="Prefer verifiable tools over unverifiable assertions.",
     )
 
     assert PACKAGE_STATUS == "functional"
-    assert createAgentDidMicrosoftAgentFrameworkIntegration is create_agent_did_microsoft_agent_framework_integration
+    assert createAgentDidSemanticKernelIntegration is create_agent_did_semantic_kernel_integration
     assert integration.get_current_identity()["did"] == runtime_identity.document.id
     assert integration.get_current_document().id == runtime_identity.document.id
 
@@ -49,13 +49,13 @@ async def test_tool_set_tracks_requested_exposure() -> None:
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5757575757575757575757575757575757575757"))
     runtime_identity = await identity.create(
         CreateAgentParams(
-            name="MicrosoftExposureBot",
+            name="SemanticKernelExposureBot",
             core_model="gpt-4.1-mini",
             system_prompt="Exposure test",
         )
     )
 
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
         expose={"sign_http": True, "document_history": True, "sign_payload": True, "rotate_keys": True},

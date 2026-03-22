@@ -214,7 +214,7 @@ Estado actual: F1-03 ya fue completado y la implementación está disponible en 
 | F2-01 | SDK Python con paridad de funcionalidad | Técnico | Penetrar ecosistema dominante de IA/ML |
 | F2-02 | Integración proof-of-concept con Google A2A | Integración | Demostrar identidad en comunicación A2A |
 | F2-03 | Resolver de producción con backend real (IPFS/Arweave + HTTP) | Técnico | Production-readiness |
-| F2-04 | Integración para Microsoft Agent Framework (Semantic Kernel) | Integración | Acceso al ecosistema enterprise de Microsoft — cubre AutoGen (absorbido por Microsoft) |
+| F2-04 | Integración para Semantic Kernel | Integración | Acceso al runtime de agentes de Microsoft ya validado en Python |
 | F2-05 | Integración para CrewAI | Integración | Cobertura del framework independiente de agentes más popular |
 | F2-06 | Despliegue en testnet pública con documentación | Infraestructura | Validación en entorno real |
 | F2-07 | Publicación de paper teórico como whitepaper formal | Marketing | Credibilidad técnica |
@@ -245,7 +245,7 @@ Estado actual Fase 2: F2-01 completado — SDK Python implementado, con CI separ
 | Test coverage (líneas) | >80% | >85% | >90% |
 | Tiempo de resolución DID p95 | <500ms (local) | <200ms (producción) | <100ms (con caché) |
 | SDKs publicados | 1 (TypeScript) | 2 (+Python) | 2+ |
-| Integraciones con frameworks | 1 (LangChain) | 3 (+Microsoft Agent Framework, CrewAI) | 5+ |
+| Integraciones con frameworks | 1 (LangChain) | 3 (+Semantic Kernel, CrewAI) | 5+ |
 
 ### Métricas de adopción
 

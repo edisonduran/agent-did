@@ -1,8 +1,8 @@
-# F2-04 - Microsoft Agent Framework Maturity Gap Assessment
+# F2-04 - Semantic Kernel Maturity Gap Assessment
 
 ## Objetivo
 
-Documentar lo que todavia separa a Microsoft Agent Framework de la madurez operativa mas alta observada en las otras integraciones, sin confundir "funcional", "gobernado" y "totalmente equivalente en operacion".
+Documentar lo que todavia separa a Semantic Kernel de la madurez operativa mas alta observada en las otras integraciones, sin confundir "funcional", "gobernado" y "totalmente equivalente en operacion".
 
 Este documento es posterior al cierre funcional de F2-04. Su foco ya no es construir la integracion, sino dejar claro que gaps quedan y cuales ya fueron cerrados.
 
@@ -10,7 +10,7 @@ Este documento es posterior al cierre funcional de F2-04. Su foco ya no es const
 
 ## Posicion Actual
 
-Microsoft Agent Framework ya cumple con el estandar del repositorio para:
+Semantic Kernel ya cumple con el estandar del repositorio para:
 
 - paquete Python funcional
 - CI dedicada
@@ -18,7 +18,7 @@ Microsoft Agent Framework ya cumple con el estandar del repositorio para:
 - defaults seguros para herramientas sensibles
 - observabilidad estructurada saneada
 - helpers de contexto, middleware y tools reutilizables
-- validacion opcional contra un runtime real de Microsoft mediante `semantic-kernel`
+- validacion opcional contra un runtime real de Semantic Kernel mediante `semantic-kernel`
 
 Eso significa que la integracion ya no debe describirse como scaffold ni como compatibilidad teorica.
 
@@ -65,7 +65,7 @@ Delta remanente:
 
 Estado actual:
 
-- existe una matriz dedicada de paridad para Microsoft Agent Framework
+- existe una matriz dedicada de paridad para Semantic Kernel
 - existe esta evaluacion dedicada de brecha de madurez
 
 Por que importa:
@@ -133,13 +133,13 @@ Delta:
 
 ## Regla De Decision
 
-Microsoft Agent Framework puede describirse correctamente como "comparable en madurez operativa a CrewAI" cuando:
+Semantic Kernel puede describirse correctamente como "comparable en madurez operativa a CrewAI" cuando:
 
 1. mantiene disciplina de CI y gobernanza
 2. conserva validacion automatizada contra un runtime real
 3. sigue documentando de forma explicita sus divergencias aceptadas
 
-Microsoft Agent Framework puede describirse como "equivalente en madurez operativa a LangChain Python" solo cuando, ademas de lo anterior:
+Semantic Kernel puede describirse como "equivalente en madurez operativa a LangChain Python" solo cuando, ademas de lo anterior:
 
 1. amplie coverage a superficies avanzadas del host
 2. cierre parte de la brecha de recipes operativas

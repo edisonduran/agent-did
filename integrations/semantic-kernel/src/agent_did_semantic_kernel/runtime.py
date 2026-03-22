@@ -1,4 +1,4 @@
-"""Optional semantic-kernel runtime helpers for the Agent-DID Microsoft Agent Framework package."""
+"""Optional semantic-kernel runtime helpers for the Agent-DID Semantic Kernel package."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, cast, get_type_hints
 
-from .tools import MicrosoftAgentFrameworkTool
+from .tools import SemanticKernelTool
 
 
 def _load_semantic_kernel_runtime() -> tuple[Any, Any, Any]:
@@ -18,7 +18,7 @@ def _load_semantic_kernel_runtime() -> tuple[Any, Any, Any]:
         method_module = importlib.import_module("semantic_kernel.functions.kernel_function_from_method")
     except ImportError as error:  # pragma: no cover - exercised through runtime smoke when extra is installed
         raise RuntimeError(
-            "semantic-kernel runtime helpers require installing agent-did-microsoft-agent-framework[runtime]"
+            "semantic-kernel runtime helpers require installing agent-did-semantic-kernel[runtime]"
         ) from error
 
     return (
@@ -29,7 +29,7 @@ def _load_semantic_kernel_runtime() -> tuple[Any, Any, Any]:
 
 
 def _decorate_tool_handler(
-    tool: MicrosoftAgentFrameworkTool,
+    tool: SemanticKernelTool,
     kernel_function: Callable[..., Any],
 ) -> Callable[..., Any]:
     handler = tool.coroutine or tool.func
@@ -62,7 +62,7 @@ def _decorate_tool_handler(
 
 
 def create_semantic_kernel_plugin(
-    tools: list[MicrosoftAgentFrameworkTool],
+    tools: list[SemanticKernelTool],
     *,
     plugin_name: str = "agent_did",
     description: str | None = None,

@@ -1,4 +1,4 @@
-"""Public configuration models for the Agent-DID Microsoft Agent Framework integration."""
+"""Public configuration models for the Agent-DID Semantic Kernel integration."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class AgentDidExposureConfig(BaseModel):
     document_history: bool = False
 
 
-class AgentDidMicrosoftAgentFrameworkConfig(BaseModel):
+class AgentDidSemanticKernelConfig(BaseModel):
     """Top-level integration config consumed by the public factory."""
 
     model_config = ConfigDict(extra="forbid")

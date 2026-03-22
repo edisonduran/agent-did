@@ -3,16 +3,16 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-did-microsoft-agent-framework"
+name = "agent-did-semantic-kernel"
 version = "0.1.0"
-description = "Microsoft Agent Framework Python integration for Agent-DID identities, tools, context injection and secure opt-in operations."
+description = "Semantic Kernel Python integration for Agent-DID identities, tools, context injection and secure opt-in operations."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
   { name = "Agent-citizen-identification contributors" }
 ]
-keywords = ["agent-did", "microsoft-agent-framework", "python", "did", "identity", "tool-calling"]
+keywords = ["agent-did", "semantic-kernel", "python", "did", "identity", "tool-calling"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",

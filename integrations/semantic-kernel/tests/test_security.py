@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
 
-from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
+from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_secure_defaults_keep_sensitive_tools_disabled() -> None:
         )
     )
 
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
     )
@@ -43,7 +43,7 @@ async def test_http_signing_rejects_private_targets_by_default() -> None:
         )
     )
 
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
         expose={"sign_http": True},

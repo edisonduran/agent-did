@@ -7,9 +7,9 @@ import logging
 import pytest
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
 
-from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
-from agent_did_microsoft_agent_framework.observability import (
-    AgentDidMicrosoftAgentFrameworkObservabilityEvent,
+from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
+from agent_did_semantic_kernel.observability import (
+    AgentDidSemanticKernelObservabilityEvent,
     compose_event_handlers,
     create_json_logger_event_handler,
 )
@@ -21,14 +21,14 @@ async def test_identity_snapshot_refresh_emits_observability_event() -> None:
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5959595959595959595959595959595959595959"))
     runtime_identity = await identity.create(
         CreateAgentParams(
-            name="MicrosoftSnapshotObserverBot",
+            name="SemanticKernelSnapshotObserverBot",
             core_model="gpt-4.1-mini",
             system_prompt="Observe identity snapshot refreshes.",
         )
     )
 
-    captured_events: list[AgentDidMicrosoftAgentFrameworkObservabilityEvent] = []
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    captured_events: list[AgentDidSemanticKernelObservabilityEvent] = []
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
         observability_handler=captured_events.append,
@@ -54,14 +54,14 @@ async def test_tool_events_redact_payloads_bodies_and_urls() -> None:
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6060606060606060606060606060606060606060"))
     runtime_identity = await identity.create(
         CreateAgentParams(
-            name="MicrosoftToolObserverBot",
+            name="SemanticKernelToolObserverBot",
             core_model="gpt-4.1-mini",
             system_prompt="Observe tool inputs safely.",
         )
     )
 
-    captured_events: list[AgentDidMicrosoftAgentFrameworkObservabilityEvent] = []
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    captured_events: list[AgentDidSemanticKernelObservabilityEvent] = []
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
         expose={"sign_payload": True, "sign_http": True},
@@ -101,11 +101,11 @@ async def test_tool_events_redact_payloads_bodies_and_urls() -> None:
 
 
 def test_compose_event_handlers_fans_out_to_all_handlers() -> None:
-    received_a: list[AgentDidMicrosoftAgentFrameworkObservabilityEvent] = []
-    received_b: list[AgentDidMicrosoftAgentFrameworkObservabilityEvent] = []
+    received_a: list[AgentDidSemanticKernelObservabilityEvent] = []
+    received_b: list[AgentDidSemanticKernelObservabilityEvent] = []
     handler = compose_event_handlers(received_a.append, None, received_b.append)
 
-    event = AgentDidMicrosoftAgentFrameworkObservabilityEvent(
+    event = AgentDidSemanticKernelObservabilityEvent(
         event_type="agent_did.tool.started",
         attributes={"payload": "secret"},
     )
@@ -118,7 +118,7 @@ def test_compose_event_handlers_fans_out_to_all_handlers() -> None:
 
 def test_json_logger_event_handler_emits_structured_sanitized_payload() -> None:
     stream = io.StringIO()
-    logger = logging.getLogger("agent_did_microsoft_agent_framework.tests.json")
+    logger = logging.getLogger("agent_did_semantic_kernel.tests.json")
     logger.handlers.clear()
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -130,7 +130,7 @@ def test_json_logger_event_handler_emits_structured_sanitized_payload() -> None:
         extra_fields={"component": "tests", "payload": "should-redact"},
     )
     handler(
-        AgentDidMicrosoftAgentFrameworkObservabilityEvent(
+        AgentDidSemanticKernelObservabilityEvent(
             event_type="agent_did.tool.started",
             level="info",
             attributes={"payload": {"redacted": True, "length": 4}, "url": "https://api.example.com/path?q=1"},
@@ -139,7 +139,7 @@ def test_json_logger_event_handler_emits_structured_sanitized_payload() -> None:
 
     record = json.loads(stream.getvalue().strip())
 
-    assert record["source"] == "agent_did_microsoft_agent_framework"
+    assert record["source"] == "agent_did_semantic_kernel"
     assert record["event_type"] == "agent_did.tool.started"
     assert record["attributes"]["payload"] == {"redacted": True, "length": 4}
     assert record["attributes"]["url"] == "https://api.example.com/path"

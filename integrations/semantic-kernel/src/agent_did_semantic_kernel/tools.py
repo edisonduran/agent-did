@@ -1,4 +1,4 @@
-"""Tool construction for Agent-DID operations exposed to Microsoft Agent Framework hosts."""
+"""Tool construction for Agent-DID operations exposed to Semantic Kernel hosts."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ class SupportsModelDump(Protocol):
 
 
 @dataclass(slots=True)
-class MicrosoftAgentFrameworkTool:
+class SemanticKernelTool:
     name: str
     description: str
     args_schema: type[BaseModel]
@@ -192,7 +192,7 @@ def _build_get_current_identity_tool(
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "get_current_identity")
 
     def get_current_identity() -> dict[str, Any]:
@@ -211,9 +211,9 @@ def _build_get_current_identity_tool(
             _emit_tool_failed(observer, tool_name=tool_name, did=current_did, error=error)
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
-        description="Return the current Agent-DID identity attached to this Microsoft Agent Framework agent.",
+        description="Return the current Agent-DID identity attached to this Semantic Kernel agent.",
         args_schema=EmptyArgs,
         func=get_current_identity,
     )
@@ -223,7 +223,7 @@ def _build_resolve_did_tool(
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "resolve_did")
 
     async def resolve_did(did: str | None = None) -> dict[str, Any]:
@@ -244,7 +244,7 @@ def _build_resolve_did_tool(
             _emit_tool_failed(observer, tool_name=tool_name, did=current_did, error=error, inputs={"did": did})
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
         description="Resolve an Agent-DID document. If no DID is provided, resolves the current agent DID.",
         args_schema=ResolveDidArgs,
@@ -256,7 +256,7 @@ def _build_verify_signature_tool(
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "verify_signature")
 
     async def verify_signature(
@@ -295,7 +295,7 @@ def _build_verify_signature_tool(
             )
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
         description="Verify an Agent-DID signature against a DID document and active verification methods.",
         args_schema=VerifySignatureArgs,
@@ -308,7 +308,7 @@ def _build_sign_payload_tool(
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "sign_payload")
 
     async def sign_payload(payload: str) -> dict[str, Any]:
@@ -339,7 +339,7 @@ def _build_sign_payload_tool(
             )
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
         description="Sign a payload with the current agent verification key without exposing the private key.",
         args_schema=SignPayloadArgs,
@@ -353,7 +353,7 @@ def _build_sign_http_request_tool(
     tool_prefix: str,
     allow_private_network_targets: bool,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "sign_http_request")
 
     async def sign_http_request(method: str, url: str, body: str | None = None) -> dict[str, Any]:
@@ -401,7 +401,7 @@ def _build_sign_http_request_tool(
             )
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
         description="Create Agent-DID HTTP signature headers for an outbound request.",
         args_schema=SignHttpRequestArgs,
@@ -413,7 +413,7 @@ def _build_rotate_keys_tool(
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "rotate_key")
 
     async def rotate_key() -> dict[str, Any]:
@@ -439,7 +439,7 @@ def _build_rotate_keys_tool(
             _emit_tool_failed(observer, tool_name=tool_name, did=current_did, error=error)
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
         description="Rotate the active Agent-DID verification method and update the attached runtime identity.",
         args_schema=RotateKeysArgs,
@@ -451,7 +451,7 @@ def _build_document_history_tool(
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
-) -> MicrosoftAgentFrameworkTool:
+) -> SemanticKernelTool:
     tool_name = _with_prefix(tool_prefix, "get_document_history")
 
     def get_document_history(did: str | None = None) -> list[dict[str, Any]] | dict[str, str]:
@@ -472,7 +472,7 @@ def _build_document_history_tool(
             _emit_tool_failed(observer, tool_name=tool_name, did=current_did, error=error, inputs={"did": did})
             return _structured_error(error)
 
-    return MicrosoftAgentFrameworkTool(
+    return SemanticKernelTool(
         name=tool_name,
         description="Return the revision history registered for an Agent-DID document.",
         args_schema=DocumentHistoryArgs,
@@ -480,7 +480,7 @@ def _build_document_history_tool(
     )
 
 
-def create_host_tool_specs(tools: list[MicrosoftAgentFrameworkTool]) -> list[dict[str, Any]]:
+def create_host_tool_specs(tools: list[SemanticKernelTool]) -> list[dict[str, Any]]:
     return [
         {
             "name": tool.name,
@@ -500,9 +500,9 @@ def create_agent_did_tools(
     tool_prefix: str = "agent_did",
     allow_private_network_targets: bool = False,
     observer: AgentDidObserver | None = None,
-) -> list[MicrosoftAgentFrameworkTool]:
+) -> list[SemanticKernelTool]:
     active_observer = observer or AgentDidObserver()
-    tools: list[MicrosoftAgentFrameworkTool] = []
+    tools: list[SemanticKernelTool] = []
 
     if expose.current_identity:
         tools.append(_build_get_current_identity_tool(runtime_identity, tool_prefix, active_observer))

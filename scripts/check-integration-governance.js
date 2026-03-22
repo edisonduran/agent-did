@@ -18,11 +18,11 @@ const RULES = [
     ],
   },
   {
-    name: "Microsoft Agent Framework integration scaffold",
-    watchedPrefixes: ["integrations/microsoft-agent-framework/"],
+    name: "Semantic Kernel integration",
+    watchedPrefixes: ["integrations/semantic-kernel/"],
     requiredDocs: [
-      "docs/F2-04-Microsoft-Agent-Framework-Implementation-Checklist.md",
-      "docs/F2-04-Microsoft-Agent-Framework-Integration-Review-Checklist.md",
+      "docs/F2-04-Semantic-Kernel-Implementation-Checklist.md",
+      "docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md",
     ],
   },
 ];

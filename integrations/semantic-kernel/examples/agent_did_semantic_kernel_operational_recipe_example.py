@@ -6,8 +6,8 @@ import logging
 
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
 
-from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
-from agent_did_microsoft_agent_framework.observability import (
+from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
+from agent_did_semantic_kernel.observability import (
     compose_event_handlers,
     create_json_logger_event_handler,
     serialize_observability_event,
@@ -24,7 +24,7 @@ async def main() -> None:
         ) from error
 
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("agent_did_microsoft_agent_framework.operational_recipe")
+    logger = logging.getLogger("agent_did_semantic_kernel.operational_recipe")
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8484848484848484848484848484848484848484"))
@@ -39,7 +39,7 @@ async def main() -> None:
     )
 
     events: list[dict[str, object]] = []
-    integration = create_agent_did_microsoft_agent_framework_integration(
+    integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
         expose={"sign_payload": True, "sign_http": True, "document_history": True},
