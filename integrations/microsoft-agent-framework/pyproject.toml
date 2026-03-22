@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-did-microsoft-agent-framework"
+version = "0.1.0"
+description = "Microsoft Agent Framework Python integration for Agent-DID identities, tools, context injection and secure opt-in operations."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "Agent-citizen-identification contributors" }
+]
+keywords = ["agent-did", "microsoft-agent-framework", "python", "did", "identity", "tool-calling"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security :: Cryptography",
+  "Typing :: Typed",
+]
+dependencies = [
+  "agent-did-sdk>=0.1.0",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.4",
+  "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/edisonduran/Agent-citizen-identification"
+Repository = "https://github.com/edisonduran/Agent-citizen-identification"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+
+[tool.agent-did]
+status = "functional"
+language = "python"
+roadmap = "F2-04"
+implementation = "functional"

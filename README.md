@@ -60,7 +60,7 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 
 - LangChain JS 1.x: implemented in [integrations/langchain/README.md](integrations/langchain/README.md)
 - LangChain Python: functional MVP implemented in [integrations/langchain-python/README.md](integrations/langchain-python/README.md), with dedicated tests, opt-in key rotation, and hardened HTTP signing defaults
-- Microsoft Agent Framework (Semantic Kernel): sdk-ready scaffold with governance artifacts in [integrations/microsoft-agent-framework/README.md](integrations/microsoft-agent-framework/README.md), roadmap item F2-04
+- Microsoft Agent Framework: functional Python integration with tools, session-context helpers, middleware-style identity injection and sanitized observability in [integrations/microsoft-agent-framework/README.md](integrations/microsoft-agent-framework/README.md), roadmap item F2-04
 - CrewAI: functional MVP implemented in [integrations/crewai/README.md](integrations/crewai/README.md), roadmap item F2-05
 - Azure AI Agent Service: planned roadmap item F2-08
 
@@ -186,6 +186,7 @@ Current CI split in GitHub Actions:
 - `CI — LangChain JS Integration`: dedicated Node validation for `integrations/langchain/` against the local `sdk/`.
 - `CI — Python SDK & RFC-001 Conformance`: Python-native quality gates for `sdk-python/`, including conformance and Python smoke coverage on the primary runtime.
 - `CI — LangChain Python Integration`: dedicated validation for `integrations/langchain-python/`.
+- `CI - Microsoft Agent Framework Integration`: dedicated validation for `integrations/microsoft-agent-framework/`.
 - `Contract Audit`: Slither/Mythril security audit pipeline for `contracts/`.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.
@@ -205,7 +206,7 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 | F2-01 | Python SDK with feature parity | Done |
 | F2-02 | Google A2A proof-of-concept | Open |
 | F2-03 | Production resolver (IPFS/Arweave + HTTP) | Open |
-| F2-04 | Microsoft Agent Framework (Semantic Kernel) integration | Open |
+| F2-04 | Microsoft Agent Framework integration | Done |
 | F2-05 | CrewAI integration | Open |
 | F2-06 | Public testnet deployment | Open |
 | F2-07 | Formal whitepaper publication | Open |

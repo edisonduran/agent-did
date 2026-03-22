@@ -7,7 +7,7 @@ Definir una integracion de Agent-DID para Microsoft Agent Framework que reproduz
 ## Estado actual
 
 - Roadmap item: F2-04
-- Estado: diseno con scaffold listo para implementacion
+- Estado: integracion funcional Python
 - Paquete base: [../integrations/microsoft-agent-framework/README.md](../integrations/microsoft-agent-framework/README.md)
 - Referencia funcional existente: [../integrations/langchain/README.md](../integrations/langchain/README.md)
 - Superficie publica confirmada: documentacion oficial con foco visible en Python y samples Python/C#
@@ -98,7 +98,7 @@ const integration = createAgentDidMicrosoftAgentFrameworkIntegration({
 
 ## Recomendacion actual
 
-La siguiente iteracion de F2-04 puede centrarse directamente en implementar el adaptador Python para tools, middleware y contexto de runtime, manteniendo actualizados los checklists de implementacion y review.
+La siguiente iteracion de F2-04 puede centrarse en endurecimiento y validacion de runtime real, no en scaffold adicional. El adaptador Python para tools, middleware ligero, contexto y observabilidad ya existe; el siguiente trabajo natural es ampliar recipes operativas o smoke tests contra el host runtime real cuando esa dependencia se adopte de forma estable.
 
 ## Criterio de cierre
 

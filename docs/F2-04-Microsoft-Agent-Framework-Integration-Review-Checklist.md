@@ -21,7 +21,7 @@ Run this checklist when a change affects one or more of the following:
 
 ## Scaffold Governance
 
-- [ ] The package status is still correct for the shipped state (`sdk-ready-scaffold` until implementation exists).
+- [ ] The package status is still correct for the shipped state (`functional` for the current Python integration surface).
 - [ ] README, design doc and package metadata describe the same current state.
 - [ ] No Microsoft Agent Framework document refers to the Python SDK as future work.
 

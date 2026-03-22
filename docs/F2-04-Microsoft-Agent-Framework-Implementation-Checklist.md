@@ -10,49 +10,56 @@ Use this checklist when implementation work starts or when a PR changes the pack
 
 ## Current Baseline
 
-- [ ] The package still declares itself as `sdk-ready-scaffold`, not as a shipped integration.
-- [ ] `integrations/microsoft-agent-framework/README.md` no longer describes the Python SDK as future work.
-- [ ] `docs/F2-04-Microsoft-Agent-Framework-Integration-Design.md` still matches the intended runtime surface.
+- [x] The package declares itself as `functional` and that status matches the shipped integration surface.
+- [x] `integrations/microsoft-agent-framework/README.md` no longer describes the Python SDK as future work.
+- [x] `docs/F2-04-Microsoft-Agent-Framework-Integration-Design.md` still matches the intended runtime surface.
 
 ---
 
 ## Factory And Public Surface
 
-- [ ] Keep `createAgentDidMicrosoftAgentFrameworkIntegration(...)` as the conceptual entry point until the Python implementation surface is finalized.
-- [ ] Define the Python adapter return shape before adding secondary helpers.
-- [ ] Keep the public concepts centered on Microsoft Agent Framework-native surfaces: tools, middleware, context and observability hooks.
+- [x] Keep `createAgentDidMicrosoftAgentFrameworkIntegration(...)` as a conceptual alias while the Python-first surface ships as `create_agent_did_microsoft_agent_framework_integration(...)`.
+- [x] Define the Python adapter return shape before adding secondary helpers.
+- [x] Keep the public concepts centered on Microsoft Agent Framework-native surfaces: tools, middleware, context and observability hooks.
 
 ---
 
 ## Runtime Integration
 
-- [ ] Map Agent-DID tools to the framework tool-registration mechanism.
-- [ ] Define middleware or runtime hooks for identity injection without exposing secrets.
-- [ ] Define how session or workflow context carries identity metadata safely.
+- [x] Map Agent-DID tools to host-friendly tool specs suitable for framework tool registration.
+- [x] Define middleware or runtime hooks for identity injection without exposing secrets.
+- [x] Define how session or workflow context carries identity metadata safely.
 
 ---
 
 ## Security
 
-- [ ] Keep sensitive capabilities opt-in: HTTP signing, payload signing and key rotation.
-- [ ] Ensure private keys never enter model-visible prompts or runtime context.
-- [ ] Ensure error, logging and observability paths stay sanitized by default.
+- [x] Keep sensitive capabilities opt-in: HTTP signing, payload signing and key rotation.
+- [x] Ensure private keys never enter model-visible prompts or runtime context.
+- [x] Ensure error, logging and observability paths stay sanitized by default.
 
 ---
 
 ## Documentation And Examples
 
-- [ ] Add at least one runnable example covering the target Python runtime.
-- [ ] Document secure defaults and opt-in exposure flags in `integrations/microsoft-agent-framework/README.md`.
-- [ ] Keep README, design doc and package metadata aligned in the same PR.
+- [x] Add at least one runnable example covering the target Python runtime surface.
+- [x] Document secure defaults and opt-in exposure flags in `integrations/microsoft-agent-framework/README.md`.
+- [x] Keep README, design doc and package metadata aligned in the same PR.
 
 ---
 
 ## Validation
 
-- [ ] Add tests for the adapter factory and tool exposure.
-- [ ] Add tests for middleware or context injection semantics.
-- [ ] Add tests for secure defaults and failure handling.
+- [x] Add tests for the adapter factory and tool exposure.
+- [x] Add tests for middleware or context injection semantics.
+- [x] Add tests for secure defaults and failure handling.
+
+## Current Closure Notes
+
+- The shipped package is Python-native and no longer depends on the legacy JS scaffold.
+- The integration exposes tool specs, session context helpers and middleware-like hooks without forcing a hard runtime dependency.
+- Dedicated CI coverage is expected in `.github/workflows/ci-microsoft-agent-framework.yml`.
+- Observability is vendor-neutral and sanitized by default, following the same governance line used in the other Python integrations.
 
 ---
 

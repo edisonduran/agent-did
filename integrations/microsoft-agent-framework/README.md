@@ -1,17 +1,18 @@
-# @agent-did/microsoft-agent-framework
+# agent-did-microsoft-agent-framework
 
-Scaffold de diseno listo para implementacion de Agent-DID con Microsoft Agent Framework.
+Integracion funcional de Agent-DID para Microsoft Agent Framework con foco en Python.
 
-Importante: la documentacion publica consultada muestra superficies estables sobre todo para Python y C#. No se confirmo una ruta JavaScript equivalente en el mismo nivel de madurez, asi que este scaffold no debe interpretarse como un compromiso de implementacion Node.js inmediato. La siguiente iteracion sigue orientada a Python sobre el SDK Python ya disponible de Agent-DID.
+Esta variante reutiliza el SDK Python real de Agent-DID para snapshot de identidad, resolucion, verificacion, firma opt-in, contexto de sesion, hooks tipo middleware y observabilidad estructurada sin exponer secretos al runtime visible por el modelo.
 
 ## Estado
 
-- Estado actual: `sdk-ready-scaffold`
+- Estado actual: `functional`
 - Roadmap: F2-04
-- Implementacion: pendiente
-- Publicacion: deshabilitada por ahora (`private: true`)
+- Lenguaje objetivo: Python
+- Dependencia previa resuelta: SDK Python de Agent-DID
+- Implementacion: funcional para tools base, contexto de identidad, middleware ligero y observabilidad saneada
 
-Este paquete todavia no implementa la integracion. Su objetivo es fijar la forma del paquete, la API esperada y los criterios de validacion antes de escribir el adaptador real, pero ya no esta bloqueado por la ausencia del SDK Python.
+El paquete ya expone una factory publica, tools reutilizables, helpers para contexto y middleware, observabilidad vendor-neutral y defaults seguros. Las operaciones sensibles siguen siendo opt-in: firma HTTP, firma arbitraria, rotacion de claves e historial documental no se habilitan por defecto.
 
 ## Hallazgos tecnicos confirmados
 
@@ -28,13 +29,11 @@ Segun la documentacion oficial y la guia de migracion desde AutoGen, Microsoft A
 
 ## Decision de lenguaje
 
-La decision actual para F2-04 es:
+La decision implementada para F2-04 es:
 
 1. Implementacion en Python.
 2. Dependencia explicita del SDK Python existente de Agent-DID.
 3. Sin compromiso de implementacion JS en esta fase.
-
-Hasta que se implemente el adaptador Python, este paquete permanece como scaffold privado de diseno.
 
 ## Objetivo
 
@@ -45,53 +44,97 @@ Integrar Agent-DID como capa de identidad verificable para agentes ejecutados so
 - habilitar firma de payloads o solicitudes HTTP solo mediante opt-in,
 - mantener la clave privada fuera del contexto visible para el modelo.
 
-## API propuesta
+## Uso rapido
 
-```js
-const {
-  createAgentDidMicrosoftAgentFrameworkIntegration,
-} = require("@agent-did/microsoft-agent-framework");
+```python
+from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
 
-const integration = createAgentDidMicrosoftAgentFrameworkIntegration({
-  agentIdentity,
-  runtimeIdentity,
-  expose: {
-    signHttp: true,
-    verifySignatures: true,
-    signPayload: false,
-    rotateKeys: false,
-    documentHistory: true,
-  },
-});
+identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1234567890123456789012345678901234567890"))
+runtime_identity = await identity.create(
+    CreateAgentParams(
+        name="maf_assistant",
+        core_model="gpt-4.1-mini",
+        system_prompt="Eres un agente verificable y trazable.",
+        capabilities=["identity:resolve", "signature:verify"],
+    )
+)
+
+integration = create_agent_did_microsoft_agent_framework_integration(
+    agent_identity=identity,
+    runtime_identity=runtime_identity,
+    expose={"sign_http": True, "document_history": True},
+)
+
+agent_kwargs = integration.create_agent_kwargs("Usa herramientas Agent-DID cuando aporten evidencia.")
+context_middleware = integration.create_context_middleware()
+session_context = context_middleware({"session_id": "demo"})
 ```
 
-La forma exacta del adaptador dependera de la superficie estable que Microsoft Agent Framework exponga para:
+El bundle devuelto incluye:
 
-- middleware o filtros de ejecucion,
-- herramientas o funciones registrables,
-- enriquecimiento de contexto o session state,
-- inspeccion de mensajes entrantes y salientes.
+- `tools`: wrappers ligeros con `invoke(...)` y `ainvoke(...)`
+- `get_current_identity()` y `get_current_document()`
+- `compose_instructions(...)`
+- `create_agent_kwargs(...)` para entregar `tools`, `instructions` y `context`
+- `create_session_context(...)` para inyectar identidad Agent-DID en session state
+- `create_context_middleware(...)` para hooks ligeros de enriquecimiento de contexto
 
-Como la implementacion objetivo sera Python, esta API se toma solo como referencia conceptual derivada del patron usado en LangChain.
+La API publica tambien exporta el alias conceptual `createAgentDidMicrosoftAgentFrameworkIntegration(...)` para mantener continuidad con los artefactos de diseno, aunque la superficie Python-first recomendada es `create_agent_did_microsoft_agent_framework_integration(...)`.
 
-## Componentes previstos
+## Observabilidad
 
-- `src/index.js`: punto de entrada del paquete.
-- `src/integration.js`: factory principal del adaptador.
-- `src/tools.js`: herramientas Agent-DID expuestas al runtime.
-- `src/context.js`: enriquecimiento del contexto del agente.
-- `src/messageSigning.js`: firma y verificacion de mensajes o solicitudes.
-- `tests/`: pruebas cuando exista una superficie estable para automatizarlas.
+La factory publica acepta instrumentacion opcional sin acoplar el paquete a un backend especifico:
 
-## Criterios de implementacion
+```python
+import logging
 
-La integracion se considerara lista cuando cumpla al menos con lo siguiente:
+from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
+from agent_did_microsoft_agent_framework.observability import compose_event_handlers, create_json_logger_event_handler
 
-1. Inyecta identidad Agent-DID en el contexto del runtime sin exponer secretos.
-2. Expone consulta de DID actual, resolucion documental y verificacion de firmas.
-3. Permite firma HTTP con opt-in explicito.
-4. Mantiene rotacion de claves y firma arbitraria deshabilitadas por defecto.
-5. Incluye pruebas automatizadas equivalentes a las del paquete de LangChain.
+logger = logging.getLogger("agent_did_microsoft_agent_framework")
+events = []
+
+integration = create_agent_did_microsoft_agent_framework_integration(
+  agent_identity=agent_identity,
+  runtime_identity=runtime_identity,
+  expose={"sign_http": True, "sign_payload": True},
+  observability_handler=compose_event_handlers(
+    events.append,
+    create_json_logger_event_handler(logger, extra_fields={"service": "agent-gateway"}),
+  ),
+)
+```
+
+Eventos emitidos:
+
+- `agent_did.identity_snapshot.refreshed`
+- `agent_did.tool.started`
+- `agent_did.tool.succeeded`
+- `agent_did.tool.failed`
+- `agent_did.context.created`
+- `agent_did.middleware.context_injected`
+
+## Defaults seguros
+
+- `current_identity`, `resolve_did` y `verify_signatures` quedan habilitados por defecto.
+- `sign_http`, `sign_payload`, `rotate_keys` y `document_history` permanecen deshabilitados por defecto.
+- `sign_http` rechaza esquemas no HTTP(S), credenciales embebidas y targets privados o loopback salvo opt-in explicito con `allow_private_network_targets=True`.
+- El contexto de sesion y middleware nunca inyectan `agent_private_key` ni firma cruda.
+- La observabilidad redacta `payload`, `body`, `signature`, `private_key`, `token` y headers sensibles por defecto.
+
+## Validacion local
+
+```bash
+cd sdk-python
+python -m pip install -e .[dev]
+cd ../integrations/microsoft-agent-framework
+python -m pip install -e .[dev]
+python -m ruff check src/ tests/ examples/
+python -m mypy src/
+python -m pytest tests/ -q
+python -m build
+```
 
 ## Gobernanza de implementacion
 
