@@ -1,7 +1,23 @@
 # Agent-DID: Verifiable Identity for AI Agents
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
+[![CI — TypeScript SDK](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci.yml)
+[![CI — Python SDK](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-python.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-python.yml)
+[![CI — LangChain JS](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-langchain-js.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-langchain-js.yml)
+[![CI — LangChain Python](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-langchain-python.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-langchain-python.yml)
+[![CI — CrewAI](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-crewai.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-crewai.yml)
+[![CI — Semantic Kernel](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-semantic-kernel.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-semantic-kernel.yml)
+[![CI — Microsoft Agent Framework](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-microsoft-agent-framework.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/ci-microsoft-agent-framework.yml)
+[![Contract Audit](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/Agent-citizen-identification/actions/workflows/contract-audit.yml)
+
+**Agent-DID** is an open standard and reference implementation for **cryptographic verifiable identity for autonomous AI agents**. It answers a critical question the industry has not yet solved: *how does an AI agent prove who it is, that it was not tampered with, and that its actions can be traced back to an auditable identity?*
+
+Built on W3C DID and Verifiable Credentials, Agent-DID provides a language-agnostic specification ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) and production-ready SDKs for TypeScript and Python, with integrations for every major AI agent framework: LangChain, CrewAI, Semantic Kernel, and Microsoft Agent Framework.
+
+Agent-DID fills a gap left open by Google A2A and Anthropic MCP: neither defines how an agent *proves its own identity* across trust boundaries.
+
+---
 
 Reference project for the **Agent-DID (RFC-001)** standard: decentralized identity for AI agents with cryptographic signing, document resolution, revocation, and evolution traceability.
 
@@ -236,4 +252,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to pick up roadmap ite
 
 ## License
 
-[MIT](LICENSE)
+[Apache-2.0](LICENSE) — includes an explicit patent grant (Section 3) protecting all users and contributors.
