@@ -4,6 +4,8 @@
 
 Provide a single repository-level release checklist for the TypeScript SDK in `sdk/`, the Python SDK in `sdk-python/`, the official LangChain integration packages, and integration scaffolds governed with explicit review artifacts.
 
+Documentation status and canonical-source rules are defined in `docs/Documentation-Governance.md`.
+
 This checklist is intended for:
 
 1. Release preparation.

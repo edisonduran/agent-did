@@ -36,16 +36,7 @@ Open an Issue tagged `[RFC]` to start a discussion.
 
 Docs are available in English and Spanish under `docs/`. Improvements to the specification, training materials, or runbooks are always welcome. Tag your issue or PR with `[Docs]`.
 
-Documentation in this repository is treated as a live description of the current project state, not as an implicit historical snapshot. If a change updates shipped functionality, roadmap completion, CI coverage, maturity level, or integration availability, the affected documentation must be updated in the same PR.
-
-Canonical sources of truth for project status:
-
-- The root `README.md` is the canonical source for project-wide current status, open roadmap items, available integrations, and CI surface visible to contributors.
-- Package and integration `README.md` files are the canonical source for public capabilities, installation guidance, examples, runtime coverage, and scope boundaries of that package.
-- Feature governance docs in `docs/` such as implementation checklists, review checklists, parity matrices, and maturity assessments are the canonical source for whether a roadmap item is still in progress, functionally complete, or only pending maintenance.
-- GitHub workflow files in `.github/workflows/` are the canonical source for what CI actually validates.
-- Training materials, manuals, and strategic assessments are downstream narrative documents and must be updated to match the canonical sources above; they must not invent a conflicting project state.
-- If two live documents disagree, contributors must resolve the conflict in the same PR instead of leaving both versions in circulation.
+Documentation governance is defined in [docs/Documentation-Governance.md](docs/Documentation-Governance.md). Use that document as the canonical policy for live docs, sources of truth, conflict resolution, and historical labeling.
 
 Documentation update checklist for status-changing work:
 
