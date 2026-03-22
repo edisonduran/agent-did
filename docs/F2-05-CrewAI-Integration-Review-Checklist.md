@@ -77,3 +77,11 @@ Run this checklist when a change affects one or more of the following:
 ## Decision Rule
 
 CrewAI review is complete when the current package state is accurately described, security expectations remain explicit, and all implementation-facing artifacts agree on the shipped surface.
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |

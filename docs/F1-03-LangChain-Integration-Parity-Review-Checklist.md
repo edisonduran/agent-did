@@ -80,3 +80,11 @@ Parity verification is complete when:
 1. The checklist above is fully reviewed.
 2. The parity matrix stays accurate.
 3. Any intentional divergence is explicit in docs, not implicit in code.
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` and `package.json` updated accordingly. No functional changes to the integration surface. |

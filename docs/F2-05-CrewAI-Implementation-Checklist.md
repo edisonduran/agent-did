@@ -70,3 +70,11 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 ## Exit Rule
 
 F2-05 is complete for repo scope when the package has a functional factory, explicit `Agent`/`Task`/`Crew` helpers, runnable wiring example, automated tests, successful build validation and documentation that matches shipped behavior.
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |

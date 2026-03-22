@@ -80,3 +80,11 @@ Use this checklist when implementation work starts or when a PR changes the pack
 ## Exit Rule
 
 F2-04 is implementation-ready for release review when the package has a functional adapter, runnable example, automated tests and documentation that matches shipped behavior.
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |

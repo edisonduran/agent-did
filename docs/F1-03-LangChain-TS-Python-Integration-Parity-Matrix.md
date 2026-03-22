@@ -113,3 +113,11 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 3. Los defaults de seguridad permanecen opt-in y alineados.
 4. La observabilidad sigue saneando payloads, firmas, cuerpos HTTP y headers sensibles.
 5. Nuevas capacidades de una integracion se portan a la otra o se documentan como excepcion explicita.
+
+---
+
+## Changelog
+
+| Fecha | Cambio |
+|-------|--------|
+| 2026-03-22 | Licencia del repositorio migrada de MIT a Apache-2.0. Actualizado `package.json` (langchain TS) y `pyproject.toml` (langchain-python). Sin cambios funcionales en la superficie de integración. |
