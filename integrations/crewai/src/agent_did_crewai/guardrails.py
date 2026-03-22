@@ -16,9 +16,9 @@ def create_identity_output_guardrail(
     required = set(required_fields or [])
 
     # CrewAI validates callable annotations at runtime and rejects some otherwise
-    # valid guardrail return annotations. Leaving the nested callable unannotated
-    # keeps the runtime contract stable across CrewAI releases.
-    def guardrail(output: Any):
+    # valid guardrail return annotations. We keep the static return annotation for
+    # type-checking, then remove it from the runtime-visible signature below.
+    def guardrail(output: Any) -> GuardrailResult:
         normalized_output = normalize_output(output)
         if not isinstance(normalized_output, dict):
             return False, "CrewAI guardrail expects a dictionary output"
@@ -37,5 +37,7 @@ def create_identity_output_guardrail(
             return False, f"Unexpected DID in output. Expected {expected_did}, got {output_did}"
 
         return True, None
+
+    guardrail.__annotations__.pop("return", None)
 
     return cast(Callable[[Any], GuardrailResult], guardrail)
