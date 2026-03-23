@@ -28,8 +28,6 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 - **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, and Microsoft Agent Framework
 - **Flexible trust anchoring** — on-chain (EVM) for immutability, or web-based (`did:wba`) for zero-friction adoption
 
-> For the conceptual foundation behind these design choices, see [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md).
-
 ---
 
 ## Why Agent-DID
@@ -41,6 +39,49 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 | Identity is a separate concern from the AI framework | Native wrappers that inject identity into LangChain, CrewAI, SK, and MAF |
 | Agent actions are unauditable | Ed25519-signed HTTP requests — every action traceable to a verifiable DID |
 | Rogue agents can't be stopped globally | On-chain revocation propagates instantly across all resolvers |
+
+---
+
+## Design Philosophy
+
+### The Core Problem
+
+AI is no longer just a tool humans use — it is becoming an actor that makes decisions, negotiates, executes code, signs operations, and delegates tasks to other agents. This transition raises a question the industry has systematically avoided:
+
+> **How does a system know who the agent talking to it really is?**
+
+Not who created it. Not which platform it runs on. But *which specific agent*, at this moment, with this behavior, executing these actions.
+
+OAuth delegates this to a centralized provider. MCP ignores it by design. Agent-DID solves it at the cryptographic level, without platform lock-in.
+
+### Five Principles
+
+**1. Identity is a first-class citizen of the AI stack**
+Identity is not a credential bolted on at the end. It is the foundation on which trust between autonomous systems is built. Without cryptographically verifiable identity there is no real audit trail, no algorithmic accountability, no revocation system that works when something goes wrong.
+
+**2. Flexible by design, not by accident**
+Not every system needs blockchain. Not every system can avoid it. Agent-DID rejects the imposition of a single trust-anchoring mechanism:
+- High-frequency financial agents need EVM immutability and on-chain cryptographic traceability.
+- Rapid-prototyping platforms need zero friction — no gas fees, no wallets.
+- Regulated environments need verifiable credentials compatible with compliance frameworks.
+
+The same standard — the same SDK — must work in all three cases.
+
+**3. Meet the developer where they are**
+A standard that requires learning a new paradigm before writing the first useful line of code has a structural adoption problem. Agent-DID integrates into the frameworks developers already use — LangChain, CrewAI, Semantic Kernel, Microsoft Agent Framework — and gives them verifiable identity without abandoning their workflow.
+
+**4. Open standards over proprietary lock-in**
+Agent-DID extends W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends the standard the industry is already converging on, adding AI-specific metadata: model hash, system prompt hash, declared capabilities, evolution lifecycle. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary standard is not a standard: it is a dependency.
+
+**5. Verifiability without accidental complexity**
+Identity cryptography is complex. AI agent developers should not have to be. Agent-DID closes that gap with framework abstractions that inject identity into the agent's execution chain without extra developer code, and with Ed25519 as the default — the fastest, most compact, and most secure cryptographic primitive for high-frequency signing environments.
+
+### What Agent-DID Is Not
+
+- **Not an orchestration framework.** It does not replace LangChain or CrewAI. It integrates with them.
+- **Not a payment system.** ERC-4337 compatibility exists for agent wallets, but payment management is out of scope.
+- **Not a blockchain mandate.** The EVM registry is an option, not a requirement. `did:wba` and `did:web` are equally valid.
+- **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol is the product.
 
 ---
 
