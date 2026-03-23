@@ -121,3 +121,4 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 | Fecha | Cambio |
 |-------|--------|
 | 2026-03-22 | Licencia del repositorio migrada de MIT a Apache-2.0. Actualizado `package.json` (langchain TS) y `pyproject.toml` (langchain-python). Sin cambios funcionales en la superficie de integración. |
+| 2026-03-22 | Rename de scope npm: `@agent-did/langchain` → `@agentdid/langchain` y `@agent-did/sdk` → `@agentdid/sdk` para alinear con la organización npm `@agentdid`. Sin cambios en la API pública ni en la lógica funcional. |

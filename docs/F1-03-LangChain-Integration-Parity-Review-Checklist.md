@@ -88,3 +88,4 @@ Parity verification is complete when:
 | Date | Change |
 |------|--------|
 | 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` and `package.json` updated accordingly. No functional changes to the integration surface. |
+| 2026-03-22 | npm scope rename: `@agent-did/langchain` → `@agentdid/langchain` and `@agent-did/sdk` → `@agentdid/sdk` to align with the `@agentdid` npm org. No changes to the public API or functional surface. |
