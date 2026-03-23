@@ -31,6 +31,7 @@ export interface AgentIdentityConfig {
 export interface ProductionResolverProfileConfig {
   registry: AgentRegistry;
   documentSource: DIDDocumentSource;
+  wbaDocumentSource?: DIDDocumentSource;
   cacheTtlMs?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
 }
@@ -433,6 +434,7 @@ export class AgentIdentity {
     AgentIdentity.resolver = new UniversalResolverClient({
       registry: config.registry,
       documentSource: config.documentSource,
+      wbaDocumentSource: config.wbaDocumentSource,
       fallbackResolver: AgentIdentity.resolver,
       cacheTtlMs: config.cacheTtlMs,
       onResolutionEvent: config.onResolutionEvent
@@ -450,6 +452,7 @@ export class AgentIdentity {
     AgentIdentity.useProductionResolver({
       registry: config.registry,
       documentSource: httpSource,
+      wbaDocumentSource: httpSource,
       cacheTtlMs: config.cacheTtlMs,
       onResolutionEvent: config.onResolutionEvent
     });

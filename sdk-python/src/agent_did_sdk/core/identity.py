@@ -62,6 +62,7 @@ class AgentIdentityConfig:
 class ProductionResolverProfileConfig:
     registry: AgentRegistry
     document_source: DIDDocumentSource
+    wba_document_source: DIDDocumentSource | None = None
     cache_ttl_ms: int | None = None
     on_resolution_event: object | None = None
 
@@ -440,6 +441,7 @@ class AgentIdentity:
         cls._resolver = UniversalResolverClient(UniversalResolverConfig(
             registry=config.registry,
             document_source=config.document_source,
+            wba_document_source=config.wba_document_source,
             fallback_resolver=cls._resolver,
             cache_ttl_ms=config.cache_ttl_ms or 60_000,
             on_resolution_event=config.on_resolution_event,  # type: ignore[arg-type]
@@ -456,6 +458,7 @@ class AgentIdentity:
         cls.use_production_resolver(ProductionResolverProfileConfig(
             registry=config.registry,
             document_source=source,
+            wba_document_source=source,
             cache_ttl_ms=config.cache_ttl_ms,
             on_resolution_event=config.on_resolution_event,
         ))

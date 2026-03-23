@@ -113,6 +113,8 @@ AgentIdentity.useProductionResolverFromHttp({
 });
 ```
 
+Minimal `did:wba` example: [`examples/did-wba-resolution.js`](examples/did-wba-resolution.js)
+
 ## Specification
 
 This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edisonduran/Agent-citizen-identification/blob/main/docs/RFC-001-Agent-DID-Specification.md) — a standard for decentralized AI agent identity extending W3C DIDs with agent-specific metadata.

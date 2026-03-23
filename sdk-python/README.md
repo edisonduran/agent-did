@@ -125,6 +125,8 @@ AgentIdentity.use_production_resolver_from_http(
 )
 ```
 
+Minimal `did:wba` example: `examples/did_wba_resolution.py`
+
 ## Testing
 
 Canonical local workflow:

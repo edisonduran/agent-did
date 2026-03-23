@@ -261,6 +261,33 @@ describe('UniversalResolverClient', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it('should resolve did:wba using HTTP production resolver bootstrap fetch configuration', async () => {
+    const did = 'did:wba:agents.example:profiles:weather-bot';
+    const wbaDocument = createWbaDocument(did);
+
+    const fetchFn = jest.fn().mockImplementation(async (url: string) => ({
+      ok: url === 'https://agents.example/profiles/weather-bot/did.json',
+      status: url === 'https://agents.example/profiles/weather-bot/did.json' ? 200 : 404,
+      json: async () => (url === 'https://agents.example/profiles/weather-bot/did.json' ? wbaDocument : {})
+    }));
+
+    AgentIdentity.useProductionResolverFromHttp({
+      registry: {
+        register: jest.fn(),
+        setDocumentReference: jest.fn(),
+        revoke: jest.fn(),
+        getRecord: jest.fn(),
+        isRevoked: jest.fn().mockResolvedValue(false)
+      },
+      fetchFn
+    });
+
+    const resolved = await AgentIdentity.resolve(did);
+
+    expect(resolved.id).toEqual(did);
+    expect(fetchFn).toHaveBeenCalledWith('https://agents.example/profiles/weather-bot/did.json');
+  });
+
   it('should emit resolver events and support HTTP endpoint failover', async () => {
     const events: string[] = [];
 
