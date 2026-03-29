@@ -34,6 +34,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] Payload signing remains opt-in in both packages.
 - [ ] Key rotation remains opt-in in both packages.
 - [ ] HTTP target validation still rejects invalid schemes, embedded credentials and private or loopback targets by default.
+- [ ] When `allow_private_network_targets` is enabled, `http_security` options are propagated to the SDK's `signHttpRequest` in both packages (or the divergence is documented in the parity matrix).
 
 ---
 

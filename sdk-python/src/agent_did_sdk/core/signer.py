@@ -41,7 +41,7 @@ class LocalKeySigner:
         return bytes(self._signing_key.verify_key)
 
     @staticmethod
-    def generate() -> tuple["LocalKeySigner", str]:
+    def generate() -> tuple[LocalKeySigner, str]:
         """Generate a new signer with a random key. Returns (signer, private_key_hex)."""
         sk = SigningKey.generate()
         hex_key = sk.encode().hex()

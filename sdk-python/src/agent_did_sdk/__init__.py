@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 
-# Core signer
-from .core.signer import AgentSigner, LocalKeySigner
-
-# Core HTTP security
 from .core.http_security import HttpTargetValidationOptions, validate_http_target
-
-# Core identity
 from .core.identity import (
     AgentIdentity,
     AgentIdentityConfig,
@@ -16,16 +10,13 @@ from .core.identity import (
     ProductionJsonRpcResolverProfileConfig,
     ProductionResolverProfileConfig,
 )
-
-# Core time utilities
+from .core.signer import AgentSigner, LocalKeySigner
 from .core.time_utils import (
     is_unix_timestamp_string,
     iso_to_unix_string,
     normalize_timestamp_to_iso,
     unix_string_to_iso,
 )
-
-# Core types
 from .core.types import (
     AgentDIDDocument,
     AgentDocumentHistoryAction,
@@ -40,22 +31,16 @@ from .core.types import (
     VerificationMethod,
     VerifyHttpRequestSignatureParams,
 )
-
-# Crypto
 from .crypto.hash import format_hash_uri, generate_agent_metadata_hash, hash_payload
 from .crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
 from .registry.evm_registry import EvmAgentRegistry
 from .registry.evm_types import EvmAgentRegistryAdapterConfig, EvmAgentRegistryContract, EvmTxResponse
 from .registry.in_memory import InMemoryAgentRegistry
-
-# Registry
 from .registry.types import AgentRegistry, AgentRegistryRecord
 from .registry.web3_client import Web3AgentRegistryContractClient
 from .resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 from .resolver.in_memory import InMemoryDIDResolver
 from .resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
-
-# Resolver
 from .resolver.types import (
     DIDDocumentSource,
     DIDResolver,

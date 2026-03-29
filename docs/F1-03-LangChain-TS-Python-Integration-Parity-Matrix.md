@@ -53,6 +53,7 @@ La parity de integracion se define en cinco dimensiones:
 | Tools basicas | identidad actual, resolve DID, verify signature | identidad actual, resolve DID, verify signature | ✅ | Parity funcional. |
 | Tools sensibles opt-in | sign payload, sign HTTP, rotate key, history | sign payload, sign HTTP, rotate key, history | ✅ | Defaults endurecidos y alineados. |
 | Seguridad HTTP | esquema valido, sin credenciales embebidas, bloqueo loopback/privado por defecto | esquema valido, sin credenciales embebidas, bloqueo loopback/privado por defecto | ✅ | TS alineado con Python. |
+| Propagacion `http_security` al SDK | Validacion local en tool; no propaga opciones al SDK `signHttpRequest` | Propaga `HttpTargetValidationOptions` al SDK via `http_security` param cuando `allow_private_network_targets=True` | ⚠️ | Python adelanta a TS. TS debe propagar `httpSecurity` al SDK para parity completa. |
 | Callback de observabilidad | `observabilityHandler` | `observability_handler` | ✅ | Eventos saneados en ambos paquetes. |
 | Fan-out de handlers | `composeEventHandlers(...)` | `compose_event_handlers(...)` | ✅ | Vendor-neutral. |
 | Logging JSON | `createJsonLoggerEventHandler(...)` | `create_json_logger_event_handler(...)` | ✅ | Misma estrategia de saneamiento. |

@@ -197,6 +197,27 @@ function groupFindingsBy(items, keySelector) {
   return counts;
 }
 
+function matchesSlitherLocation(ruleLocations, detectorLocation) {
+  // Exact match (preferred)
+  if (ruleLocations.has(detectorLocation)) {
+    return true;
+  }
+
+  // Fallback: match by file path ignoring line numbers.
+  // Slither may report #L206-L226 or #206-226 depending on version,
+  // and line numbers shift when the contract is edited.
+  const stripLines = (loc) => loc.replace(/#.*$/, '');
+  const detectorFile = stripLines(detectorLocation);
+
+  for (const ruleLoc of ruleLocations) {
+    if (stripLines(ruleLoc) === detectorFile) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function classifySlitherFindings(detectors) {
   const accepted = [];
   const actionable = [];
@@ -204,7 +225,7 @@ function classifySlitherFindings(detectors) {
   for (const detector of detectors) {
     const location = detector.first_markdown_element || 'unknown-location';
     const rule = KNOWN_SLITHER_NOISE_RULES.find(
-      (candidate) => candidate.check === detector.check && candidate.locations.has(location)
+      (candidate) => candidate.check === detector.check && matchesSlitherLocation(candidate.locations, location)
     );
 
     const finding = {

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
-if TYPE_CHECKING:
-    from agent_did_sdk.core.signer import AgentSigner
 
 # ---------------------------------------------------------------------------
 # Agent metadata

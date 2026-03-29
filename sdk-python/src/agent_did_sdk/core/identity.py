@@ -20,7 +20,7 @@ from ..crypto.hash import (
     generate_agent_metadata_hash,
     generate_canonical_document_hash,
 )
-from ..crypto.multibase import encode_public_key_multibase, decode_public_key_multibase
+from ..crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
 from ..registry.in_memory import InMemoryAgentRegistry
 from ..registry.types import AgentRegistry
 from ..resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
@@ -32,9 +32,9 @@ from ..resolver.types import (
     UniversalResolverConfig,
 )
 from ..resolver.universal import UniversalResolverClient
-from .time_utils import normalize_timestamp_to_iso
-from .signer import AgentSigner, LocalKeySigner
 from .http_security import validate_http_target
+from .signer import AgentSigner
+from .time_utils import normalize_timestamp_to_iso
 from .types import (
     AgentDIDDocument,
     AgentDocumentHistoryAction,
@@ -574,7 +574,9 @@ class AgentIdentity:
         return f"sha-256=:{b64}:"
 
     @staticmethod
-    def _build_http_signature_base(*, method: str, url: str, date_header: str, content_digest: str, nonce: str | None = None) -> str:
+    def _build_http_signature_base(
+        *, method: str, url: str, date_header: str, content_digest: str, nonce: str | None = None,
+    ) -> str:
         parsed = urlparse(url)
         path_query = parsed.path + (f"?{parsed.query}" if parsed.query else "")
         lines = [

@@ -3,14 +3,14 @@
     {
       "ruleId": "slither-weak-prng-tostring",
       "check": "weak-prng",
-      "locations": ["share/contracts/src/AgentRegistry.sol#L175-L195"],
+      "locations": ["share/contracts/src/AgentRegistry.sol#L206-L226"],
       "classification": "false-positive",
       "rationale": "Modulo arithmetic in _toString is decimal conversion, not entropy or randomness."
     },
     {
       "ruleId": "slither-incorrect-equality-tostring",
       "check": "incorrect-equality",
-      "locations": ["share/contracts/src/AgentRegistry.sol#L175-L195"],
+      "locations": ["share/contracts/src/AgentRegistry.sol#L206-L226"],
       "classification": "false-positive",
       "rationale": "Strict equality in _toString is deterministic integer formatting logic."
     },
@@ -19,14 +19,15 @@
       "check": "timestamp",
       "locations": [
         "share/contracts/src/AgentRegistry.sol#L57-L79",
-        "share/contracts/src/AgentRegistry.sol#L81-L92",
-        "share/contracts/src/AgentRegistry.sol#L94-L103",
-        "share/contracts/src/AgentRegistry.sol#L105-L116",
-        "share/contracts/src/AgentRegistry.sol#L122-L132",
-        "share/contracts/src/AgentRegistry.sol#L134-L155",
-        "share/contracts/src/AgentRegistry.sol#L157-L164",
-        "share/contracts/src/AgentRegistry.sol#L170-L173",
-        "share/contracts/src/AgentRegistry.sol#L175-L195"
+        "share/contracts/src/AgentRegistry.sol#L81-L110",
+        "share/contracts/src/AgentRegistry.sol#L112-L123",
+        "share/contracts/src/AgentRegistry.sol#L125-L134",
+        "share/contracts/src/AgentRegistry.sol#L136-L148",
+        "share/contracts/src/AgentRegistry.sol#L153-L163",
+        "share/contracts/src/AgentRegistry.sol#L165-L186",
+        "share/contracts/src/AgentRegistry.sol#L188-L195",
+        "share/contracts/src/AgentRegistry.sol#L197-L199",
+        "share/contracts/src/AgentRegistry.sol#L206-L226"
       ],
       "classification": "accepted-low-risk",
       "rationale": "Current timestamp usage is limited to metadata serialization and presence checks, not economic or privilege-sensitive timing."
