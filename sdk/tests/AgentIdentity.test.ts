@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { AgentIdentity } from '../src/core/AgentIdentity';
 import { CreateAgentParams } from '../src/core/types';
+import { LocalKeySigner } from '../src/core/signer';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
 
 describe('AgentIdentity Core Module', () => {
@@ -269,6 +270,94 @@ describe('AgentIdentity Core Module', () => {
     expect(valid).toBe(true);
   });
 
+  it('should include anti-replay headers (nonce + expires) in signed HTTP requests', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'AntiReplayBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const headers = await agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"nonce": true}',
+      agentPrivateKey,
+      agentDid: document.id,
+      expiresInSeconds: 60
+    });
+
+    expect(headers['X-Request-Nonce']).toBeDefined();
+    expect(headers['X-Request-Nonce'].length).toBeGreaterThan(0);
+    expect(headers['Signature-Input']).toContain('"x-request-nonce"');
+    expect(headers['Signature-Input']).toContain('expires=');
+
+    const valid = await AgentIdentity.verifyHttpRequestSignature({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"nonce": true}',
+      headers
+    });
+    expect(valid).toBe(true);
+  });
+
+  it('should reject HTTP signatures with expired expires param', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'ExpiredBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const headers = await agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"expired": true}',
+      agentPrivateKey,
+      agentDid: document.id,
+      expiresInSeconds: 1
+    });
+
+    // Artificially expire: set expires far in the past
+    headers['Signature-Input'] = headers['Signature-Input'].replace(
+      /expires=\d+/,
+      'expires=1000000000'
+    );
+
+    const valid = await AgentIdentity.verifyHttpRequestSignature({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"expired": true}',
+      headers
+    });
+    expect(valid).toBe(false);
+  });
+
+  it('should reject HTTP signatures missing x-request-nonce header', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'NoNonceBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const headers = await agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"no-nonce": true}',
+      agentPrivateKey,
+      agentDid: document.id
+    });
+
+    // Remove the nonce header
+    delete headers['X-Request-Nonce'];
+
+    const valid = await AgentIdentity.verifyHttpRequestSignature({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"no-nonce": true}',
+      headers
+    });
+    expect(valid).toBe(false);
+  });
+
   it('should resolve a created DID document', async () => {
     const { document } = await agentIdentity.create({
       name: 'ResolverBot',
@@ -402,6 +491,69 @@ describe('AgentIdentity Core Module', () => {
     expect(rotation.document.authentication).toEqual([rotation.verificationMethodId]);
   });
 
+  it('should mark old keys as deactivated after rotation', async () => {
+    const { document } = await agentIdentity.create({
+      name: 'DeactivationBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const rotation = await AgentIdentity.rotateVerificationMethod(document.id);
+    const oldKey = rotation.document.verificationMethod.find(
+      m => m.id === `${document.id}#key-1`
+    );
+
+    expect(oldKey).toBeDefined();
+    expect(oldKey!.deactivated).toBeDefined();
+    expect(new Date(oldKey!.deactivated!).toISOString()).toEqual(oldKey!.deactivated);
+
+    const newKey = rotation.document.verificationMethod.find(
+      m => m.id === rotation.verificationMethodId
+    );
+    expect(newKey).toBeDefined();
+    expect(newKey!.deactivated).toBeUndefined();
+  });
+
+  it('should verify historical signatures after key rotation', async () => {
+    const { document, agentPrivateKey: oldPrivateKey } = await agentIdentity.create({
+      name: 'HistoryBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const payload = 'approve:historical:1';
+    const oldKeyId = `${document.id}#key-1`;
+    const oldSignature = await agentIdentity.signMessage(payload, oldPrivateKey);
+
+    await AgentIdentity.rotateVerificationMethod(document.id);
+
+    // verifySignature should fail (old key no longer active)
+    const activeValid = await AgentIdentity.verifySignature(document.id, payload, oldSignature, oldKeyId);
+    expect(activeValid).toBe(false);
+
+    // verifyHistoricalSignature should succeed (old key still in document)
+    const historicalValid = await AgentIdentity.verifyHistoricalSignature(
+      document.id, payload, oldSignature, oldKeyId
+    );
+    expect(historicalValid).toBe(true);
+  });
+
+  it('should reject historical verification with unknown key id', async () => {
+    const { document } = await agentIdentity.create({
+      name: 'UnknownKeyBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const payload = 'test-payload';
+    const fakeSignature = '00'.repeat(64);
+
+    const valid = await AgentIdentity.verifyHistoricalSignature(
+      document.id, payload, fakeSignature, `${document.id}#key-999`
+    );
+    expect(valid).toBe(false);
+  });
+
   it('should keep auditable history for create, update, rotate, revoke lifecycle', async () => {
     const { document } = await agentIdentity.create({
       name: 'AuditBot',
@@ -430,5 +582,73 @@ describe('AgentIdentity Core Module', () => {
       expect(history[index].documentRef).toBeDefined();
       expect(history[index].timestamp.endsWith('Z')).toBe(true);
     }
+  });
+
+  it('should create an agent with an external signer (production mode)', async () => {
+    const [signer] = LocalKeySigner.generate();
+
+    const result = await agentIdentity.create({
+      name: 'ProductionBot',
+      coreModel: 'gpt-4o',
+      systemPrompt: 'production prompt',
+      signer
+    });
+
+    expect(result.document).toBeDefined();
+    expect(result.document.verificationMethod[0].publicKeyMultibase).toMatch(/^z6Mk/);
+    // agentPrivateKey is empty string in production mode
+    expect(result.agentPrivateKey).toEqual('');
+  });
+
+  it('should sign and verify messages using an external signer', async () => {
+    const [signer, privateKeyHex] = LocalKeySigner.generate();
+
+    const result = await agentIdentity.create({
+      name: 'SignerTestBot',
+      coreModel: 'test',
+      systemPrompt: 'test',
+      signer
+    });
+
+    const payload = 'signer-test-payload';
+    const signatureViaSigner = await agentIdentity.signMessage(payload, signer);
+    const signatureViaKey = await agentIdentity.signMessage(payload, privateKeyHex);
+
+    // Both should produce the same signature
+    expect(signatureViaSigner).toEqual(signatureViaKey);
+
+    // Should verify correctly
+    const valid = await AgentIdentity.verifySignature(result.document.id, payload, signatureViaSigner);
+    expect(valid).toBe(true);
+  });
+
+  it('should sign HTTP requests using an external signer', async () => {
+    const [signer] = LocalKeySigner.generate();
+
+    const result = await agentIdentity.create({
+      name: 'HttpSignerBot',
+      coreModel: 'test',
+      systemPrompt: 'test',
+      signer
+    });
+
+    const headers = await agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/action',
+      body: '{"action":"approve"}',
+      signer,
+      agentDid: result.document.id
+    });
+
+    expect(headers['Signature']).toBeDefined();
+    expect(headers['X-Request-Nonce']).toBeDefined();
+
+    const valid = await AgentIdentity.verifyHttpRequestSignature({
+      method: 'POST',
+      url: 'https://api.example.com/v1/action',
+      body: '{"action":"approve"}',
+      headers
+    });
+    expect(valid).toBe(true);
   });
 });

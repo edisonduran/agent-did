@@ -360,6 +360,10 @@ def _build_sign_http_request_tool(
             _validate_http_target(url, allow_private_network_targets)
 
             key_id = get_active_authentication_key_id(runtime_identity)
+            http_sec = None
+            if allow_private_network_targets:
+                from agent_did_sdk.core.http_security import HttpTargetValidationOptions
+                http_sec = HttpTargetValidationOptions(allow_private_targets=True)
             headers = await agent_identity.sign_http_request(
                 SignHttpRequestParams(
                     method=method,
@@ -368,6 +372,7 @@ def _build_sign_http_request_tool(
                     agent_private_key=runtime_identity.agent_private_key,
                     agent_did=runtime_identity.document.id,
                     verification_method_id=key_id,
+                    http_security=http_sec,
                 )
             )
             result = {

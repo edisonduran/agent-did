@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from ..core.http_security import HttpTargetValidationOptions, validate_http_target
 from ..core.types import AgentDIDDocument
 
 
@@ -21,6 +22,7 @@ class JsonRpcDIDDocumentSourceConfig:
     build_params: Callable[[str], list[Any]] | None = None
     headers: dict[str, str] | None = None
     http_client: httpx.AsyncClient | None = None
+    http_security: HttpTargetValidationOptions | None = None
 
 
 class JsonRpcDIDDocumentSource:
@@ -33,6 +35,7 @@ class JsonRpcDIDDocumentSource:
         self._build_params = cfg.build_params or (lambda ref: [ref])
         self._headers = {"content-type": "application/json", **(cfg.headers or {})}
         self._client = cfg.http_client
+        self._http_security = cfg.http_security or HttpTargetValidationOptions()
 
         if not self._endpoints:
             raise ValueError("JsonRpcDIDDocumentSource requires at least one endpoint")
@@ -51,8 +54,10 @@ class JsonRpcDIDDocumentSource:
         had_valid = False
 
         for endpoint in self._endpoints:
-            parsed = urlparse(endpoint)
-            if parsed.scheme not in ("http", "https"):
+            try:
+                validate_http_target(endpoint, self._http_security)
+            except ValueError as ve:
+                errors.append(f"{endpoint}: {ve}")
                 continue
 
             had_valid = True

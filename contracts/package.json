@@ -2,6 +2,7 @@
   "name": "agent-did-contracts",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Hardhat workspace for Agent-DID contracts",
   "scripts": {
     "build": "hardhat compile",

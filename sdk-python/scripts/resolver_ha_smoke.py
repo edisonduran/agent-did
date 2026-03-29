@@ -11,6 +11,7 @@ from smoke_utils import (
 )
 
 from agent_did_sdk import AgentIdentity, ProductionJsonRpcResolverProfileConfig
+from agent_did_sdk.core.http_security import HttpTargetValidationOptions
 from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 
@@ -94,6 +95,7 @@ async def main() -> int:
                     f"http://127.0.0.1:{tertiary_port}",
                 ],
                 on_resolution_event=lambda event: events.append(event.stage),
+                http_security=HttpTargetValidationOptions(allow_private_targets=True),
             )
         )
 

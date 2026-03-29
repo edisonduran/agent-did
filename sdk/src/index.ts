@@ -39,6 +39,21 @@ export {
 } from './crypto/hash';
 
 export {
+  encodePublicKeyMultibase,
+  decodePublicKeyMultibase
+} from './crypto/multibase';
+
+export {
+  AgentSigner,
+  LocalKeySigner
+} from './core/signer';
+
+export {
+  validateHttpTarget,
+  HttpTargetValidationOptions
+} from './core/http-security';
+
+export {
   isUnixTimestampString,
   unixStringToIso,
   isoToUnixString,

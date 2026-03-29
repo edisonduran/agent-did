@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from agent_did_sdk.core.signer import AgentSigner
 
 # ---------------------------------------------------------------------------
 # Agent metadata
@@ -39,6 +42,7 @@ class VerificationMethod(BaseModel):
     controller: str
     public_key_multibase: str | None = Field(default=None, alias="publicKeyMultibase")
     blockchain_account_id: str | None = Field(default=None, alias="blockchainAccountId")
+    deactivated: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +74,8 @@ class AgentDIDDocument(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CreateAgentParams(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     name: str
     description: str | None = None
     version: str | None = None
@@ -77,6 +83,7 @@ class CreateAgentParams(BaseModel):
     system_prompt: str
     capabilities: list[str] | None = None
     member_of: str | None = None
+    signer: Any | None = None  # AgentSigner — optional external signer for production mode
 
 
 class CreateAgentResult(BaseModel):
@@ -109,12 +116,17 @@ class RotateVerificationMethodResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 class SignHttpRequestParams(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     method: str
     url: str
     body: str | None = None
-    agent_private_key: str
+    agent_private_key: str | None = None
+    signer: Any | None = None  # AgentSigner — preferred over agent_private_key
     agent_did: str
     verification_method_id: str | None = None
+    expires_in_seconds: int | None = None
+    http_security: Any | None = None  # HttpTargetValidationOptions
 
 
 class VerifyHttpRequestSignatureParams(BaseModel):

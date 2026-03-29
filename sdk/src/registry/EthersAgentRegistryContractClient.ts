@@ -11,6 +11,7 @@ function safeStr(v: unknown): string {
 
 interface EthersLikeContract {
   registerAgent?: (did: string, controller: string, documentRef?: string) => Promise<EvmTxResponse | void>;
+  registerAgentWithDocument?: (did: string, controller: string, documentRef: string) => Promise<EvmTxResponse | void>;
   setDocumentRef?: (did: string, documentRef: string) => Promise<EvmTxResponse | void>;
   revokeAgent?: (did: string) => Promise<EvmTxResponse | void>;
   getAgentRecord?: (did: string) => Promise<AgentRegistryRecord | null>;
@@ -30,6 +31,14 @@ export class EthersAgentRegistryContractClient implements EvmAgentRegistryContra
     }
 
     return this.contract.registerAgent(did, controller);
+  }
+
+  public async registerAgentWithDocument(did: string, controller: string, documentRef: string): Promise<EvmTxResponse | void> {
+    if (!this.contract.registerAgentWithDocument) {
+      throw new Error('Contract method not available: registerAgentWithDocument(did, controller, documentRef)');
+    }
+
+    return this.contract.registerAgentWithDocument(did, controller, documentRef);
   }
 
   public async setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void> {

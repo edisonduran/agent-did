@@ -78,7 +78,8 @@ async function main() {
         `http://127.0.0.1:${secondaryPort}`,
         `http://127.0.0.1:${tertiaryPort}`
       ],
-      onResolutionEvent: (event) => events.push(event.stage)
+      onResolutionEvent: (event) => events.push(event.stage),
+      httpSecurity: { allowPrivateTargets: true }
     });
 
     const first = await AgentIdentity.resolve(did);

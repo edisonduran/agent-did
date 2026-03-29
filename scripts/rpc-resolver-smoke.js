@@ -99,7 +99,8 @@ async function main() {
         `http://127.0.0.1:${failingPort}`,
         `http://127.0.0.1:${healthyPort}`
       ],
-      onResolutionEvent: (event) => events.push(event.stage)
+      onResolutionEvent: (event) => events.push(event.stage),
+      httpSecurity: { allowPrivateTargets: true }
     });
 
     const resolved = await AgentIdentity.resolve(did);

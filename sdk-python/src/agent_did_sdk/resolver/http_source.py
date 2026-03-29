@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from ..core.http_security import HttpTargetValidationOptions, validate_http_target
 from ..core.types import AgentDIDDocument
 
 
@@ -17,6 +18,7 @@ class HttpDIDDocumentSourceConfig:
     reference_to_urls: Callable[[str], list[str]] | None = None
     http_client: httpx.AsyncClient | None = None
     ipfs_gateways: list[str] | None = None
+    http_security: HttpTargetValidationOptions | None = None
 
 
 _DEFAULT_IPFS_GATEWAYS = [
@@ -34,6 +36,7 @@ class HttpDIDDocumentSource:
         self._reference_to_urls = cfg.reference_to_urls
         self._client = cfg.http_client
         self._ipfs_gateways = cfg.ipfs_gateways or list(_DEFAULT_IPFS_GATEWAYS)
+        self._http_security = cfg.http_security or HttpTargetValidationOptions()
 
     async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None:
         urls = self._resolve_candidate_urls(document_ref)
@@ -41,9 +44,10 @@ class HttpDIDDocumentSource:
         all_not_found = True
 
         for url in urls:
-            parsed = urlparse(url)
-            if parsed.scheme not in ("http", "https"):
-                errors.append(f"{url}: unsupported protocol {parsed.scheme}")
+            try:
+                validate_http_target(url, self._http_security)
+            except ValueError as ve:
+                errors.append(f"{url}: {ve}")
                 continue
 
             try:

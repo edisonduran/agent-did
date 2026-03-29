@@ -131,6 +131,81 @@ class TestAgentIdentityHttpSignature:
                 agent_private_key="aa" * 32, agent_did="did:agent:test",
             ))
 
+    async def test_anti_replay_headers_present(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="AntiReplayBot", core_model="m", system_prompt="p",
+        ))
+        headers = await identity.sign_http_request(SignHttpRequestParams(
+            method="POST",
+            url="https://api.example.com/v1/test",
+            body='{"nonce":true}',
+            agent_private_key=result.agent_private_key,
+            agent_did=result.document.id,
+            expires_in_seconds=60,
+        ))
+        assert "X-Request-Nonce" in headers
+        assert len(headers["X-Request-Nonce"]) > 0
+        assert '"x-request-nonce"' in headers["Signature-Input"]
+        assert "expires=" in headers["Signature-Input"]
+
+        is_valid = await AgentIdentity.verify_http_request_signature(
+            VerifyHttpRequestSignatureParams(
+                method="POST",
+                url="https://api.example.com/v1/test",
+                body='{"nonce":true}',
+                headers=headers,
+            )
+        )
+        assert is_valid is True
+
+    async def test_reject_expired_signature(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="ExpiredBot", core_model="m", system_prompt="p",
+        ))
+        headers = await identity.sign_http_request(SignHttpRequestParams(
+            method="POST",
+            url="https://api.example.com/v1/test",
+            body='{"expired":true}',
+            agent_private_key=result.agent_private_key,
+            agent_did=result.document.id,
+            expires_in_seconds=1,
+        ))
+        import re
+        headers["Signature-Input"] = re.sub(r"expires=\d+", "expires=1000000000", headers["Signature-Input"])
+
+        is_valid = await AgentIdentity.verify_http_request_signature(
+            VerifyHttpRequestSignatureParams(
+                method="POST",
+                url="https://api.example.com/v1/test",
+                body='{"expired":true}',
+                headers=headers,
+            )
+        )
+        assert is_valid is False
+
+    async def test_reject_missing_nonce_header(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="NoNonceBot", core_model="m", system_prompt="p",
+        ))
+        headers = await identity.sign_http_request(SignHttpRequestParams(
+            method="POST",
+            url="https://api.example.com/v1/test",
+            body='{"no-nonce":true}',
+            agent_private_key=result.agent_private_key,
+            agent_did=result.document.id,
+        ))
+        del headers["X-Request-Nonce"]
+
+        is_valid = await AgentIdentity.verify_http_request_signature(
+            VerifyHttpRequestSignatureParams(
+                method="POST",
+                url="https://api.example.com/v1/test",
+                body='{"no-nonce":true}',
+                headers=headers,
+            )
+        )
+        assert is_valid is False
+
 
 class TestAgentIdentityResolve:
     async def test_resolve_existing(self, identity: AgentIdentity) -> None:
@@ -241,6 +316,106 @@ class TestAgentIdentityRotateKey:
             result.document.id, "payload", sig, rotated.verification_method_id,
         )
         assert is_valid is True
+
+    async def test_old_key_deactivated_after_rotation(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="Deactivation", core_model="m", system_prompt="p",
+        ))
+        rotated = await AgentIdentity.rotate_verification_method(result.document.id)
+        old_key = next(
+            m for m in rotated.document.verification_method
+            if m.id == f"{result.document.id}#key-1"
+        )
+        assert old_key.deactivated is not None
+
+        new_key = next(
+            m for m in rotated.document.verification_method
+            if m.id == rotated.verification_method_id
+        )
+        assert new_key.deactivated is None
+
+    async def test_verify_historical_signature_after_rotation(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="HistoryBot", core_model="m", system_prompt="p",
+        ))
+        payload = "approve:historical:1"
+        old_key_id = f"{result.document.id}#key-1"
+        old_sig = await identity.sign_message(payload, result.agent_private_key)
+
+        await AgentIdentity.rotate_verification_method(result.document.id)
+
+        # Active verification should fail (old key no longer in authentication)
+        active_valid = await AgentIdentity.verify_signature(
+            result.document.id, payload, old_sig, old_key_id,
+        )
+        assert active_valid is False
+
+        # Historical verification should succeed
+        historical_valid = await AgentIdentity.verify_historical_signature(
+            result.document.id, payload, old_sig, old_key_id,
+        )
+        assert historical_valid is True
+
+    async def test_verify_historical_unknown_key_fails(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="UnknownKey", core_model="m", system_prompt="p",
+        ))
+        fake_sig = "00" * 64
+        valid = await AgentIdentity.verify_historical_signature(
+            result.document.id, "payload", fake_sig, f"{result.document.id}#key-999",
+        )
+        assert valid is False
+
+
+class TestSignerAbstraction:
+    async def test_create_with_external_signer(self, identity: AgentIdentity) -> None:
+        from agent_did_sdk.core.signer import LocalKeySigner
+        signer, _ = LocalKeySigner.generate()
+        result = await identity.create(CreateAgentParams(
+            name="ProductionBot", core_model="gpt-4o", system_prompt="production prompt",
+            signer=signer,
+        ))
+        assert result.document is not None
+        assert result.document.verification_method[0].public_key_multibase.startswith("z6Mk")
+        assert result.agent_private_key == ""
+
+    async def test_sign_and_verify_with_signer(self, identity: AgentIdentity) -> None:
+        from agent_did_sdk.core.signer import LocalKeySigner
+        signer, private_key_hex = LocalKeySigner.generate()
+        result = await identity.create(CreateAgentParams(
+            name="SignerTestBot", core_model="test", system_prompt="test",
+            signer=signer,
+        ))
+        payload = "signer-test-payload"
+        sig_via_signer = await identity.sign_message(payload, signer)
+        sig_via_key = await identity.sign_message(payload, private_key_hex)
+        assert sig_via_signer == sig_via_key
+        valid = await AgentIdentity.verify_signature(result.document.id, payload, sig_via_signer)
+        assert valid is True
+
+    async def test_sign_http_request_with_signer(self, identity: AgentIdentity) -> None:
+        from agent_did_sdk.core.signer import LocalKeySigner
+        signer, _ = LocalKeySigner.generate()
+        result = await identity.create(CreateAgentParams(
+            name="HttpSignerBot", core_model="test", system_prompt="test",
+            signer=signer,
+        ))
+        headers = await identity.sign_http_request(SignHttpRequestParams(
+            method="POST",
+            url="https://api.example.com/v1/action",
+            body='{"action":"approve"}',
+            signer=signer,
+            agent_did=result.document.id,
+        ))
+        assert "Signature" in headers
+        assert "X-Request-Nonce" in headers
+        valid = await AgentIdentity.verify_http_request_signature(VerifyHttpRequestSignatureParams(
+            method="POST",
+            url="https://api.example.com/v1/action",
+            body='{"action":"approve"}',
+            headers=headers,
+        ))
+        assert valid is True
 
 
 class TestAgentIdentityHistory:

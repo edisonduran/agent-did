@@ -25,6 +25,7 @@ export interface VerificationMethod {
   controller: string; // DID of the creator/owner
   publicKeyMultibase?: string;
   blockchainAccountId?: string; // For EVM/Smart Account compatibility (ERC-4337)
+  deactivated?: string; // ISO 8601 timestamp when the key was rotated out
 }
 
 export interface AgentDIDDocument {
@@ -50,6 +51,8 @@ export interface CreateAgentParams {
   systemPrompt: string; // The raw prompt string (will be hashed by SDK)
   capabilities?: string[];
   memberOf?: string;
+  /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
+  signer?: import('./signer').AgentSigner;
 }
 
 /**
@@ -57,7 +60,8 @@ export interface CreateAgentParams {
  */
 export interface CreateAgentResult {
   document: AgentDIDDocument;
-  agentPrivateKey: string; // The Ed25519 private key (hex) for the agent to sign actions
+  /** The Ed25519 private key (hex) — present only in demo mode (no external signer). */
+  agentPrivateKey: string;
 }
 
 /**
@@ -97,9 +101,16 @@ export interface SignHttpRequestParams {
   method: string;
   url: string;
   body?: string;
-  agentPrivateKey: string;
+  /** Ed25519 private key hex. Either this or `signer` must be provided. */
+  agentPrivateKey?: string;
+  /** External signer. Preferred over agentPrivateKey when both are present. */
+  signer?: import('./signer').AgentSigner;
   agentDid: string;
   verificationMethodId?: string;
+  /** Signature expiration window in seconds (default: 30). */
+  expiresInSeconds?: number;
+  /** SSRF protection options. */
+  httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 
 export interface VerifyHttpRequestSignatureParams {

@@ -78,6 +78,37 @@ contract AgentRegistry {
         emit AgentRegistered(did, controller, nowIso, msg.sender);
     }
 
+    function registerAgentWithDocument(
+        string calldata did,
+        string calldata controller,
+        string calldata documentRef
+    ) external whenNotPaused {
+        require(bytes(did).length > 0, "did required");
+        require(bytes(did).length <= MAX_DID_LENGTH, "did too long");
+        require(bytes(did).length >= 7, "did too short");
+        require(bytes(did)[0] == 'd' && bytes(did)[1] == 'i' && bytes(did)[2] == 'd' && bytes(did)[3] == ':', "did must start with did:");
+        require(bytes(controller).length > 0, "controller required");
+        require(bytes(controller).length <= MAX_CONTROLLER_LENGTH, "controller too long");
+        require(!records[did].exists, "already registered");
+        require(bytes(documentRef).length > 0, "documentRef required");
+        require(bytes(documentRef).length <= MAX_DOCUMENTREF_LENGTH, "documentRef too long");
+
+        string memory nowIso = _timestampToString(block.timestamp);
+
+        records[did] = AgentRecord({
+            did: did,
+            controller: controller,
+            createdAt: nowIso,
+            revokedAt: "",
+            documentRef: documentRef,
+            exists: true,
+            owner: msg.sender
+        });
+
+        emit AgentRegistered(did, controller, nowIso, msg.sender);
+        emit DocumentReferenceUpdated(did, documentRef, msg.sender);
+    }
+
     function revokeAgent(string calldata did) external whenNotPaused {
         AgentRecord storage record = records[did];
 

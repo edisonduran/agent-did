@@ -76,7 +76,7 @@ Agent-DID does not replace these standards; it orchestrates them for the specifi
       "id": "did:agent:polygon:0x1234...abcd#key-1",
       "type": "Ed25519VerificationKey2020",
       "controller": "did:ethr:0xCreatorWalletAddress",
-      "publicKeyMultibase": "z...",
+      "publicKeyMultibase": "z6Mk...",
       "blockchainAccountId": "eip155:1:0xAgentSmartWalletAddress"
     }
   ],
@@ -94,6 +94,7 @@ Agent-DID does not replace these standards; it orchestrates them for the specifi
 | `agentMetadata.coreModelHash` | **REQUIRED** | Immutable hash/URI of the base model. |
 | `agentMetadata.systemPromptHash` | **REQUIRED** | Immutable hash/URI of the base prompt. |
 | `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
+| `verificationMethod[].deactivated` | OPTIONAL | ISO-8601 timestamp marking when a key was deactivated via rotation. Deactivated keys remain in the document for historical signature verification. |
 | `authentication` | **REQUIRED** | References to valid authentication methods. |
 | `complianceCertifications` | OPTIONAL | VC evidence and audits. |
 | `agentMetadata.capabilities` | OPTIONAL | Declared/authorized capabilities. |
@@ -216,8 +217,9 @@ Current fixture reference:
 | HTTP Signing (6.5) | `signHttpRequest(params)` |
 | DID Resolution (6.2) | `AgentIdentity.resolve(did)` |
 | Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
+| Historical Signature Verification (6.2b) | `AgentIdentity.verifyHistoricalSignature(did, payload, signature, keyId)` |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
-| Key Rotation (8.2) | `rotateVerificationMethod(did)` |
+| Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
 | Revocation (6.4) | `revokeDid(did)` |
 | Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
 | EVM Integration (5.2) | `EthersAgentRegistryContractClient` + `EvmAgentRegistry` |

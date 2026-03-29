@@ -333,6 +333,29 @@
         "internalType": "string",
         "name": "did",
         "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "controller",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "documentRef",
+        "type": "string"
+      }
+    ],
+    "name": "registerAgentWithDocument",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "did",
+        "type": "string"
       }
     ],
     "name": "revokeAgent",

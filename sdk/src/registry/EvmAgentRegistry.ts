@@ -11,6 +11,12 @@ export class EvmAgentRegistry implements AgentRegistry {
   }
 
   public async register(did: string, controller: string, documentRef?: string): Promise<void> {
+    if (documentRef && this.contractClient.registerAgentWithDocument) {
+      const tx = await this.contractClient.registerAgentWithDocument(did, controller, documentRef);
+      await this.waitForConfirmationIfNeeded(tx);
+      return;
+    }
+
     const tx = await this.contractClient.registerAgent(did, controller);
     await this.waitForConfirmationIfNeeded(tx);
 

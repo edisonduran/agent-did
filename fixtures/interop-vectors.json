@@ -5,11 +5,11 @@
     "id": "did:agent:polygon:0xinteropfixture#key-1",
     "type": "Ed25519VerificationKey2020",
     "controller": "did:ethr:0xfixturecontroller",
-    "publicKeyMultibase": "z678cd8acdfbc5713c5eec46e89b0934543fe7e51602794360f421eba84cb1a5a"
+    "publicKeyMultibase": "z6MkuBpnGeuAAWWJ9koqNqMsCv7vhPZt3mmQQ5YhEZFesE1S"
   },
   "messageVector": {
     "payload": "interop-message:v1",
-    "signatureHex": "aa5a5535a83b073888ca98605bffa187438f69a5d56bf04032bd9f79eda1e362237cd5d72b1a9b289def1ba0b934f3e16dfd50f810b25087769f95874e12af00"
+    "signatureHex": "93e407528ec16fe55e101870ad8ec481a8866ced9aece233c4b6afc9043de480e00197312b0fe3ecf3f1ebe6429fdf9f920e001fe7465d9eac9d0565dfdbc806"
   },
   "httpVector": {
     "method": "POST",
@@ -18,11 +18,12 @@
     "date": "Mon, 01 Jan 2024 00:00:00 GMT",
     "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
     "headers": {
-      "Signature": "sigA=:tLVTpkg69lbgl+757SAOwlnHe2zSF4Hc98HGdyRPGbdkwjO/3mCQzd3Wb37dRLQQ6MeMKfjvHS0yVkUKH+/lAg==:, legacy=:ZmFrZVNpZw==:",
-      "Signature-Input": "sigA=(\"@request-target\" \"host\" \"date\" \"content-digest\" \"x-extra\");created=1704067200;keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\", legacy=(\"@request-target\");created=1;keyid=\"did:agent:polygon:0xinteropfixture#legacy\";alg=\"ed25519\"",
+      "Signature": "sig1=:I61IxkIYGlOttI28XdB8fMcCnxRSVkM//FlVHu9W4qC85AudaWmAxPs1BOkULNU+sJazjPkIMrXAo00gybR6CQ==:",
+      "Signature-Input": "sig1=(\"@request-target\" \"host\" \"date\" \"content-digest\" \"x-request-nonce\");created=1704067200;expires=2704067199;keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\"",
       "Signature-Agent": "did:agent:polygon:0xinteropfixture",
       "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
-      "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
+      "X-Request-Nonce": "242a9a8745d82312fff5b806cb0b9f5f"
     },
     "maxCreatedSkewSeconds": 999999999
   }

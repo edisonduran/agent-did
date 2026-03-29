@@ -10,16 +10,17 @@ from agent_did_sdk.core.types import (
     VerifyHttpRequestSignatureParams,
 )
 from agent_did_sdk.crypto.hash import generate_canonical_document_hash
+from agent_did_sdk.crypto.multibase import decode_public_key_multibase
 
 
 class TestInteropMessageVector:
     async def test_verify_message_signature(self, interop_vectors: dict) -> None:
         vm_data = interop_vectors["verificationMethod"]
-        public_key_hex = vm_data["publicKeyMultibase"].lstrip("z")
+        public_key_bytes = decode_public_key_multibase(vm_data["publicKeyMultibase"])
         payload = interop_vectors["messageVector"]["payload"]
         signature_hex = interop_vectors["messageVector"]["signatureHex"]
 
-        vk = VerifyKey(bytes.fromhex(public_key_hex))
+        vk = VerifyKey(public_key_bytes)
         # PyNaCl raises on invalid; no exception → valid
         vk.verify(payload.encode("utf-8"), bytes.fromhex(signature_hex))
 

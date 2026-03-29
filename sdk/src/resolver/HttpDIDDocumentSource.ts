@@ -1,4 +1,5 @@
 import { AgentDIDDocument } from '../core/types';
+import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 
 type FetchLikeResponse = {
@@ -14,6 +15,7 @@ export interface HttpDIDDocumentSourceConfig {
   referenceToUrls?: (documentRef: string) => string[];
   fetchFn?: FetchLike;
   ipfsGateways?: string[];
+  httpSecurity?: HttpTargetValidationOptions;
 }
 
 export class HttpDIDDocumentSource implements DIDDocumentSource {
@@ -21,6 +23,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
   private readonly referenceToUrls: ((documentRef: string) => string[]) | undefined;
   private readonly fetchFn: FetchLike;
   private readonly ipfsGateways: string[];
+  private readonly httpSecurity: HttpTargetValidationOptions;
 
   constructor(config: HttpDIDDocumentSourceConfig = {}) {
     this.referenceToUrl = config.referenceToUrl || ((documentRef) => documentRef);
@@ -30,6 +33,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
       'https://cloudflare-ipfs.com/ipfs/',
       'https://ipfs.io/ipfs/'
     ];
+    this.httpSecurity = config.httpSecurity || {};
   }
 
   public async getByReference(documentRef: string): Promise<AgentDIDDocument | null> {
@@ -43,12 +47,12 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
 
     for (const url of urls) {
       try {
-        const parsed = new URL(url);
-        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-          errors.push(`${url}: unsupported protocol ${parsed.protocol}`);
-          continue;
-        }
-
+        validateHttpTarget(url, this.httpSecurity);
+      } catch {
+        errors.push(`${url}: blocked by SSRF policy`);
+        continue;
+      }
+      try {
         const response = await this.fetchFn(url);
 
         if (response.ok) {

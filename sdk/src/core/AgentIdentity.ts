@@ -14,6 +14,9 @@ import {
   VerificationMethod
 } from './types';
 import { generateAgentMetadataHash, generateCanonicalDocumentHash } from '../crypto/hash';
+import { encodePublicKeyMultibase, decodePublicKeyMultibase } from '../crypto/multibase';
+import { AgentSigner, LocalKeySigner } from './signer';
+import { validateHttpTarget } from './http-security';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
 import { UniversalResolverClient } from '../resolver/UniversalResolverClient';
@@ -44,6 +47,7 @@ export interface ProductionHttpResolverProfileConfig {
   fetchFn?: (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
   ipfsGateways?: string[];
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+  httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 
 export interface ProductionJsonRpcResolverProfileConfig {
@@ -56,6 +60,7 @@ export interface ProductionJsonRpcResolverProfileConfig {
   headers?: Record<string, string>;
   transport?: (url: string, body: string, headers: Record<string, string>) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+  httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 
 export class AgentIdentity {
@@ -98,11 +103,16 @@ export class AgentIdentity {
 
     // 4. Construct the Verification Method (The Agent's own keypair for signing actions)
     // We use Ed25519 for high-speed, deterministic agent signatures as per RFC-001
-    const privateKeyBytes = ed25519.utils.randomPrivateKey();
-    const publicKeyBytes = ed25519.getPublicKey(privateKeyBytes);
-    
-    const privateKeyHex = bytesToHex(privateKeyBytes);
-    const publicKeyHex = bytesToHex(publicKeyBytes);
+    let privateKeyHex = '';
+    let publicKeyBytes: Uint8Array;
+
+    if (params.signer) {
+      publicKeyBytes = await params.signer.getPublicKey();
+    } else {
+      const [localSigner, localKeyHex] = LocalKeySigner.generate();
+      privateKeyHex = localKeyHex;
+      publicKeyBytes = await localSigner.getPublicKey();
+    }
     
     // We also generate an EVM wallet for Account Abstraction (ERC-4337)
     const agentWallet = ethers.Wallet.createRandom();
@@ -112,7 +122,7 @@ export class AgentIdentity {
       id: verificationMethodId,
       type: "Ed25519VerificationKey2020",
       controller: controllerDid,
-      publicKeyMultibase: `z${publicKeyHex}`, // Simplified multibase representation for the SDK
+      publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes),
       blockchainAccountId: `eip155:1:${agentWallet.address}` // Assuming Ethereum Mainnet format for the account ID
     };
 
@@ -147,13 +157,16 @@ export class AgentIdentity {
   }
 
   /**
-   * Signs a payload using the Agent's Ed25519 private key to prove identity.
+   * Signs a payload using an Ed25519 private key or an AgentSigner.
    */
-  public async signMessage(payload: string, agentPrivateKeyHex: string): Promise<string> {
+  public async signMessage(payload: string, keyOrSigner: string | AgentSigner): Promise<string> {
     const messageBytes = new TextEncoder().encode(payload);
-    const privateKeyBytes = hexToBytes(agentPrivateKeyHex);
-    const signatureBytes = ed25519.sign(messageBytes, privateKeyBytes);
-    return bytesToHex(signatureBytes);
+    if (typeof keyOrSigner === 'string') {
+      const privateKeyBytes = hexToBytes(keyOrSigner);
+      const signatureBytes = ed25519.sign(messageBytes, privateKeyBytes);
+      return bytesToHex(signatureBytes);
+    }
+    return keyOrSigner.sign(messageBytes);
   }
 
   /**
@@ -169,11 +182,15 @@ export class AgentIdentity {
       throw new Error("HTTP URL is required");
     }
 
+    validateHttpTarget(params.url, params.httpSecurity);
+
     if (!params.agentDid?.trim()) {
       throw new Error("Agent DID is required");
     }
 
-    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const expiresAt = timestamp + (params.expiresInSeconds ?? 30);
+    const nonce = AgentIdentity.generateNonce();
     const dateHeader = new Date().toUTCString();
     const verificationMethodId = params.verificationMethodId || `${params.agentDid}#key-1`;
     const contentDigest = AgentIdentity.computeContentDigest(params.body);
@@ -181,20 +198,26 @@ export class AgentIdentity {
       method: params.method,
       url: params.url,
       dateHeader,
-      contentDigest
+      contentDigest,
+      nonce
     });
 
     // 2. Sign the string with Ed25519
-    const signatureHex = await this.signMessage(stringToSign, params.agentPrivateKey);
+    const keyOrSigner = params.signer || params.agentPrivateKey;
+    if (!keyOrSigner) {
+      throw new Error("Either agentPrivateKey or signer must be provided");
+    }
+    const signatureHex = await this.signMessage(stringToSign, keyOrSigner);
     const signatureBase64 = Buffer.from(hexToBytes(signatureHex)).toString('base64');
 
     // 3. Return the headers to be injected into the HTTP request
     return {
       'Signature': `sig1=:${signatureBase64}:`,
-      'Signature-Input': `sig1=("@request-target" "host" "date" "content-digest");created=${timestamp};keyid="${verificationMethodId}";alg="ed25519"`,
+      'Signature-Input': `sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${timestamp};expires=${expiresAt};keyid="${verificationMethodId}";alg="ed25519"`,
       'Signature-Agent': params.agentDid,
       'Date': dateHeader,
-      'Content-Digest': contentDigest
+      'Content-Digest': contentDigest,
+      'X-Request-Nonce': nonce
     };
   }
 
@@ -208,6 +231,7 @@ export class AgentIdentity {
     const signatureAgent = normalizedHeaders['signature-agent'];
     const dateHeader = normalizedHeaders['date'];
     const contentDigestHeader = normalizedHeaders['content-digest'];
+    const nonceHeader = normalizedHeaders['x-request-nonce'];
 
     if (!signatureHeader || !signatureInputHeader || !signatureAgent || !dateHeader || !contentDigestHeader) {
       return false;
@@ -221,13 +245,7 @@ export class AgentIdentity {
     const parsedSignatureInputs = AgentIdentity.parseHttpSignatureInputDictionary(signatureInputHeader);
     const parsedSignatures = AgentIdentity.parseHttpSignatureDictionary(signatureHeader);
 
-    const requiredComponents = new Set(['@request-target', 'host', 'date', 'content-digest']);
-    const signatureBase = AgentIdentity.buildHttpSignatureBase({
-      method: params.method,
-      url: params.url,
-      dateHeader,
-      contentDigest: contentDigestHeader
-    });
+    const requiredComponents = new Set(['@request-target', 'host', 'date', 'content-digest', 'x-request-nonce']);
     const now = Math.floor(Date.now() / 1000);
     const maxSkew = params.maxCreatedSkewSeconds ?? 300;
 
@@ -247,6 +265,11 @@ export class AgentIdentity {
         continue;
       }
 
+      // Nonce header must be present when x-request-nonce is a covered component
+      if (!nonceHeader) {
+        continue;
+      }
+
       const keyId = parsedSignatureInput.params.keyid;
       const createdRaw = parsedSignatureInput.params.created;
       const algorithm = parsedSignatureInput.params.alg;
@@ -260,9 +283,27 @@ export class AgentIdentity {
         continue;
       }
 
+      // Check expiration if present
+      const expiresRaw = parsedSignatureInput.params.expires;
+      if (expiresRaw) {
+        const expires = Number(expiresRaw);
+        if (Number.isNaN(expires) || now > expires) {
+          continue;
+        }
+      }
+
       if (!keyId.startsWith(`${signatureAgent}#`)) {
         continue;
       }
+
+      // Rebuild signature base including nonce
+      const signatureBase = AgentIdentity.buildHttpSignatureBase({
+        method: params.method,
+        url: params.url,
+        dateHeader,
+        contentDigest: contentDigestHeader,
+        nonce: nonceHeader
+      });
 
       const signatureHex = Buffer.from(signatureBase64, 'base64').toString('hex');
       const isValid = await AgentIdentity.verifySignature(signatureAgent, signatureBase, signatureHex, keyId);
@@ -306,10 +347,8 @@ export class AgentIdentity {
       const keyValue = verificationMethod.publicKeyMultibase;
       if (!keyValue) continue;
 
-      const publicKeyHex = keyValue.startsWith('z') ? keyValue.slice(1) : keyValue;
-
       try {
-        const publicKeyBytes = hexToBytes(publicKeyHex);
+        const publicKeyBytes = decodePublicKeyMultibase(keyValue);
         const valid = ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
 
         if (valid) {
@@ -321,6 +360,43 @@ export class AgentIdentity {
     }
 
     return false;
+  }
+
+  /**
+   * Verifies a historical signature against deactivated (rotated-out) keys.
+   * Unlike verifySignature(), this searches ALL verification methods including
+   * those with a `deactivated` timestamp, enabling audit trail verification
+   * for signatures created before a key rotation.
+   */
+  public static async verifyHistoricalSignature(
+    did: string,
+    payload: string,
+    signature: string,
+    keyId: string
+  ): Promise<boolean> {
+    const isRevoked = await AgentIdentity.registry.isRevoked(did);
+    if (isRevoked) {
+      return false;
+    }
+
+    const didDoc = await AgentIdentity.resolve(did);
+    const messageBytes = new TextEncoder().encode(payload);
+    const signatureBytes = hexToBytes(signature);
+
+    const candidate = didDoc.verificationMethod.find(
+      (method) => method.id === keyId && method.publicKeyMultibase
+    );
+
+    if (!candidate?.publicKeyMultibase) {
+      return false;
+    }
+
+    try {
+      const publicKeyBytes = decodePublicKeyMultibase(candidate.publicKeyMultibase);
+      return ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -390,19 +466,24 @@ export class AgentIdentity {
     const privateKeyBytes = ed25519.utils.randomPrivateKey();
     const publicKeyBytes = ed25519.getPublicKey(privateKeyBytes);
     const privateKeyHex = bytesToHex(privateKeyBytes);
-    const publicKeyHex = bytesToHex(publicKeyBytes);
 
     const newVerificationMethod: VerificationMethod = {
       id: verificationMethodId,
       type: 'Ed25519VerificationKey2020',
       controller: existing.controller,
-      publicKeyMultibase: `z${publicKeyHex}`
+      publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes)
     };
+
+    const deactivatedTimestamp = AgentIdentity.nowIsoTimestamp();
+    const deactivatedMethods = existing.verificationMethod.map((method) => ({
+      ...method,
+      deactivated: method.deactivated || deactivatedTimestamp
+    }));
 
     const updatedDocument: AgentDIDDocument = {
       ...existing,
-      updated: AgentIdentity.nowIsoTimestamp(),
-      verificationMethod: [...existing.verificationMethod, newVerificationMethod],
+      updated: deactivatedTimestamp,
+      verificationMethod: [...deactivatedMethods, newVerificationMethod],
       authentication: [verificationMethodId]
     };
 
@@ -446,7 +527,8 @@ export class AgentIdentity {
       referenceToUrl: config.referenceToUrl,
       referenceToUrls: config.referenceToUrls,
       fetchFn: config.fetchFn,
-      ipfsGateways: config.ipfsGateways
+      ipfsGateways: config.ipfsGateways,
+      httpSecurity: config.httpSecurity
     });
 
     AgentIdentity.useProductionResolver({
@@ -465,7 +547,8 @@ export class AgentIdentity {
       method: config.method,
       buildParams: config.buildParams,
       headers: config.headers,
-      transport: config.transport
+      transport: config.transport,
+      httpSecurity: config.httpSecurity
     });
 
     AgentIdentity.useProductionResolver({
@@ -492,15 +575,26 @@ export class AgentIdentity {
     url: string;
     dateHeader: string;
     contentDigest: string;
+    nonce?: string;
   }): string {
     const urlObj = new URL(params.url);
 
-    return [
+    const lines = [
       `(request-target): ${params.method.toLowerCase()} ${urlObj.pathname}${urlObj.search}`,
       `host: ${urlObj.host}`,
       `date: ${params.dateHeader}`,
       `content-digest: ${params.contentDigest}`
-    ].join('\n');
+    ];
+
+    if (params.nonce) {
+      lines.push(`x-request-nonce: ${params.nonce}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  private static generateNonce(): string {
+    return bytesToHex(ethers.randomBytes(16));
   }
 
   private static parseHttpSignatureInputDictionary(value: string): Array<{

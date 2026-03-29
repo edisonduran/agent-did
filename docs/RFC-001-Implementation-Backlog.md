@@ -175,6 +175,91 @@ Translate the findings from `RFC-001-Compliance-Checklist` into implementable wo
 5. P2-02 ✅
 6. P2-03 ✅
 7. P2-04 ✅
+8. P3-01 ✅
+9. P3-02 ✅
+10. P3-03 ✅
+11. P3-04 ✅
+12. P3-05 ✅
+13. P3-06 ✅
+
+---
+
+## Epic P3 — Post-Analysis Remediation
+
+### P3-01 — W3C Multibase Conformance
+
+**Problem:** `publicKeyMultibase` used `z` + hex instead of the standard `z` + multicodec + Base58btc encoding.
+
+**Technical Scope:**
+- Implement `encodePublicKeyMultibase` / `decodePublicKeyMultibase` using Ed25519 multicodec prefix `0xed01` + Base58btc.
+- Update `create()`, `verifySignature()`, `rotateVerificationMethod()` in both TS and Python SDKs.
+- Update shared interop fixtures.
+
+**Status:** ✅ Completed.
+
+---
+
+### P3-02 — Atomic Registration
+
+**Problem:** `create()` generated identity and stored in registry as two separate steps. A failure between them could leave orphaned identities.
+
+**Technical Scope:**
+- Wrap identity creation + registry storage in atomic operation.
+- Rollback on registry failure.
+
+**Status:** ✅ Completed.
+
+---
+
+### P3-03 — HTTP Anti-Replay Protection
+
+**Problem:** HTTP signature verification lacked nonce and expiration validation.
+
+**Technical Scope:**
+- Add `created`, `expires`, `nonce` to HTTP signature headers.
+- Validate timestamps and reject expired/future signatures.
+
+**Status:** ✅ Completed.
+
+---
+
+### P3-04 — Historical Signature Verification
+
+**Problem:** After key rotation, signatures made with old keys could not be verified.
+
+**Technical Scope:**
+- Add `deactivated` field to `VerificationMethod` (ISO-8601 timestamp).
+- `rotateVerificationMethod()` marks old keys as deactivated instead of removing them.
+- New `verifyHistoricalSignature(did, payload, signature, keyId)` searches all methods including deactivated.
+
+**Status:** ✅ Completed.
+
+---
+
+### P3-05 — Signer Abstraction Layer
+
+**Problem:** `create()` returned raw private key hex. Production deployments need KMS/HSM/Vault integration.
+
+**Technical Scope:**
+- `AgentSigner` interface/protocol with `sign()` and `getPublicKey()`.
+- `LocalKeySigner` wrapping current behavior.
+- `create()`, `signMessage()`, `signHttpRequest()` accept optional signer.
+- Demo mode (no signer) works as before.
+
+**Status:** ✅ Completed.
+
+---
+
+### P3-06 — SSRF Hardening
+
+**Problem:** HTTP validation only checked protocol scheme. No protection against loopback, private networks, or cloud metadata endpoints.
+
+**Technical Scope:**
+- `validateHttpTarget()` helper blocking loopback, private, link-local, metadata, and embedded credentials.
+- `allowPrivateTargets` flag for dev/testing.
+- Integrated into `HttpDIDDocumentSource`, `JsonRpcDIDDocumentSource`, `signHttpRequest()`.
+
+**Status:** ✅ Completed.
 
 ---
 

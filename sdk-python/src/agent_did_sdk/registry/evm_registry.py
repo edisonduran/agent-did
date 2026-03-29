@@ -14,6 +14,11 @@ class EvmAgentRegistry:
         self._await_tx = config.await_transaction_confirmation
 
     async def register(self, did: str, controller: str, document_ref: str | None = None) -> None:
+        if document_ref and hasattr(self._contract, 'register_agent_with_document'):
+            tx = await self._contract.register_agent_with_document(did, controller, document_ref)
+            await self._wait_if_needed(tx)
+            return
+
         tx = await self._contract.register_agent(did, controller)
         await self._wait_if_needed(tx)
         if document_ref:

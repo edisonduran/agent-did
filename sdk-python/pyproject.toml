@@ -41,8 +41,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/agent-citizen-identification"
-Repository = "https://github.com/agent-citizen-identification"
+Homepage = "https://github.com/edisonduran/Agent-citizen-identification#readme"
+Repository = "https://github.com/edisonduran/Agent-citizen-identification.git"
+Bug-Tracker = "https://github.com/edisonduran/Agent-citizen-identification/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

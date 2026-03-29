@@ -18,6 +18,9 @@ class EvmAgentRegistryContract(Protocol):
     async def register_agent(
         self, did: str, controller: str, document_ref: str | None = None,
     ) -> EvmTxResponse | None: ...
+    async def register_agent_with_document(
+        self, did: str, controller: str, document_ref: str,
+    ) -> EvmTxResponse | None: ...
     async def set_document_ref(
         self, did: str, document_ref: str,
     ) -> EvmTxResponse | None: ...

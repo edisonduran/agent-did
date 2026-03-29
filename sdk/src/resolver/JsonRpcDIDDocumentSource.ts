@@ -1,4 +1,5 @@
 import { AgentDIDDocument } from '../core/types';
+import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 
 type JsonRpcResponse = {
@@ -27,6 +28,7 @@ export interface JsonRpcDIDDocumentSourceConfig {
   buildParams?: (documentRef: string) => unknown[];
   transport?: JsonRpcTransport;
   headers?: Record<string, string>;
+  httpSecurity?: HttpTargetValidationOptions;
 }
 
 export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
@@ -35,6 +37,7 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
   private readonly buildParams: (documentRef: string) => unknown[];
   private readonly transport: JsonRpcTransport;
   private readonly headers: Record<string, string>;
+  private readonly httpSecurity: HttpTargetValidationOptions;
 
   constructor(config: JsonRpcDIDDocumentSourceConfig = {}) {
     this.endpoints = config.endpoints || (config.endpoint ? [config.endpoint] : []);
@@ -45,6 +48,7 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
       'content-type': 'application/json',
       ...(config.headers || {})
     };
+    this.httpSecurity = config.httpSecurity || {};
 
     if (this.endpoints.length === 0) {
       throw new Error('JsonRpcDIDDocumentSource requires at least one endpoint');
@@ -64,13 +68,14 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
 
     for (const endpoint of this.endpoints) {
       try {
-        const parsed = new URL(endpoint);
-        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-          continue;
-        }
+        validateHttpTarget(endpoint, this.httpSecurity);
+      } catch {
+        continue;
+      }
 
-        hadValidEndpoint = true;
+      hadValidEndpoint = true;
 
+      try {
         const response = await this.transport(endpoint, payload, this.headers);
 
         if (!response.ok) {

@@ -4,12 +4,14 @@ build/
 .env
 .DS_Store
 coverage/
+.coverage
 *.log
 .vscode/settings.json
 __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.pytest_cache/
 .venv*/
 **/.venv*/
 

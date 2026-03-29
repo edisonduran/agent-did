@@ -176,4 +176,4 @@ python scripts/e2e_smoke.py
 
 ## License
 
-MIT
+[Apache-2.0](../LICENSE) — see root LICENSE.

@@ -1,6 +1,6 @@
 # @agent-did/sdk
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4+-blue)](https://www.typescriptlang.org/)
 
@@ -115,6 +115,50 @@ AgentIdentity.useProductionResolverFromHttp({
 
 Minimal `did:wba` example: [`examples/did-wba-resolution.js`](examples/did-wba-resolution.js)
 
+## Production Signer (KMS/HSM)
+
+By default `create()` generates a local Ed25519 key pair (demo mode). For production, inject an `AgentSigner` backed by your KMS/HSM/Vault:
+
+```ts
+import { AgentIdentity, AgentSigner, LocalKeySigner } from '@agentdid/sdk';
+
+// Option A: Use LocalKeySigner (testing / demo)
+const [signer, privateKeyHex] = LocalKeySigner.generate();
+
+// Option B: Implement AgentSigner for your KMS
+const kmsSigner: AgentSigner = {
+  async sign(payload: Uint8Array): Promise<string> { /* call KMS */ },
+  async getPublicKey(): Promise<Uint8Array> { /* return pub key */ },
+};
+
+const result = await identity.create({
+  name: 'ProdBot', coreModel: 'gpt-4o', systemPrompt: '...',
+  signer: kmsSigner, // private key never leaves KMS
+});
+
+// signMessage & signHttpRequest also accept the signer
+const sig = await identity.signMessage('payload', kmsSigner);
+```
+
+When `signer` is provided, `result.agentPrivateKey` is empty string — the private key never leaves the signer.
+
+## Historical Signature Verification
+
+After key rotation, old keys are marked `deactivated` (ISO timestamp) but kept in the document. Use `verifyHistoricalSignature` to verify signatures made with rotated keys:
+
+```ts
+const valid = await AgentIdentity.verifyHistoricalSignature(
+  did, payload, signatureHex, 'did:agent:polygon:0x...#key-1'
+);
+```
+
+## Anti-Replay (HTTP Signatures)
+
+HTTP signatures include `created`, `expires`, and a random `nonce`. Verifiers SHOULD:
+- Reject signatures where `expires < now`
+- Reject signatures where `created > now + maxSkew` (default: 30s)
+- Track seen nonces to prevent replay within the expiration window
+
 ## Specification
 
 This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edisonduran/Agent-citizen-identification/blob/main/docs/RFC-001-Agent-DID-Specification.md) — a standard for decentralized AI agent identity extending W3C DIDs with agent-specific metadata.
@@ -133,4 +177,4 @@ See [CONTRIBUTING.md](https://github.com/edisonduran/Agent-citizen-identificatio
 
 ## License
 
-[MIT](LICENSE)
+[Apache-2.0](../../LICENSE) — see root LICENSE.

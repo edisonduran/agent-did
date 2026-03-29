@@ -47,6 +47,7 @@
   "dependencies": {
     "@noble/curves": "^1.4.0",
     "@noble/hashes": "^1.4.0",
+    "bs58": "^6.0.0",
     "ethers": "^6.11.1",
     "multiformats": "^13.1.0"
   },

@@ -1038,7 +1038,7 @@ Breakdown:
 
 - **`controller`**: Who controls this key (normally the DID itself).
 
-- **`publicKeyMultibase`**: The public key encoded in Multibase format. The `z` prefix indicates the encoding. **Technical note:** In the current SDK version (v0.1.0), `z` + hexadecimal is used as a simplified representation. The Multibase standard defines `z` as Base58btc — this is a pragmatic simplification that works internally and will be fully aligned with the standard in future versions.
+- **`publicKeyMultibase`**: The public key encoded in Multibase format conforming to the W3C standard. The SDK uses the `z` prefix (Base58btc) with the Ed25519 multicodec (`0xed01`), producing values like `z6Mk...`. This is fully compatible with the DID Core specification and the `did:key` format.
 
 #### `authentication` — Access Control
 
@@ -1303,26 +1303,26 @@ Your model (secret)  →  SHA-256  →  "a1b2c3d4..."  (public in the DID Docume
 
 It's like registering a work with a notary: you don't publish the entire novel, but there's a record that it existed on that date.
 
-#### Q: Why does the SDK use `z` + hex in publicKeyMultibase instead of standard Multibase?
+#### Q: How does the SDK encode publicKeyMultibase?
 
-The **Multibase** standard defines that the prefix indicates the encoding:
-- `z` = Base58btc
-- `f` = lowercase hexadecimal
-- `M` = Base64
+The SDK follows the **Multibase** + **Multicodec** standard per W3C DID Core:
 
-Our SDK does `z${publicKeyHex}` — meaning it uses prefix `z` but the content is in hexadecimal. The code itself explains:
+1. Take the 32-byte Ed25519 public key
+2. Prepend the Ed25519 multicodec prefix: `0xed01` (2 bytes)
+3. Encode in Base58btc
+4. Prepend the multibase character `z`
+
+The result is a value like `z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK`, which is interoperable with `did:key`, Veramo, SpruceID and other DID implementations.
 
 ```typescript
-publicKeyMultibase: `z${publicKeyHex}`, // Simplified multibase representation for the SDK
+// Internally the SDK uses:
+import { encodePublicKeyMultibase, decodePublicKeyMultibase } from '@agentdid/sdk';
+
+const multibase = encodePublicKeyMultibase(publicKeyBytes);  // → "z6Mk..."
+const publicKey = decodePublicKeyMultibase(multibase);        // → Uint8Array(32)
 ```
 
-**Pragmatic reasons for this decision:**
-
-1. **Simplicity**: Base58btc requires an additional library. Hex is native in JavaScript (`Buffer.toString('hex')`)
-2. **EVM compatibility**: Everything in the Ethereum/Polygon world works in hex — addresses, signatures, keys
-3. **SDK v0.1.0**: Prototype decision. Works internally because the same SDK that writes the key reads it
-
-**Is it correct according to the standard?** Not 100%. In production it should use real Base58btc with `z`, or change the prefix to `f` for hex. It's an identified improvement point.
+**Historical note:** Versions prior to v0.2.0 used `z` + hexadecimal without multicodec. This was corrected in Sprint 1 to fully comply with the standard.
 
 #### Q: Is Cloudflare an IPFS?
 
@@ -1750,11 +1750,8 @@ public static async verifySignature(
 
     // 5. Verify with each candidate key
     for (const verificationMethod of candidateMethods) {
-        const publicKeyHex = verificationMethod.publicKeyMultibase!.startsWith('z')
-            ? verificationMethod.publicKeyMultibase!.slice(1)   // Remove prefix 'z'
-            : verificationMethod.publicKeyMultibase!;
-
-        const publicKeyBytes = hexToBytes(publicKeyHex);
+        // decodePublicKeyMultibase handles the z + multicodec + base58btc format
+        const publicKeyBytes = decodePublicKeyMultibase(verificationMethod.publicKeyMultibase!);
         const valid = ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
 
         if (valid) return true;  // Valid signature!
@@ -3028,8 +3025,9 @@ interface VerificationMethod {
   id: string;                   // "did:agent:polygon:0x...#key-1"
   type: string;                 // "Ed25519VerificationKey2020"
   controller: string;           // Controller's DID
-  publicKeyMultibase?: string;  // "z<hex of public key>"
+  publicKeyMultibase?: string;  // "z6Mk..." (multicodec Ed25519 + base58btc)
   blockchainAccountId?: string; // "eip155:1:0x..." (for ERC-4337)
+  deactivated?: string;         // ISO 8601 timestamp when key was deactivated
 }
 
 interface AgentDIDDocument {

@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+# Core signer
+from .core.signer import AgentSigner, LocalKeySigner
+
+# Core HTTP security
+from .core.http_security import HttpTargetValidationOptions, validate_http_target
+
 # Core identity
 from .core.identity import (
     AgentIdentity,
@@ -37,6 +43,7 @@ from .core.types import (
 
 # Crypto
 from .crypto.hash import format_hash_uri, generate_agent_metadata_hash, hash_payload
+from .crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
 from .registry.evm_registry import EvmAgentRegistry
 from .registry.evm_types import EvmAgentRegistryAdapterConfig, EvmAgentRegistryContract, EvmTxResponse
 from .registry.in_memory import InMemoryAgentRegistry
@@ -73,6 +80,12 @@ __all__ = [
     "VerifyHttpRequestSignatureParams",
     "AgentDocumentHistoryAction",
     "AgentDocumentHistoryEntry",
+    # Core signer
+    "AgentSigner",
+    "LocalKeySigner",
+    # Core HTTP security
+    "HttpTargetValidationOptions",
+    "validate_http_target",
     # Core identity
     "AgentIdentity",
     "AgentIdentityConfig",
@@ -88,6 +101,8 @@ __all__ = [
     "hash_payload",
     "format_hash_uri",
     "generate_agent_metadata_hash",
+    "encode_public_key_multibase",
+    "decode_public_key_multibase",
     # Registry
     "AgentRegistry",
     "AgentRegistryRecord",

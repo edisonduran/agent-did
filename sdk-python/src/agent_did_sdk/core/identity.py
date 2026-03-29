@@ -20,6 +20,7 @@ from ..crypto.hash import (
     generate_agent_metadata_hash,
     generate_canonical_document_hash,
 )
+from ..crypto.multibase import encode_public_key_multibase, decode_public_key_multibase
 from ..registry.in_memory import InMemoryAgentRegistry
 from ..registry.types import AgentRegistry
 from ..resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
@@ -32,6 +33,8 @@ from ..resolver.types import (
 )
 from ..resolver.universal import UniversalResolverClient
 from .time_utils import normalize_timestamp_to_iso
+from .signer import AgentSigner, LocalKeySigner
+from .http_security import validate_http_target
 from .types import (
     AgentDIDDocument,
     AgentDocumentHistoryAction,
@@ -76,6 +79,7 @@ class ProductionHttpResolverProfileConfig:
     http_client: object | None = None
     ipfs_gateways: list[str] | None = None
     on_resolution_event: object | None = None
+    http_security: object | None = None
 
 
 @dataclass
@@ -89,6 +93,7 @@ class ProductionJsonRpcResolverProfileConfig:
     headers: dict[str, str] | None = None
     http_client: object | None = None
     on_resolution_event: object | None = None
+    http_security: object | None = None
 
 
 class AgentIdentity:
@@ -122,16 +127,20 @@ class AgentIdentity:
         system_prompt_hash_uri = generate_agent_metadata_hash(params.system_prompt)
 
         # Ed25519 keypair for agent signatures
-        signing_key = SigningKey.generate()
-        private_key_hex = signing_key.encode().hex()
-        public_key_hex = signing_key.verify_key.encode().hex()
+        private_key_hex = ""
+        if params.signer is not None:
+            public_key_bytes = await params.signer.get_public_key()
+        else:
+            signing_key = SigningKey.generate()
+            private_key_hex = signing_key.encode().hex()
+            public_key_bytes = bytes(signing_key.verify_key)
 
         verification_method_id = f"{agent_did}#key-1"
         vm = VerificationMethod(
             id=verification_method_id,
             type="Ed25519VerificationKey2020",
             controller=controller_did,
-            publicKeyMultibase=f"z{public_key_hex}",
+            publicKeyMultibase=encode_public_key_multibase(public_key_bytes),
             blockchainAccountId=f"eip155:1:{to_checksum_address(os.urandom(20))}",
         )
 
@@ -164,12 +173,15 @@ class AgentIdentity:
 
         return CreateAgentResult(document=document, agent_private_key=private_key_hex)
 
-    async def sign_message(self, payload: str, agent_private_key_hex: str) -> str:
-        """Sign *payload* with an Ed25519 private key, returning the hex signature."""
-        private_bytes = bytes.fromhex(agent_private_key_hex)
-        signing_key = SigningKey(private_bytes)
-        signed = signing_key.sign(payload.encode("utf-8"))
-        return signed.signature.hex()
+    async def sign_message(self, payload: str, key_or_signer: str | AgentSigner) -> str:
+        """Sign *payload* with an Ed25519 private key (hex) or an AgentSigner."""
+        message_bytes = payload.encode("utf-8")
+        if isinstance(key_or_signer, str):
+            private_bytes = bytes.fromhex(key_or_signer)
+            signing_key = SigningKey(private_bytes)
+            signed = signing_key.sign(message_bytes)
+            return signed.signature.hex()
+        return await key_or_signer.sign(message_bytes)
 
     async def sign_http_request(self, params: SignHttpRequestParams) -> dict[str, str]:
         """Sign an HTTP request (Web Bot Auth) and return the headers to inject."""
@@ -177,29 +189,38 @@ class AgentIdentity:
             raise ValueError("HTTP method is required")
         if not (params.url and params.url.strip()):
             raise ValueError("HTTP URL is required")
+
+        validate_http_target(params.url, params.http_security)
+
         if not (params.agent_did and params.agent_did.strip()):
             raise ValueError("Agent DID is required")
 
-        timestamp = str(int(time.time()))
+        timestamp = int(time.time())
+        expires_at = timestamp + (params.expires_in_seconds if params.expires_in_seconds is not None else 30)
+        nonce = os.urandom(16).hex()
         date_header = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
         vm_id = params.verification_method_id or f"{params.agent_did}#key-1"
         content_digest = AgentIdentity._compute_content_digest(params.body)
         string_to_sign = AgentIdentity._build_http_signature_base(
-            method=params.method, url=params.url, date_header=date_header, content_digest=content_digest
+            method=params.method, url=params.url, date_header=date_header, content_digest=content_digest, nonce=nonce
         )
 
-        signature_hex = await self.sign_message(string_to_sign, params.agent_private_key)
+        key_or_signer = params.signer or params.agent_private_key
+        if key_or_signer is None:
+            raise ValueError("Either signer or agent_private_key must be provided")
+        signature_hex = await self.sign_message(string_to_sign, key_or_signer)
         signature_b64 = base64.b64encode(bytes.fromhex(signature_hex)).decode("ascii")
 
         return {
             "Signature": f"sig1=:{signature_b64}:",
             "Signature-Input": (
-                f'sig1=("@request-target" "host" "date" "content-digest");'
-                f'created={timestamp};keyid="{vm_id}";alg="ed25519"'
+                f'sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");'
+                f'created={timestamp};expires={expires_at};keyid="{vm_id}";alg="ed25519"'
             ),
             "Signature-Agent": params.agent_did,
             "Date": date_header,
             "Content-Digest": content_digest,
+            "X-Request-Nonce": nonce,
         }
 
     # ------------------------------------------------------------------
@@ -214,6 +235,7 @@ class AgentIdentity:
         sig_agent = norm.get("signature-agent")
         date_header = norm.get("date")
         digest_header = norm.get("content-digest")
+        nonce_header = norm.get("x-request-nonce")
 
         if not all([sig_header, sig_input_header, sig_agent, date_header, digest_header]):
             return False
@@ -225,9 +247,6 @@ class AgentIdentity:
         parsed_inputs = cls._parse_http_signature_input_dictionary(sig_input_header)  # type: ignore[arg-type]
         parsed_sigs = cls._parse_http_signature_dictionary(sig_header)  # type: ignore[arg-type]
 
-        sig_base = cls._build_http_signature_base(
-            method=params.method, url=params.url, date_header=date_header, content_digest=digest_header  # type: ignore[arg-type]
-        )
         now = int(time.time())
         max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
 
@@ -239,7 +258,12 @@ class AgentIdentity:
                 continue
 
             covered = {c.lower() for c in entry["components"]}
-            if not {"@request-target", "host", "date", "content-digest"}.issubset(covered):
+            required = {"@request-target", "host", "date", "content-digest", "x-request-nonce"}
+            if not required.issubset(covered):
+                continue
+
+            # Nonce header must be present when x-request-nonce is a covered component
+            if not nonce_header:
                 continue
 
             key_id: str = entry["params"]["keyid"]
@@ -255,8 +279,24 @@ class AgentIdentity:
             if abs(now - created) > max_skew:
                 continue
 
+            # Check expiration if present
+            expires_raw = entry["params"].get("expires")
+            if expires_raw:
+                try:
+                    expires = int(expires_raw)
+                except ValueError:
+                    continue
+                if now > expires:
+                    continue
+
             if not key_id.startswith(f"{sig_agent}#"):
                 continue
+
+            # Rebuild signature base including nonce
+            sig_base = cls._build_http_signature_base(
+                method=params.method, url=params.url, date_header=date_header,  # type: ignore[arg-type]
+                content_digest=digest_header, nonce=nonce_header  # type: ignore[arg-type]
+            )
 
             sig_hex = bytes(base64.b64decode(sig_b64)).hex()
             is_valid = await cls.verify_signature(sig_agent, sig_base, sig_hex, key_id)  # type: ignore[arg-type]
@@ -287,14 +327,42 @@ class AgentIdentity:
             pk_raw = vm.public_key_multibase
             if not pk_raw:
                 continue
-            pk_hex = pk_raw[1:] if pk_raw.startswith("z") else pk_raw
             try:
-                vk = VerifyKey(bytes.fromhex(pk_hex))
+                pk_bytes = decode_public_key_multibase(pk_raw)
+                vk = VerifyKey(pk_bytes)
                 vk.verify(message_bytes, sig_bytes)
                 return True
             except Exception:
                 continue
         return False
+
+    @classmethod
+    async def verify_historical_signature(
+        cls, did: str, payload: str, signature: str, key_id: str
+    ) -> bool:
+        """Verify a historical signature against any key (including deactivated) in the DID document."""
+        is_revoked = await cls._registry.is_revoked(did)
+        if is_revoked:
+            return False
+
+        doc = await cls.resolve(did)
+        message_bytes = payload.encode("utf-8")
+        sig_bytes = bytes.fromhex(signature)
+
+        candidate = next(
+            (m for m in doc.verification_method if m.id == key_id and m.public_key_multibase),
+            None,
+        )
+        if candidate is None or not candidate.public_key_multibase:
+            return False
+
+        try:
+            pk_bytes = decode_public_key_multibase(candidate.public_key_multibase)
+            vk = VerifyKey(pk_bytes)
+            vk.verify(message_bytes, sig_bytes)
+            return True
+        except Exception:
+            return False
 
     @classmethod
     async def resolve(cls, did: str) -> AgentDIDDocument:
@@ -386,16 +454,24 @@ class AgentIdentity:
 
         signing_key = SigningKey.generate()
         private_key_hex = signing_key.encode().hex()
-        public_key_hex = signing_key.verify_key.encode().hex()
+        public_key_bytes = bytes(signing_key.verify_key)
 
         new_vm = VerificationMethod(
             id=vm_id,
             type="Ed25519VerificationKey2020",
             controller=existing.controller,
-            publicKeyMultibase=f"z{public_key_hex}",
+            publicKeyMultibase=encode_public_key_multibase(public_key_bytes),
         )
 
-        all_vms = [vm.model_dump(by_alias=True, exclude_none=True) for vm in existing.verification_method]
+        deactivated_timestamp = cls._now_iso_timestamp()
+        deactivated_vms = []
+        for vm in existing.verification_method:
+            d = vm.model_dump(by_alias=True, exclude_none=True)
+            if "deactivated" not in d:
+                d["deactivated"] = deactivated_timestamp
+            deactivated_vms.append(d)
+
+        all_vms = deactivated_vms
         all_vms.append(new_vm.model_dump(by_alias=True, exclude_none=True))
 
         updated = AgentDIDDocument(
@@ -404,7 +480,7 @@ class AgentIdentity:
                 "id": existing.id,
                 "controller": existing.controller,
                 "created": existing.created,
-                "updated": cls._now_iso_timestamp(),
+                "updated": deactivated_timestamp,
                 "agentMetadata": existing.agent_metadata.model_dump(by_alias=True, exclude_none=True),
                 "verificationMethod": all_vms,
                 "authentication": [vm_id],
@@ -454,6 +530,7 @@ class AgentIdentity:
             reference_to_urls=config.reference_to_urls,  # type: ignore[arg-type]
             http_client=config.http_client,  # type: ignore[arg-type]
             ipfs_gateways=config.ipfs_gateways,
+            http_security=config.http_security,  # type: ignore[arg-type]
         ))
         cls.use_production_resolver(ProductionResolverProfileConfig(
             registry=config.registry,
@@ -472,6 +549,7 @@ class AgentIdentity:
             build_params=config.build_params,  # type: ignore[arg-type]
             headers=config.headers,
             http_client=config.http_client,  # type: ignore[arg-type]
+            http_security=config.http_security,  # type: ignore[arg-type]
         ))
         cls.use_production_resolver(ProductionResolverProfileConfig(
             registry=config.registry,
@@ -496,15 +574,18 @@ class AgentIdentity:
         return f"sha-256=:{b64}:"
 
     @staticmethod
-    def _build_http_signature_base(*, method: str, url: str, date_header: str, content_digest: str) -> str:
+    def _build_http_signature_base(*, method: str, url: str, date_header: str, content_digest: str, nonce: str | None = None) -> str:
         parsed = urlparse(url)
         path_query = parsed.path + (f"?{parsed.query}" if parsed.query else "")
-        return "\n".join([
+        lines = [
             f"(request-target): {method.lower()} {path_query}",
             f"host: {parsed.netloc}",
             f"date: {date_header}",
             f"content-digest: {content_digest}",
-        ])
+        ]
+        if nonce:
+            lines.append(f"x-request-nonce: {nonce}")
+        return "\n".join(lines)
 
     @staticmethod
     def _parse_http_signature_input_dictionary(value: str) -> list[_ParsedSigInputEntry]:
