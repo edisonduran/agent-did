@@ -94,7 +94,7 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | ID | Brecha | Impacto | Prioridad | Mitigación propuesta |
 |---|---|---|---|---|
 | BT-01 | Resolver en memoria por defecto (no persistente) | No apto para producción real | Alta | Implementar backend persistente (Redis/IPFS/Arweave) |
-| BT-02 | Sin auditoría de seguridad del contrato | Riesgo para despliegue en mainnet | Alta | Auditoría con Slither/Mythril como mínimo; auditoría formal para mainnet |
+| BT-02 | Sin auditoría formal externa del contrato | Riesgo para despliegue en mainnet | Media | Auditoría automatizada Slither/Mythril completada (F1-05); auditoría formal de terceros pendiente en F3-04 |
 | BT-03 | Sin ZKP implementado | El paper teórico los menciona pero el SDK no los soporta | Media | Integrar librería ZKP (snarkjs o similar) para verificación de capabilities |
 | BT-04 | Las integraciones ya entregadas requieren mantenimiento y expansión coordinada | El drift entre integraciones publicadas, documentación y claims de madurez puede erosionar la confianza de adopción | Media | Mantener alineadas LangChain, CrewAI, Semantic Kernel y Microsoft Agent Framework; agregar nuevas integraciones de forma deliberada |
 | BT-05 | Paridad semántica cross-SDK todavía en consolidación | Riesgo de divergencias sutiles entre SDKs | Media | Mantener fixtures compartidos y canonicalización estricta de `documentRef` |
@@ -184,7 +184,7 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | Smart Contract | ★★★★☆ (4/5) | Funcional y limpio; falta auditoría formal |
 | Testing | ★★★★☆ (4/5) | TS y Python con suites propias, interop vectors compartidos y CI dedicado por stack |
 | Documentación | ★★★★★ (5/5) | RFC + checklist + backlog + runbook + curso 2h + paper teórico de 296 líneas |
-| Producción-readiness | ★★☆☆☆ (2/5) | Resolver en memoria, sin pipeline CI/CD, sin auditoría de contrato |
+| Producción-readiness | ★★★☆☆ (3/5) | Resolver en memoria por defecto; pipeline CI/CD operativo; auditoría automatizada de contrato completada |
 | Adopción / Comunidad | ★☆☆☆☆ (1/5) | Proyecto greenfield sin adopción externa todavía |
 | Posicionamiento estratégico | ★★★★★ (5/5) | Timing excelente, problema real, sin competencia directa en el nicho |
 
@@ -205,7 +205,7 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | F1-05 | Auditoría automatizada del smart contract (Slither/Mythril) | Seguridad | Prerequisito para mainnet |
 | F1-06 | Pipeline CI/CD con GitHub Actions | DevOps | Conformance automatizada por PR |
 
-Estado actual: F1-03 ya fue completado y la implementación está disponible en [../integrations/langchain/README.md](../integrations/langchain/README.md).
+Estado actual: F1-01, F1-02, F1-03, F1-05 y F1-06 ya están completados. F1-04 (sometimiento a DIF) permanece abierto.
 
 ### Fase 2 — Expansión de ecosistema (3-6 meses)
 

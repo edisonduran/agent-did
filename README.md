@@ -308,7 +308,7 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 | F2-08 | Azure AI Agent Service integration | Open |
 | F2-09 | Microsoft Agent Framework integration | Done |
 
-The next Python-focused consolidation track is semantic parity: canonical `documentRef` generation, shared cross-language fixtures, and keeping the separate Python CI aligned with the TypeScript quality bar.
+Python semantic parity is achieved: canonical `documentRef` generation, shared cross-language fixtures, and per-stack CI are all operational.
 
 The next Python integration track is hardening and release maturation of LangChain Python, with execution steps documented in [docs/F1-03-LangChain-Python-Implementation-Checklist.md](docs/F1-03-LangChain-Python-Implementation-Checklist.md).
 

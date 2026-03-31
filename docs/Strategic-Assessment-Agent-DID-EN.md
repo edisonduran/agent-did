@@ -26,8 +26,10 @@ The project occupies a strategic space of very high value with virtually no dire
 |---|---|---|
 | RFC-001 Specification | `docs/RFC-001-Agent-DID-Specification.md` | Active draft v0.2-unified |
 | TypeScript SDK | `sdk/` | Functional — 14 source files, 584 LOC main class |
+| Python SDK | `sdk-python/` | Functional — dedicated Python pipeline, shared fixtures and own suite |
 | EVM Smart Contract | `contracts/src/AgentRegistry.sol` | Functional — Solidity 0.8.24, optimizer enabled |
 | Tests | `sdk/tests/` | 8 suites covering full lifecycle |
+| Tests Python | `sdk-python/tests/` | Dedicated suite with lint, mypy, coverage, conformance and smokes |
 | Conformance | `docs/RFC-001-Compliance-Checklist.md` | 11/11 MUST PASS + 5/5 SHOULD PASS |
 | Documentation | `docs/` | RFC + checklist + backlog + HA runbook + 2h course + manual |
 | Theoretical paper | `Seguridad de Agentes de IA_ Firma Digital.md` | Complete (296 lines) |
@@ -92,7 +94,7 @@ The project occupies a strategic space of very high value with virtually no dire
 | ID | Gap | Impact | Priority | Proposed mitigation |
 |---|---|---|---|---|
 | BT-01 | In-memory resolver by default (not persistent) | Not suitable for real production | High | Implement persistent backend (Redis/IPFS/Arweave) |
-| BT-02 | No contract security audit | Risk for mainnet deployment | High | Audit with Slither/Mythril at minimum; formal audit for mainnet |
+| BT-02 | No formal external contract audit | Risk for mainnet deployment | Medium | Automated Slither/Mythril audit completed (F1-05); formal third-party audit remains under F3-04 |
 | BT-03 | No ZKP implemented | Theoretical paper mentions them but SDK doesn't support them | Medium | Integrate ZKP library (snarkjs or similar) for capability verification |
 | BT-04 | Delivered framework integrations require coordinated maintenance and expansion | Drift between shipped integrations, docs, and maturity claims can reduce adoption confidence | Medium | Keep LangChain, CrewAI, Semantic Kernel, and Microsoft Agent Framework aligned; add new integrations deliberately |
 | BT-05 | Cross-SDK semantic parity still consolidating | Risk of subtle divergences between TypeScript and Python behaviors | Medium | Maintain shared fixtures and strict `documentRef` canonicalization |
@@ -178,11 +180,11 @@ The project occupies a strategic space of very high value with virtually no dire
 | Dimension | Score | Justification |
 |---|---|---|
 | Technical specification | ★★★★★ (5/5) | RFC-001 is complete, normative and well-structured with clear MUST/SHOULD fields |
-| SDK implementation | ★★★★☆ (4/5) | Functional with good coverage; Python SDK missing |
-| Smart Contract | ★★★★☆ (4/5) | Functional and clean; formal audit missing |
-| Testing | ★★★★☆ (4/5) | 8 suites with interop vectors; automated CI missing |
+| SDK implementation | ★★★★★ (5/5) | TypeScript and Python implemented, with functional parity and active semantic parity work |
+| Smart Contract | ★★★★☆ (4/5) | Functional and clean; formal external audit missing (automated Slither/Mythril done) |
+| Testing | ★★★★★ (5/5) | TS and Python with dedicated suites, shared interop vectors, and per-stack CI (10 workflows) |
 | Documentation | ★★★★★ (5/5) | RFC + checklist + backlog + runbook + 2h course + 296-line theoretical paper |
-| Production-readiness | ★★☆☆☆ (2/5) | In-memory resolver, no CI/CD pipeline, no contract audit |
+| Production-readiness | ★★★☆☆ (3/5) | In-memory resolver by default; CI/CD pipeline operational; automated contract audit done |
 | Adoption / Community | ★☆☆☆☆ (1/5) | Greenfield project with no external adoption yet |
 | Strategic positioning | ★★★★★ (5/5) | Excellent timing, real problem, no direct competition in the niche |
 
@@ -203,7 +205,7 @@ The project occupies a strategic space of very high value with virtually no dire
 | F1-05 | Automated smart contract audit (Slither/Mythril) | Security | Prerequisite for mainnet |
 | F1-06 | CI/CD pipeline with GitHub Actions | DevOps | Automated conformance per PR |
 
-Current status: F1-03 is already completed and the implementation is available in [../integrations/langchain/README.md](../integrations/langchain/README.md).
+Current status: F1-01, F1-02, F1-03, F1-05, and F1-06 are completed. F1-04 (DIF submission) remains open.
 
 ### Phase 2 — Ecosystem expansion (3-6 months)
 
