@@ -19,14 +19,14 @@
 
 > **Give your AI agents a verifiable identity — in the framework you already use, with or without blockchain.**
 
-**Agent-DID** is an open standard and reference implementation that answers the question the AI industry has systematically avoided: *when an autonomous agent acts — signs a request, delegates a task, modifies data — how does the system on the other side know who that agent really is?*
+**Agent-DID** is an open standard and reference implementation that addresses a question the AI industry still lacks a clear answer for: *when an autonomous agent acts — signs a request, delegates a task, modifies data — how does the system on the other side know who that agent really is?*
 
-OAuth delegates this to a centralized provider. MCP ignores it by design. Agent-DID solves it at the cryptographic level, with zero lock-in and native integration in every major AI orchestration framework.
+OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in and with native integrations across several major AI orchestration frameworks.
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
 - **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — 11/11 MUST conformant
-- **Production-ready SDKs** for TypeScript and Python
+- **TypeScript and Python SDKs** backed by dedicated CI, interoperability fixtures, and conformance checks
 - **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, and Microsoft Agent Framework
 - **Flexible trust anchoring** — on-chain (EVM) for immutability, or web-based (`did:wba`) for zero-friction adoption
 
@@ -40,7 +40,7 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 | Blockchain is required friction for most developers | `did:wba` method: identity without gas fees or wallets |
 | Identity is a separate concern from the AI framework | Native wrappers that inject identity into LangChain, CrewAI, SK, and MAF |
 | Agent actions are unauditable | Ed25519-signed HTTP requests — every action traceable to a verifiable DID |
-| Rogue agents can't be stopped globally | On-chain revocation propagates instantly across all resolvers |
+| Revoked or compromised agents are hard to stop consistently | On-chain revocation can propagate across compatible resolvers |
 
 ---
 
@@ -48,13 +48,13 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
 ### The Core Problem
 
-AI is no longer just a tool humans use — it is becoming an actor that makes decisions, negotiates, executes code, signs operations, and delegates tasks to other agents. This transition raises a question the industry has systematically avoided:
+AI is no longer just a tool humans use — it is becoming an actor that makes decisions, negotiates, executes code, signs operations, and delegates tasks to other agents. This transition raises a question the industry still lacks a clear answer for:
 
 > **How does a system know who the agent talking to it really is?**
 
 Not who created it. Not which platform it runs on. But *which specific agent*, at this moment, with this behavior, executing these actions.
 
-OAuth delegates this to a centralized provider. MCP ignores it by design. Agent-DID solves it at the cryptographic level, without platform lock-in.
+OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without platform lock-in.
 
 ### Five Principles
 
@@ -67,23 +67,23 @@ Not every system needs blockchain. Not every system can avoid it. Agent-DID reje
 - Rapid-prototyping platforms need zero friction — no gas fees, no wallets.
 - Regulated environments need verifiable credentials compatible with compliance frameworks.
 
-The same standard — the same SDK — must work in all three cases.
+The same standard — and the same SDK surface — is designed to work across all three cases.
 
 **3. Meet the developer where they are**
 A standard that requires learning a new paradigm before writing the first useful line of code has a structural adoption problem. Agent-DID integrates into the frameworks developers already use — LangChain, CrewAI, Semantic Kernel, Microsoft Agent Framework — and gives them verifiable identity without abandoning their workflow.
 
 **4. Open standards over proprietary lock-in**
-Agent-DID extends W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends the standard the industry is already converging on, adding AI-specific metadata: model hash, system prompt hash, declared capabilities, evolution lifecycle. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary standard is not a standard: it is a dependency.
+Agent-DID extends W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends existing identity standards with AI-specific metadata: model hash, system prompt hash, declared capabilities, evolution lifecycle. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary identity format creates dependency where interoperability is needed.
 
 **5. Verifiability without accidental complexity**
-Identity cryptography is complex. AI agent developers should not have to be. Agent-DID closes that gap with framework abstractions that inject identity into the agent's execution chain without extra developer code, and with Ed25519 as the default — the fastest, most compact, and most secure cryptographic primitive for high-frequency signing environments.
+Identity cryptography is complex. AI agent developers should not have to be. Agent-DID closes that gap with framework abstractions that inject identity into the agent's execution chain without extra developer code, and with Ed25519 as the default — a fast, compact, and widely trusted cryptographic primitive for high-frequency signing environments.
 
 ### What Agent-DID Is Not
 
 - **Not an orchestration framework.** It does not replace LangChain or CrewAI. It integrates with them.
 - **Not a payment system.** ERC-4337 compatibility exists for agent wallets, but payment management is out of scope.
 - **Not a blockchain mandate.** The EVM registry is an option, not a requirement. `did:wba` and `did:web` are equally valid.
-- **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol is the product.
+- **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol and SDKs are the primary interface.
 
 ---
 
@@ -265,8 +265,8 @@ RFC-001 is implemented and fully conformant. The project follows a 3-phase roadm
 
 | # | Item | Status |
 |---|---|---|
-| F1-01 | Publish SDK to npm (`@agent-did/sdk`) | Done |
-| F1-02 | Translate all docs to English | Done (course + strategic assessment + README) |
+| F1-01 | Publish TypeScript SDK to npm (`@agentdid/sdk`) | Done |
+| F1-02 | Translate README and key docs to English | Done (README + course + strategic assessment) |
 | F1-03 | LangChain integration for Agent-DID identity | Done |
 | F1-04 | Submit RFC-001 to DIF | Open |
 | F1-05 | Automated smart contract audit (Slither/Mythril) | Done |
@@ -283,9 +283,11 @@ Current CI split in GitHub Actions:
 - `CI — Python SDK & RFC-001 Conformance`: Python-native quality gates for `sdk-python/`, including conformance and Python smoke coverage on the primary runtime.
 - `CI — LangChain Python Integration`: dedicated validation for `integrations/langchain-python/`.
 - `CI — LangChain did:wba Demo Smoke`: cross-package smoke that executes the shipped JavaScript and Python integrated demos together.
-- `CI - Semantic Kernel Integration`: dedicated validation for `integrations/semantic-kernel/`.
+- `CI — CrewAI Integration`: dedicated validation for `integrations/crewai/`.
+- `CI — Semantic Kernel Integration`: dedicated validation for `integrations/semantic-kernel/`.
 - `CI — Microsoft Agent Framework Integration`: dedicated validation for `integrations/microsoft-agent-framework/`.
 - `CI — Google A2A Integration`: dedicated validation for `integrations/a2a/` with DID-enriched AgentCards, JSON-RPC signing, and mutual authentication tests.
+- `CI — Integration Governance`: validates the required parity/checklist artifacts that must stay aligned with supported integrations.
 - `Contract Audit`: Slither/Mythril security audit pipeline for `contracts/`.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.

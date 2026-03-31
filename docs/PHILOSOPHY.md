@@ -8,13 +8,13 @@
 
 ## The Core Problem
 
-AI is no longer just a tool that humans use — it is becoming an actor that makes decisions, negotiates, executes code, signs operations, and delegates tasks to other agents. This transition raises a question the industry has systematically avoided:
+AI is no longer just a tool that humans use — it is becoming an actor that makes decisions, negotiates, executes code, signs operations, and delegates tasks to other agents. This transition raises a question the industry still lacks a clear answer for:
 
 > **How does a system know who the agent talking to it really is?**
 
 Not who created it. Not which platform it runs on. But *which specific agent*, at this moment, with this behavior, executing these actions.
 
-OAuth delegates this question to a centralized provider. MCP ignores it by design. Federated systems solve it for humans, not for autonomous machines. The result is a trust architecture that breaks exactly at the moment when agents start acting autonomously and at scale.
+OAuth delegates this question to a centralized provider. MCP leaves it out of scope by design. Federated systems solve it for humans, not for autonomous machines. The result is a trust architecture that starts to break down once agents begin acting autonomously and at scale.
 
 Agent-DID exists to answer that question.
 
@@ -36,7 +36,7 @@ Not every system needs blockchain. Not every system can avoid it. Agent-DID's ph
 - An agent on a rapid-prototyping platform needs zero friction — no gas fees, no wallets.
 - An agent in a regulated environment needs verifiable credentials compatible with compliance frameworks.
 
-The same standard — the same SDK — must work in all three cases. The developer chooses their anchoring mechanism based on their real needs, not on the tool's limitations.
+The same standard — and the same SDK surface — is designed to work across all three cases. The developer chooses their anchoring mechanism based on their real needs, not on the tool's limitations.
 
 ### 3. Meet the developer where they are
 
@@ -46,9 +46,9 @@ The abstraction does the heavy lifting. The developer gets the benefit.
 
 ### 4. Open standards over proprietary lock-in
 
-Agent-DID is built on W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends the standard the industry is already converging on, adding the AI-specific metadata agents need: base model hash, system prompt hash, declared capabilities, evolution lifecycle.
+Agent-DID is built on W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends existing identity standards with the AI-specific metadata agents need: base model hash, system prompt hash, declared capabilities, evolution lifecycle.
 
-This choice is not philosophical by convenience — it is philosophical by conviction. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary standard is not a standard: it is a dependency.
+This choice is not philosophical by convenience — it is philosophical by conviction. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary identity format creates dependency where interoperability is needed.
 
 ### 5. Verifiability without accidental complexity
 
@@ -56,7 +56,7 @@ Identity cryptography is complex. Agent developers should not have to be. The ga
 
 Agent-DID closes that gap with two mechanisms:
 - **Framework abstractions** that inject identity into the agent's execution chain without extra developer code.
-- **Ed25519 by default** — the fastest, most compact, and most secure cryptographic primitive for high-frequency signing environments, with no confusing options or misconfigurable parameters.
+- **Ed25519 by default** — a fast, compact, and widely trusted cryptographic primitive for high-frequency signing environments, with no confusing options or misconfigurable parameters.
 
 ---
 
@@ -89,7 +89,7 @@ The project does not compete with ANP, A2A, or MCP. It complements their ecosyst
 - **Not an orchestration framework.** It does not replace LangChain or CrewAI. It integrates with them.
 - **Not a payment system.** Although it is compatible with ERC-4337 for agent wallets, payment management is out of scope.
 - **Not a blockchain mandate.** The EVM registry is an option, not a requirement. `did:wba` and `did:web` are equally valid.
-- **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol is the product.
+- **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol and SDKs are the primary interface.
 
 ---
 
