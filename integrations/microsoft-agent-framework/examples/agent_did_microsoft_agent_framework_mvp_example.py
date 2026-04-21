@@ -11,7 +11,11 @@ from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent
 
 class DummyChatClient(BaseChatClient):
     async def _inner_get_response(self, *, messages, stream, options, **kwargs):  # type: ignore[override]
-        return ChatResponse(messages=Message(role="assistant", text="local-stub-response"), value="local-stub-response")
+        return ChatResponse(
+            messages=Message("assistant", ["local-stub-response"]),
+            finish_reason="stop",
+            value="local-stub-response",
+        )
 
 
 async def main() -> None:
