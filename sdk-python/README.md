@@ -6,6 +6,8 @@ Functional parity with the TypeScript SDK (`@agentdid/sdk`), with a dedicated Py
 
 Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.md`.
 
+> **Public Review note:** Agent-DID is pre-1.0 and the RFC is still under community review. See [../docs/DEPRECATION-POLICY.md](../docs/DEPRECATION-POLICY.md) for compatibility and breaking-change expectations during this phase.
+
 Pythonic surface conventions apply:
 
 - constructor config uses `signer_address`

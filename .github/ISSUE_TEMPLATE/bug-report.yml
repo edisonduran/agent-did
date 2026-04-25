@@ -1,0 +1,80 @@
+name: Bug report
+description: Report a reproducible bug in an SDK, contract, integration, or repo workflow.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for reproducible bugs. For security vulnerabilities, do not file a public bug report; follow SECURITY.md.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - TypeScript SDK (`sdk/`)
+        - Python SDK (`sdk-python/`)
+        - Smart contracts (`contracts/`)
+        - LangChain JS integration
+        - LangChain Python integration
+        - CrewAI integration
+        - Semantic Kernel integration
+        - Microsoft Agent Framework integration
+        - Google A2A integration
+        - CI / workflow automation
+        - Documentation / examples
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version, commit, or environment
+      description: Package version, commit SHA, branch, or relevant environment details.
+      placeholder: "@agentdid/sdk 0.2.0 / agent-did 0.1.0 / commit abc123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reproduction you can.
+      placeholder: |
+        1. Create DID document with...
+        2. Sign request with...
+        3. Verify with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, stack traces, or screenshots
+      description: Paste anything relevant. Redact secrets before submitting.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and docs for the same problem.
+          required: true
+        - label: I can reproduce this issue on the latest relevant version or current `master`.
+          required: true
+        - label: This does not contain a private security vulnerability report.
+          required: true

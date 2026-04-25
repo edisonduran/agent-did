@@ -18,6 +18,25 @@ The [RFC-001 Specification](docs/RFC-001-Agent-DID-Specification.md) is the corn
 
 Open an Issue tagged `[RFC]` to start a discussion.
 
+### Public Review v1 - Open RFC Areas
+
+During the current Public Review window, maintainers are explicitly seeking feedback on the following areas:
+
+- The semantics and granularity of `agentMetadata.capabilities`, including whether the field should stay purely declarative or grow a stronger authorization profile.
+- How `coreModelHash` and `systemPromptHash` should represent fine-tuned models, prompt templates, composite agents, and runtime composition without losing interoperability.
+- Document evolution and revision semantics, including where to draw the line between update, key rotation, evolution, and delegated runtime identity.
+- DID method guidance beyond the current EVM, `did:wba`, and `did:web` emphasis, including portability expectations for additional DID methods.
+- Anti-replay guidance for streaming, callbacks, and multi-hop agent delegation, especially nonce-cache behavior and verifier responsibilities beyond the current SDK defaults.
+- Resolver trust, persistence, and availability expectations for production deployments beyond the current in-memory and drill-oriented baseline.
+- Verifiable Credential profile expectations for `complianceCertifications`, including issuer trust and interoperability constraints.
+
+The following surfaces are treated as comparatively stable unless a correctness or security issue requires change:
+
+- W3C DID / VC foundations and the core DID document structure.
+- Ed25519 as the default signing algorithm.
+- Minimal on-chain anchoring plus off-chain document reference and revocation state.
+- The lifecycle primitives: create, update, rotate, revoke, resolve, verify.
+
 ### 2. Contribute Code (Pull Requests)
 
 1. Fork the repository.
@@ -58,6 +77,12 @@ If you want to contribute quickly, these are the most valuable open areas right 
 - **F2-08** Add Azure AI Agent Service integration with the same governance discipline used by the shipped integrations.
 
 If you want to take ownership of one of these, open an issue titled `Proposal: F#-## - <description>` with scope, validation plan, and affected docs.
+
+## Public Review Triage Target
+
+During the two weeks immediately following a Public Review announcement, maintainers aim to acknowledge new issues and discussions within 48 hours.
+
+This is a best-effort target for community responsiveness, not a contractual SLA.
 
 ---
 
@@ -166,6 +191,7 @@ When opening an issue, use one of these tags in the title:
 | `[Contract]` | Smart contract changes, audit findings |
 | `[Integration]` | Framework integrations (LangChain, CrewAI, A2A) |
 | `[DevOps]` | CI/CD, testing infrastructure |
+| `[Security]` | Security hardening, disclosure follow-up, audit-driven changes |
 | `[Docs]` | Documentation improvements |
 | `[Idea]` | New features, use cases, or research proposals |
 
@@ -173,11 +199,11 @@ When opening an issue, use one of these tags in the title:
 
 ## Code of Conduct
 
-- Be welcoming and inclusive.
-- Respect differing viewpoints and experiences.
-- Focus on what is best for the community and the standard.
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community expectations and enforcement.
 
-Report unacceptable behavior to the project maintainers.
+If you witness behavior that violates the Code of Conduct, report it privately to [agent.ai.did@gmail.com](mailto:agent.ai.did@gmail.com) with the subject prefix `[CODE OF CONDUCT]`.
+
+If you need to report a security vulnerability instead, use the private workflow in [SECURITY.md](SECURITY.md) rather than opening a public issue.
 
 ---
 

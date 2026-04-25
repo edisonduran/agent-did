@@ -2,10 +2,11 @@
 
 ## Document Status
 
-- **Status:** Active Draft
-- **Version:** 0.2-unified
-- **Date:** 2026-02-28
+- **Status:** Public Review v1 (open for community feedback)
+- **Version:** 0.2-unified-public-review-v1
+- **Date:** 2026-04-25
 - **Scope:** This RFC is the canonical and sole document for the Agent-DID specification. It includes the data model, reference architecture, and SDK implementation guidelines.
+- **Feedback:** Use the RFC feedback issue template or GitHub Discussions for public review. Report vulnerabilities privately through [SECURITY.md](../SECURITY.md).
 
 ---
 

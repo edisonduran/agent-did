@@ -16,12 +16,17 @@
 [![CI — Microsoft Agent Framework](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml)
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
 [![Contract Audit](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml)
+[![Public Review](https://img.shields.io/badge/status-public_review_v1-orange)](docs/RFC-001-Agent-DID-Specification.md)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Feedback Wanted](https://img.shields.io/badge/feedback-wanted-lightgrey)](CONTRIBUTING.md)
 
 > **Give your AI agents a verifiable identity — in the framework you already use, with or without blockchain.**
 
 **Agent-DID** is an open standard and reference implementation that addresses a question the AI industry still lacks a clear answer for: *when an autonomous agent acts — signs a request, delegates a task, modifies data — how does the system on the other side know who that agent really is?*
 
 OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in and with native integrations across several major AI orchestration frameworks.
+
+> **New here?** Start with [QUICKSTART.md](QUICKSTART.md), then read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md), then use [CONTRIBUTING.md](CONTRIBUTING.md) to send RFC feedback or propose changes.
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
@@ -93,18 +98,22 @@ Documentation governance for live project status and canonical sources of truth 
 
 The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
 
-- **RFC-001** consolidated and operational: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- **RFC-001** is in **Public Review v1**: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
+- **Published SDKs**: `@agentdid/sdk` `0.2.0` on npm and `agent-did-sdk` `0.1.0` on PyPI
+- **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 ## Build In Public
 
 Agent-DID is an open, pre-1.0 project being built in public.
 
 - The core RFC lifecycle is implemented and covered by conformance checks.
-- The TypeScript SDK is published as `@agentdid/sdk` and the Python SDK is available from source in `sdk-python/`.
+- The TypeScript SDK is published as `@agentdid/sdk` and the Python SDK is published as `agent-did-sdk`.
 - The EVM registry, validation drills, and framework integrations are functional.
 - Community feedback is explicitly welcome before the project reaches full production hardening.
+- Public-review compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
+- Security reporting instructions are documented in [SECURITY.md](SECURITY.md).
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
@@ -114,7 +123,7 @@ If you want to help shape the next stage, the highest-leverage open areas today 
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution workflow and [docs/RFC-001-Implementation-Backlog.md](docs/RFC-001-Implementation-Backlog.md) for the technical execution history.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution workflow, [docs/INDEX.md](docs/INDEX.md) for documentation navigation, and [docs/RFC-001-Implementation-Backlog.md](docs/RFC-001-Implementation-Backlog.md) for the technical execution history.
 
 ## Main Components
 

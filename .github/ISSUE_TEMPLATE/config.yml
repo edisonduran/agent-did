@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: https://github.com/edisonduran/agent-did/blob/master/SECURITY.md
+    about: Report vulnerabilities privately using the security policy instead of opening a public issue.
+  - name: Questions and public discussion
+    url: https://github.com/edisonduran/agent-did/discussions
+    about: Use GitHub Discussions for RFC feedback, architecture questions, and general ideas.
+  - name: Contributor guide
+    url: https://github.com/edisonduran/agent-did/blob/master/CONTRIBUTING.md
+    about: Read contribution, validation, and documentation governance expectations before opening work.

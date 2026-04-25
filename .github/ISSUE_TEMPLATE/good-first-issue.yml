@@ -1,0 +1,69 @@
+name: Good first issue proposal
+description: Propose an onboarding-friendly task that a new contributor could realistically complete.
+title: "[Good First Issue] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to suggest a task that is small, well-scoped, and safe for a new contributor.
+
+  - type: input
+    id: title
+    attributes:
+      label: Proposed issue title
+      placeholder: Add cross-SDK fixture for revoked DID verification
+    validations:
+      required: true
+
+  - type: textarea
+    id: task
+    attributes:
+      label: Task summary
+      description: Describe the work in one short paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_good_first_issue
+    attributes:
+      label: Why is this a good first issue?
+      description: Explain why the task is bounded, low-risk, and newcomer-friendly.
+      placeholder: The change is local to one package and has clear acceptance criteria...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: List the exact conditions that define done.
+      placeholder: |
+        - Add fixture X
+        - Add test Y
+        - Update doc Z
+    validations:
+      required: true
+
+  - type: input
+    id: surfaces
+    attributes:
+      label: Affected files or packages
+      placeholder: fixtures/, sdk-python/tests/, docs/... 
+    validations:
+      required: true
+
+  - type: input
+    id: mentor
+    attributes:
+      label: Suggested maintainer / reviewer
+      placeholder: "@maintainer-handle or role"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: This task can be completed without deep protocol redesign.
+          required: true
+        - label: This task has enough context for a new contributor to start without private background knowledge.
+          required: true

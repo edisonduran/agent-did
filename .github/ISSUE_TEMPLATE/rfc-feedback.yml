@@ -1,0 +1,76 @@
+name: RFC feedback
+description: Propose, question, or challenge a normative or non-normative aspect of RFC-001.
+title: "[RFC] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for specification review. For security vulnerabilities, use the private channel in SECURITY.md instead of opening a public issue.
+
+  - type: dropdown
+    id: change_type
+    attributes:
+      label: Change type
+      description: What kind of RFC feedback are you bringing?
+      options:
+        - Normative change
+        - Clarification
+        - Security consideration
+        - Interoperability concern
+        - Editorial cleanup
+        - Open question
+    validations:
+      required: true
+
+  - type: input
+    id: spec_section
+    attributes:
+      label: RFC section or subsection
+      description: Cite the section, heading, or paragraph you are commenting on.
+      placeholder: Section 4.2 - Revocation Delegation
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_problem
+    attributes:
+      label: What is the problem or ambiguity?
+      description: Describe the mismatch, risk, ambiguity, or gap as concretely as possible.
+      placeholder: The current language is unclear because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_change
+    attributes:
+      label: Proposed change
+      description: Suggest exact language, a normative rule, or an alternative design.
+      placeholder: Replace MUST with SHOULD because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: compatibility_impact
+    attributes:
+      label: Compatibility or implementation impact
+      description: Explain how this would affect existing SDKs, tests, integrations, or deployments.
+      placeholder: This is backward compatible because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Related references
+      description: Link related standards, issues, prior art, or implementation notes.
+      placeholder: W3C DID Core section..., RFC..., issue #...
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I checked whether this topic is already covered in the RFC, README, or existing issues.
+          required: true
+        - label: I understand that normative RFC changes may require coordinated updates across TS, Python, tests, fixtures, and docs.
+          required: true

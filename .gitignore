@@ -27,3 +27,6 @@ _bmad-output/
 !.github/assets/social-preview/**
 !.github/assets/avatar/
 !.github/assets/avatar/**
+!.github/ISSUE_TEMPLATE/
+!.github/ISSUE_TEMPLATE/**
+!.github/PULL_REQUEST_TEMPLATE.md

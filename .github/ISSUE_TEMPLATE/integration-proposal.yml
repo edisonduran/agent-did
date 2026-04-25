@@ -1,0 +1,74 @@
+name: Integration proposal
+description: Propose a new framework or platform integration for Agent-DID.
+title: "[Integration] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to propose new integrations or significant expansion of an existing integration.
+
+  - type: input
+    id: target
+    attributes:
+      label: Target framework, platform, or protocol
+      placeholder: Haystack, AutoGen, OpenAI Agents SDK, custom A2A gateway
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Primary implementation language
+      options:
+        - TypeScript / JavaScript
+        - Python
+        - Multi-language
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What user problem does this integration solve?
+      description: Be specific about the operator, workflow, or trust boundary.
+      placeholder: Teams using X cannot currently attach verifiable identity to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: Describe the minimum useful integration and what would stay out of scope for the first version.
+      placeholder: MVP includes middleware injection + HTTP signing helpers; excludes hosted deployment...
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: How should the repo prove the integration works?
+      placeholder: Unit tests, smoke tests, example app, parity matrix, checklist updates...
+    validations:
+      required: true
+
+  - type: textarea
+    id: governance
+    attributes:
+      label: Documentation and governance impact
+      description: Which docs, checklists, parity matrices, or roadmap items would need to be updated?
+      placeholder: README, integration README, parity matrix, implementation checklist...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I checked the current roadmap and existing integrations before proposing this work.
+          required: true
+        - label: I understand that new integrations should ship with tests, examples, and governance doc updates.
+          required: true
