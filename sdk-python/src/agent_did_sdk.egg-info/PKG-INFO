@@ -207,6 +207,34 @@ python scripts/revocation_policy_smoke.py
 python scripts/e2e_smoke.py
 ```
 
+## Maintainer Release to PyPI
+
+The repository includes `.github/workflows/publish-python-sdk.yml` for PyPI Trusted Publishing.
+
+Before the first release, create the `agent-did-sdk` project on PyPI and, optionally, TestPyPI, then register GitHub Trusted Publishers for:
+
+- repository: `edisonduran/agent-did`
+- workflow file: `.github/workflows/publish-python-sdk.yml`
+- workflow trigger: tag `sdk-python-vX.Y.Z` for PyPI, `workflow_dispatch` for TestPyPI or manual PyPI release
+
+If you want GitHub environment approvals, add matching environments later and bind them in both GitHub and PyPI Trusted Publishing settings.
+
+Release preparation:
+
+```bash
+cd sdk-python
+python -m pip install -e ".[dev]"
+python -m build
+python -m twine check dist/*
+```
+
+Release flow:
+
+- bump `version` in `pyproject.toml`
+- run the workflow manually with `repository=testpypi` to validate the package on TestPyPI
+- publish to PyPI by pushing a tag named `sdk-python-vX.Y.Z`
+- alternatively, run the workflow manually from `main` with `repository=pypi`
+
 ## License
 
 [Apache-2.0](../LICENSE) — see root LICENSE.

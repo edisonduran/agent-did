@@ -71,7 +71,12 @@ python -m ruff check src/ tests/ scripts/
 python -m mypy --strict src/
 python -m pytest tests/ -q
 python scripts/conformance_rfc001.py
+python -m build
+python -m twine check dist/*
 ```
+
+GitHub release automation for the package is defined in `.github/workflows/publish-python-sdk.yml`.
+Use `workflow_dispatch` with `repository=testpypi` for rehearsal, and publish to PyPI from tag `sdk-python-vX.Y.Z` or manual dispatch from `main` with `repository=pypi`.
 
 Checklist:
 
@@ -79,8 +84,11 @@ Checklist:
 - [ ] `python -m mypy --strict src/`
 - [ ] `python -m pytest tests/ -q`
 - [ ] `python scripts/conformance_rfc001.py`
+- [ ] `python -m build`
+- [ ] `python -m twine check dist/*`
 - [ ] If Python public API changed, `sdk-python/README.md` is updated.
 - [ ] `sdk-python/pyproject.toml` metadata and version are correct for the release.
+- [ ] PyPI Trusted Publishing is configured for `.github/workflows/publish-python-sdk.yml` in PyPI and, if used, TestPyPI.
 
 ---
 
