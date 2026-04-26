@@ -28,6 +28,9 @@ OAuth delegates this to a centralized provider. MCP leaves it out of scope by de
 
 > **New here?** Start with [QUICKSTART.md](QUICKSTART.md), then read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md), then use [CONTRIBUTING.md](CONTRIBUTING.md) to send RFC feedback or propose changes.
 
+> **Contributing during Public Review?** Use this quick navigation:
+> [QUICKSTART.md](QUICKSTART.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [docs/INDEX.md](docs/INDEX.md)
+
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
 - **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — 11/11 MUST conformant
