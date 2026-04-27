@@ -26,10 +26,12 @@
 
 OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in and with native integrations across several major AI orchestration frameworks.
 
-> **New here?** Start with [QUICKSTART.md](QUICKSTART.md), then read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md), then use [CONTRIBUTING.md](CONTRIBUTING.md) to send RFC feedback or propose changes.
-
-> **Contributing during Public Review?** Use this quick navigation:
-> [QUICKSTART.md](QUICKSTART.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [docs/INDEX.md](docs/INDEX.md)
+> **For contributors (Public Review):**
+> - Start here: [QUICKSTART.md](QUICKSTART.md)
+> - Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
+> - Security reporting: [SECURITY.md](SECURITY.md)
+> - Docs navigation: [docs/INDEX.md](docs/INDEX.md)
+> - Compatibility expectations: [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
