@@ -6,6 +6,22 @@
 > **Workflow**: open this branch, both sides edit / review / counter-draft until the rotation-window edge cases and verifier-side semantics are tight enough to land in `RFC-001` and propose normative text upstream in A2A.
 > **Co-author push access**: `@aeoess` invited as repo collaborator (Write) 2026-04-30, scoped operationally to `spec/a2a-composition-contract` (`develop` and `main` are protected, require PR + 1 review).
 > **Sync state with APS**: §4.3, §4.4, §5, §6.3, §6.4 below carry **APS posture as proposed by `@aeoess` in [a2aproject/A2A#1742 comment 2026-04-30 21:47 UTC](https://github.com/a2aproject/A2A/issues/1742)** as the working baseline. All such sections are marked `[APS-proposed, awaiting aeoess push to confirm wording]`. When aeoess pushes commits directly against this branch, those commits are authoritative over the working baseline.
+>
+> **APS-aligned pre-pass (2026-04-30)**: §0 (threat model), §1.1 (canonicalization split), §4.1 scenario 3e (unknown DID method), §3.1 (wire shape reference), §5 (extended `reason` enum), §8 (test vectors), §9 (vocabulary) below were added unilaterally by Agent-DID after analyzing publicly inspectable APS infrastructure (`agent-passport-system`, `aps-conformance-suite`, `a2a-compliance-harness`, `agent-governance-vocabulary`). Each carries `[APS-aligned pre-pass, open to revision in counter-draft]`. Counter-draft from `@aeoess` is authoritative over this pre-pass.
+
+## 0. Threat model `[APS-aligned pre-pass, open to revision in counter-draft]`
+
+This composition contract addresses, at minimum, the following AIVSS (Agentic AI Vulnerability Scoring System) categories from the OWASP AIVSS framework §3.6 *Agent Authentication & Identity*:
+
+- **AIVSS §3.6.5 Identity Impersonation** — a request signed under key material that is not legitimately associated with the claimed agent identity. The composition contract closes this by requiring the per-request `keyid` to be a member of the Agent Card published key material modulated by the rotation state machine (§2, §4).
+- **AIVSS §3.6.2 Access Control Violation** — a request whose signing key is technically valid for the agent but is not authorized for the requested verification purpose. The composition contract closes this via the `assertionMethod` purpose-scoping requirement (§6.3).
+
+Out of scope for this draft, recorded as adjacent threat surfaces:
+
+- AIVSS §3.6.3 *Privilege Escalation* across delegation chains — covered by the broader RFC-001 delegation model, not by this composition contract.
+- AIVSS §3.6.7 *Replay attacks* — covered by RFC 9421 `nonce` + `created` window at the per-request signature layer, not by this composition contract.
+
+The threat model anchor is consistent with APS posture and with the OWASP AIVSS categorization used by [`a2a-compliance-harness`](https://github.com/aeoess/a2a-compliance-harness).
 
 ## 1. Scope
 
@@ -15,6 +31,17 @@ Defines the composition contract between two distinct identity surfaces in an A2
 - **Identity-in-motion** — per-request signature (RFC 9421 HTTP signatures profile), signed at request time over a freshly canonicalized payload, ephemeral as a single message.
 
 The composition contract is the normative requirement that ties them together so that neither surface becomes self-attesting in isolation.
+
+### 1.1 Canonicalization split `[APS-aligned pre-pass, open to revision in counter-draft]`
+
+The two identity surfaces use **different canonicalization rules** by design, and both are normative:
+
+| Surface | Canonicalization | Signature mechanism | Lifetime |
+|---------|------------------|---------------------|----------|
+| Agent Card body (identity-at-rest) | **RFC 8785 JCS** (JSON Canonicalization Scheme); `signature` field stripped before canonicalization (detached-signature style) | Detached Ed25519 over JCS-canonical bytes | Lifetime of the published key |
+| Per-request (identity-in-motion) | **RFC 9421 §2** signature base (component canonicalization over `@signature-params` + selected headers) | RFC 9421 HTTP Message Signature, Ed25519 | Single message |
+
+The two coexist because they answer different questions: the Card answers "which keys is this agent authorized to sign with, and is that authorization signed?", the per-request signature answers "is this exact byte sequence authentic right now?". Mixing the two canonicalizations would not improve either property and would break interop with both `aps-conformance-suite` (which assumes JCS for the Card) and the RFC 9421 ecosystem (which assumes its own component canonicalization for HTTP messages).
 
 ## 2. Normative requirement
 
@@ -35,6 +62,24 @@ For `did:` based identities resolved through DID document verification material:
 
 Mismatch at step 4 → `IdentityCompositionError(reason=...)`.
 
+### 3.1 Wire shape reference `[APS-aligned pre-pass, open to revision in counter-draft]`
+
+For cross-implementation interop with [`a2a-compliance-harness`](https://github.com/aeoess/a2a-compliance-harness), Agent Card bodies SHOULD follow the wire shape assumed by that harness:
+
+```json
+{
+  "name": "...",
+  "description": "...",
+  "issuer": "did:...",
+  "capabilities": ["..."],
+  "schema_version": "...",
+  "signature": { "alg": "EdDSA", "kid": "did:web:host#key-1", "value": "<base64url>" },
+  "delegation_chain": []
+}
+```
+
+The `signature` field is stripped before JCS canonicalization (§1.1). The `kid` follows the DID URL fragment convention (`did:method:identifier#fragment`) and is the key whose membership the verifier checks per §2. Implementations MAY add fields beyond this shape; the listed fields MUST be present and MUST canonicalize identically across implementations for the harness to accept the Card.
+
 ## 4. Key rotation state machine
 
 Rotation modes:
@@ -50,6 +95,7 @@ Rotation modes:
 | 3b | Signature under **prior key** during planned overlap window, prior key still listed in resolved DID document | Accept. |
 | 3c | Signature under **prior key** after planned overlap window has closed | Reject with `IdentityCompositionError(reason="rotation_window_closed" / "OverlapWindowExceeded")`. |
 | 3d | Signature under **emergency-revoked prior key** at any time | Reject with `IdentityCompositionError(reason="emergency_revoked" / "EmergencyRevokedKey")`, regardless of in-flight signature timestamps or resolver cache state. |
+| 3e | Signature whose `keyid` resolves through a **DID method the verifier does not support** `[APS-aligned pre-pass, open to revision in counter-draft]` | **Degrade gracefully**: do NOT fail-closed. Mark the verification result with `did_resolver_unsupported` and surface it to the calling policy layer. The composition contract is undefined for unknown DID methods; failing closed would penalize agents using methods not yet registered with the verifier and contradicts APS posture (per `a2a-compliance-harness/README.md`). |
 
 ### 4.2 Resolver cache hazard
 
@@ -73,16 +119,22 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 
 ## 5. Error shape `[partially APS-proposed]`
 
-Two shapes shown side-by-side: the descriptive `reason` enum currently emitted by the Agent-DID SDK reference verifier, and the typed `IdentityCompositionError` subtypes proposed by APS for cross-stack debugging parity.
+Three groups shown side-by-side: the descriptive `reason` enum currently emitted by the Agent-DID SDK reference verifier, the typed `IdentityCompositionError` subtypes proposed by APS for cross-stack debugging parity, and the failure-mode taxonomy from [`a2a-compliance-harness`](https://github.com/aeoess/a2a-compliance-harness) for harness-output convergence.
 
 ```text
 IdentityCompositionError {
-  reason: "card_keyid_mismatch"        // -> SignatureKeyNotInCard
+  reason: // composition-contract reasons (see §2, §4, §6.3)
+          "card_keyid_mismatch"        // -> SignatureKeyNotInCard       // harness: key_mismatch
         | "rotation_window_closed"     // -> OverlapWindowExceeded
         | "emergency_revoked"          // -> EmergencyRevokedKey
-        | "key_purpose_violation"      // -> KeyPurposeViolation   (see §6.3)
+        | "key_purpose_violation"      // -> KeyPurposeViolation          (see §6.3)
         | "card_unresolvable"
         | "did_document_unresolvable"
+          // harness-aligned reasons `[APS-aligned pre-pass, open to revision in counter-draft]`
+        | "format_drift"               // Card body fails JCS canonicalization or violates §3.1 wire shape
+        | "key_mismatch"               // alias of card_keyid_mismatch, exposed for harness-output parity
+        | "tampered"                   // signature does not verify against any published key under any rotation scenario
+        | "did_resolver_unsupported"   // scenario 3e (§4.1); not a hard rejection, surfaced as marker
   request_keyid: string
   card_published_keyids: string[]
   did_document_verification_keyids: string[]
@@ -91,10 +143,12 @@ IdentityCompositionError {
 
 Typed subtypes proposed by APS (`@aeoess` 2026-04-30 21:47 UTC), to be aligned with the enum above when the APS wording lands on this branch:
 
-- `SignatureKeyNotInCard` — equivalent to `card_keyid_mismatch`.
+- `SignatureKeyNotInCard` — equivalent to `card_keyid_mismatch` / `key_mismatch`.
 - `OverlapWindowExceeded` — equivalent to `rotation_window_closed`.
 - `EmergencyRevokedKey` — equivalent to `emergency_revoked`.
 - `KeyPurposeViolation` — emitted when the per-request signature key resolves to a verification method whose purpose is not `assertionMethod` (see §6.3).
+
+Harness reasons (`format_drift`, `key_mismatch`, `tampered`, `did_resolver_unsupported`) are added pre-pass to converge byte-for-byte with `a2a-compliance-harness` output rows. `did_resolver_unsupported` is the only one that is NOT a hard rejection — it is a marker (see §4.1 scenario 3e).
 
 Standardizing this shape across SDK implementations enables cross-stack debugging when a verifier and signer disagree, and matches what APS gateways emit on the receipt-rejection path.
 
@@ -127,12 +181,53 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - Cross-method bridging is **explicitly out of scope** for this draft and is recorded as **Future Work**.
 - Rationale: cross-method bridging touches DID method registry semantics still in flux at the broader DIF community level. Landing it here would force premature closure on that question and tie the composition contract's lifecycle to a DID-method-registry timeline that is not under this spec's control.
 
-## 7. References
+## 7. Test vectors `[APS-aligned pre-pass, open to revision in counter-draft]`
+
+This spec commits to publishing a `fixtures/composition-contract/` directory with deterministic JCS-canonicalized fixtures, mirroring the shape used by [`aps-conformance-suite`](https://github.com/aeoess/aps-conformance-suite) so that suite can ingest these fixtures as a sub-corpus.
+
+**Minimum corpus** (8 fixtures, locked at v0.1):
+
+| ID | Scenario | Expected verifier outcome |
+|----|----------|---------------------------|
+| F1 | Happy path: current key, valid Card, valid per-request signature | accept |
+| F2 | Happy path during planned overlap, signed under prior key still listed in DID document | accept (scenario 3b) |
+| F3 | Negative: §2 cross-check fails (`keyid` not in Card) | reject `card_keyid_mismatch` / `key_mismatch` |
+| F4 | Negative: prior key after planned overlap window closed | reject `rotation_window_closed` (scenario 3c) |
+| F5 | Negative: emergency-revoked key | reject `emergency_revoked` (scenario 3d) |
+| F6 | Negative: signing key purpose is not `assertionMethod` (e.g. `keyAgreement`) | reject `key_purpose_violation` (§6.3) |
+| F7 | Marker: unknown DID method on `keyid` resolution path | mark `did_resolver_unsupported`, surface to policy (scenario 3e) |
+| F8 | Negative: Agent Card body fails JCS canonicalization or §3.1 wire shape | reject `format_drift` |
+
+Fixture properties:
+
+- Deterministic Ed25519 seed (publicly published in the fixture README so any implementation can regenerate).
+- JCS-canonicalized Card body bytes (RFC 8785).
+- RFC 9421 signature base shown alongside the signature value for verifier debugging.
+- Each fixture shipped as a self-describing JSON with `expected_outcome`, `expected_reason` (if reject), `expected_marker` (if marker).
+
+## 8. Vocabulary `[APS-aligned pre-pass, open to revision in counter-draft]`
+
+For primitive names, this spec defers to [`agent-governance-vocabulary`](https://github.com/aeoess/agent-governance-vocabulary) as the authoritative source where overlap exists. Primitives introduced by this composition contract that are not yet canonical in vocabulary v0.1 are mapped in [`crosswalk/agent-did.yaml`](https://github.com/aeoess/agent-governance-vocabulary/pull/66) under `out_of_vocabulary_primitives`:
+
+- `agent_card` (identity material at rest)
+- `per_request_signature` (identity material in motion)
+- `identity_composition_contract` (the verifier-side rule normative in §2)
+- `key_rotation_state_machine` (§4)
+- `identity_composition_error` (§5)
+
+When vocabulary v0.2 lands canonical names for any of these, this spec will adopt the canonical slug and retire local naming.
+
+## 9. References
 
 - A2A upstream thread: https://github.com/a2aproject/A2A/issues/1742
 - APS posture source comment (2026-04-30 21:47 UTC): https://github.com/a2aproject/A2A/issues/1742#issuecomment-4355813752
 - APS test vectors directory: https://github.com/ScopeBlind/agent-governance-testvectors
 - APS conformance suite: https://github.com/aeoess/aps-conformance-suite
 - A2A compliance harness: https://github.com/aeoess/a2a-compliance-harness
+- Agent governance vocabulary: https://github.com/aeoess/agent-governance-vocabulary
+- Vocabulary crosswalk for Agent-DID (PR pending merge): https://github.com/aeoess/agent-governance-vocabulary/pull/66
+- OWASP AIVSS §3.6 Agent Authentication & Identity: referenced in §0 threat model
+- RFC 9421 HTTP Message Signatures: https://www.rfc-editor.org/rfc/rfc9421
+- RFC 8785 JSON Canonicalization Scheme: https://www.rfc-editor.org/rfc/rfc8785
 - Sister cross-over case (Microsoft Agent Framework / `add_verified_handoff`): https://github.com/microsoft/agent-framework/issues/4842
 - Internal tracking: https://github.com/edisonduran/agent-did/issues/30
