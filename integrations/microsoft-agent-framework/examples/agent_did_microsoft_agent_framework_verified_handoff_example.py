@@ -24,7 +24,6 @@ from agent_did_sdk import (
     CreateAgentParams,
     InMemoryAgentRegistry,
 )
-
 from agent_framework import WorkflowContext
 
 from agent_did_microsoft_agent_framework import (

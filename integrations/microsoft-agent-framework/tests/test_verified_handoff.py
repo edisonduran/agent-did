@@ -21,7 +21,6 @@ import asyncio
 import time
 
 import pytest
-
 from agent_did_sdk import (
     AgentIdentity,
     AgentIdentityConfig,
@@ -37,8 +36,8 @@ from agent_did_microsoft_agent_framework import (
     create_agent_did_microsoft_agent_framework_integration,
 )
 from agent_did_microsoft_agent_framework.handoff import (
-    _VerifierContext,
     _resolve_effective_ttl,
+    _VerifierContext,
     build_handoff_verifier_function,
 )
 from agent_did_microsoft_agent_framework.observability import AgentDidObserver
@@ -441,7 +440,16 @@ def test_handoff_blocked_event_includes_required_attributes() -> None:
     with pytest.raises(VerificationBlockedError):
         _run_verifier(verifier, msg)
     blocked = next(e for e in events if e["event_type"] == "agent_did.workflow.handoff_blocked")
-    for required in ("from_executor", "to_executor", "from_did", "action_class", "ttl_seconds", "failing_gates", "decision_reason"):
+    required_attrs = (
+        "from_executor",
+        "to_executor",
+        "from_did",
+        "action_class",
+        "ttl_seconds",
+        "failing_gates",
+        "decision_reason",
+    )
+    for required in required_attrs:
         assert required in blocked
 
 

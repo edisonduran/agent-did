@@ -45,7 +45,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
         cross_domain: bool | None = None,
         executor_id: str | None = None,
         output_type: Any = object,
-    ) -> "AgentDidWorkflowBuilder":
+    ) -> AgentDidWorkflowBuilder:
         """Insert an Agent-DID verifier between ``from_executor`` and ``to_executor``.
 
         See ``handoff.py`` for the full design contract. This method only wires
