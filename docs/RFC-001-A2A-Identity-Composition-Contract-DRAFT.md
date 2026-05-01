@@ -164,14 +164,50 @@ The original four open questions are now resolved (working baseline) per `@aeoes
 
 Spec defines `max_emergency_propagation_window` (proposed 1h). Verifiers MUST honor `revoked` status at evaluation time. See **§4.4**.
 
-### 6.3 Multi-key Cards (`usage=sig` scoping) — RESOLVED `[APS-confirmed via aeoess push 2026-04-30]`
+### 6.3 Verification-relationship binding — RESOLVED `[APS-confirmed via aeoess push 2026-04-30]`
 
-Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
+The per-request signing key MUST resolve to a verification method whose
+verification relationship in the resolved DID document corresponds to the
+operation context:
 
-- The per-request signature key **MUST** resolve to a verification method whose verification relationship in the resolved DID document is **`assertionMethod`**.
-- Other verification relationships (`keyAgreement`, `capabilityInvocation`, `capabilityDelegation`, etc.) **MUST NOT** satisfy the §2 cross-check, **even if the underlying key material matches**.
-- Rationale: closes a subtle privilege-escalation path where a key authorized only for encryption would otherwise be accepted as a signing key by a verifier checking only key material identity.
-- Verifier emits `IdentityCompositionError(reason="key_purpose_violation" / "KeyPurposeViolation")` when the cross-check fails on this dimension.
+- Agent-to-agent message signing → `assertionMethod`
+- Delegation issuance → `capabilityDelegation`
+- Capability invocation → `capabilityInvocation`
+- Authentication challenge response → `authentication`
+
+Implementations MUST reject any signature where the keyId resolves to a
+verification relationship that does not match the operation context.
+On rejection, implementations SHOULD raise an `IdentityCompositionError`
+with `reason: "key_purpose_violation"` (see §5).
+
+Note: `keyAgreement` is intentionally excluded from the signing-purpose
+set. Per W3C DID Core, `keyAgreement` is a verification relationship for
+key-agreement primitives (X25519 ECDH for encryption / key derivation),
+not for signing. Implementations MUST NOT accept a Linked Data Proof
+that declares `proofPurpose: "keyAgreement"`.
+
+#### Reference implementation
+
+agent-passport-system v2.5.1-alpha (commit `f37f1cc` on aeoess/
+agent-passport-system `main`) provides:
+
+- `IdentityCompositionError` class (`src/errors/identity-composition-error.ts`)
+  with the four-string reason enum aligned to §5:
+  `rotation_window_closed`, `emergency_revoked`, `key_purpose_violation`,
+  `tampered`.
+- `assertKeyPurpose(keyId, didDoc, requiredPurpose)` helper that throws
+  `IdentityCompositionError` with `reason: "key_purpose_violation"` when
+  the keyId is not authorized for the required verification relationship.
+  The error context surfaces `foundIn`, enumerating which other
+  relationships the keyId WAS in (diagnostic, not authorization).
+- `DIDDocument` typed with all five W3C DID Core verification
+  relationships: `authentication`, `assertionMethod`,
+  `capabilityDelegation`, `keyAgreement`, `capabilityInvocation`.
+- Nine conformance tests at `tests/v2/identity-composition-error.test.ts`
+  covering reason-enum exhaustiveness, error-class shape, all five
+  positive purposes, key-not-in-purpose negative case, `foundIn`
+  enumeration, unknown-key path, and minimal-doc-with-optional-fields-
+  absent.
 
 ### 6.4 Cross-DID-method identity mapping — RESOLVED (out of scope) `[APS-confirmed via aeoess push 2026-04-30]`
 
