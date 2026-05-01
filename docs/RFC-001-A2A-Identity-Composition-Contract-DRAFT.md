@@ -5,7 +5,7 @@
 > **Upstream thread**: [a2aproject/A2A#1742](https://github.com/a2aproject/A2A/issues/1742)
 > **Workflow**: open this branch, both sides edit / review / counter-draft until the rotation-window edge cases and verifier-side semantics are tight enough to land in `RFC-001` and propose normative text upstream in A2A.
 > **Co-author push access**: `@aeoess` invited as repo collaborator (Write) 2026-04-30, scoped operationally to `spec/a2a-composition-contract` (`develop` and `main` are protected, require PR + 1 review).
-> **Sync state with APS**: §4.3, §4.4, §5, §6.3, §6.4 below carry **APS posture as proposed by `@aeoess` in [a2aproject/A2A#1742 comment 2026-04-30 21:47 UTC](https://github.com/a2aproject/A2A/issues/1742)** as the working baseline. All such sections are marked `[APS-proposed, awaiting aeoess push to confirm wording]`. When aeoess pushes commits directly against this branch, those commits are authoritative over the working baseline.
+> **Sync state with APS**: §4.3, §4.4, §5, §6.3, §6.4 below carry **APS posture as proposed by `@aeoess` in [a2aproject/A2A#1742 comment 2026-04-30 21:47 UTC](https://github.com/a2aproject/A2A/issues/1742)** as the working baseline. §4.3, §4.4, §6.3, and §6.4 are confirmed by aeoess via direct push (this commit, 2026-04-30). §5 (Error shape) carries the separate `[partially APS-proposed]` tag and remains open for a follow-on pass. When aeoess pushes commits directly against this branch, those commits are authoritative over the working baseline.
 >
 > **APS-aligned pre-pass (2026-04-30)**: §0 (threat model), §1.1 (canonicalization split), §4.1 scenario 3e (unknown DID method), §3.1 (wire shape reference), §5 (extended `reason` enum), §8 (test vectors), §9 (vocabulary) below were added unilaterally by Agent-DID after analyzing publicly inspectable APS infrastructure (`agent-passport-system`, `aps-conformance-suite`, `a2a-compliance-harness`, `agent-governance-vocabulary`). Each carries `[APS-aligned pre-pass, open to revision in counter-draft]`. Counter-draft from `@aeoess` is authoritative over this pre-pass.
 
@@ -101,7 +101,7 @@ Rotation modes:
 
 A `did:` resolver honoring a 24h-cached DID document during a 1-hour emergency rotation is a silent failure. Conformance MUST be tested against the verifier's externally observable behavior (the 4 scenarios above), not against the resolver's caching strategy. Implementations that defer to a cached resolver are responsible for cache-invalidation semantics that satisfy scenario 3d.
 
-### 4.3 Default overlap window — spec vs verifier-policy knob `[APS-proposed, awaiting aeoess push to confirm wording]`
+### 4.3 Default overlap window — spec vs verifier-policy knob `[APS-confirmed via aeoess push 2026-04-30]`
 
 Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 
@@ -109,7 +109,7 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - A verifier **MAY** shorten the overlap below 24h via local configuration (private hardening; does not affect cross-implementation interop).
 - A verifier **MUST NOT** lengthen the overlap beyond a hard ceiling of **7 days**. Indefinite overlap defeats the rotation-state-machine semantics scenarios 3a–3d depend on.
 
-### 4.4 Maximum resolver cache TTL — `max_emergency_propagation_window` `[APS-proposed, awaiting aeoess push to confirm wording]`
+### 4.4 Maximum resolver cache TTL — `max_emergency_propagation_window` `[APS-confirmed via aeoess push 2026-04-30]`
 
 Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 
@@ -164,7 +164,7 @@ The original four open questions are now resolved (working baseline) per `@aeoes
 
 Spec defines `max_emergency_propagation_window` (proposed 1h). Verifiers MUST honor `revoked` status at evaluation time. See **§4.4**.
 
-### 6.3 Multi-key Cards (`usage=sig` scoping) — RESOLVED `[APS-proposed, awaiting aeoess push to confirm wording]`
+### 6.3 Multi-key Cards (`usage=sig` scoping) — RESOLVED `[APS-confirmed via aeoess push 2026-04-30]`
 
 Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 
@@ -173,7 +173,7 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - Rationale: closes a subtle privilege-escalation path where a key authorized only for encryption would otherwise be accepted as a signing key by a verifier checking only key material identity.
 - Verifier emits `IdentityCompositionError(reason="key_purpose_violation" / "KeyPurposeViolation")` when the cross-check fails on this dimension.
 
-### 6.4 Cross-DID-method identity mapping — RESOLVED (out of scope) `[APS-proposed, awaiting aeoess push to confirm wording]`
+### 6.4 Cross-DID-method identity mapping — RESOLVED (out of scope) `[APS-confirmed via aeoess push 2026-04-30]`
 
 Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 
