@@ -2,8 +2,18 @@
 
 from .config import AgentDidExposureConfig, AgentDidMicrosoftAgentFrameworkConfig
 from .context import build_agent_did_instructions, compose_instructions
+from .handoff import (
+    HANDOFF_TTL_DEFAULTS,
+    ActionClass,
+    SignedHandoffMessage,
+    VerificationBlockedCallback,
+    VerificationBlockedError,
+    build_handoff_verifier_executor,
+    build_handoff_verifier_function,
+)
 from .integration import (
     AgentDidMicrosoftAgentFrameworkIntegration,
+    AgentDidWorkflowBuilder,
     create_agent_did_microsoft_agent_framework_integration,
 )
 from .observability import (
@@ -24,14 +34,22 @@ createAgentDidMicrosoftAgentFrameworkIntegration = create_agent_did_microsoft_ag
 
 __all__ = [
     "PACKAGE_STATUS",
+    "ActionClass",
     "AgentDidEventHandler",
     "AgentDidExposureConfig",
     "AgentDidIdentitySnapshot",
     "AgentDidMicrosoftAgentFrameworkConfig",
     "AgentDidMicrosoftAgentFrameworkIntegration",
     "AgentDidMicrosoftAgentFrameworkObservabilityEvent",
+    "AgentDidWorkflowBuilder",
+    "HANDOFF_TTL_DEFAULTS",
+    "SignedHandoffMessage",
+    "VerificationBlockedCallback",
+    "VerificationBlockedError",
     "build_agent_did_identity_snapshot",
     "build_agent_did_instructions",
+    "build_handoff_verifier_executor",
+    "build_handoff_verifier_function",
     "compose_event_handlers",
     "compose_instructions",
     "createAgentDidMicrosoftAgentFrameworkIntegration",
