@@ -5,7 +5,7 @@
 > **Upstream thread**: [a2aproject/A2A#1742](https://github.com/a2aproject/A2A/issues/1742)
 > **Workflow**: open this branch, both sides edit / review / counter-draft until the rotation-window edge cases and verifier-side semantics are tight enough to land in `RFC-001` and propose normative text upstream in A2A.
 > **Co-author push access**: `@aeoess` invited as repo collaborator (Write) 2026-04-30, scoped operationally to `spec/a2a-composition-contract` (`develop` and `main` are protected, require PR + 1 review).
-> **Sync state with APS**: §4.3, §4.4, §5, §6.3, §6.4 below carry **APS posture as proposed by `@aeoess` in [a2aproject/A2A#1742 comment 2026-04-30 21:47 UTC](https://github.com/a2aproject/A2A/issues/1742)** as the working baseline. §4.3, §4.4, §6.3, and §6.4 are confirmed by aeoess via direct push (this commit, 2026-04-30). §5 (Error shape) carries the separate `[partially APS-proposed]` tag and remains open for a follow-on pass. When aeoess pushes commits directly against this branch, those commits are authoritative over the working baseline.
+> **Sync state with APS**: All five sections (§4.3, §4.4, §5, §6.3, §6.4) are now **APS-confirmed**. §4.3, §4.4, §6.3, §6.4 confirmed by `@aeoess` via direct push (commits `3fc38384` and `da473ee3`, 2026-04-30 / 2026-05-01). §5 (Error shape) confirmed by `@aeoess` via [a2aproject/A2A#1742 comment 2026-05-01 23:52 UTC](https://github.com/a2aproject/A2A/issues/1742#issuecomment-4362194636) under the explicit superset-with-aliases contract documented inline; flip applied by `@edisonduran` via this commit on aeoess's behalf with text reflecting his 2026-05-01 23:52 UTC posture verbatim. When aeoess pushes commits directly against this branch, those commits are authoritative over the working baseline.
 >
 > **APS-aligned pre-pass (2026-04-30)**: §0 (threat model), §1.1 (canonicalization split), §4.1 scenario 3e (unknown DID method), §3.1 (wire shape reference), §5 (extended `reason` enum), §8 (test vectors), §9 (vocabulary) below were added unilaterally by Agent-DID after analyzing publicly inspectable APS infrastructure (`agent-passport-system`, `aps-conformance-suite`, `a2a-compliance-harness`, `agent-governance-vocabulary`). Each carries `[APS-aligned pre-pass, open to revision in counter-draft]`. Counter-draft from `@aeoess` is authoritative over this pre-pass.
 
@@ -117,40 +117,70 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - The spec defines a constant **`max_emergency_propagation_window`** with a **proposed value of 1 hour**. Verifier resolver caches **MUST** be bounded such that the worst-case propagation delay between an emergency revocation publication and a verifier rejecting a signature under the revoked key does not exceed this window.
 - This constant is the SLA that emergency rotation can promise across implementations. Anything longer would make scenario 3d untestable in practice.
 
-## 5. Error shape `[partially APS-proposed]`
+## 5. Error shape — RESOLVED `[APS-confirmed via aeoess thread reply 2026-05-01]`
 
-Three groups shown side-by-side: the descriptive `reason` enum currently emitted by the Agent-DID SDK reference verifier, the typed `IdentityCompositionError` subtypes proposed by APS for cross-stack debugging parity, and the failure-mode taxonomy from [`a2a-compliance-harness`](https://github.com/aeoess/a2a-compliance-harness) for harness-output convergence.
+Three groups shown side-by-side: the canonical four-string `reason` enum APS standardizes (the cross-stack contract floor), the typed `IdentityCompositionError` subtypes proposed by APS for cross-stack debugging parity, and verifier-side / harness-side reasons that exist in the Agent-DID SDK reference verifier and `a2a-compliance-harness` for diagnostic surface area beyond the APS floor.
+
+### 5.1 Cross-stack contract (the canonical floor)
+
+The four reason codes APS canonicalizes are the **canonical floor**. Every conformant implementation that detects the corresponding condition **MUST** surface at least these four:
+
+- `rotation_window_closed` (see §4.3)
+- `emergency_revoked` (see §4.4)
+- `key_purpose_violation` (see §6.3)
+- `tampered` (signature does not verify against any published key under any rotation scenario)
+
+These map 1:1 to the typed APS subtypes:
+
+- `rotation_window_closed` ↔ `OverlapWindowExceeded`
+- `emergency_revoked` ↔ `EmergencyRevokedKey`
+- `key_purpose_violation` ↔ `KeyPurposeViolation`
+- `tampered` ↔ `Tampered`
+
+Reference implementation: `IdentityCompositionError` in agent-passport-system v2.5.1-alpha (commit `f37f1cc` on `aeoess/agent-passport-system` `main`), `src/errors/identity-composition-error.ts`. Conformance: `tests/v2/identity-composition-error.test.ts` (9 tests).
+
+### 5.2 Verifier-side extension (optional)
+
+Verifiers **MAY** surface additional reason codes for verifier-side failure modes that occur **before the APS-defined verification logic engages**. These are orthogonal to the canonical floor and APS implementations need not surface them. The Agent-DID SDK reference verifier currently surfaces:
+
+- `card_keyid_mismatch` — the per-request keyId is not present in the Agent Card body. Aliased as `key_mismatch` for harness-output parity.
+- `card_unresolvable` — the Agent Card cannot be fetched or parsed.
+- `did_document_unresolvable` — the DID document cannot be resolved by any configured resolver.
+- `format_drift` — Card body fails JCS canonicalization or violates §3.1 wire shape.
+- `did_resolver_unsupported` — scenario 3e (§4.1); NOT a hard rejection, surfaced as a marker.
+
+### 5.3 Alias mapping rule
+
+Where a verifier-side code overlaps semantically with an APS canonical code, **the APS code is the canonical name and the verifier code is the alias**. Implementations emitting the verifier-side alias **SHOULD** also be readable as emitting the APS canonical code by consumers of the cross-stack contract.
+
+Current overlaps:
+
+- `card_keyid_mismatch` and `key_mismatch` are verifier-side aliases. They map to APS subtype `SignatureKeyNotInCard` (a verifier-side check, not an APS-canonical reason — verifiers MAY surface this; APS implementations need not).
+
+### 5.4 Wire shape
 
 ```text
 IdentityCompositionError {
-  reason: // composition-contract reasons (see §2, §4, §6.3)
-          "card_keyid_mismatch"        // -> SignatureKeyNotInCard       // harness: key_mismatch
-        | "rotation_window_closed"     // -> OverlapWindowExceeded
+  reason: // canonical floor (APS-confirmed)
+          "rotation_window_closed"     // -> OverlapWindowExceeded
         | "emergency_revoked"          // -> EmergencyRevokedKey
         | "key_purpose_violation"      // -> KeyPurposeViolation          (see §6.3)
+        | "tampered"                   // -> Tampered
+          // verifier-side extension (optional, see §5.2 / §5.3)
+        | "card_keyid_mismatch"        // alias: key_mismatch; APS: SignatureKeyNotInCard
+        | "key_mismatch"               // alias of card_keyid_mismatch
         | "card_unresolvable"
         | "did_document_unresolvable"
-          // harness-aligned reasons `[APS-aligned pre-pass, open to revision in counter-draft]`
-        | "format_drift"               // Card body fails JCS canonicalization or violates §3.1 wire shape
-        | "key_mismatch"               // alias of card_keyid_mismatch, exposed for harness-output parity
-        | "tampered"                   // signature does not verify against any published key under any rotation scenario
-        | "did_resolver_unsupported"   // scenario 3e (§4.1); not a hard rejection, surfaced as marker
+        | "format_drift"
+        | "did_resolver_unsupported"   // marker, not a hard rejection (§4.1 scenario 3e)
   request_keyid: string
   card_published_keyids: string[]
   did_document_verification_keyids: string[]
+  found_in?: string[]                  // when reason is "key_purpose_violation"; see §6.3
 }
 ```
 
-Typed subtypes proposed by APS (`@aeoess` 2026-04-30 21:47 UTC), to be aligned with the enum above when the APS wording lands on this branch:
-
-- `SignatureKeyNotInCard` — equivalent to `card_keyid_mismatch` / `key_mismatch`.
-- `OverlapWindowExceeded` — equivalent to `rotation_window_closed`.
-- `EmergencyRevokedKey` — equivalent to `emergency_revoked`.
-- `KeyPurposeViolation` — emitted when the per-request signature key resolves to a verification method whose purpose is not `assertionMethod` (see §6.3).
-
-Harness reasons (`format_drift`, `key_mismatch`, `tampered`, `did_resolver_unsupported`) are added pre-pass to converge byte-for-byte with `a2a-compliance-harness` output rows. `did_resolver_unsupported` is the only one that is NOT a hard rejection — it is a marker (see §4.1 scenario 3e).
-
-Standardizing this shape across SDK implementations enables cross-stack debugging when a verifier and signer disagree, and matches what APS gateways emit on the receipt-rejection path.
+Standardizing the canonical floor across SDK implementations enables cross-stack debugging when a verifier and signer disagree, and matches what APS gateways emit on the receipt-rejection path. The verifier-side extension is documented for diagnostic transparency without expanding the cross-stack contract.
 
 ## 6. Resolutions for the original open questions
 
