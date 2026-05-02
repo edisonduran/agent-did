@@ -12,9 +12,70 @@ from agent_framework import Agent, AgentExecutor, Case, Default, FunctionExecuto
 
 from .config import AgentDidExposureConfig, AgentDidMicrosoftAgentFrameworkConfig
 from .context import compose_instructions
+from .handoff import (
+    ActionClass,
+    VerificationBlockedCallback,
+    build_handoff_verifier_executor,
+)
 from .observability import AgentDidEventHandler, AgentDidObserver
 from .snapshot import AgentDidIdentitySnapshot, RuntimeIdentity, build_agent_did_identity_snapshot
 from .tools import create_agent_framework_tools
+
+
+class AgentDidWorkflowBuilder(WorkflowBuilder):
+    """`WorkflowBuilder` subclass exposing Agent-DID-aware handoff helpers.
+
+    The only behavioural addition is :py:meth:`add_verified_handoff`, which inserts
+    a verification ``FunctionExecutor`` between two existing executors. All other
+    methods inherit from the upstream ``WorkflowBuilder`` unchanged.
+    """
+
+    _agent_did_observer: AgentDidObserver | None = None
+
+    def add_verified_handoff(
+        self,
+        from_executor: Any,
+        to_executor: Any,
+        *,
+        action_class: ActionClass = "reversible",
+        allowed_dids: Sequence[str] | None = None,
+        require_signature: bool = True,
+        on_verification_blocked: VerificationBlockedCallback | None = None,
+        ttl_seconds: int | None = None,
+        cross_domain: bool | None = None,
+        executor_id: str | None = None,
+        output_type: Any = object,
+    ) -> AgentDidWorkflowBuilder:
+        """Insert an Agent-DID verifier between ``from_executor`` and ``to_executor``.
+
+        See ``handoff.py`` for the full design contract. This method only wires
+        the verifier executor into the workflow graph; verification semantics
+        (TTL, key rotation, signature checks) live in the helper module.
+        """
+
+        if self._agent_did_observer is None:
+            raise RuntimeError(
+                "AgentDidWorkflowBuilder is missing an observer. "
+                "Use AgentDidMicrosoftAgentFrameworkIntegration.create_workflow_builder(...) "
+                "to obtain a properly wired builder."
+            )
+
+        verifier = build_handoff_verifier_executor(
+            from_executor=from_executor,
+            to_executor=to_executor,
+            action_class=action_class,
+            ttl_seconds=ttl_seconds,
+            allowed_dids=allowed_dids,
+            require_signature=require_signature,
+            cross_domain=cross_domain,
+            on_verification_blocked=on_verification_blocked,
+            observer=self._agent_did_observer,
+            executor_id=executor_id,
+            output_type=output_type,
+        )
+        self.add_edge(from_executor, verifier)
+        self.add_edge(verifier, to_executor)
+        return self
 
 
 @dataclass(slots=True)
@@ -145,7 +206,7 @@ class AgentDidMicrosoftAgentFrameworkIntegration:
         max_iterations: int = 100,
         checkpoint_storage: Any | None = None,
     ) -> WorkflowBuilder:
-        builder = WorkflowBuilder(
+        builder = AgentDidWorkflowBuilder(
             max_iterations=max_iterations,
             name=name,
             description=description,
@@ -153,6 +214,7 @@ class AgentDidMicrosoftAgentFrameworkIntegration:
             checkpoint_storage=checkpoint_storage,
             output_executors=list(output_executors) if output_executors is not None else None,
         )
+        builder._agent_did_observer = self.observer
         self.observer.emit(
             "agent_did.workflow.builder_created",
             attributes={

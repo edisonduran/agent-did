@@ -67,6 +67,64 @@ El bundle devuelto incluye:
 - `create_function_executor(...)` para reducers y handlers tipados compatibles con `fan-in`.
 - `create_workflow_builder(...)` y `build_workflow_chain(...)` para recipes y runtime coverage de workflows.
 - `build_fan_out_fan_in_workflow(...)`, `build_multi_selection_workflow(...)` y `build_switch_case_workflow(...)` para patrones avanzados del runtime.
+- `add_verified_handoff(...)` sobre el `WorkflowBuilder` para insertar verificacion de identidad en los bordes de handoff con TTL por `action_class` (ver seccion de abajo).
+
+## Verified handoffs (`add_verified_handoff`)
+
+Inserta un verificador de Agent-DID en el borde entre dos executors de un workflow. Hard gate fail-closed con TTL por `action_class`, soporte de la race condition de rotacion de llave durante el handoff y disposicion de bloqueo via excepcion tipada (default) o callback opt-in.
+
+```python
+from agent_did_microsoft_agent_framework import (
+    SignedHandoffMessage,
+    VerificationBlockedError,
+    create_agent_did_microsoft_agent_framework_integration,
+)
+
+integration = create_agent_did_microsoft_agent_framework_integration(...)
+
+builder = integration.create_workflow_builder(start_executor=intake)
+builder.add_edge(intake, enrichment)
+builder.add_verified_handoff(
+    from_executor=enrichment,
+    to_executor=execution,
+    action_class="reversible",        # irreversible | compensable | reversible
+    allowed_dids=["did:wba:trusted"],
+    require_signature=True,
+    on_verification_blocked=None,     # default = raise VerificationBlockedError
+    output_type=str,
+)
+```
+
+Defaults TTL (overridables por workflow, no por encima de los topes para `irreversible` y cross-domain):
+
+| `action_class` | TTL default |
+|---|---|
+| `irreversible` | 30 s (no widenable) |
+| `compensable`  | 120 s |
+| `reversible`   | 300 s |
+
+Reglas adicionales:
+- Cross-domain hops fuerzan re-verify (TTL = 0).
+- Dentro del TTL: si la firma fue emitida bajo la llave previa y el agente roto su llave, se acepta via `verify_historical_signature` del SDK central.
+- Fuera del TTL: solo se acepta firma contra el current key set; si la llave previa fue revocada -> `VerificationBlockedError(failing_gates=["key_lifecycle"])`.
+
+Disposicion de bloqueo:
+- Default: levanta `VerificationBlockedError(result, failing_gates, enforcement_note, checked_did, action_class)`.
+- Opt-in: si registras `on_verification_blocked=callback`, recibe el mismo error. Devolver `None` detiene el workflow grasiosamente; devolver cualquier otro valor lo emite via `ctx.send_message(...)` como salida del verificador.
+
+Observabilidad:
+- `agent_did.workflow.handoff_verified` en exitos (incluye `from_did`, `action_class`, `ttl_seconds`, `decision_reason`).
+- `agent_did.workflow.handoff_blocked` en bloqueos (incluye `failing_gates`, `decision_reason`).
+
+Ejemplo end-to-end: [`examples/agent_did_microsoft_agent_framework_verified_handoff_example.py`](examples/agent_did_microsoft_agent_framework_verified_handoff_example.py).
+
+### Credito de diseno
+
+El diseno de esta API surgio de una conversacion publica con [@haroldmalikfrimpong-ops](https://github.com/haroldmalikfrimpong-ops) en `microsoft/agent-framework#4842`. Hilos de referencia:
+- Discusion original (handoff boundary vs middleware): [microsoft/agent-framework#4842](https://github.com/microsoft/agent-framework/issues/4842).
+- Issue concreto con la API completa lockeada: [edisonduran/agent-did#26](https://github.com/edisonduran/agent-did/issues/26).
+- Race condition de key-rotation durante handoff: [microsoft/agent-framework#4842 (comentario)](https://github.com/microsoft/agent-framework/issues/4842#issuecomment-4327716940).
+
 
 ## Tools expuestas por defecto
 
