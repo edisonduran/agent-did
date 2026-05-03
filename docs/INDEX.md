@@ -14,6 +14,10 @@ This index is the fast path through the repository documentation.
 - **Contributors**: people changing code, docs, integrations, or workflows.
 - **Reviewers**: people evaluating the RFC, governance, architecture, or maturity claims.
 
+## Interactive Demo
+
+- [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) — external live browser demo gallery showing real signed handoffs, live tamper detection, and the published `@agentdid/sdk` across multiple scenarios.
+
 ## Core Specification, Governance, and Operations
 
 | Document | Audience | Status | Purpose |

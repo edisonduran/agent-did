@@ -4,6 +4,8 @@ This guide gets you from install to a signed outbound HTTP request in a couple o
 
 The examples below are intentionally local and self-contained. They use an in-memory registry so you can prove the end-to-end flow without deploying a contract or a resolver.
 
+If you want a live browser walkthrough before wiring code, open [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/): real signed handoffs, live tamper detection, and the published `@agentdid/sdk` running in the browser.
+
 ## Node.js (TypeScript SDK)
 
 Install:
@@ -106,6 +108,7 @@ After the example runs successfully, you have demonstrated that Agent-DID can:
 
 ## Next Steps
 
+- Open [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) for the live browser demo gallery.
 - Read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md) for the normative model.
 - Read [docs/Anti-Replay-HTTP-Signatures.md](docs/Anti-Replay-HTTP-Signatures.md) before deploying signed HTTP calls in production.
 - Read [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md) for pre-1.0 compatibility expectations.

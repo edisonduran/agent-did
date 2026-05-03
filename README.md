@@ -26,6 +26,8 @@
 
 OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in and with native integrations across several major AI orchestration frameworks.
 
+> **Interactive demo:** [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) shows real browser-side signed handoffs, live tamper detection, and the published `@agentdid/sdk` working across multiple use cases.
+
 > **For contributors (Public Review):**
 > - Start here: [QUICKSTART.md](QUICKSTART.md)
 > - Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
