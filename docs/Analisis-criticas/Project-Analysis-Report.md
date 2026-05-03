@@ -1,5 +1,7 @@
 # Agent-DID: Informe de Análisis del Proyecto
 
+> **Historical document** — this analysis reflects the project state as of 2026-03-29 and is not updated as the project evolves. For current status, see [`README.md`](../../README.md) and [`docs/INDEX.md`](../INDEX.md).
+
 **Fecha**: 29 de marzo de 2026
 **Versión**: 1.0
 **Tipo**: Análisis Estratégico y Técnico
