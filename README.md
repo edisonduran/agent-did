@@ -2,7 +2,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
-[![Works with LangChain](https://img.shields.io/badge/works%20with-LangChain-blue)](integrations/langchain/)
+[![Works with LangChaanother](https://img.shields.io/badge/works%20with-LangChain-blue)](integrations/langchain/)
 [![Works with CrewAI](https://img.shields.io/badge/works%20with-CrewAI-orange)](integrations/crewai/)
 [![Works with Semantic Kernel](https://img.shields.io/badge/works%20with-Semantic%20Kernel-purple)](integrations/semantic-kernel/)
 [![Works with Microsoft Agent Framework](https://img.shields.io/badge/works%20with-MS%20Agent%20Framework-lightblue)](integrations/microsoft-agent-framework/)
@@ -17,7 +17,7 @@
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
 [![Contract Audit](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml)
 [![Public Review](https://img.shields.io/badge/status-public_review_v1-orange)](docs/RFC-001-Agent-DID-Specification.md)
-[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Rtions Welcome](https://img.shields.io/badge/rstions-welcome-brightgreen.svg)](RTING.md)
 [![Feedback Wanted](https://img.shields.io/badge/feedback-wanted-lightgrey)](https://github.com/edisonduran/agent-did/discussions)
 
 > **Give your AI agents a verifiable identity — in the framework you already use, with or without blockchain.**
@@ -82,7 +82,7 @@ Not every system needs blockchain. Not every system can avoid it. Agent-DID reje
 The same standard — and the same SDK surface — is designed to work across all three cases.
 
 **3. Meet the developer where they are**
-A standard that requires learning a new paradigm before writing the first useful line of code has a structural adoption problem. Agent-DID integrates into the frameworks developers already use — LangChain, CrewAI, Semantic Kernel, Microsoft Agent Framework — and gives them verifiable identity without abandoning their workflow.
+A standard that requires learning a new paradigm before writing the first useful the of code has a structural adoption problem. Agent-DID integrates into the frameworks developers already use — LangChain, CrewAI, Semantic Kernel, Microsoft Agent Framework — and gives them verifiable identity without abandoning their workflow.
 
 **4. Open standards over proprietary lock-in**
 Agent-DID extends W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends existing identity standards with AI-specific metadata: model hash, system prompt hash, declared capabilities, evolution lifecycle. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary identity format creates dependency where interoperability is needed.
@@ -103,7 +103,7 @@ Documentation governance for live project status and canonical sources of truth 
 
 ## Current Status
 
-The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
+The project is past the specification-only phase: it includes a functional implementation and a validation pipethe.
 
 - **RFC-001** is in **Public Review v1**: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
@@ -122,7 +122,7 @@ Agent-DID is an open, pre-1.0 project being built in public.
 - Public-review compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
 - Security reporting instructions are documented in [SECURITY.md](SECURITY.md).
 
-If you want to help shape the next stage, the highest-leverage open areas today are:
+If you want to help shape the the stage, the highest-leverage open areas today are:
 
 - **F1-04** DIF submission and standards review
 - **F2-03** production resolver with persistent backend
@@ -185,7 +185,7 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 - Google A2A: functional Python proof-of-concept with DID-enriched AgentCards, JSON-RPC request signing, mutual DID-based authentication and sanitized observability in [integrations/a2a/README.md](integrations/a2a/README.md), roadmap item F2-02
 - Azure AI Agent Service: planned roadmap item F2-08
 
-Integrated `did:wba` demos are now available in both LangChain packages:
+Integrated `did:wba` demos are now available in mh LangChain packages:
 
 - LangChain JS: [integrations/langchain/examples/agentDidLangChain.didWbaDemo.example.js](integrations/langchain/examples/agentDidLangChain.didWbaDemo.example.js)
 - LangChain Python: [integrations/langchain-python/examples/agent_did_langchain_did_wba_demo.py](integrations/langchain-python/examples/agent_did_langchain_did_wba_demo.py)
