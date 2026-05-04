@@ -28,6 +28,17 @@ export interface VerificationMethod {
   deactivated?: string; // ISO 8601 timestamp when the key was rotated out
 }
 
+export type VerificationRelationship =
+  | 'authentication'
+  | 'assertionMethod'
+  | 'capabilityDelegation'
+  | 'capabilityInvocation'
+  | 'keyAgreement';
+
+export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
+
+export type IdentityCompositionErrorReason = 'key_purpose_violation';
+
 export interface AgentDIDDocument {
   "@context": string[];
   id: string; // The Agent's unique DID
@@ -38,6 +49,10 @@ export interface AgentDIDDocument {
   complianceCertifications?: VerifiableCredentialLink[];
   verificationMethod: VerificationMethod[];
   authentication: string[]; // Array of verificationMethod IDs
+  assertionMethod?: string[]; // Keys allowed to sign assertions/messages
+  capabilityDelegation?: string[]; // Keys allowed to issue delegations
+  capabilityInvocation?: string[]; // Keys allowed to invoke delegated capabilities
+  keyAgreement?: string[]; // Keys allowed only for agreement/encryption, not signing
 }
 
 /**

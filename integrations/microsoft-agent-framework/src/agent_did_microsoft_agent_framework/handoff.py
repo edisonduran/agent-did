@@ -33,7 +33,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from agent_did_sdk import AgentIdentity
+from agent_did_sdk import AgentIdentity, IdentityCompositionError
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
@@ -297,21 +297,51 @@ async def _run_signature_verification(
     staleness = max(0.0, ctx.now() - message.signed_at)
 
     if staleness > ctx.ttl_seconds:
-        valid = await ctx.verify_signature(
-            message.did, payload_str, message.signature, message.key_id
-        )
+        valid = await _verify_signature_with_purpose(ctx, message, payload_str)
         return bool(valid), False, staleness, "key_lifecycle"
 
-    valid = await ctx.verify_signature(
-        message.did, payload_str, message.signature, message.key_id
-    )
+    valid = await _verify_signature_with_purpose(ctx, message, payload_str)
     used_historical = False
     if not valid and message.key_id:
-        valid = await ctx.verify_historical_signature(
-            message.did, payload_str, message.signature, message.key_id
-        )
+        valid = await _verify_historical_signature_with_purpose(ctx, message, payload_str)
         used_historical = bool(valid)
     return bool(valid), used_historical, staleness, "signature"
+
+
+async def _verify_signature_with_purpose(
+    ctx: _VerifierContext,
+    message: SignedHandoffMessage,
+    payload_str: str,
+) -> bool:
+    try:
+        valid = await ctx.verify_signature(
+            message.did,
+            payload_str,
+            message.signature,
+            message.key_id,
+            required_purpose="assertionMethod",
+        )
+        return bool(valid)
+    except IdentityCompositionError:
+        return False
+
+
+async def _verify_historical_signature_with_purpose(
+    ctx: _VerifierContext,
+    message: SignedHandoffMessage,
+    payload_str: str,
+) -> bool:
+    try:
+        valid = await ctx.verify_historical_signature(
+            message.did,
+            payload_str,
+            message.signature,
+            message.key_id,
+            required_purpose="assertionMethod",
+        )
+        return bool(valid)
+    except IdentityCompositionError:
+        return False
 
 
 def build_handoff_verifier_executor(

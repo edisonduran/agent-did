@@ -1,8 +1,10 @@
 import { ethers } from 'ethers';
 import { AgentIdentity } from '../src/core/AgentIdentity';
 import { CreateAgentParams } from '../src/core/types';
+import { assertKeyPurpose, IdentityCompositionError } from '../src/core/identity-composition';
 import { LocalKeySigner } from '../src/core/signer';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
+import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 
 describe('AgentIdentity Core Module', () => {
   // Create a random wallet to act as the "Creator" (Controller)
@@ -65,8 +67,9 @@ describe('AgentIdentity Core Module', () => {
     expect(vm.type).toEqual("Ed25519VerificationKey2020");
     expect(vm.blockchainAccountId?.startsWith("eip155:1:0x")).toBe(true);
 
-    // 5. Verify Authentication Binding
+    // 5. Verify verification relationship bindings
     expect(document.authentication).toContain(vm.id);
+    expect(document.assertionMethod).toContain(vm.id);
     
     // 6. Verify Private Key
     expect(result.agentPrivateKey).toBeDefined();
@@ -388,6 +391,108 @@ describe('AgentIdentity Core Module', () => {
     expect(isTamperedValid).toBe(false);
   });
 
+  it('should expose structured key purpose errors for direct helper calls', async () => {
+    const { document } = await agentIdentity.create({
+      name: 'PurposeHelperBot',
+      coreModel: 'test-model',
+      systemPrompt: 'test-prompt'
+    });
+
+    const keyId = document.verificationMethod[0].id;
+    const misboundDocument = {
+      ...document,
+      authentication: [],
+      assertionMethod: [],
+      keyAgreement: [keyId]
+    };
+
+    expect(() => assertKeyPurpose(keyId, misboundDocument, 'assertionMethod')).toThrow(IdentityCompositionError);
+
+    try {
+      assertKeyPurpose(keyId, misboundDocument, 'assertionMethod');
+      throw new Error('assertKeyPurpose should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(IdentityCompositionError);
+      expect(error).toMatchObject({
+        reason: 'key_purpose_violation',
+        keyId,
+        requiredPurpose: 'assertionMethod',
+        foundIn: ['keyAgreement']
+      });
+    }
+  });
+
+  it('should reject signatures from keys outside the required assertionMethod purpose', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'PurposeVerifierBot',
+      coreModel: 'test-model',
+      systemPrompt: 'test-prompt'
+    });
+
+    const keyId = document.verificationMethod[0].id;
+    const payload = 'approve:purpose:1';
+    const signature = await agentIdentity.signMessage(payload, agentPrivateKey);
+    const misboundDocument = {
+      ...document,
+      authentication: [],
+      assertionMethod: [],
+      keyAgreement: [keyId]
+    };
+
+    const resolver = new InMemoryDIDResolver();
+    resolver.registerDocument(misboundDocument);
+    AgentIdentity.setResolver(resolver);
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+
+    await expect(
+      AgentIdentity.verifySignature(document.id, payload, signature, keyId)
+    ).rejects.toMatchObject({
+      reason: 'key_purpose_violation',
+      keyId,
+      requiredPurpose: 'assertionMethod',
+      foundIn: ['keyAgreement']
+    });
+  });
+
+  it('should reject keyAgreement as a signing verification purpose', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'KeyAgreementBot',
+      coreModel: 'test-model',
+      systemPrompt: 'test-prompt'
+    });
+
+    const keyId = document.verificationMethod[0].id;
+    const payload = 'approve:key-agreement:1';
+    const signature = await agentIdentity.signMessage(payload, agentPrivateKey);
+
+    await expect(
+      AgentIdentity.verifySignature(document.id, payload, signature, keyId, 'keyAgreement')
+    ).rejects.toMatchObject({
+      reason: 'key_purpose_violation',
+      requiredPurpose: 'keyAgreement'
+    });
+  });
+
+  it('should reject unknown verification methods with key_purpose_violation', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'UnknownPurposeBot',
+      coreModel: 'test-model',
+      systemPrompt: 'test-prompt'
+    });
+
+    const payload = 'approve:unknown-key:1';
+    const signature = await agentIdentity.signMessage(payload, agentPrivateKey);
+    const unknownKeyId = `${document.id}#key-999`;
+
+    await expect(
+      AgentIdentity.verifySignature(document.id, payload, signature, unknownKeyId)
+    ).rejects.toMatchObject({
+      reason: 'key_purpose_violation',
+      keyId: unknownKeyId,
+      foundIn: []
+    });
+  });
+
   it('should throw when resolving an unknown DID', async () => {
     await expect(AgentIdentity.resolve('did:agent:polygon:0xunknown')).rejects.toThrow('DID not found');
   });
@@ -489,6 +594,10 @@ describe('AgentIdentity Core Module', () => {
     expect(oldValidAfterRotation).toBe(false);
     expect(newValidAfterRotation).toBe(true);
     expect(rotation.document.authentication).toEqual([rotation.verificationMethodId]);
+    expect(rotation.document.assertionMethod).toEqual([
+      `${document.id}#key-1`,
+      rotation.verificationMethodId
+    ]);
   });
 
   it('should mark old keys as deactivated after rotation', async () => {
@@ -548,10 +657,12 @@ describe('AgentIdentity Core Module', () => {
     const payload = 'test-payload';
     const fakeSignature = '00'.repeat(64);
 
-    const valid = await AgentIdentity.verifyHistoricalSignature(
+    await expect(AgentIdentity.verifyHistoricalSignature(
       document.id, payload, fakeSignature, `${document.id}#key-999`
-    );
-    expect(valid).toBe(false);
+    )).rejects.toMatchObject({
+      reason: 'key_purpose_violation',
+      foundIn: []
+    });
   });
 
   it('should keep auditable history for create, update, rotate, revoke lifecycle', async () => {

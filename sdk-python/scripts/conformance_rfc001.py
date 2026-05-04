@@ -149,6 +149,8 @@ async def evaluate_lifecycle_controls(
         and updated.agent_metadata.version == "2.0.0"
         and rotated.verification_method_id.endswith("#key-2")
         and rotated.document.authentication == [rotated.verification_method_id]
+        and rotated.document.assertion_method is not None
+        and rotated.verification_method_id in rotated.document.assertion_method
     )
     return [CheckResult("MUST-10", "PASS" if must_10_ok else "FAIL")], rotated, [], record_after_rotation
 
@@ -220,6 +222,7 @@ def build_interop_document(interop_vectors: dict[str, object]) -> AgentDIDDocume
             },
             "verificationMethod": [verification_method],
             "authentication": [verification_method["id"]],
+            "assertionMethod": [verification_method["id"]],
         }
     )
 

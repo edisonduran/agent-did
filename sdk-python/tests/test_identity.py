@@ -7,12 +7,14 @@ import pytest
 
 from agent_did_sdk import InMemoryAgentRegistry, ProductionHttpResolverProfileConfig
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
+from agent_did_sdk.core.identity_composition import IdentityCompositionError, assert_key_purpose
 from agent_did_sdk.core.types import (
     CreateAgentParams,
     SignHttpRequestParams,
     UpdateAgentDocumentParams,
     VerifyHttpRequestSignatureParams,
 )
+from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 
 
 @pytest.fixture()
@@ -36,6 +38,7 @@ class TestAgentIdentityCreate:
         assert doc.updated.endswith("Z")
         assert len(doc.verification_method) == 1
         assert doc.verification_method[0].public_key_multibase is not None
+        assert doc.assertion_method == [doc.verification_method[0].id]
         assert len(result.agent_private_key) == 64  # 32 bytes hex
 
     async def test_create_with_all_params(self, identity: AgentIdentity) -> None:
@@ -95,6 +98,84 @@ class TestAgentIdentitySignVerify:
         await AgentIdentity.revoke_did(result.document.id)
         is_valid = await AgentIdentity.verify_signature(result.document.id, "data", sig)
         assert is_valid is False
+
+    async def test_assert_key_purpose_reports_found_relationships(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="PurposeHelper", core_model="m", system_prompt="p",
+        ))
+        key_id = result.document.verification_method[0].id
+        misbound_doc = result.document.model_copy(
+            update={"authentication": [], "assertion_method": [], "key_agreement": [key_id]},
+            deep=True,
+        )
+
+        with pytest.raises(IdentityCompositionError) as exc:
+            assert_key_purpose(key_id, misbound_doc, "assertionMethod")
+
+        assert exc.value.reason == "key_purpose_violation"
+        assert exc.value.key_id == key_id
+        assert exc.value.required_purpose == "assertionMethod"
+        assert exc.value.found_in == ["keyAgreement"]
+
+    async def test_verify_rejects_key_outside_assertion_method(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="PurposeVerifier", core_model="m", system_prompt="p",
+        ))
+        key_id = result.document.verification_method[0].id
+        payload = "approve:purpose:1"
+        signature = await identity.sign_message(payload, result.agent_private_key)
+        misbound_doc = result.document.model_copy(
+            update={"authentication": [], "assertion_method": [], "key_agreement": [key_id]},
+            deep=True,
+        )
+
+        resolver = InMemoryDIDResolver()
+        resolver.register_document(misbound_doc)
+        AgentIdentity.set_resolver(resolver)
+        AgentIdentity.set_registry(InMemoryAgentRegistry())
+
+        with pytest.raises(IdentityCompositionError) as exc:
+            await AgentIdentity.verify_signature(result.document.id, payload, signature, key_id)
+
+        assert exc.value.reason == "key_purpose_violation"
+        assert exc.value.key_id == key_id
+        assert exc.value.required_purpose == "assertionMethod"
+        assert exc.value.found_in == ["keyAgreement"]
+
+    async def test_verify_rejects_key_agreement_as_signing_purpose(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="KeyAgreement", core_model="m", system_prompt="p",
+        ))
+        key_id = result.document.verification_method[0].id
+        payload = "approve:key-agreement:1"
+        signature = await identity.sign_message(payload, result.agent_private_key)
+
+        with pytest.raises(IdentityCompositionError) as exc:
+            await AgentIdentity.verify_signature(
+                result.document.id,
+                payload,
+                signature,
+                key_id,
+                required_purpose="keyAgreement",
+            )
+
+        assert exc.value.reason == "key_purpose_violation"
+        assert exc.value.required_purpose == "keyAgreement"
+
+    async def test_verify_rejects_unknown_key_with_key_purpose_violation(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="UnknownPurpose", core_model="m", system_prompt="p",
+        ))
+        payload = "approve:unknown-key:1"
+        signature = await identity.sign_message(payload, result.agent_private_key)
+        unknown_key_id = f"{result.document.id}#key-999"
+
+        with pytest.raises(IdentityCompositionError) as exc:
+            await AgentIdentity.verify_signature(result.document.id, payload, signature, unknown_key_id)
+
+        assert exc.value.reason == "key_purpose_violation"
+        assert exc.value.key_id == unknown_key_id
+        assert exc.value.found_in == []
 
 
 class TestAgentIdentityHttpSignature:
@@ -296,6 +377,10 @@ class TestAgentIdentityRotateKey:
         assert rotated.verification_method_id.endswith("#key-2")
         assert len(rotated.document.verification_method) == 2
         assert rotated.document.authentication == [rotated.verification_method_id]
+        assert rotated.document.assertion_method == [
+            f"{result.document.id}#key-1",
+            rotated.verification_method_id,
+        ]
 
     async def test_rotate_twice(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
@@ -361,10 +446,12 @@ class TestAgentIdentityRotateKey:
             name="UnknownKey", core_model="m", system_prompt="p",
         ))
         fake_sig = "00" * 64
-        valid = await AgentIdentity.verify_historical_signature(
-            result.document.id, "payload", fake_sig, f"{result.document.id}#key-999",
-        )
-        assert valid is False
+        with pytest.raises(IdentityCompositionError) as exc:
+            await AgentIdentity.verify_historical_signature(
+                result.document.id, "payload", fake_sig, f"{result.document.id}#key-999",
+            )
+        assert exc.value.reason == "key_purpose_violation"
+        assert exc.value.found_in == []
 
 
 class TestSignerAbstraction:
