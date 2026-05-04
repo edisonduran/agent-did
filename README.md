@@ -33,6 +33,7 @@ OAuth delegates this to a centralized provider. MCP leaves it out of scope by de
 > - Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
 > - Security reporting: [SECURITY.md](SECURITY.md)
 > - Docs navigation: [docs/INDEX.md](docs/INDEX.md)
+> - RFC under Public Review: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 > - Compatibility expectations: [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
