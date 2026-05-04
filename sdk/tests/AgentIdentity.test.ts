@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { AgentIdentity } from '../src/core/AgentIdentity';
 import { CreateAgentParams } from '../src/core/types';
-import { assertKeyPurpose, IdentityCompositionError } from '../src/core/identity-composition';
+import { assertKeyPurpose, assertSigningPurpose, IdentityCompositionError } from '../src/core/identity-composition';
 import { LocalKeySigner } from '../src/core/signer';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
 import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
@@ -491,6 +491,23 @@ describe('AgentIdentity Core Module', () => {
       keyId: unknownKeyId,
       foundIn: []
     });
+  });
+
+  it('assertKeyPurpose accepts a key listed under keyAgreement when keyAgreement is the requested relationship', async () => {
+    const { document } = await agentIdentity.create({
+      name: 'MembershipBot',
+      coreModel: 'test-model',
+      systemPrompt: 'test-prompt'
+    });
+
+    const keyId = document.verificationMethod[0].id;
+    const keyAgreementDoc = {
+      ...document,
+      keyAgreement: [keyId]
+    };
+
+    expect(() => assertKeyPurpose(keyId, keyAgreementDoc, 'keyAgreement')).not.toThrow();
+    expect(() => assertSigningPurpose('keyAgreement', keyAgreementDoc, keyId)).toThrow(IdentityCompositionError);
   });
 
   it('should throw when resolving an unknown DID', async () => {

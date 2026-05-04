@@ -79,7 +79,8 @@ export function assertKeyPurpose(
   const foundIn = getKeyRelationships(keyId, didDoc);
   const keyIdsForPurpose = getRelationshipKeyIds(didDoc, requiredPurpose);
 
-  if (requiredPurpose === 'keyAgreement' || !keyIdsForPurpose.includes(keyId)) {
+  // Membership-only predicate per RFC-001 §6.2.1; signing-purpose policy lives in assertSigningPurpose.
+  if (!keyIdsForPurpose.includes(keyId)) {
     throw new IdentityCompositionError('key_purpose_violation', {
       did: didDoc.id,
       keyId,

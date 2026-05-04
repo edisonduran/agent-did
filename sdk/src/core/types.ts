@@ -37,7 +37,11 @@ export type VerificationRelationship =
 
 export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
 
-export type IdentityCompositionErrorReason = 'key_purpose_violation';
+export type IdentityCompositionErrorReason =
+  | 'key_purpose_violation'
+  | 'rotation_window_closed'
+  | 'emergency_revoked'
+  | 'tampered';
 
 export interface AgentDIDDocument {
   "@context": string[];

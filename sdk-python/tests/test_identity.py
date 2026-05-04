@@ -7,7 +7,11 @@ import pytest
 
 from agent_did_sdk import InMemoryAgentRegistry, ProductionHttpResolverProfileConfig
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
-from agent_did_sdk.core.identity_composition import IdentityCompositionError, assert_key_purpose
+from agent_did_sdk.core.identity_composition import (
+    IdentityCompositionError,
+    assert_key_purpose,
+    assert_signing_purpose,
+)
 from agent_did_sdk.core.types import (
     CreateAgentParams,
     SignHttpRequestParams,
@@ -176,6 +180,25 @@ class TestAgentIdentitySignVerify:
         assert exc.value.reason == "key_purpose_violation"
         assert exc.value.key_id == unknown_key_id
         assert exc.value.found_in == []
+
+    async def test_assert_key_purpose_accepts_key_agreement_membership(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="Membership", core_model="m", system_prompt="p",
+        ))
+        key_id = result.document.verification_method[0].id
+        key_agreement_doc = result.document.model_copy(
+            update={"key_agreement": [key_id]},
+            deep=True,
+        )
+
+        # Membership predicate must accept the key when keyAgreement is the requested relationship.
+        assert_key_purpose(key_id, key_agreement_doc, "keyAgreement")
+
+        # Signing-purpose policy must still reject keyAgreement for signing flows.
+        with pytest.raises(IdentityCompositionError) as exc:
+            assert_signing_purpose("keyAgreement", key_agreement_doc, key_id)
+        assert exc.value.reason == "key_purpose_violation"
+        assert exc.value.required_purpose == "keyAgreement"
 
 
 class TestAgentIdentityHttpSignature:

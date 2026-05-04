@@ -164,6 +164,20 @@ The default signing purpose for Agent-DID payloads and HTTP signatures is `asser
 
 When a key exists in the DID document but is not authorized for the requested purpose, SDKs MUST raise or surface a deterministic `key_purpose_violation` reason and, where practical, include the relationships where the key was found.
 
+#### 6.2.1.1 Identity Composition Error Shape
+
+To enable cross-implementation interop and programmatic verifiers, conforming SDKs MUST expose identity-composition errors with the following normative shape:
+
+- `reason` (REQUIRED): one of the deterministic identity-composition reasons: `key_purpose_violation`, `rotation_window_closed`, `emergency_revoked`, `tampered`.
+- `keyId` / `key_id` (REQUIRED): verification method identifier that triggered the failure (empty string when not applicable).
+- `requiredPurpose` / `required_purpose` (REQUIRED): DID verification relationship the action required.
+- `foundIn` / `found_in` (REQUIRED): verification relationships where the key was actually listed (MAY be empty).
+- `did` (OPTIONAL): subject DID, included when known.
+
+These fields MUST be exposed as direct properties of the error object using the language-idiomatic naming above. Implementations MAY additionally mirror the same fields under a `context` namespace (for example `error.context.keyId`) to interoperate with verifiers that expect a nested error envelope, provided the direct properties remain authoritative. Mirrored values MUST be byte-equal to the direct properties.
+
+The `assertKeyPurpose` helper is a membership-only predicate over the requested verification relationship and MUST NOT short-circuit on `keyAgreement`. The signing-purpose policy that rejects `keyAgreement` for signing flows lives in `assertSigningPurpose` (or the equivalent entry point) and is invoked by the SDK before `assertKeyPurpose` during signature verification.
+
 ### 6.3 Evolution
 
 1. The DID remains stable.

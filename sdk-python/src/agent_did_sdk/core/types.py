@@ -156,7 +156,12 @@ SigningVerificationPurpose = Literal[
     "capabilityDelegation",
     "capabilityInvocation",
 ]
-IdentityCompositionErrorReason = Literal["key_purpose_violation"]
+IdentityCompositionErrorReason = Literal[
+    "key_purpose_violation",
+    "rotation_window_closed",
+    "emergency_revoked",
+    "tampered",
+]
 
 
 class AgentDocumentHistoryEntry(BaseModel):

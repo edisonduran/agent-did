@@ -80,7 +80,8 @@ def assert_key_purpose(
     found_in = get_key_relationships(key_id, did_doc)
     key_ids_for_purpose = get_relationship_key_ids(did_doc, required_purpose)
 
-    if required_purpose == "keyAgreement" or key_id not in key_ids_for_purpose:
+    # Membership-only predicate per RFC-001 §6.2.1; signing-purpose policy lives in assert_signing_purpose.
+    if key_id not in key_ids_for_purpose:
         raise IdentityCompositionError(
             "key_purpose_violation",
             did=did_doc.id,
