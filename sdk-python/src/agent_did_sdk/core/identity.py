@@ -252,8 +252,8 @@ class AgentIdentity:
         if expected_digest != digest_header:
             return False
 
-        parsed_inputs = cls._parse_http_signature_input_dictionary(sig_input_header)  # type: ignore[arg-type]
-        parsed_sigs = cls._parse_http_signature_dictionary(sig_header)  # type: ignore[arg-type]
+        parsed_inputs = cls._parse_http_signature_input_dictionary(sig_input_header)
+        parsed_sigs = cls._parse_http_signature_dictionary(sig_header)
 
         now = int(time.time())
         max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
