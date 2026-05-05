@@ -8,6 +8,12 @@
   },
   "homepage": "https://github.com/edisonduran/agent-did#readme",
   "scripts": {
+    "api:snapshot": "npm run api:snapshot:ts && npm run api:snapshot:python",
+    "api:check": "npm run api:check:ts && npm run api:check:python",
+    "api:snapshot:ts": "npm --prefix sdk run api:snapshot",
+    "api:check:ts": "npm --prefix sdk run api:check",
+    "api:snapshot:python": "python sdk-python/scripts/public_api_snapshot.py --write",
+    "api:check:python": "python sdk-python/scripts/public_api_snapshot.py --check",
     "audit:contracts": "node scripts/contract-audit.js",
     "build:crewai": "cd integrations/crewai && python -m build",
     "build:semantic-kernel": "cd integrations/semantic-kernel && python -m build",
