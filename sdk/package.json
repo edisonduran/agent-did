@@ -10,9 +10,11 @@
     "LICENSE"
   ],
   "scripts": {
+    "api:snapshot": "node ./scripts/public-api-snapshot.mjs --write",
+    "api:check": "node ./scripts/public-api-snapshot.mjs --check",
     "build": "tsc",
     "test": "jest",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run api:check && npm run build && npm test"
   },
   "keywords": [
     "did",
