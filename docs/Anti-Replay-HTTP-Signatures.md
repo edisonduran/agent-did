@@ -81,6 +81,19 @@ function validate_request(headers):
     
     return ACCEPT
 ```
+### Nonce Storage Backend Guidance
+
+In real-world deployments, nonce values must be stored temporarily to prevent replay attacks within the allowed time window.
+
+Typical approaches include:
+
+- **In-memory cache**: Suitable for single-instance or development environments. Simple to implement but does not work across multiple service instances.
+
+- **Shared cache (e.g., Redis)**: Recommended for multi-instance or distributed systems. Ensures all instances can consistently validate and reject reused nonces.
+
+- **TTL-based expiration**: Nonce entries should expire automatically based on the same time window used for request signature validity. This prevents unbounded growth of stored nonce data.
+
+The choice of backend depends on system architecture, but the key requirement is that nonce values remain unique within the defined validity window.
 
 ### 3. Recommended Expiration Windows
 
