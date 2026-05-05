@@ -16,6 +16,8 @@ on:
       - 'scripts/contract-audit.js'
       - '.github/workflows/contract-audit.yml'
       - 'package.json'
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 jobs:

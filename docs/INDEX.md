@@ -18,6 +18,13 @@ This index is the fast path through the repository documentation.
 
 - [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) — external live browser demo gallery showing real signed handoffs, live tamper detection, and the published `@agentdid/sdk` across multiple scenarios.
 
+## Releases
+
+| Document | Audience | Status | Purpose |
+|---|---|---|---|
+| [../CHANGELOG.md](../CHANGELOG.md) | Users, Contributors, Reviewers | Stable | Root changelog for the co-versioned ecosystem release train (RFC + SDKs + integrations + contracts). |
+| [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md) | Contributors, Reviewers, Maintainers | Draft | Non-negotiable exit criteria and 3-sprint plan toward `v1.0.0`. |
+
 ## Core Specification, Governance, and Operations
 
 | Document | Audience | Status | Purpose |
