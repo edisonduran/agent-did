@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
-const rootDir = path.resolve(import.meta.dirname, "..");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "..");
 const entrypointPath = path.join(rootDir, "src", "index.ts");
 const snapshotPath = path.join(rootDir, "public-api.snapshot.txt");
 

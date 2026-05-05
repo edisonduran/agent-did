@@ -52,10 +52,16 @@ The current intent is:
 
 ### 2.2 SDKs and Public API
 
-- [ ] **C-API-1** — Public API frozen and documented per SDK:
-  - TypeScript: versioned public API snapshot artifact checked into the repo.
-  - Python: explicit `__all__` in public modules + versioned public API snapshot artifact checked into the repo.
-- [ ] **C-API-2** — Blocking CI: any change to the public API snapshot requires a major bump (post-1.0).
+- [ ] **C-API-1** — Public **export-name** baseline frozen and enforced per SDK (first stage of the API gate):
+  - TypeScript: versioned export-name snapshot artifact checked into the repo (`sdk/public-api.snapshot.txt`), generated from `sdk/src/index.ts` named exports.
+  - Python: explicit `__all__` in public modules + versioned export-name snapshot artifact checked into the repo (`sdk-python/public-api.snapshot.txt`), generated from `__all__` literals.
+  - Snapshot drift is a blocking CI failure in `ci.yml` (TS) and `ci-python.yml` (Python).
+  - Scope limitation: this stage detects **added/removed/renamed** public exports only. It does **not** detect signature, type, or class-member changes — those are covered by C-API-2.
+- [ ] **C-API-2** — Signature-level public API compatibility gate (follow-up to C-API-1):
+  - TypeScript: emit `.d.ts` (or use `@microsoft/api-extractor`) and diff the generated API report on every PR.
+  - Python: capture signatures and class members via `griffe` or `mypy stubgen` and diff per PR.
+  - Any change to this signature-level snapshot requires a major bump (post-1.0).
+  - Tracking issue: see `RELEASE-1.0-CRITERIA` follow-up issue *Harden public API snapshot to signature-level gate*.
 - [ ] **C-API-3** — `@internal` / private symbols clearly marked; not part of the public contract.
 - [ ] **C-API-4** — `MIGRATION-0.x-to-1.0.md` per SDK (TS and Python) with executable `before/after` examples.
 
