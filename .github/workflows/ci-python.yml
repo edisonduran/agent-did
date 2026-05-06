@@ -59,7 +59,7 @@ jobs:
 
       - name: Lint with ruff
         working-directory: sdk-python
-        run: ruff check src/ tests/ scripts/
+        run: ruff check src/ tests/ scripts/ examples/
 
       - name: Type check with mypy
         working-directory: sdk-python
