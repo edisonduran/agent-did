@@ -14,6 +14,9 @@ export {
   VerifiableCredentialLink,
   VerificationMethod,
   AgentDIDDocument,
+  VerificationRelationship,
+  SigningVerificationPurpose,
+  IdentityCompositionErrorReason,
   CreateAgentParams,
   CreateAgentResult,
   SignHttpRequestParams,
@@ -21,6 +24,17 @@ export {
   RotateVerificationMethodResult,
   VerifyHttpRequestSignatureParams
 } from './core/types';
+
+export {
+  IdentityCompositionError,
+  IdentityCompositionErrorDetails,
+  DID_VERIFICATION_RELATIONSHIPS,
+  SIGNING_VERIFICATION_PURPOSES,
+  assertKeyPurpose,
+  assertSigningPurpose,
+  getKeyRelationships,
+  getRelationshipKeyIds
+} from './core/identity-composition';
 
 // Export Core Identity Class
 export {

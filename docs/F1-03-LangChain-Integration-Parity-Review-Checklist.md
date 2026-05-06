@@ -33,6 +33,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] HTTP signing remains opt-in in both packages.
 - [ ] Payload signing remains opt-in in both packages.
 - [ ] Key rotation remains opt-in in both packages.
+- [ ] DID documents used for signing demos bind signing keys to `assertionMethod`, not only `authentication` or `keyAgreement`.
 - [ ] HTTP target validation still rejects invalid schemes, embedded credentials and private or loopback targets by default.
 - [ ] When `allow_private_network_targets` is enabled, `http_security` options are propagated to the SDK's `signHttpRequest` in both packages (or the divergence is documented in the parity matrix).
 
@@ -94,6 +95,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-05-04 | Added parity review coverage for `assertionMethod` binding in signing-capable `did:wba` demo DID documents. |
 | 2026-03-31 | Repository slug updated to `agent-did` and active LangChain TS/Python package references normalized to `@agentdid/*` in README/examples/metadata. No functional changes to the integration surface; parity artifacts refreshed for governance compliance. |
 | 2026-03-23 | Added a canonical walkthrough and a cross-package `did:wba` demo smoke gate so parity review also covers executable demo behavior. |
 | 2026-03-22 | Added explicit parity review gate for integrated `did:wba` demos and refreshed the parity matrix after shipping mirrored LangChain TS/Python demos. |

@@ -70,6 +70,7 @@ def _build_did_document(
                 }
             ],
             "authentication": [f"{did}#key-1"],
+            "assertionMethod": [f"{did}#key-1"],
         }
     )
 

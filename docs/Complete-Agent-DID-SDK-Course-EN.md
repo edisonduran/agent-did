@@ -3331,7 +3331,11 @@ The method supports **multiple signatures** in a single request (`sig1`, `sig2`,
 
 ```typescript
 public static async verifySignature(
-  did: string, payload: string, signature: string, keyId?: string
+  did: string,
+  payload: string,
+  signature: string,
+  keyId?: string,
+  requiredPurpose: VerificationRelationship = 'assertionMethod'
 ): Promise<boolean> {
   // 1. Is it revoked? → FAIL immediately
   const isRevoked = await AgentIdentity.registry.isRevoked(did);
@@ -3358,6 +3362,8 @@ public static async verifySignature(
   return false;
 }
 ```
+
+Current SDKs also enforce DID verification-relationship binding before cryptographic verification. For normal agent messages and HTTP signatures the required purpose is `assertionMethod`; if the key is present only under another relationship, especially `keyAgreement`, verification fails with `IdentityCompositionError.reason === 'key_purpose_violation'`.
 
 **Why verify revocation BEFORE resolving?** Two reasons:
 1. **Security**: A revoked DID is a dead identity — it doesn't matter if the signature is mathematically valid
