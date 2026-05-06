@@ -42,7 +42,8 @@ describe('Interoperability Vectors', () => {
       systemPromptHash: 'hash://sha256/prompt'
     },
     verificationMethod: [fixture.verificationMethod],
-    authentication: [fixture.verificationMethod.id]
+    authentication: [fixture.verificationMethod.id],
+    assertionMethod: [fixture.verificationMethod.id]
   };
 
   beforeEach(async () => {

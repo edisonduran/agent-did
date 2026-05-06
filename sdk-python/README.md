@@ -65,6 +65,7 @@ asyncio.run(main())
 | Sign messages (Ed25519) | `identity.sign_message(payload, key)` | ✅ |
 | Sign HTTP requests (Bot Auth) | `identity.sign_http_request(params)` | ✅ |
 | Verify message signatures | `AgentIdentity.verify_signature(did, payload, sig)` | ✅ |
+| Enforce key purpose binding | `assert_key_purpose(key_id, did_doc, purpose)` | ✅ |
 | Verify HTTP signatures | `AgentIdentity.verify_http_request_signature(params)` | ✅ |
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
 | Revoke DID | `AgentIdentity.revoke_did(did)` | ✅ |
@@ -73,6 +74,8 @@ asyncio.run(main())
 | Document history/audit | `AgentIdentity.get_document_history(did)` | ✅ |
 | EVM registry adapter | `EvmAgentRegistry` + `Web3AgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
+
+By default, `verify_signature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
 ## Modules
 

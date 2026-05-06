@@ -58,6 +58,8 @@ Agent-DID closes that gap with two mechanisms:
 - **Framework abstractions** that inject identity into the agent's execution chain without extra developer code.
 - **Ed25519 by default** — a fast, compact, and widely trusted cryptographic primitive for high-frequency signing environments, with no confusing options or misconfigurable parameters.
 
+That simplicity still has to be precise: a valid key is not automatically valid for every action. Agent-DID verification binds keys to their DID verification relationship, so signing flows use signing-capable purposes such as `assertionMethod` and never accept `keyAgreement` as a shortcut.
+
 ---
 
 ## The Vision
