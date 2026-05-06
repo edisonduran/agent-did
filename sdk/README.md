@@ -70,6 +70,7 @@ await AgentIdentity.revokeDid(document.id);
 | Sign messages (Ed25519) | `identity.signMessage(payload, key)` | ✅ |
 | Sign HTTP requests (Bot Auth) | `identity.signHttpRequest(params)` | ✅ |
 | Verify message signatures | `AgentIdentity.verifySignature(did, payload, sig)` | ✅ |
+| Enforce key purpose binding | `assertKeyPurpose(keyId, didDoc, purpose)` | ✅ |
 | Verify HTTP signatures | `AgentIdentity.verifyHttpRequestSignature(params)` | ✅ |
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
 | Revoke DID | `AgentIdentity.revokeDid(did)` | ✅ |
@@ -78,6 +79,8 @@ await AgentIdentity.revokeDid(document.id);
 | Document history/audit | `AgentIdentity.getDocumentHistory(did)` | ✅ |
 | EVM registry adapter | `EvmAgentRegistry` + `EthersAgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
+
+By default, `verifySignature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
 ## EVM Registry Integration
 

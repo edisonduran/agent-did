@@ -11,6 +11,7 @@ import {
   SignHttpRequestParams,
   UpdateAgentDocumentParams,
   VerifyHttpRequestSignatureParams,
+  VerificationRelationship,
   VerificationMethod
 } from './types';
 import { generateAgentMetadataHash, generateCanonicalDocumentHash } from '../crypto/hash';
@@ -25,6 +26,7 @@ import { JsonRpcDIDDocumentSource } from '../resolver/JsonRpcDIDDocumentSource';
 import { AgentRegistry } from '../registry/types';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
+import { assertKeyPurpose, assertSigningPurpose, getRelationshipKeyIds } from './identity-composition';
 
 export interface AgentIdentityConfig {
   signer: ethers.Signer; // The Creator's Wallet (Controller)
@@ -143,7 +145,8 @@ export class AgentIdentity {
         memberOf: params.memberOf
       },
       verificationMethod: [verificationMethod],
-      authentication: [verificationMethodId]
+      authentication: [verificationMethodId],
+      assertionMethod: [verificationMethodId]
     };
 
     AgentIdentity.resolver.registerDocument(document);
@@ -306,7 +309,13 @@ export class AgentIdentity {
       });
 
       const signatureHex = Buffer.from(signatureBase64, 'base64').toString('hex');
-      const isValid = await AgentIdentity.verifySignature(signatureAgent, signatureBase, signatureHex, keyId);
+      const isValid = await AgentIdentity.verifySignature(
+        signatureAgent,
+        signatureBase,
+        signatureHex,
+        keyId,
+        'assertionMethod'
+      );
       if (isValid) {
         return true;
       }
@@ -319,7 +328,13 @@ export class AgentIdentity {
    * Verifies that a signature was produced by a specific Agent-DID.
    * Uses the configured resolver and registry to validate against active verification methods.
    */
-  public static async verifySignature(did: string, payload: string, signature: string, keyId?: string): Promise<boolean> {
+  public static async verifySignature(
+    did: string,
+    payload: string,
+    signature: string,
+    keyId?: string,
+    requiredPurpose: VerificationRelationship = 'assertionMethod'
+  ): Promise<boolean> {
     const isRevoked = await AgentIdentity.registry.isRevoked(did);
 
     if (isRevoked) {
@@ -327,12 +342,17 @@ export class AgentIdentity {
     }
 
     const didDoc = await AgentIdentity.resolve(did);
+    assertSigningPurpose(requiredPurpose, didDoc, keyId || '');
+    if (keyId) {
+      assertKeyPurpose(keyId, didDoc, requiredPurpose);
+    }
+
     const messageBytes = new TextEncoder().encode(payload);
     const signatureBytes = hexToBytes(signature);
 
-    const activeKeyIds = new Set(didDoc.authentication || []);
+    const activeKeyIds = new Set(getRelationshipKeyIds(didDoc, requiredPurpose));
     const candidateMethods = didDoc.verificationMethod.filter((method) => {
-      if (!method.publicKeyMultibase) {
+      if (!method.publicKeyMultibase || method.deactivated) {
         return false;
       }
 
@@ -372,7 +392,8 @@ export class AgentIdentity {
     did: string,
     payload: string,
     signature: string,
-    keyId: string
+    keyId: string,
+    requiredPurpose: VerificationRelationship = 'assertionMethod'
   ): Promise<boolean> {
     const isRevoked = await AgentIdentity.registry.isRevoked(did);
     if (isRevoked) {
@@ -380,6 +401,9 @@ export class AgentIdentity {
     }
 
     const didDoc = await AgentIdentity.resolve(did);
+    assertSigningPurpose(requiredPurpose, didDoc, keyId);
+    assertKeyPurpose(keyId, didDoc, requiredPurpose);
+
     const messageBytes = new TextEncoder().encode(payload);
     const signatureBytes = hexToBytes(signature);
 
@@ -484,7 +508,8 @@ export class AgentIdentity {
       ...existing,
       updated: deactivatedTimestamp,
       verificationMethod: [...deactivatedMethods, newVerificationMethod],
-      authentication: [verificationMethodId]
+      authentication: [verificationMethodId],
+      assertionMethod: Array.from(new Set([...(existing.assertionMethod || []), verificationMethodId]))
     };
 
     AgentIdentity.resolver.registerDocument(updatedDocument);

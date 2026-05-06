@@ -37,6 +37,7 @@ function buildRuntimeDidWbaDocument(runtimeIdentity) {
       },
     ],
     authentication: [`${ACTIVE_DID}#key-1`],
+    assertionMethod: [`${ACTIVE_DID}#key-1`],
   };
 }
 
@@ -64,6 +65,7 @@ function buildPartnerDocument() {
       },
     ],
     authentication: [`${PARTNER_DID}#key-1`],
+    assertionMethod: [`${PARTNER_DID}#key-1`],
   };
 }
 

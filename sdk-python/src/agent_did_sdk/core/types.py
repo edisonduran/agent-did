@@ -60,6 +60,10 @@ class AgentDIDDocument(BaseModel):
     )
     verification_method: list[VerificationMethod] = Field(alias="verificationMethod")
     authentication: list[str]
+    assertion_method: list[str] | None = Field(default=None, alias="assertionMethod")
+    capability_delegation: list[str] | None = Field(default=None, alias="capabilityDelegation")
+    capability_invocation: list[str] | None = Field(default=None, alias="capabilityInvocation")
+    key_agreement: list[str] | None = Field(default=None, alias="keyAgreement")
 
     def model_dump_jsonld(self) -> dict[str, object]:
         """Serialize using JSON-LD aliases, dropping ``None`` values."""
@@ -139,6 +143,25 @@ class VerifyHttpRequestSignatureParams(BaseModel):
 # ---------------------------------------------------------------------------
 
 AgentDocumentHistoryAction = Literal["created", "updated", "rotated-key", "revoked"]
+VerificationRelationship = Literal[
+    "authentication",
+    "assertionMethod",
+    "capabilityDelegation",
+    "capabilityInvocation",
+    "keyAgreement",
+]
+SigningVerificationPurpose = Literal[
+    "authentication",
+    "assertionMethod",
+    "capabilityDelegation",
+    "capabilityInvocation",
+]
+IdentityCompositionErrorReason = Literal[
+    "key_purpose_violation",
+    "rotation_window_closed",
+    "emergency_revoked",
+    "tampered",
+]
 
 
 class AgentDocumentHistoryEntry(BaseModel):

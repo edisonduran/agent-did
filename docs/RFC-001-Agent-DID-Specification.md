@@ -152,8 +152,31 @@ graph TD
 
 1. Consumer obtains `Signature-Agent` or the issuer's DID.
 2. Resolves DID via universal resolver (with fallback/failover in production profile).
-3. Verifies signature with `verificationMethod`.
-4. Verifies non-revoked state in registry.
+3. Verifies the signing key is authorized for the required DID verification relationship.
+4. Verifies signature with `verificationMethod`.
+5. Verifies non-revoked state in registry.
+
+#### 6.2.1 Verification Relationship Binding
+
+Signature verification is not complete when the public key is merely present in `verificationMethod`. A verifier MUST confirm that the key ID is also listed in the DID verification relationship required by the action being verified.
+
+The default signing purpose for Agent-DID payloads and HTTP signatures is `assertionMethod`. Other signing flows MAY require `authentication`, `capabilityDelegation`, or `capabilityInvocation`. A key listed only under `keyAgreement` MUST NOT be accepted for signing or proof verification.
+
+When a key exists in the DID document but is not authorized for the requested purpose, SDKs MUST raise or surface a deterministic `key_purpose_violation` reason and, where practical, include the relationships where the key was found.
+
+#### 6.2.1.1 Identity Composition Error Shape
+
+To enable cross-implementation interop and programmatic verifiers, conforming SDKs MUST expose identity-composition errors with the following normative shape:
+
+- `reason` (REQUIRED): one of the deterministic identity-composition reasons: `key_purpose_violation`, `rotation_window_closed`, `emergency_revoked`, `tampered`.
+- `keyId` / `key_id` (REQUIRED): verification method identifier that triggered the failure (empty string when not applicable).
+- `requiredPurpose` / `required_purpose` (REQUIRED): DID verification relationship the action required.
+- `foundIn` / `found_in` (REQUIRED): verification relationships where the key was actually listed (MAY be empty).
+- `did` (OPTIONAL): subject DID, included when known.
+
+These fields MUST be exposed as direct properties of the error object using the language-idiomatic naming above. Implementations MAY additionally mirror the same fields under a `context` namespace (for example `error.context.keyId`) to interoperate with verifiers that expect a nested error envelope, provided the direct properties remain authoritative. Mirrored values MUST be byte-equal to the direct properties.
+
+The `assertKeyPurpose` helper is a membership-only predicate over the requested verification relationship and MUST NOT short-circuit on `keyAgreement`. The signing-purpose policy that rejects `keyAgreement` for signing flows lives in `assertSigningPurpose` (or the equivalent entry point) and is invoked by the SDK before `assertKeyPurpose` during signature verification.
 
 ### 6.3 Evolution
 
@@ -185,6 +208,7 @@ The reference SDK (TypeScript/Python) must expose at minimum:
 4. `resolve(did)`
 5. `verifySignature(did, payload, signature)`
 6. `revokeDid(did)`
+7. `assertKeyPurpose(keyId, didDoc, requiredPurpose)` / `assert_key_purpose(...)`
 
 ### 7.1 Reference Contract/Registry (EVM)
 
@@ -218,6 +242,7 @@ Current fixture reference:
 | HTTP Signing (6.5) | `signHttpRequest(params)` |
 | DID Resolution (6.2) | `AgentIdentity.resolve(did)` |
 | Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
+| Verification Relationship Binding (6.2.1) | `assertKeyPurpose(...)` / `assert_key_purpose(...)`, default `assertionMethod` |
 | Historical Signature Verification (6.2b) | `AgentIdentity.verifyHistoricalSignature(did, payload, signature, keyId)` |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
 | Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
@@ -247,6 +272,7 @@ Recommended full validation command:
 - **DID not found:** resolution fails (`DID not found` or resolver equivalent).
 - **DID revoked:** `resolve`/`verifySignature` must fail or return invalid.
 - **Invalid signature/tampered payload:** verification returns `false`.
+- **Wrong key purpose:** verification raises or surfaces `key_purpose_violation` with the relationships where the key was found.
 - **Incompatible `Signature-Input`:** HTTP verification returns `false`.
 - **Unresolvable `documentRef`:** resolver attempts failover; if all fail, error.
 
