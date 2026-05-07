@@ -77,6 +77,7 @@ A security policy that doesn't state its threat model is theater. Here is what A
 | T7 | **Cross-SDK divergence enabling parser confusion** | Conformance suite (`npm run conformance:rfc001`) runs against shared fixtures in `fixtures/`. Both TS and Python SDKs are required to agree on every conformance vector. |
 | T8 | **Supply chain tampering of the published packages** | npm and PyPI packages are published from CI through tagged release workflows (`.github/workflows/publish-*.yml`). Manual pipeline runs are auditable in repo history. Provenance (npm provenance, PyPI trusted publishing) is on the hardening roadmap; see §6. |
 | T9 | **Smart contract vulnerabilities in the EVM registry** | Slither + Mythril run in CI via `.github/workflows/contract-audit.yml`. Findings tracked in [`contracts/reports/security/README.md`](contracts/reports/security/README.md) with explicit accepted-noise rules in [`contracts/audit-triage-rules.json`](contracts/audit-triage-rules.json). Current state: 0 actionable, 0 blocking. |
+| T10 | **Key-purpose confusion** where a valid DID key is used outside its intended verification relationship | SDK verification enforces purpose binding: payload and HTTP signatures require `assertionMethod` by default, `keyAgreement` is never accepted for signing, and mismatches surface `key_purpose_violation`. |
 
 ### 3.2 Out of scope (Agent-DID does NOT solve)
 
@@ -125,7 +126,7 @@ The conformance suite (`npm run conformance:rfc001`) and the smoke drills (`npm 
 These are publicly acknowledged limitations in the current Public Review baseline. Reports about them are welcome but expected — they are documented work, not undisclosed risk:
 
 - **No formal external audit yet.** Roadmap item F3-04 (formal contract audit for mainnet deployment) is planned. The repository runs automated audit tools in CI but has not been reviewed by an independent firm.
-- **Resolver backend is in-memory by default.** F2-03 tracks production resolver work. Operators running their own resolver should harden persistence and access control.
+- **Resolver persistence is not bundled by default.** The universal resolver core is shipped, but F2-03 tracks operator-grade persistent backend hardening and optional additional transports such as Arweave. Operators running their own resolver should harden persistence and access control.
 - **No public testnet deployment of `AgentRegistry`.** F2-06 tracks this. Until then, third-party verification of on-chain behavior depends on running the contract locally.
 - **No fuzzing of the HTTP signature verifier.** Property-based / adversarial tests for replay, header injection, and signature stripping are an open contribution area.
 - **Cross-SDK interop tests** exist via the shared conformance fixtures but are not yet exercised as a dedicated CI matrix that signs in one SDK and verifies in the other end-to-end on every PR.

@@ -33,6 +33,7 @@ OAuth delegates this to a centralized provider. MCP leaves it out of scope by de
 > - Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
 > - Security reporting: [SECURITY.md](SECURITY.md)
 > - Docs navigation: [docs/INDEX.md](docs/INDEX.md)
+> - RFC under Public Review: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 > - Compatibility expectations: [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
@@ -125,7 +126,7 @@ Agent-DID is an open, pre-1.0 project being built in public.
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
 - **F1-04** DIF submission and standards review
-- **F2-03** production resolver with persistent backend
+- **F2-03** production resolver hardening (persistent backend / operator profile)
 - **F2-06** public testnet deployment and documentation
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration
@@ -341,7 +342,7 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 |---|---|---|
 | F2-01 | Python SDK with feature parity | Done |
 | F2-02 | Google A2A proof-of-concept | Done |
-| F2-03 | Production resolver (IPFS/Arweave + HTTP) | Open |
+| F2-03 | Production resolver hardening (persistent backend + optional Arweave transport) | Open |
 | F2-04 | Semantic Kernel integration | Done |
 | F2-05 | CrewAI integration | Done |
 | F2-06 | Public testnet deployment | Open |
@@ -350,6 +351,8 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 | F2-09 | Microsoft Agent Framework integration | Done |
 
 Python semantic parity is achieved: canonical `documentRef` generation, shared cross-language fixtures, and per-stack CI are all operational.
+
+The universal resolver core is already shipped in both SDKs: cache/failover, HTTP/IPFS gateway resolution, JSON-RPC resolution, direct `did:wba` web resolution, and runtime smoke coverage are all implemented today. The remaining F2-03 scope is post-baseline hardening for operator-managed persistent backends and any additional transport targets such as Arweave.
 
 The next Python integration track is hardening and release maturation of LangChain Python, with execution steps documented in [docs/F1-03-LangChain-Python-Implementation-Checklist.md](docs/F1-03-LangChain-Python-Implementation-Checklist.md).
 

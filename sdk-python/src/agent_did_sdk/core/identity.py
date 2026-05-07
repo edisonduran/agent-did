@@ -33,6 +33,7 @@ from ..resolver.types import (
 )
 from ..resolver.universal import UniversalResolverClient
 from .http_security import validate_http_target
+from .identity_composition import assert_key_purpose, assert_signing_purpose, get_relationship_key_ids
 from .signer import AgentSigner
 from .time_utils import normalize_timestamp_to_iso
 from .types import (
@@ -45,6 +46,7 @@ from .types import (
     SignHttpRequestParams,
     UpdateAgentDocumentParams,
     VerificationMethod,
+    VerificationRelationship,
     VerifyHttpRequestSignatureParams,
 )
 
@@ -162,6 +164,7 @@ class AgentIdentity:
                 },
                 "verificationMethod": [vm.model_dump(by_alias=True, exclude_none=True)],
                 "authentication": [verification_method_id],
+                "assertionMethod": [verification_method_id],
             }
         )
 
@@ -239,13 +242,18 @@ class AgentIdentity:
 
         if not all([sig_header, sig_input_header, sig_agent, date_header, digest_header]):
             return False
+        assert sig_header is not None
+        assert sig_input_header is not None
+        assert sig_agent is not None
+        assert date_header is not None
+        assert digest_header is not None
 
         expected_digest = cls._compute_content_digest(params.body)
         if expected_digest != digest_header:
             return False
 
-        parsed_inputs = cls._parse_http_signature_input_dictionary(sig_input_header)  # type: ignore[arg-type]
-        parsed_sigs = cls._parse_http_signature_dictionary(sig_header)  # type: ignore[arg-type]
+        parsed_inputs = cls._parse_http_signature_input_dictionary(sig_input_header)
+        parsed_sigs = cls._parse_http_signature_dictionary(sig_header)
 
         now = int(time.time())
         max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
@@ -294,32 +302,50 @@ class AgentIdentity:
 
             # Rebuild signature base including nonce
             sig_base = cls._build_http_signature_base(
-                method=params.method, url=params.url, date_header=date_header,  # type: ignore[arg-type]
+                method=params.method, url=params.url, date_header=date_header,
                 content_digest=digest_header, nonce=nonce_header,
             )
 
             sig_hex = bytes(base64.b64decode(sig_b64)).hex()
-            is_valid = await cls.verify_signature(sig_agent, sig_base, sig_hex, key_id)  # type: ignore[arg-type]
+            is_valid = await cls.verify_signature(
+                sig_agent,
+                sig_base,
+                sig_hex,
+                key_id,
+                required_purpose="assertionMethod",
+            )
             if is_valid:
                 return True
 
         return False
 
     @classmethod
-    async def verify_signature(cls, did: str, payload: str, signature: str, key_id: str | None = None) -> bool:
+    async def verify_signature(
+        cls,
+        did: str,
+        payload: str,
+        signature: str,
+        key_id: str | None = None,
+        required_purpose: VerificationRelationship = "assertionMethod",
+    ) -> bool:
         """Verify that *signature* was produced by *did* for *payload*."""
         is_revoked = await cls._registry.is_revoked(did)
         if is_revoked:
             return False
 
         doc = await cls.resolve(did)
+        assert_signing_purpose(required_purpose, doc, key_id or "")
+        if key_id is not None:
+            assert_key_purpose(key_id, doc, required_purpose)
+
         message_bytes = payload.encode("utf-8")
         sig_bytes = bytes.fromhex(signature)
 
-        active_ids = set(doc.authentication or [])
+        active_ids = set(get_relationship_key_ids(doc, required_purpose))
         candidates = [
             m for m in doc.verification_method
             if m.public_key_multibase
+            and not m.deactivated
             and (m.id == key_id and m.id in active_ids if key_id else m.id in active_ids)
         ]
 
@@ -338,7 +364,12 @@ class AgentIdentity:
 
     @classmethod
     async def verify_historical_signature(
-        cls, did: str, payload: str, signature: str, key_id: str
+        cls,
+        did: str,
+        payload: str,
+        signature: str,
+        key_id: str,
+        required_purpose: VerificationRelationship = "assertionMethod",
     ) -> bool:
         """Verify a historical signature against any key (including deactivated) in the DID document."""
         is_revoked = await cls._registry.is_revoked(did)
@@ -346,6 +377,9 @@ class AgentIdentity:
             return False
 
         doc = await cls.resolve(did)
+        assert_signing_purpose(required_purpose, doc, key_id)
+        assert_key_purpose(key_id, doc, required_purpose)
+
         message_bytes = payload.encode("utf-8")
         sig_bytes = bytes.fromhex(signature)
 
@@ -433,6 +467,10 @@ class AgentIdentity:
                     for vm in existing.verification_method
                 ],
                 "authentication": existing.authentication,
+                "assertionMethod": existing.assertion_method,
+                "capabilityDelegation": existing.capability_delegation,
+                "capabilityInvocation": existing.capability_invocation,
+                "keyAgreement": existing.key_agreement,
             }
         )
 
@@ -484,6 +522,10 @@ class AgentIdentity:
                 "agentMetadata": existing.agent_metadata.model_dump(by_alias=True, exclude_none=True),
                 "verificationMethod": all_vms,
                 "authentication": [vm_id],
+                "assertionMethod": list(dict.fromkeys([*(existing.assertion_method or []), vm_id])),
+                "capabilityDelegation": existing.capability_delegation,
+                "capabilityInvocation": existing.capability_invocation,
+                "keyAgreement": existing.key_agreement,
             }
         )
 

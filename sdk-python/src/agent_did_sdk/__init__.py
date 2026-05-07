@@ -10,6 +10,15 @@ from .core.identity import (
     ProductionJsonRpcResolverProfileConfig,
     ProductionResolverProfileConfig,
 )
+from .core.identity_composition import (
+    DID_VERIFICATION_RELATIONSHIPS,
+    SIGNING_VERIFICATION_PURPOSES,
+    IdentityCompositionError,
+    assert_key_purpose,
+    assert_signing_purpose,
+    get_key_relationships,
+    get_relationship_key_ids,
+)
 from .core.signer import AgentSigner, LocalKeySigner
 from .core.time_utils import (
     is_unix_timestamp_string,
@@ -24,11 +33,14 @@ from .core.types import (
     AgentMetadata,
     CreateAgentParams,
     CreateAgentResult,
+    IdentityCompositionErrorReason,
     RotateVerificationMethodResult,
     SignHttpRequestParams,
+    SigningVerificationPurpose,
     UpdateAgentDocumentParams,
     VerifiableCredentialLink,
     VerificationMethod,
+    VerificationRelationship,
     VerifyHttpRequestSignatureParams,
 )
 from .crypto.hash import format_hash_uri, generate_agent_metadata_hash, hash_payload
@@ -57,6 +69,9 @@ __all__ = [
     "VerifiableCredentialLink",
     "VerificationMethod",
     "AgentDIDDocument",
+    "VerificationRelationship",
+    "SigningVerificationPurpose",
+    "IdentityCompositionErrorReason",
     "CreateAgentParams",
     "CreateAgentResult",
     "UpdateAgentDocumentParams",
@@ -65,6 +80,14 @@ __all__ = [
     "VerifyHttpRequestSignatureParams",
     "AgentDocumentHistoryAction",
     "AgentDocumentHistoryEntry",
+    # Identity composition
+    "IdentityCompositionError",
+    "DID_VERIFICATION_RELATIONSHIPS",
+    "SIGNING_VERIFICATION_PURPOSES",
+    "assert_key_purpose",
+    "assert_signing_purpose",
+    "get_key_relationships",
+    "get_relationship_key_ids",
     # Core signer
     "AgentSigner",
     "LocalKeySigner",
