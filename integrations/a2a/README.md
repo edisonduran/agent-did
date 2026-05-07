@@ -24,6 +24,19 @@ The A2A protocol is **auth-agnostic** — it defines how agents communicate (JSO
 - **Observability** — structured, sanitized event emission for signing, verification, and card generation
 - **Secure Defaults** — sensitive fields redacted, private network targets blocked, extra config fields rejected
 
+## Identity Composition Contract
+
+The canonical A2A identity invariant for this repository is documented in [RFC-001-A2A-Identity-Composition-Contract.md](../../docs/RFC-001-A2A-Identity-Composition-Contract.md), co-drafted with APS during Public Review.
+
+The contract defines how two identity surfaces compose:
+
+- **Identity-at-rest**: the published AgentCard and its DID-published key material.
+- **Identity-in-motion**: the per-request HTTP signature and its `keyid`.
+
+An A2A verifier must treat those surfaces as a single trust boundary: the per-request signing key must compose with the AgentCard and DID document key material, and the signing key must be authorized for the operation context described in §6.3 of the contract.
+
+Current integration behavior publishes DID-enriched AgentCards and signs/verifies A2A requests with Agent-DID HTTP signatures. The stricter SDK-level enforcement of §6.3 verification-relationship binding is tracked in [issue #34](https://github.com/edisonduran/agent-did/issues/34); the umbrella closure work for the composition contract remains tracked in [issue #30](https://github.com/edisonduran/agent-did/issues/30).
+
 ## Installation
 
 ```bash

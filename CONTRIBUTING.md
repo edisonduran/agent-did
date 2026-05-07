@@ -51,6 +51,10 @@ The following surfaces are treated as comparatively stable unless a correctness 
 10. Commit with a descriptive message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(sdk): add batch DID resolution`).
 11. Open a Pull Request against `master`.
 
+#### Assigned Issues and PR Scope
+
+If an issue is already assigned to another contributor, please coordinate in the issue before opening a competing PR. Maintainers may close PRs that do not match the assigned scope, modify unrelated files or sections, or introduce visible regressions.
+
 ### 3. Improve Documentation
 
 Docs are available in English and Spanish under `docs/`. Improvements to the specification, training materials, or runbooks are always welcome. Tag your issue or PR with `[Docs]`.

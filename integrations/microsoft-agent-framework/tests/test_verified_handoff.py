@@ -201,6 +201,42 @@ def test_invalid_signature_blocked() -> None:
     assert exc.value.failing_gates == ["signature"]
 
 
+def test_signature_verification_requests_assertion_method_purpose() -> None:
+    observer, _events = _make_observer()
+    calls: list[tuple[str, dict]] = []
+
+    async def verify_signature(*_args, **kwargs):
+        calls.append(("current", kwargs))
+        return False
+
+    async def verify_historical_signature(*_args, **kwargs):
+        calls.append(("historical", kwargs))
+        return False
+
+    verifier = build_handoff_verifier_function(
+        _ctx(
+            observer=observer,
+            verify_signature=verify_signature,
+            verify_historical_signature=verify_historical_signature,
+        )
+    )
+    msg = SignedHandoffMessage(
+        payload="x",
+        did="did:wba:agent",
+        signature="00",
+        signed_at=time.time(),
+        key_id="did:wba:agent#key-1",
+    )
+
+    with pytest.raises(VerificationBlockedError):
+        _run_verifier(verifier, msg)
+
+    assert calls == [
+        ("current", {"required_purpose": "assertionMethod"}),
+        ("historical", {"required_purpose": "assertionMethod"}),
+    ]
+
+
 def test_expired_ttl_with_failing_reverify_blocked_as_key_lifecycle() -> None:
     observer, _events = _make_observer()
     verifier = build_handoff_verifier_function(

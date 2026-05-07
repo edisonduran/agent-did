@@ -47,6 +47,7 @@ class TestInteropHttpVector:
                 },
                 "verificationMethod": [vm_data],
                 "authentication": [vm_data["id"]],
+                "assertionMethod": [vm_data["id"]],
             }
         )
         AgentIdentity._resolver.register_document(doc)

@@ -71,6 +71,8 @@ In those cases, maintainers will still document:
 - why it changed immediately
 - how to migrate
 
+Public Review example: SDK signature verification now enforces DID verification-relationship binding by default. Agent payload and HTTP signatures require `assertionMethod`, and a key listed only under another relationship such as `keyAgreement` fails with `key_purpose_violation`. Documents that previously placed signing keys only in `authentication` should add the appropriate signing relationship.
+
 ## What Counts as a Breaking Change
 
 The following should be treated as breaking unless explicitly documented otherwise:

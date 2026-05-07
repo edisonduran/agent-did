@@ -3253,7 +3253,11 @@ El método soporta **múltiples firmas** en una sola petición (`sig1`, `sig2`, 
 
 ```typescript
 public static async verifySignature(
-  did: string, payload: string, signature: string, keyId?: string
+  did: string,
+  payload: string,
+  signature: string,
+  keyId?: string,
+  requiredPurpose: VerificationRelationship = 'assertionMethod'
 ): Promise<boolean> {
   // 1. ¿Está revocado? → FAIL inmediatamente
   const isRevoked = await AgentIdentity.registry.isRevoked(did);
@@ -3280,6 +3284,8 @@ public static async verifySignature(
   return false;
 }
 ```
+
+Los SDKs actuales también aplican el binding de relación de verificación DID antes de la verificación criptográfica. Para mensajes normales de agente y firmas HTTP, el propósito requerido es `assertionMethod`; si la clave solo aparece bajo otra relación, especialmente `keyAgreement`, la verificación falla con `IdentityCompositionError.reason === 'key_purpose_violation'`.
 
 **¿Por qué verifica revocación ANTES de resolver?** Dos razones:
 1. **Seguridad**: Un DID revocado es una identidad muerta — no importa si la firma es matemáticamente válida

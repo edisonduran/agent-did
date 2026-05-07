@@ -6,11 +6,13 @@ on:
       - master
       - main
     paths:
+      - "fixtures/**"
       - "sdk-python/**"
       - "contracts/**"
       - ".github/workflows/ci-python.yml"
   pull_request:
     paths:
+      - "fixtures/**"
       - "sdk-python/**"
       - "contracts/**"
       - ".github/workflows/ci-python.yml"
@@ -52,6 +54,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+
+      - name: Check Python public API snapshot
+        if: matrix.python-version == '3.12'
+        working-directory: sdk-python
+        run: python scripts/public_api_snapshot.py --check
 
       - name: Install contract dependencies
         if: matrix.python-version == '3.12'
