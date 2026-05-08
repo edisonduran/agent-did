@@ -6,6 +6,8 @@
 **Autor:** Evaluación automatizada (GitHub Copilot)  
 **Versión:** 1.0
 
+> Nota de estado (2026-05-08): este borrador es anterior al ADR-001, al pivote hacia `did:webvh` y al congelamiento del alcance core `1.0.0`. Las referencias que aparecen más abajo a anclaje EVM como supuesto central del release, a framing híbrido on-chain/off-chain como narrativa por defecto o a estandarización formal inmediata como dependencia de release deben leerse como contexto estratégico histórico, no como guía vigente. Para la dirección actual, usar [../README.md](../README.md), [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md) y [../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
+
 ---
 
 ## 1. Resumen Ejecutivo
@@ -24,7 +26,7 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 
 | Componente | Ubicación | Estado |
 |---|---|---|
-| Especificación RFC-001 | `docs/RFC-001-Agent-DID-Specification.md` | Draft activo v0.2-unified |
+| Especificación RFC-001 | `docs/RFC-001-Agent-DID-Specification.md` | Public Review v1, versión 0.3-pivot-pattern-on-webvh |
 | SDK TypeScript | `sdk/` | Funcional — 14 archivos fuente, 584 LOC clase central |
 | SDK Python | `sdk-python/` | Funcional — pipeline Python dedicado, fixtures compartidos y suite propia |
 | Smart Contract EVM | `contracts/src/AgentRegistry.sol` | Funcional — Solidity 0.8.24, optimizer habilitado |

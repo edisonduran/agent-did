@@ -53,8 +53,8 @@ Until Agent-DID reaches v1.0, security fixes are applied to the **latest publish
 |---|---|---|
 | `@agentdid/sdk` | npm | latest published (`v0.2.x` line) |
 | `agent-did-sdk` | PyPI | latest published (`v0.1.x` line) |
-| Reference smart contracts | repo `contracts/` | `master` branch (no mainnet deployment claimed) |
-| Framework integrations | repo `integrations/*/` | `master` branch |
+| Reference smart contracts | repo `contracts/` | `main` branch (no mainnet deployment claimed) |
+| Framework integrations | repo `integrations/*/` | `main` branch |
 
 Older versions may receive backports for critical issues at maintainer discretion. The deprecation and breaking-change policy is documented in [`docs/DEPRECATION-POLICY.md`](docs/DEPRECATION-POLICY.md).
 

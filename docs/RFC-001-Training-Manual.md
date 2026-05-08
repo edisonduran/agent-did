@@ -2,7 +2,17 @@
 
 ## About This Manual
 
-This manual provides a comprehensive, zero-to-hero guide for understanding and working with the Agent-DID decentralized identity standard. It covers theory, architecture, SDK usage, resolver operations, EVM governance, security considerations, and validation procedures.
+This manual explains the current Agent-DID model after ADR-001: Agent-DID is an application pattern on top of `did:webvh` for AI agent identity, controller composition, and runtime authentication.
+
+It focuses on the live core release path:
+
+- canonical `did:webvh` identifiers
+- controller-chain verification
+- HTTP Message Signatures + anti-replay
+- SDK lifecycle in TypeScript and Python
+- operational resolution/publication patterns
+
+The deferred EVM/on-chain profile still exists as optional compatibility material, but it is not the core `1.0.0` release path.
 
 ---
 
@@ -15,7 +25,7 @@ This manual provides a comprehensive, zero-to-hero guide for understanding and w
 5. [SDK API Reference](#5-sdk-api-reference)
 6. [Cryptographic Operations](#6-cryptographic-operations)
 7. [Resolver Operations](#7-resolver-operations)
-8. [EVM Registry & Governance](#8-evm-registry--governance)
+8. [Optional EVM Compatibility Profile](#8-optional-evm-compatibility-profile)
 9. [Key Rotation & Revocation](#9-key-rotation--revocation)
 10. [Security Considerations](#10-security-considerations)
 11. [Validation & Conformance](#11-validation--conformance)
@@ -28,83 +38,89 @@ This manual provides a comprehensive, zero-to-hero guide for understanding and w
 
 ## 1. What is Agent-DID?
 
-Agent-DID is a decentralized identity method designed specifically for AI agents. It extends the W3C DID Core 1.0 standard to give autonomous software agents a persistent, verifiable, and self-sovereign identity.
+Agent-DID is a web-native identity pattern for AI agents. It does not introduce a new DID method. Instead, it layers agent-specific metadata, controller composition, and signed runtime behavior on top of W3C DID Core using `did:webvh` as the canonical path.
 
 ### Why Do AI Agents Need Identity?
 
-- **Accountability**: Every agent action can be traced to a verified identity.
-- **Trust**: Other agents and services can verify an agent's identity before interacting.
-- **Autonomy**: Agents control their own keys and identity lifecycle.
-- **Interoperability**: A standard method allows agents from different systems to interact.
+- **Accountability**: each agent action can be bound to a verifiable DID.
+- **Trust**: other agents and services can validate signatures before interacting.
+- **Delegation**: a service can prove not only which agent acted, but also which controller chain governs that agent.
+- **Interoperability**: the identity surface stays compatible with DID/VC tooling and HTTP signature verification.
 
 ### Core Principles
 
-1. **Decentralization**: No central authority controls agent identities.
-2. **Persistence**: Identity survives key rotation and metadata updates.
-3. **Tamper-evidence**: Cryptographic proofs ensure document integrity.
-4. **Revocability**: Compromised identities can be permanently revoked.
+1. **Web-native by default**: the core path centers on `did:webvh` and hosted/verifiable DID history.
+2. **Persistent identity, mutable state**: the DID persists while keys, prompts, or metadata can evolve.
+3. **Fail-closed verification**: broken controller chains, invalid signatures, or inactive states must fail verification.
+4. **Deployment-profile flexibility**: local bootstrap, hosted publication, filesystem-backed history, writable HTTP/S3-style storage, and optional compatibility adapters can coexist without redefining the core identity model.
 
 ---
 
 ## 2. Mental Model
 
-Think of Agent-DID as a **digital passport for AI agents**:
+Think of Agent-DID as a digital passport stack for AI agents:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    DID (Identifier)                      │
-│            did:agent-did:z6Mkf5rG...                     │
-│                                                          │
-│  ┌─────────────────┐  ┌──────────────────────────────┐  │
-│  │ Private Key      │  │ DID Document                 │  │
-│  │ (Agent holds)    │  │  - Public keys               │  │
-│  │                  │  │  - Capabilities               │  │
-│  │ Signs messages   │  │  - Agent metadata             │  │
-│  │ Proves identity  │  │  - Created/Updated timestamps │  │
-│  └─────────────────┘  └──────────────────────────────┘  │
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ On-chain Anchor (EVM Registry)                   │    │
-│  │  - DID registered                                │    │
-│  │  - Document hash/URI                             │    │
-│  │  - Revocation status                             │    │
-│  └─────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
+controller/root DID (organization or legal entity)
+        did:webvh:example.com:organizations:acme-support
+                           |
+                           | controls
+                           v
+agent DID
+        did:webvh:example.com:agents:support-bot
+                           |
+                           | publishes
+                           v
+                 DID history (`did.jsonl`)
+                           |
+                           | resolves to
+                           v
+                   DID Document + metadata
+                           |
+                           | provides keys for
+                           v
+               message / HTTP signature verification
 ```
 
-**Key insight**: The DID itself is derived from the public key. The full document lives off-chain. Only a minimal anchor (hash + revocation flag) lives on-chain.
+For local development, the SDK can bootstrap this flow with in-memory or local sources so you can prove the lifecycle before hosting the DID history externally.
 
 ---
 
 ## 3. DID Document Anatomy
 
-A DID Document is a JSON-LD structure that describes the agent's identity:
+A DID Document describes the agent's identity and current verification state:
 
 ```json
 {
   "@context": [
     "https://www.w3.org/ns/did/v1",
-    "https://w3id.org/security/suites/ed25519-2020/v1"
+    "https://agent-did.org/v1"
   ],
-  "id": "did:agent-did:z6Mkf5rGR9o8FLJhYPKrMBiZcHZJ7e...",
+  "id": "did:webvh:example.com:agents:support-bot",
+  "controller": "did:webvh:example.com:organizations:acme-support",
+  "created": "2026-05-08T18:00:00Z",
+  "updated": "2026-05-08T18:00:00Z",
+  "agentMetadata": {
+    "name": "SupportBot",
+    "version": "1.0.0",
+    "coreModelHash": "hash://sha256/abc123...",
+    "systemPromptHash": "hash://sha256/def456...",
+    "capabilities": ["read:kb", "write:ticket"]
+  },
   "verificationMethod": [
     {
-      "id": "did:agent-did:z6Mkf...#key-1",
+      "id": "did:webvh:example.com:agents:support-bot#key-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:agent-did:z6Mkf...",
-      "publicKeyMultibase": "z6Mkf5rGR9o8FLJhYPKrMBiZcHZJ7e..."
+      "controller": "did:webvh:example.com:agents:support-bot",
+      "publicKeyMultibase": "z6Mk..."
     }
   ],
-  "authentication": ["did:agent-did:z6Mkf...#key-1"],
-  "agentMetadata": {
-    "name": "MyAgent",
-    "version": "1.0.0",
-    "capabilities": ["data-analysis", "nlp"],
-    "codeHash": "sha256:abc123...",
-    "configHash": "sha256:def456..."
-  },
-  "created": "2025-01-15T10:30:00Z",
-  "updated": "2025-01-15T10:30:00Z"
+  "authentication": [
+    "did:webvh:example.com:agents:support-bot#key-1"
+  ],
+  "assertionMethod": [
+    "did:webvh:example.com:agents:support-bot#key-1"
+  ]
 }
 ```
 
@@ -113,12 +129,13 @@ A DID Document is a JSON-LD structure that describes the agent's identity:
 | Field | Required | Description |
 |---|---|---|
 | `@context` | Yes | JSON-LD context declarations |
-| `id` | Yes | The DID itself — immutable |
-| `verificationMethod` | Yes | Array of public keys for verification |
-| `authentication` | Yes | References to keys used for authentication |
-| `agentMetadata` | Yes | Agent-specific metadata (name, version, capabilities, hashes) |
-| `created` | Yes | ISO-8601 timestamp of creation |
-| `updated` | Yes | ISO-8601 timestamp of last update |
+| `id` | Yes | Canonical DID of the agent |
+| `controller` | Yes | Governing DID for the agent/controller relationship |
+| `verificationMethod` | Yes | Public keys used for signature verification |
+| `authentication` | Yes | Keys valid for authentication flows |
+| `assertionMethod` | Recommended | Keys valid for message/assertion signing |
+| `agentMetadata` | Yes | Agent-specific metadata and integrity hashes |
+| `created` / `updated` | Yes | ISO-8601 timestamps |
 
 ---
 
@@ -126,43 +143,40 @@ A DID Document is a JSON-LD structure that describes the agent's identity:
 
 ### 4.1 Creation
 
-1. Generate Ed25519 key pair.
-2. Derive DID from public key (multibase encoding).
-3. Build DID Document with metadata.
-4. Register anchor on-chain (EVM registry).
-5. Store full document off-chain.
+1. Create an `AgentIdentity` instance with a controller signer/config.
+2. Generate an Ed25519 signing key for the agent.
+3. Build the DID Document and initial history state.
+4. Store the history locally, in memory, or via a configured source.
+5. Optionally publish the resulting `did.jsonl` for hosted `did:webvh` resolution.
 
 ### 4.2 Resolution
 
-1. Receive DID to resolve.
-2. Query on-chain registry for document reference + revocation status.
-3. If revoked → fail.
-4. Fetch full document from off-chain source.
-5. Validate integrity (hash match).
-6. Return resolved document.
+1. Receive a DID to resolve.
+2. Resolve the DID history from the configured source(s).
+3. Parse the latest active document state.
+4. Validate controller-chain and security policy.
+5. Return the resolved DID Document for signature verification.
 
 ### 4.3 Update
 
-1. Modify document fields (metadata, keys).
-2. Update `updated` timestamp.
-3. Recompute document hash.
-4. Update on-chain reference.
-5. Store new document version off-chain.
+1. Modify allowed document fields (metadata, keys, capabilities).
+2. Append a new state entry to the DID history.
+3. Persist the updated history locally or externally.
+4. Re-resolve and verify the new active state.
 
 ### 4.4 Key Rotation
 
-1. Generate new Ed25519 key pair.
-2. Add new key to `verificationMethod`.
-3. Remove or mark old key as revoked.
-4. Update `authentication` to reference new key.
-5. Update on-chain anchor.
+1. Generate a new Ed25519 key pair.
+2. Append the new key as the active verification method.
+3. Keep old keys only when needed for historical verification.
+4. Ensure `assertionMethod` / `authentication` reference the active key.
 
 ### 4.5 Revocation
 
-1. Owner calls `revokeAgent(did)` on-chain.
-2. Registry marks DID as revoked.
-3. All subsequent resolutions fail.
-4. Revocation is **permanent** — no un-revoke.
+1. Revoke the agent or a controlling DID according to policy.
+2. Persist the new inactive state.
+3. All subsequent canonical verification must fail closed.
+4. Historical signatures may remain cryptographically valid, but current trust decisions must reject the revoked chain.
 
 ---
 
@@ -171,74 +185,52 @@ A DID Document is a JSON-LD structure that describes the agent's identity:
 ### Installation
 
 ```bash
-npm install @agentdid/sdk
+npm install @agentdid/sdk ethers
 ```
 
 ### Core Class: `AgentIdentity`
 
 ```typescript
-import { AgentIdentity } from '@agentdid/sdk';
+import { AgentIdentity, InMemoryAgentRegistry } from '@agentdid/sdk';
+import { ethers } from 'ethers';
+
+AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+
+const signer = new ethers.Wallet(process.env.CREATOR_PRIVATE_KEY!);
+const identity = new AgentIdentity({ signer });
 ```
 
-#### `AgentIdentity.create(options)`
+#### `identity.create(params)`
 
-Creates a new agent identity with a fresh key pair.
+Creates a new runtime identity and returns the DID Document plus agent signing material for the local flow.
 
-```typescript
-const agent = await AgentIdentity.create({
-  name: 'MyAgent',
-  version: '1.0.0',
-  capabilities: ['data-analysis'],
-});
-```
+#### `identity.signMessage(payload, keyOrSigner)`
 
-**Returns:** `AgentIdentity` instance with `did`, `didDocument`, `sign()`, `verifySignature()`.
+Signs arbitrary data with the agent's Ed25519 signing material.
 
-#### `agent.did`
+#### `identity.signHttpRequest(params)`
 
-The agent's DID string: `did:agent-did:z6Mkf...`
+Signs an outbound HTTP request using HTTP Message Signatures.
 
-#### `agent.didDocument`
+#### `AgentIdentity.verifySignature(did, payload, signature)`
 
-The full DID Document object.
+Resolves the DID and verifies a detached signature.
 
-#### `agent.sign(data)`
+#### `AgentIdentity.verifyHttpRequestSignature(params)`
 
-Signs arbitrary data with the agent's private key.
+Verifies a signed HTTP request, including purpose binding and anti-replay checks.
 
-```typescript
-const signature = await agent.sign('Hello, World!');
-```
+#### `AgentIdentity.rotateVerificationMethod(did)`
 
-**Returns:** Base64-encoded signature string.
+Appends a new active signing key.
 
-#### `agent.verifySignature(data, signature)`
+#### `AgentIdentity.updateDidDocument(did, patch)`
 
-Verifies a signature against the agent's public key.
+Writes an updated DID Document state.
 
-```typescript
-const isValid = await agent.verifySignature('Hello, World!', signature);
-```
+#### `AgentIdentity.revokeDid(did)`
 
-**Returns:** `boolean`
-
-#### `agent.rotateVerificationMethod()`
-
-Generates a new key pair and rotates the active verification method.
-
-```typescript
-await agent.rotateVerificationMethod();
-```
-
-#### `agent.updateDidDocument(patch)`
-
-Updates the DID Document with the provided changes.
-
-```typescript
-await agent.updateDidDocument({
-  agentMetadata: { version: '2.0.0' }
-});
-```
+Revokes a DID according to the configured registry/resolution policy.
 
 ---
 
@@ -246,26 +238,21 @@ await agent.updateDidDocument({
 
 ### Algorithm: Ed25519
 
-- **Key size**: 256-bit private key → 256-bit public key.
+- **Key size**: 32-byte private key -> 32-byte public key.
 - **Signature size**: 64 bytes.
-- **Properties**: Deterministic, fast, secure against side-channel attacks.
-- **Library**: `@noble/curves` (audited, pure JavaScript).
+- **Properties**: deterministic, fast, and widely audited.
+- **Library**: the SDK uses audited libraries rather than home-grown cryptography.
 
 ### Signature Flow
 
-1. **Sign**: `Ed25519.sign(message, privateKey)` → 64-byte signature.
-2. **Verify**: `Ed25519.verify(signature, message, publicKey)` → boolean.
-
-### Key Derivation
-
-- Private key: 32 random bytes (cryptographically secure).
-- Public key: Derived from private key via Ed25519 scalar multiplication.
-- DID: `did:agent-did:` + multibase(base58btc, public_key).
+1. **Sign**: serialize the message/request components and sign with the agent key.
+2. **Resolve**: the verifier resolves the DID to get the current public key material.
+3. **Verify**: validate signature bytes, key purpose, revocation state, and clock rules.
 
 ### Hash Functions
 
-- Document integrity: SHA-256.
-- Code/config hashes in metadata: SHA-256.
+- Prompt/model/config integrity: SHA-256 expressed as `hash://sha256/...`.
+- DID history/document integrity: normalized hashing over the relevant state payloads.
 
 ---
 
@@ -276,68 +263,47 @@ await agent.updateDidDocument({
 | Resolver | Use Case | Features |
 |---|---|---|
 | `InMemoryDIDResolver` | Testing, local dev | Simple map-based storage |
-| `UniversalResolverClient` | Production | Caching, multi-source, failover |
+| `UniversalResolverClient` | Production | Cache, failover, document-source composition |
 
 ### Document Sources
 
 | Source | Protocol | Description |
 |---|---|---|
-| `HttpDIDDocumentSource` | HTTP/HTTPS | Fetches documents from HTTP endpoints |
-| `JsonRpcDIDDocumentSource` | JSON-RPC | Fetches documents via JSON-RPC calls |
+| `WebvhDIDDocumentSource` | HTTPS | Resolves `did:webvh` history from candidate URLs |
+| `HttpDIDDocumentSource` | HTTP/HTTPS | Writable/readable document source for hosted docs and logs |
+| `JsonRpcDIDDocumentSource` | JSON-RPC | Compatibility source for JSON-RPC-backed resolution |
+| Filesystem / presigned / S3-compatible sources | file / HTTP | Operational publication and persistence adapters |
 
 ### Production Configuration
 
 ```typescript
-import { UniversalResolverClient } from '@agentdid/sdk';
+import { AgentIdentity, ProductionHttpResolverProfileConfig } from '@agentdid/sdk';
 
-const resolver = new UniversalResolverClient({
-  sources: [
-    new HttpDIDDocumentSource('https://resolver-1.example.com'),
-    new HttpDIDDocumentSource('https://resolver-2.example.com'),
-  ],
-  cacheTtl: 300, // seconds
-});
-
-const document = await resolver.resolve('did:agent-did:z6Mkf...');
+AgentIdentity.useProductionResolverFromHttp(
+  new ProductionHttpResolverProfileConfig({
+    cacheTtlMs: 300_000,
+    onResolutionEvent: (event) => console.log(event.stage),
+  })
+);
 ```
 
 ### Caching Strategy
 
-- TTL-based cache (default: 300 seconds).
-- Stale-while-revalidate for high availability.
-- Cache metrics: hit/miss counters.
+- TTL-based cache for repeat resolutions.
+- Failover across configured sources/candidate URLs.
+- Resolution telemetry for observability and HA drills.
 
 ---
 
-## 8. EVM Registry & Governance
+## 8. Optional EVM Compatibility Profile
 
-### Smart Contract: `AgentRegistry.sol`
+The EVM/on-chain profile remains available as optional compatibility material, not as the core release path.
 
-Deployed on EVM-compatible chains (Ethereum, Sepolia testnet, etc.).
+Use it only when a deployment has a concrete need for on-chain registry operations. In that case:
 
-### Functions
-
-| Function | Access | Description |
-|---|---|---|
-| `registerAgent(did, owner, documentHash)` | Public | Register a new agent DID |
-| `getAgentRecord(did)` | View | Retrieve on-chain record |
-| `updateDidDocument(did, newHash)` | Owner only | Update document reference |
-| `revokeAgent(did)` | Owner only | Permanently revoke the DID |
-
-### Events
-
-| Event | Emitted When |
-|---|---|
-| `AgentRegistered` | New agent registered |
-| `AgentUpdated` | Document reference updated |
-| `AgentRevoked` | Agent revoked |
-
-### Governance Model
-
-- **Owner-controlled**: Only the DID owner can update or revoke.
-- **Immutable registration**: DID-to-owner mapping cannot change.
-- **Permanent revocation**: No mechanism to un-revoke.
-- **Transparent**: All operations emit events for auditability.
+- the SDK exposes `EvmAgentRegistry` adapters
+- contract-backed revocation and document references can be wired in
+- the web-native `did:webvh` story remains the canonical model for core guidance and release criteria
 
 ---
 
@@ -345,25 +311,25 @@ Deployed on EVM-compatible chains (Ethereum, Sepolia testnet, etc.).
 
 ### Key Rotation Best Practices
 
-1. **Rotate proactively**: Schedule regular rotations (e.g., every 90 days).
-2. **Grace period**: Briefly support both old and new keys during transition.
-3. **Update all references**: Ensure on-chain anchor reflects new key.
-4. **Verify rotation**: Test that old key no longer verifies new signatures.
+1. Rotate proactively on a schedule or after any compromise suspicion.
+2. Preserve historical verification only where operationally necessary.
+3. Re-run signature verification tests after rotation.
+4. Republish updated history wherever the DID is hosted.
 
 ### Revocation Scenarios
 
 | Scenario | Action |
 |---|---|
-| Key compromise | Immediate revocation |
+| Key compromise | Immediate revoke or rotate + reissue |
 | Agent decommissioned | Planned revocation |
-| Policy violation | Administrative revocation by owner |
-| Regulatory requirement | Compliance-driven revocation |
+| Controller compromise | Revoke or fail closed on the controller chain |
+| Policy violation | Administrative revocation |
 
 ### Post-Revocation
 
-- All `resolve()` calls return error/null.
-- Existing signatures remain cryptographically valid but should not be trusted.
-- Revocation is recorded on-chain with timestamp.
+- Canonical verification must reject the DID.
+- Historical artifacts remain inspectable but no longer authoritative for current trust decisions.
+- Revocation should be reflected in the active DID history.
 
 ---
 
@@ -373,74 +339,46 @@ Deployed on EVM-compatible chains (Ethereum, Sepolia testnet, etc.).
 
 | Threat | Mitigation |
 |---|---|
-| Key theft | Private keys never leave the agent process; no network transmission |
-| DID spoofing | DID is deterministically derived from public key |
-| Document tampering | On-chain hash ensures integrity |
-| Replay attacks | HTTP Message Signatures include timestamp + nonce |
-| Registry manipulation | EVM smart contract with owner-only access control |
+| Key theft | Private keys never need to leave the local signer/KMS/HSM |
+| DID spoofing | Resolver checks DID/document consistency and controller-chain state |
+| Document tampering | DID history validation and cryptographic integrity checks |
+| Replay attacks | HTTP signatures include time bounds; deployments should add nonce tracking |
+| SSRF / unsafe fetch targets | Resolver target validation and allow/deny rules |
 
 ### Best Practices
 
-1. Store private keys in secure enclaves or HSMs when possible.
-2. Use TLS for all resolver communication.
-3. Validate document hash against on-chain anchor on every resolution.
-4. Implement rate limiting on resolver endpoints.
-5. Monitor for unexpected revocation events.
-6. Rotate keys on any suspicion of compromise.
-
-### HTTP Message Signatures (Bot Auth)
-
-For agent-to-service authentication, use HTTP Message Signatures (RFC 9421):
-
-1. Agent signs the HTTP request with its private key.
-2. Service resolves the agent's DID.
-3. Service verifies the signature with the agent's public key.
-4. If valid, request is authenticated.
+1. Store private keys in KMS, HSM, or secure enclaves for production.
+2. Use HTTPS and hardened target validation for resolver/publication flows.
+3. Validate active-state and controller-chain status during verification.
+4. Monitor resolution anomalies, revocations, and failover events.
+5. Rotate keys or revoke immediately on compromise suspicion.
 
 ---
 
 ## 11. Validation & Conformance
 
-### MUST Controls (11 total)
+Agent-DID tracks conformance in the live checklist and release criteria documents rather than in this manual.
 
-These are mandatory requirements from RFC-001. All must pass for conformance:
+### Primary References
 
-- DID syntax follows `did:agent-did:<multibase-pubkey>`.
-- `@context` includes W3C DID v1.
-- At least one `verificationMethod` of type `Ed25519VerificationKey2020`.
-- `authentication` references at least one verification method.
-- `agentMetadata` is present and well-formed.
-- Document integrity verifiable via on-chain hash.
-- Revocation is permanent and prevents resolution.
-- ...and more (see Compliance Checklist).
-
-### SHOULD Controls (5 total)
-
-Recommended but not blocking:
-
-- Multi-key support for key rotation.
-- Cache layer in resolver.
-- Automated conformance test suite.
-- Temporal normalization documentation.
-- HA deployment for resolver.
+- `docs/RFC-001-Compliance-Checklist.md`
+- `docs/RELEASE-1.0-CRITERIA.md`
+- `docs/DEPRECATION-POLICY.md`
 
 ### Running Validation
 
 ```bash
-# Unit tests
-cd sdk && npm test
+# TypeScript SDK
+npm --prefix sdk test
+npm --prefix sdk run api:check
+npm --prefix sdk run api:signature:check
 
-# Conformance suite
-node scripts/conformance-rfc001.js
-
-# End-to-end smoke
-node scripts/e2e-smoke.js
-
-# Resolver HA smoke
-node scripts/resolver-ha-smoke.js
-
-# Revocation policy smoke
-node scripts/revocation-policy-smoke.js
+# Python SDK
+cd sdk-python
+python -m ruff check src/ tests/ scripts/ examples/
+python -m mypy --strict src/
+python -m pytest --cov=agent_did_sdk --cov-fail-under=85 -q
+python scripts/conformance_rfc001.py
 ```
 
 ---
@@ -449,27 +387,23 @@ node scripts/revocation-policy-smoke.js
 
 ### 12.1 Multi-Agent Collaboration
 
-Multiple AI agents from different organizations authenticate each other using Agent-DIDs before sharing data or delegating tasks.
+Independent agents can authenticate each other before exchanging data or delegating work.
 
 ### 12.2 Audit Trail
 
-Every agent action is signed with its DID private key, creating a tamper-evident audit trail that can be verified by third parties.
+Signed messages and DID history provide verifiable evidence of identity state over time.
 
 ### 12.3 API Gateway Authentication
 
-An API gateway resolves the calling agent's DID and verifies its HTTP Message Signature before granting access.
+An API gateway can verify the calling agent's DID and HTTP signature before granting access.
 
-### 12.4 Supply Chain Automation
+### 12.4 Hosted Agent Fleets
 
-Agents representing different supply chain participants use Agent-DIDs to establish trust and sign logistics transactions.
+Organizations can operate fleets of agents under a controller/root DID while preserving per-agent keys and lifecycle.
 
-### 12.5 Regulatory Compliance
+### 12.5 Framework Integrations
 
-Financial or healthcare agents demonstrate their identity and capabilities through their DID Document, enabling automated compliance checks.
-
-### 12.6 LangChain Agent Orchestration
-
-LangChain agents can inject Agent-DID identity into their runtime through the integration package in [../integrations/langchain/README.md](../integrations/langchain/README.md), allowing tool-enabled agents to expose their DID, sign payloads or HTTP requests, and verify signatures without leaking private keys to the model.
+LangChain, CrewAI, Semantic Kernel, Microsoft Agent Framework, and A2A integrations can expose DID context and signature flows without leaking private keys to the model.
 
 ---
 
@@ -477,32 +411,26 @@ LangChain agents can inject Agent-DID identity into their runtime through the in
 
 ### FAQ
 
-**Q: Can I use a different signing algorithm?**
-A: RFC-001 specifies Ed25519. Future versions may support additional algorithms.
+**Q: Do I need blockchain to use Agent-DID?**  
+A: No. The canonical path is `did:webvh` with hosted/verifiable DID history. The EVM profile is optional and deferred outside the core 1.0 release.
 
-**Q: Where should I store the DID Document?**
-A: Any HTTP-accessible location. IPFS, cloud storage, or a dedicated document server all work.
+**Q: Where should I store the DID history?**  
+A: Any resolvable publication target that matches your deployment profile: hosted HTTPS, filesystem-backed publication, presigned/object-storage targets, or other supported sources.
 
-**Q: What happens if the EVM network is down?**
-A: New registrations and updates will fail. Existing cached resolutions continue to work (stale-while-revalidate).
+**Q: What happens if hosted resolution fails?**  
+A: Production resolver profiles support cache, failover, and observability. Local workflows can still use in-memory or local sources.
 
-**Q: Can I transfer DID ownership?**
-A: No. DID ownership is tied to the original registrant address. Create a new DID if ownership changes.
-
-**Q: Is Agent-DID compatible with other DID methods?**
-A: Agent-DID follows W3C DID Core 1.0 so it interoperates at the standard level. Cross-method resolution depends on universal resolver support.
-
-**Q: Is there a framework integration example available today?**
-A: Yes. LangChain JS 1.x is already implemented in [../integrations/langchain/README.md](../integrations/langchain/README.md). CrewAI now has a functional Python integration in [../integrations/crewai/README.md](../integrations/crewai/README.md). Semantic Kernel now has a functional Python integration in [../integrations/semantic-kernel/README.md](../integrations/semantic-kernel/README.md). Microsoft Agent Framework now has a functional Python integration in [../integrations/microsoft-agent-framework/README.md](../integrations/microsoft-agent-framework/README.md). Azure AI Agent Service remains a separate planned integration track.
+**Q: Is Agent-DID compatible with other DID methods?**  
+A: Yes at the interoperability layer, but the canonical release path is `did:webvh`.
 
 ### Common Issues
 
 | Issue | Solution |
 |---|---|
-| `DID resolution failed` | Check network connectivity, verify DID is registered, confirm not revoked |
-| `Signature verification failed` | Ensure correct key is used, check for key rotation, verify message encoding |
-| `Contract call reverted` | Verify caller is the DID owner, check DID exists, ensure not already revoked |
-| `Cache stale data` | Reduce cache TTL, manually flush cache, verify source health |
+| `DID resolution failed` | Check publication target, resolver config, and candidate URLs |
+| `Signature verification failed` | Verify key purpose, message canonicalization, and active DID state |
+| `Controller chain invalid` | Confirm the controlling DID resolves and remains active |
+| `Cache stale data` | Reduce TTL, flush cache, or inspect resolver telemetry |
 
 ---
 
@@ -510,40 +438,20 @@ A: Yes. LangChain JS 1.x is already implemented in [../integrations/langchain/RE
 
 | Term | Definition |
 |---|---|
-| **DID** | Decentralized Identifier — a URI that identifies a subject in a decentralized manner |
-| **DID Document** | JSON-LD document containing public keys, authentication methods, and metadata |
-| **Verification Method** | A cryptographic public key used to verify signatures |
-| **Multibase** | An encoding format that prefixes the encoding type (e.g., `z` = base58btc) |
-| **Ed25519** | An elliptic curve signing algorithm (EdDSA over Curve25519) |
-| **EVM** | Ethereum Virtual Machine — the runtime for executing smart contracts |
-| **Agent Metadata** | Agent-specific fields: name, version, capabilities, integrity hashes |
-| **Revocation** | Permanent deactivation of a DID |
-| **Key Rotation** | Replacing an active key pair with a new one while preserving the DID |
-| **Universal Resolver** | A resolution service that can resolve multiple DID methods |
-| **JSON-LD** | JSON for Linking Data — a method of encoding linked data using JSON |
-| **HTTP Message Signatures** | RFC 9421 standard for signing HTTP requests |
+| **DID** | Decentralized Identifier |
+| **did:webvh** | Web-hosted DID method with verifiable history |
+| **DID Document** | JSON-LD document containing keys, relationships, and metadata |
+| **Verification Method** | Public key material used to verify signatures |
+| **Controller chain** | The chain of governing DIDs used for trust decisions |
+| **Ed25519** | Signature algorithm used by the SDKs |
+| **Agent Metadata** | Agent-specific fields such as name, capabilities, and integrity hashes |
+| **Revocation** | Inactivation of a DID for current trust decisions |
 
 ---
 
 ## 15. Study Path & Resources
 
-### Recommended Study Path
-
-| Phase | Activities | Duration |
-|---|---|---|
-| **1. Foundations** | Read this manual (Sections 1-4), review RFC-001 | 2 hours |
-| **2. Hands-on** | Complete 2-Hour Course (all modules + exercises) | 2 hours |
-| **3. Deep Dive** | Read SDK source code, review [../integrations/langchain/README.md](../integrations/langchain/README.md), study contract, run all tests | 3 hours |
-| **4. Validation** | Run conformance suite, review Compliance Checklist | 1 hour |
-| **5. Production** | Review HA Runbook, plan deployment | 2 hours |
-
-### External Resources
-
-- [W3C DID Core 1.0](https://www.w3.org/TR/did-core/)
-- [W3C DID Resolution](https://w3c-ccg.github.io/did-resolution/)
-- [Ed25519 — RFC 8032](https://tools.ietf.org/html/rfc8032)
-- [HTTP Message Signatures — RFC 9421](https://www.rfc-editor.org/rfc/rfc9421)
-- [Multibase Specification](https://datatracker.ietf.org/doc/html/draft-multiformats-multibase)
-- [Solidity Documentation](https://docs.soliditylang.org/)
-- [@noble/curves](https://github.com/paulmillr/noble-curves)
-- [Agent-DID LangChain integration](../integrations/langchain/README.md)
+1. Start with `QUICKSTART.md` for the local lifecycle.
+2. Read `docs/RFC-001-Agent-DID-Specification.md` for the normative model.
+3. Review `docs/Anti-Replay-HTTP-Signatures.md` for verifier-side security.
+4. Use the integration READMEs when embedding identity into agent frameworks.

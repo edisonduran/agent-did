@@ -7,7 +7,7 @@ The canonical RFC-001 v0.3 deployment pattern starts from a `did:webvh` identity
 - controller/root: `did:webvh:example.com:organizations:acme-support`
 - agent: `did:webvh:example.com:agents:quickstart-bot`
 
-The examples below are intentionally local and self-contained. They use an in-memory registry so you can prove the end-to-end signing flow before wiring a hosted `did:webvh` publication and resolver path.
+The examples below are intentionally local and self-contained. They use an in-memory registry so you can prove the end-to-end signing flow before wiring a hosted `did:webvh` publication and resolver path. For this local flow, the SDK bootstraps the controller side for you instead of asking you to stand up hosted DID history first.
 
 If you want a live browser walkthrough before wiring code, open [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/): real signed handoffs, live tamper detection, and the published `@agentdid/sdk` running in the browser.
 
@@ -29,7 +29,7 @@ const main = async () => {
   AgentIdentity.setRegistry(new InMemoryAgentRegistry());
 
   const wallet = ethers.Wallet.createRandom();
-  const identity = new AgentIdentity({ signer: wallet, network: 'polygon' });
+  const identity = new AgentIdentity({ signer: wallet });
 
   const created = await identity.create({
     name: 'quickstart-bot',
@@ -52,13 +52,18 @@ const main = async () => {
     headers
   });
 
-  console.log({ did: created.document.id, ok, headerNames: Object.keys(headers).sort() });
+  console.log({
+    did: created.document.id,
+    controller: created.document.controller,
+    ok,
+    headerNames: Object.keys(headers).sort()
+  });
 };
 
 void main();
 ```
 
-This snippet proves the current local SDK signing flow. The hosted `did:webvh` publication step from RFC-001 v0.3 is a separate deployment concern from this minimal example.
+This snippet proves the current local SDK signing flow. The SDK auto-bootstraps a local controller root for this path; hosted `did:webvh` publication is a separate deployment concern from this minimal example.
 
 ## Python (local signing flow)
 

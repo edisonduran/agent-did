@@ -23,7 +23,7 @@ This index is the fast path through the repository documentation.
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
 | [../CHANGELOG.md](../CHANGELOG.md) | Users, Contributors, Reviewers | Stable | Root changelog for the co-versioned core ecosystem release train (RFC + SDKs + integrations). |
-| [RFC-001-CHANGELOG.md](RFC-001-CHANGELOG.md) | Users, Contributors, Reviewers | Draft | Tracks normative/document-history changes specific to RFC-001, including the planned v0.3 pivot to the `did:webvh` application-pattern model. |
+| [RFC-001-CHANGELOG.md](RFC-001-CHANGELOG.md) | Users, Contributors, Reviewers | Draft | Tracks normative/document-history changes specific to RFC-001, including the recorded v0.3 pivot to the `did:webvh` application-pattern model. |
 | [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md) | Contributors, Reviewers, Maintainers | Draft | Non-negotiable exit criteria and 3-sprint plan toward `v1.0.0`. |
 | [RELEASE-1.0-COMPATIBILITY-MATRIX.md](RELEASE-1.0-COMPATIBILITY-MATRIX.md) | Contributors, Reviewers, Maintainers | Draft | Initial package compatibility view for the co-versioned core `v1.0.0` release train. |
 
@@ -97,6 +97,7 @@ This index is the fast path through the repository documentation.
 
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
+| [Estrategia-Divulgacion-2-Semanas-Agent-DID.md](Estrategia-Divulgacion-2-Semanas-Agent-DID.md) | Contributors, Reviewers | Draft | Defines the minimum visibility, outreach gates, and trigger conditions for post-pivot project communication. |
 | [Complete-Agent-DID-SDK-Course-EN.md](Complete-Agent-DID-SDK-Course-EN.md) | Users, Contributors | Draft | Long-form English training course for the SDK and RFC. |
 | [Complete-Agent-DID-SDK-Course-ES.md](Complete-Agent-DID-SDK-Course-ES.md) | Users, Contributors | Draft | Long-form Spanish training course for the SDK and RFC. |
 | [RFC-001-2h-Practical-Course.md](RFC-001-2h-Practical-Course.md) | Users, Contributors | Draft | Practical workshop-style learning material for RFC-001. |

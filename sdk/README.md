@@ -22,7 +22,7 @@ Agent-DID solves this with:
 - **Ed25519 cryptographic signatures** — deterministic, fast, no entropy vulnerability
 - **HTTP Bot Auth** — sign and verify HTTP requests (IETF Message Signatures)
 - **Privacy by design** — model and prompt hashes protect IP without exposure
-- **EVM registry** — on-chain anchoring and revocation on any EVM chain
+- **Optional EVM registry adapter** — available when a deployment explicitly needs the deferred on-chain profile
 - **Universal resolver** — HTTP, JSON-RPC, and IPFS with failover and caching
 
 ## Installation
@@ -41,7 +41,7 @@ import { ethers } from 'ethers';
 
 // 1. Create an agent identity
 const wallet = new ethers.Wallet(process.env.CREATOR_PRIVATE_KEY!);
-const identity = new AgentIdentity({ signer: wallet, network: 'polygon' });
+const identity = new AgentIdentity({ signer: wallet });
 
 const { document, agentPrivateKey } = await identity.create({
   name: 'SupportBot-X',
@@ -159,7 +159,7 @@ After key rotation, old keys are marked `deactivated` (ISO timestamp) but kept i
 
 ```ts
 const valid = await AgentIdentity.verifyHistoricalSignature(
-  did, payload, signatureHex, 'did:agent:polygon:0x...#key-1'
+  did, payload, signatureHex, `${did}#key-1`
 );
 ```
 
@@ -179,7 +179,7 @@ This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edison
 ## Current Limitations
 
 - Default resolver is in-memory (not persistent) — use production resolver for real deployments
-- EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
+- Optional EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
 - EVM timestamps consumed as Unix-string, SDK normalizes to ISO-8601
 
 ## Contributing

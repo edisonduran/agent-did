@@ -1,6 +1,8 @@
 # Agent-DID: Informe de Análisis del Proyecto
 
-> **Historical document** — this analysis reflects the project state as of 2026-03-29 and is not updated as the project evolves. For current status, see [`README.md`](../../README.md) and [`docs/INDEX.md`](../INDEX.md).
+> **Historical document** — this analysis reflects the project state as of 2026-03-29, before ADR-001 pivoted the core release path to `did:webvh` and before the core `1.0.0` scope freeze excluded EVM/on-chain work from the release gate.
+>
+> Several recommendations later in this document (for example: DIF submission as a near-term release dependency, public testnet work, broad marketing/outreach, or hybrid on-chain/off-chain framing as a core 1.0 requirement) are superseded. For current project direction, use [README.md](../../README.md), [docs/RELEASE-1.0-CRITERIA.md](../RELEASE-1.0-CRITERIA.md), and [_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
 
 **Fecha**: 29 de marzo de 2026
 **Versión**: 1.0

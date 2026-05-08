@@ -30,9 +30,15 @@ pip install -e ".[dev]"
 
 ```python
 import asyncio
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
+from agent_did_sdk import (
+    AgentIdentity,
+    AgentIdentityConfig,
+    CreateAgentParams,
+    InMemoryAgentRegistry,
+)
 
 async def main():
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0xYourWalletAddress"))
 
     result = await identity.create(CreateAgentParams(
@@ -56,6 +62,8 @@ async def main():
 
 asyncio.run(main())
 ```
+
+This quickstart validates the local signing lifecycle first. By default the SDK follows the canonical `did:webvh` path and bootstraps the local controller side for you; hosted publication of `did.jsonl` is a separate deployment concern.
 
 ## Features
 
@@ -94,9 +102,9 @@ By default, `verify_signature` and HTTP signature verification require the signi
 | `registry.*` | Agent registry (in-memory, EVM adapter, Web3 client) |
 | `resolver.*` | DID resolver (in-memory, filesystem source, HTTP source, bearer/authenticated HTTP source, presigned/object-storage source, S3-compatible source, AWS SigV4 S3 source, JSON-RPC source, universal) |
 
-## EVM Registry Integration
+## Optional EVM Registry Integration
 
-Connect the SDK to a real on-chain `AgentRegistry` contract:
+If a deployment explicitly needs the deferred EVM profile, connect the SDK to a real on-chain `AgentRegistry` contract:
 
 ```python
 from web3 import HTTPProvider, Web3
@@ -128,7 +136,7 @@ from agent_did_sdk import AgentIdentity, ProductionHttpResolverProfileConfig
 
 AgentIdentity.use_production_resolver_from_http(
     ProductionHttpResolverProfileConfig(
-        registry=evm_registry,
+        registry=evm_registry,  # optional when using the EVM compatibility profile
         cache_ttl_ms=60_000,
         ipfs_gateways=["https://gateway.pinata.cloud", "https://ipfs.io"],
         on_resolution_event=lambda event: print("Resolution:", event.stage),
@@ -158,6 +166,8 @@ npm run python:conformance
 ```
 
 These `npm` commands are only monorepo shortcuts. The canonical Python commands remain the native `python`, `pytest`, `ruff`, and `mypy` commands shown above.
+
+For end-to-end web-native publication and hosted DID history flows, see the examples under `examples/` that exercise `did:webvh`, writable document sources, and external smoke targets.
 
 ```bash
 cd sdk-python

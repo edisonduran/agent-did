@@ -120,14 +120,14 @@ Agent-DID is an open, pre-1.0 project being built in public.
 
 - The core RFC lifecycle is implemented and covered by conformance checks.
 - The TypeScript SDK is published as `@agentdid/sdk` and the Python SDK is published as `agent-did-sdk`.
-- The `did:webvh` runtime path, validation drills, and framework integrations are functional, while release planning is being aligned around `did:webvh` as the canonical deployment story.
+- The `did:webvh` runtime path, validation drills, and framework integrations are functional, and the release path now explicitly follows `did:webvh` as the canonical deployment story.
 - Community feedback is explicitly welcome before the project reaches full production hardening.
 - Public-review compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
 - Security reporting instructions are documented in [SECURITY.md](SECURITY.md).
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
-- **v1.0 scope freeze**: API freeze, migration guides, compatibility matrix, and release-critical CI cleanup
+- **v1.0 release hardening**: 30-day green evidence on `main`, migration guides, compatibility matrix, and clean install smokes
 - **F2-03** production resolver hardening beyond the shipped source-adapter baseline
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration

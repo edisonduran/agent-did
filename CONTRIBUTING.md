@@ -2,7 +2,7 @@
 
 Thank you for considering contributing to Agent-DID! We are building the foundational identity layer for the AI economy, and every contribution matters.
 
-> **Project status:** Agent-DID is an open, pre-1.0 project being built in public. The TypeScript SDK is published (`@agentdid/sdk`), the Python SDK is implemented with dedicated CI in `sdk-python/`, RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the EVM smart contract is functional. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
+> **Project status:** Agent-DID is an open, pre-1.0 project being built in public. The TypeScript SDK is published (`@agentdid/sdk`), the Python SDK is implemented with dedicated CI in `sdk-python/`, RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the core release path now follows the canonical `did:webvh` deployment story. EVM/on-chain profile material remains in the repo but is outside the core 1.0 gate. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
 
 ---
 
@@ -34,13 +34,13 @@ The following surfaces are treated as comparatively stable unless a correctness 
 
 - W3C DID / VC foundations and the core DID document structure.
 - Ed25519 as the default signing algorithm.
-- Minimal on-chain anchoring plus off-chain document reference and revocation state.
+- The canonical `did:webvh` deployment path, including controller-chain composition and hosted document/history semantics.
 - The lifecycle primitives: create, update, rotate, revoke, resolve, verify.
 
 ### 2. Contribute Code (Pull Requests)
 
 1. Fork the repository.
-2. Create a branch from `master` (`git checkout -b feature/your-feature`).
+2. Create a branch from `main` (`git checkout -b feature/your-feature`).
 3. Write code + tests. Ensure the relevant stack-native test workflow passes in the affected package.
 4. Run conformance: `npm run conformance:rfc001` from the project root.
 5. If you touch the LangChain integration, also run `npm run test:langchain` from the project root.
@@ -49,7 +49,7 @@ The following surfaces are treated as comparatively stable unless a correctness 
 8. If your change affects delivered status, roadmap closure, CI coverage, maturity claims, or integration scope, update all impacted live documents in the same PR.
 9. Use the documentation checklist in this file when a PR changes project status, roadmap items, integration maturity, or training content.
 10. Commit with a descriptive message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(sdk): add batch DID resolution`).
-11. Open a Pull Request against `master`.
+11. Open a Pull Request against `main`.
 
 #### Assigned Issues and PR Scope
 
@@ -74,7 +74,7 @@ Documentation update checklist for status-changing work:
 
 If you want to contribute quickly, these are the most valuable open areas right now:
 
-- **v1.0 scope freeze**: API freeze, migration guides, compatibility matrix, release-critical CI cleanup, and clean install smokes.
+- **v1.0 release hardening**: 30-day green evidence on `main`, migration guides, compatibility matrix, release-critical CI cleanup, and clean install smokes.
 - **F2-03** Harden production resolver/operator profiles beyond the shipped source-adapter baseline.
 - **F2-06** is not part of core 1.0. EVM/on-chain profile work is deferred and should only be reopened if maintainers identify a concrete need after the web-native release path is stable.
 - **F2-07** Turn the theoretical paper into a formal whitepaper package.
