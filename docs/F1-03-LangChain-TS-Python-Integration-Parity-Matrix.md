@@ -58,7 +58,7 @@ La parity de integracion se define en cinco dimensiones:
 | Fan-out de handlers | `composeEventHandlers(...)` | `compose_event_handlers(...)` | ✅ | Vendor-neutral. |
 | Logging JSON | `createJsonLoggerEventHandler(...)` | `create_json_logger_event_handler(...)` | ✅ | Misma estrategia de saneamiento. |
 | Serializacion de eventos | `serializeObservabilityEvent(...)` | `serialize_observability_event(...)` | ✅ | Misma forma conceptual. |
-| Ejemplo base | `agentDidLangChain.example.js` | `agent_did_langchain_example.py` | ✅ | Ambos muestran create_agent/createAgent + tools. |
+| Ejemplo base | `agentDidLangChain.example.js` | `agent_did_langchain_example.py` | ✅ | Ambos muestran create_agent/createAgent + tools y aclaran que el quickstart local usa bootstrap del controller web-native; la publicacion hospedada de `did:webvh` queda como concern aparte de despliegue. |
 | Ejemplo de observabilidad | `agentDidLangChain.observability.example.js` | `agent_did_langchain_observability_example.py` | ✅ | Parity operativa minima lograda. |
 | Receta tipo produccion | `agentDidLangChain.productionRecipe.example.js` | `agent_did_langchain_production_recipe_example.py` | ✅ | Ambos usan guardas de entorno. |
 | Demo integrado `did:wba` | `agentDidLangChain.didWbaDemo.example.js` | `agent_did_langchain_did_wba_demo.py` | ✅ | Ambos muestran runtime `did:wba`, partner remoto `did:wba`, `createAgent`/`create_agent` local y firma HTTP verificable sin credenciales externas. Los DID documents de demo declaran las claves de firma en `assertionMethod` para cumplir el binding de relaciones de verificacion del SDK. |
@@ -127,6 +127,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-05-08 | README de LangChain JS refrescado para dejar explicito que el flujo local usa bootstrap del controller web-native y que la publicacion hospedada de `did:webvh` es un concern separado. La matriz mantiene parity con Python sobre ese modelo conceptual. |
 | 2026-05-04 | Los demos integrados `did:wba` TS/Python ahora declaran `assertionMethod` en los DID documents usados para firma HTTP, manteniendo parity con el enforcement de key purpose binding del SDK. |
 | 2026-03-31 | Rename del repositorio a `agent-did` y normalizacion de metadata publica para LangChain TS/Python: URLs de GitHub, referencias de instalacion y ejemplos activos alineados con `@agentdid/sdk` y `@agentdid/langchain`. Sin cambios en la API publica ni en la parity funcional. |
 | 2026-03-22 | Se agregaron demos integrados `did:wba` equivalentes para LangChain TS y Python, junto con cobertura automatizada y referencias en README. La parity de ejemplos operativos se mantiene. |
