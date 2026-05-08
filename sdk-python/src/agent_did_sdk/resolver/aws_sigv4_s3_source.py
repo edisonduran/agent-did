@@ -7,7 +7,7 @@ import hmac
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import cast
 from urllib.parse import parse_qsl, quote, unquote, urlsplit
 
 import httpx
@@ -130,7 +130,7 @@ class _AwsSigV4AsyncClient:
 
     def _signature(self, date_stamp: str, string_to_sign: str) -> str:
         k_date = hmac.new(
-            f"AWS4{self._config.secret_access_key}".encode("utf-8"),
+            f"AWS4{self._config.secret_access_key}".encode(),
             date_stamp.encode("utf-8"),
             hashlib.sha256,
         ).digest()

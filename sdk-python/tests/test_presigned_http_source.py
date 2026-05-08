@@ -42,7 +42,7 @@ def _make_document() -> dict[str, object]:
 
 class TestPresignedHttpDIDDocumentSource:
     async def test_resolve_document_via_public_read_url(self) -> None:
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=_make_document())
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -59,15 +59,19 @@ class TestPresignedHttpDIDDocumentSource:
     async def test_write_document_via_dedicated_upload_url(self) -> None:
         seen_requests: list[httpx.Request] = []
 
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             seen_requests.append(request)
             return httpx.Response(204)
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         source = PresignedHttpDIDDocumentSource(PresignedHttpDIDDocumentSourceConfig(
             http_client=client,
-            reference_to_read_url=lambda document_ref: f"https://cdn.example/{document_ref.replace(':', '_')}.json",
-            reference_to_write_url=lambda document_ref: f"https://upload.example/{document_ref.replace(':', '_')}?signature=document",
+            reference_to_read_url=(
+                lambda document_ref: f"https://cdn.example/{document_ref.replace(':', '_')}.json"
+            ),
+            reference_to_write_url=(
+                lambda document_ref: f"https://upload.example/{document_ref.replace(':', '_')}?signature=document"
+            ),
         ))
 
         await source.store_by_reference(
@@ -82,16 +86,22 @@ class TestPresignedHttpDIDDocumentSource:
     async def test_write_did_log_via_dedicated_upload_url(self) -> None:
         seen_requests: list[httpx.Request] = []
 
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             seen_requests.append(request)
             return httpx.Response(201)
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         source = PresignedHttpDIDDocumentSource(PresignedHttpDIDDocumentSourceConfig(
             http_client=client,
-            reference_to_read_url=lambda document_ref: f"https://cdn.example/{document_ref.replace(':', '_')}.jsonl",
-            reference_to_write_url=lambda document_ref: f"https://upload.example/{document_ref.replace(':', '_')}?signature=document",
-            did_log_reference_to_write_url=lambda document_ref: f"https://upload.example/{document_ref.replace(':', '_')}?signature=history",
+            reference_to_read_url=(
+                lambda document_ref: f"https://cdn.example/{document_ref.replace(':', '_')}.jsonl"
+            ),
+            reference_to_write_url=(
+                lambda document_ref: f"https://upload.example/{document_ref.replace(':', '_')}?signature=document"
+            ),
+            did_log_reference_to_write_url=(
+                lambda document_ref: f"https://upload.example/{document_ref.replace(':', '_')}?signature=history"
+            ),
             did_log_store_method="POST",
         ))
         did_log = json.dumps({"versionId": "1-QmPresignedScid", "state": _make_document()})
@@ -107,7 +117,7 @@ class TestPresignedHttpDIDDocumentSource:
         did_log = json.dumps({"versionId": "1-QmPresignedScid", "state": _make_document()})
         call_count = 0
 
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -132,7 +142,7 @@ class TestPresignedHttpDIDDocumentSource:
         did_log = json.dumps({"versionId": "1-QmPresignedScid", "state": _make_document()})
         seen_urls: list[str] = []
 
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             seen_urls.append(str(request.url))
             if str(request.url).startswith("https://cdn-docs.example/"):
                 return httpx.Response(200, json=_make_document())
@@ -141,8 +151,12 @@ class TestPresignedHttpDIDDocumentSource:
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         source = PresignedHttpDIDDocumentSource(PresignedHttpDIDDocumentSourceConfig(
             http_client=client,
-            reference_to_read_url=lambda document_ref: f"https://cdn-docs.example/{document_ref.replace(':', '_')}.json",
-            did_log_reference_to_read_url=lambda document_ref: f"https://cdn-logs.example/{document_ref.replace(':', '_')}.jsonl",
+            reference_to_read_url=(
+                lambda document_ref: f"https://cdn-docs.example/{document_ref.replace(':', '_')}.json"
+            ),
+            did_log_reference_to_read_url=(
+                lambda document_ref: f"https://cdn-logs.example/{document_ref.replace(':', '_')}.jsonl"
+            ),
         ))
 
         loaded_document = await source.get_by_reference("hash://sha256/presigned-doc")

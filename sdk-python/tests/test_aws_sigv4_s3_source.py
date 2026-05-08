@@ -44,7 +44,7 @@ class TestAwsSigV4S3DIDDocumentSource:
     async def test_signs_get_requests_with_sigv4_headers(self) -> None:
         seen_requests: list[httpx.Request] = []
 
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             seen_requests.append(request)
             return httpx.Response(200, json=_make_document())
 
@@ -74,7 +74,7 @@ class TestAwsSigV4S3DIDDocumentSource:
     async def test_signs_did_log_writes_and_includes_session_token(self) -> None:
         seen_requests: list[httpx.Request] = []
 
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             seen_requests.append(request)
             return httpx.Response(200)
 
@@ -98,5 +98,8 @@ class TestAwsSigV4S3DIDDocumentSource:
         assert seen_requests[0].method == "POST"
         assert seen_requests[0].headers["x-amz-date"] == "20260507T123456Z"
         assert seen_requests[0].headers["x-amz-security-token"] == "session-token-example"
-        assert "SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token" in seen_requests[0].headers["authorization"]
+        assert (
+            "SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token"
+            in seen_requests[0].headers["authorization"]
+        )
         assert seen_requests[0].content.decode("utf-8") == did_log

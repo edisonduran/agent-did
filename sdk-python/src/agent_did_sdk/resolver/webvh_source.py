@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
@@ -13,8 +14,8 @@ from ..core.types import AgentDIDDocument
 
 @dataclass
 class WebvhDIDDocumentSourceConfig:
-    reference_to_url: callable | None = None
-    reference_to_urls: callable | None = None
+    reference_to_url: Callable[[str], str] | None = None
+    reference_to_urls: Callable[[str], list[str]] | None = None
     http_client: httpx.AsyncClient | None = None
     http_security: HttpTargetValidationOptions | None = None
 
@@ -66,6 +67,29 @@ class WebvhDIDDocumentSource:
             return None
 
         raise RuntimeError(f"Failed to fetch did:webvh DID log from all endpoints. {' | '.join(errors)}")
+
+    async def get_did_log_by_reference(self, document_ref: str) -> str | None:
+        urls = self._resolve_candidate_urls(document_ref)
+
+        for url in urls:
+            validate_http_target(url, self._http_security)
+            client = self._client or httpx.AsyncClient()
+            try:
+                response = await client.get(url)
+            finally:
+                if self._client is None:
+                    await client.aclose()
+
+            if response.status_code == 404:
+                continue
+            if 200 <= response.status_code < 300:
+                return response.text
+            raise RuntimeError(f"Failed to fetch did:webvh DID log. {url}: HTTP {response.status_code}")
+
+        return None
+
+    async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None:
+        raise NotImplementedError("WebvhDIDDocumentSource is read-only")
 
     def _resolve_candidate_urls(self, document_ref: str) -> list[str]:
         if self._reference_to_urls:

@@ -205,7 +205,10 @@ async def evaluate_revocation_controls(
     ]
 
     return [
-        CheckResult("MUST-06", "PASS" if not valid_after_controller_revocation and not valid_after_revocation else "FAIL"),
+        CheckResult(
+            "MUST-06",
+            "PASS" if not valid_after_controller_revocation and not valid_after_revocation else "FAIL",
+        ),
         CheckResult("MUST-07", "PASS" if bool(revoked_record and revoked_record.revoked_at) else "FAIL"),
         CheckResult("MUST-09", "PASS" if valid_before_revocation and not valid_after_revocation else "FAIL"),
     ], [CheckResult("SHOULD-05", "PASS" if should_05_ok else "FAIL")]

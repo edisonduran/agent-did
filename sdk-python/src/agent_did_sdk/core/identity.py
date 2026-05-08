@@ -8,12 +8,14 @@ import json
 import os
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import ClassVar, TypedDict
+from typing import Any, ClassVar, TypedDict
 from urllib.parse import quote, urlparse
 
+import httpx
 from eth_utils.address import to_checksum_address
 from eth_utils.crypto import keccak
 from nacl.signing import SigningKey, VerifyKey
@@ -28,14 +30,15 @@ from ..registry.types import AgentRegistry
 from ..resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 from ..resolver.in_memory import InMemoryDIDResolver
 from ..resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
-from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
 from ..resolver.types import (
     DIDDocumentSource,
     DIDResolver,
+    ResolverResolutionEvent,
     UniversalResolverConfig,
 )
 from ..resolver.universal import UniversalResolverClient
-from .http_security import validate_http_target
+from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
+from .http_security import HttpTargetValidationOptions, validate_http_target
 from .identity_composition import assert_key_purpose, assert_signing_purpose, get_relationship_key_ids
 from .signer import AgentSigner
 from .time_utils import normalize_timestamp_to_iso
@@ -81,12 +84,12 @@ class ProductionResolverProfileConfig:
 class ProductionHttpResolverProfileConfig:
     registry: AgentRegistry
     cache_ttl_ms: int | None = None
-    reference_to_url: object | None = None
-    reference_to_urls: object | None = None
-    http_client: object | None = None
+    reference_to_url: Callable[[str], str] | None = None
+    reference_to_urls: Callable[[str], list[str]] | None = None
+    http_client: httpx.AsyncClient | None = None
     ipfs_gateways: list[str] | None = None
-    on_resolution_event: object | None = None
-    http_security: object | None = None
+    on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
+    http_security: HttpTargetValidationOptions | None = None
 
 
 @dataclass
@@ -96,11 +99,11 @@ class ProductionJsonRpcResolverProfileConfig:
     endpoint: str | None = None
     endpoints: list[str] | None = None
     method: str | None = None
-    build_params: object | None = None
+    build_params: Callable[[str], list[Any]] | None = None
     headers: dict[str, str] | None = None
-    http_client: object | None = None
-    on_resolution_event: object | None = None
-    http_security: object | None = None
+    http_client: httpx.AsyncClient | None = None
+    on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
+    http_security: HttpTargetValidationOptions | None = None
 
 
 class AgentIdentity:
@@ -127,20 +130,29 @@ class AgentIdentity:
     async def create(self, params: CreateAgentParams) -> CreateAgentResult:
         """Create a new Agent-DID document (passport) from raw parameters."""
         did_method = params.did_method or "webvh"
-        webvh_options = AgentIdentity._resolve_webvh_create_options(params, self._signer_address) if did_method == "webvh" else None
+        webvh_options = (
+            AgentIdentity._resolve_webvh_create_options(params, self._signer_address)
+            if did_method == "webvh"
+            else None
+        )
 
-        controller_did = webvh_options.controller_did if webvh_options is not None else f"did:ethr:{self._signer_address}"
+        controller_did = (
+            webvh_options.controller_did
+            if webvh_options is not None
+            else f"did:ethr:{self._signer_address}"
+        )
         if did_method == "webvh":
             await AgentIdentity._ensure_bootstrap_controller_document(controller_did)
         timestamp = AgentIdentity._now_iso_timestamp()
         nonce = os.urandom(16).hex()
         identity_seed = webvh_options.controller_did if webvh_options is not None else self._signer_address
         raw_id = keccak(text=f"{identity_seed}-{timestamp}-{nonce}").hex()
-        agent_did = (
-            AgentIdentity._build_did_webvh(raw_id, webvh_options)
-            if did_method == "webvh"
-            else f"did:agent:{self._network}:{raw_id}"
-        )
+        if did_method == "webvh":
+            if webvh_options is None:
+                raise ValueError("webvh options must be present when did_method is webvh")
+            agent_did = AgentIdentity._build_did_webvh(raw_id, webvh_options)
+        else:
+            agent_did = f"did:agent:{self._network}:{raw_id}"
 
         core_model_hash_uri = generate_agent_metadata_hash(params.core_model)
         system_prompt_hash_uri = generate_agent_metadata_hash(params.system_prompt)
@@ -799,17 +811,17 @@ class AgentIdentity:
     @classmethod
     def use_production_resolver_from_http(cls, config: ProductionHttpResolverProfileConfig) -> None:
         source = HttpDIDDocumentSource(HttpDIDDocumentSourceConfig(
-            reference_to_url=config.reference_to_url,  # type: ignore[arg-type]
-            reference_to_urls=config.reference_to_urls,  # type: ignore[arg-type]
-            http_client=config.http_client,  # type: ignore[arg-type]
+            reference_to_url=config.reference_to_url,
+            reference_to_urls=config.reference_to_urls,
+            http_client=config.http_client,
             ipfs_gateways=config.ipfs_gateways,
-            http_security=config.http_security,  # type: ignore[arg-type]
+            http_security=config.http_security,
         ))
         webvh_source = WebvhDIDDocumentSource(WebvhDIDDocumentSourceConfig(
-            reference_to_url=config.reference_to_url,  # type: ignore[arg-type]
-            reference_to_urls=config.reference_to_urls,  # type: ignore[arg-type]
-            http_client=config.http_client,  # type: ignore[arg-type]
-            http_security=config.http_security,  # type: ignore[arg-type]
+            reference_to_url=config.reference_to_url,
+            reference_to_urls=config.reference_to_urls,
+            http_client=config.http_client,
+            http_security=config.http_security,
         ))
         cls.use_production_resolver(ProductionResolverProfileConfig(
             registry=config.registry,
@@ -826,10 +838,10 @@ class AgentIdentity:
             endpoint=config.endpoint,
             endpoints=config.endpoints,
             method=config.method or "agent_resolveDocumentRef",
-            build_params=config.build_params,  # type: ignore[arg-type]
+            build_params=config.build_params,
             headers=config.headers,
-            http_client=config.http_client,  # type: ignore[arg-type]
-            http_security=config.http_security,  # type: ignore[arg-type]
+            http_client=config.http_client,
+            http_security=config.http_security,
         ))
         cls.use_production_resolver(ProductionResolverProfileConfig(
             registry=config.registry,
@@ -948,7 +960,11 @@ class AgentIdentity:
                 did=document.id,
                 revision=index,
                 action=cls._infer_imported_history_action(previous_document, document, index),
-                timestamp=(parsed.get("versionTime") if isinstance(parsed, dict) and isinstance(parsed.get("versionTime"), str) else document.updated),
+                timestamp=(
+                    parsed.get("versionTime")
+                    if isinstance(parsed, dict) and isinstance(parsed.get("versionTime"), str)
+                    else document.updated
+                ),
                 version=document.agent_metadata.version,
                 documentRef=cls._compute_document_reference(document),
             )
@@ -979,12 +995,17 @@ class AgentIdentity:
         if previous_timestamp:
             try:
                 previous_normalized = normalize_timestamp_to_iso(previous_timestamp)
+                if previous_normalized is None:
+                    return candidate
                 previous_dt = datetime.fromisoformat(previous_normalized.replace("Z", "+00:00"))
             except ValueError:
                 return candidate
 
             if candidate <= previous_normalized:
-                return normalize_timestamp_to_iso((previous_dt + timedelta(milliseconds=1)).isoformat())  # type: ignore[return-value]
+                next_timestamp = normalize_timestamp_to_iso(
+                    (previous_dt + timedelta(milliseconds=1)).isoformat()
+                )
+                return next_timestamp or candidate
 
         return candidate
 

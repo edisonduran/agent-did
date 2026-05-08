@@ -104,10 +104,16 @@ def render_snapshot() -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate or verify the signature-level public API snapshot for agent-did-sdk.")
+    parser = argparse.ArgumentParser(
+        description="Generate or verify the signature-level public API snapshot for agent-did-sdk."
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--write", action="store_true", help="Write the current signature snapshot to disk.")
-    mode.add_argument("--check", action="store_true", help="Verify that the checked-in signature snapshot matches the current public API.")
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify that the checked-in signature snapshot matches the current public API.",
+    )
     args = parser.parse_args()
 
     next_snapshot = render_snapshot()
@@ -120,7 +126,11 @@ def main() -> int:
     current_snapshot = SNAPSHOT.read_text(encoding="utf-8") if SNAPSHOT.exists() else ""
     if current_snapshot != next_snapshot:
         print(
-            "Public API signature snapshot is out of date. Run `python sdk-python/scripts/public_api_signature_snapshot.py --write` or `npm run api:signature:snapshot:python` at the repo root.",
+            (
+                "Public API signature snapshot is out of date. Run "
+                "`python sdk-python/scripts/public_api_signature_snapshot.py --write` "
+                "or `npm run api:signature:snapshot:python` at the repo root."
+            ),
             file=sys.stderr,
         )
         return 1

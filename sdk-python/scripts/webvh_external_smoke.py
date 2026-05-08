@@ -11,7 +11,6 @@ import httpx
 from agent_did_sdk import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
 from agent_did_sdk.core.http_security import HttpTargetValidationOptions
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST_PATH = REPO_ROOT / "fixtures" / "external-smoke" / "webvh-public-targets.json"
 
@@ -63,7 +62,11 @@ def _load_manifest_target() -> dict[str, object]:
         raise RuntimeError(f"Target externo no encontrado en el manifest: {target_name}")
 
     candidate_urls = target.get("candidateUrls")
-    if not isinstance(candidate_urls, list) or not candidate_urls or not all(isinstance(url, str) for url in candidate_urls):
+    if (
+        not isinstance(candidate_urls, list)
+        or not candidate_urls
+        or not all(isinstance(url, str) for url in candidate_urls)
+    ):
         raise RuntimeError(f"El target externo {target_name} no define candidateUrls.")
 
     expected_did = target.get("did")

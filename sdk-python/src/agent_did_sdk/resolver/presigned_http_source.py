@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 import httpx
 
-from ..core.types import AgentDIDDocument
 from ..core.http_security import HttpTargetValidationOptions
+from ..core.types import AgentDIDDocument
 from .http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 
 

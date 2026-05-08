@@ -148,7 +148,7 @@ class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_tok
   member http_security = None
 
 ## CreateAgentParams
-class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, capabilities: list[str] | None = None, member_of: str | None = None, signer: Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
   attr capabilities: list[str] | None
   attr core_model: str
   attr description: str | None
@@ -271,6 +271,8 @@ class InMemoryDIDResolver() -> 'None'
 ## JsonRpcDIDDocumentSource
 class JsonRpcDIDDocumentSource(config: 'JsonRpcDIDDocumentSourceConfig | None' = None) -> 'None'
   def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## JsonRpcDIDDocumentSourceConfig
 class JsonRpcDIDDocumentSourceConfig(endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str' = 'agent_resolveDocumentRef', build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
@@ -310,27 +312,27 @@ class PresignedHttpDIDDocumentSourceConfig(reference_to_read_url: 'Callable[[str
   attr store_method: str
 
 ## ProductionHttpResolverProfileConfig
-class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, reference_to_url: 'object | None' = None, reference_to_urls: 'object | None' = None, http_client: 'object | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'object | None' = None, http_security: 'object | None' = None) -> None
+class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
   attr cache_ttl_ms: int | None
-  attr http_client: object | None
-  attr http_security: object | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
   attr ipfs_gateways: list[str] | None
-  attr on_resolution_event: object | None
-  attr reference_to_url: object | None
-  attr reference_to_urls: object | None
+  attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
+  attr reference_to_url: Callable[[str], str] | None
+  attr reference_to_urls: Callable[[str], list[str]] | None
   attr registry: AgentRegistry
 
 ## ProductionJsonRpcResolverProfileConfig
-class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str | None' = None, build_params: 'object | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'object | None' = None, on_resolution_event: 'object | None' = None, http_security: 'object | None' = None) -> None
-  attr build_params: object | None
+class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str | None' = None, build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+  attr build_params: Callable[[str], list[Any]] | None
   attr cache_ttl_ms: int | None
   attr endpoint: str | None
   attr endpoints: list[str] | None
   attr headers: dict[str, str] | None
-  attr http_client: object | None
-  attr http_security: object | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
   attr method: str | None
-  attr on_resolution_event: object | None
+  attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
   attr registry: AgentRegistry
 
 ## ProductionResolverProfileConfig
@@ -394,7 +396,7 @@ class S3CompatibleDIDDocumentSourceConfig(bucket: 'str', endpoint: 'str | None' 
 value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
 
 ## SignHttpRequestParams
-class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, agent_private_key: str | None = None, signer: typing.Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: typing.Any | None = None) -> None
+class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, agent_private_key: str | None = None, signer: Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: Any | None = None) -> None
   attr agent_did: str
   attr agent_private_key: str | None
   attr body: str | None
@@ -478,13 +480,15 @@ class Web3AgentRegistryContractClient(contract: 'Any') -> 'None'
 ## WebvhDIDDocumentSource
 class WebvhDIDDocumentSource(config: 'WebvhDIDDocumentSourceConfig | None' = None) -> 'None'
   def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## WebvhDIDDocumentSourceConfig
-class WebvhDIDDocumentSourceConfig(reference_to_url: 'callable | None' = None, reference_to_urls: 'callable | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+class WebvhDIDDocumentSourceConfig(reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
   attr http_client: httpx.AsyncClient | None
   attr http_security: HttpTargetValidationOptions | None
-  attr reference_to_url: callable | None
-  attr reference_to_urls: callable | None
+  attr reference_to_url: Callable[[str], str] | None
+  attr reference_to_urls: Callable[[str], list[str]] | None
 
 ## assert_key_purpose
 def assert_key_purpose(key_id: 'str', did_doc: 'AgentDIDDocument', required_purpose: 'VerificationRelationship') -> 'None'

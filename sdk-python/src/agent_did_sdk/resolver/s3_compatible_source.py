@@ -6,11 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote
 
+import httpx
+
 from ..core.http_security import HttpTargetValidationOptions
 from ..core.types import AgentDIDDocument
 from .presigned_http_source import PresignedHttpDIDDocumentSource, PresignedHttpDIDDocumentSourceConfig
-
-import httpx
 
 
 @dataclass
@@ -40,7 +40,11 @@ class S3CompatibleDIDDocumentSource:
             lambda document_ref: self._default_object_key(document_ref, config.key_prefix or "documents", ".json")
         )
         self._did_log_key_resolver = config.reference_to_did_log_object_key or (
-            lambda document_ref: self._default_object_key(document_ref, config.did_log_key_prefix or "did-logs", ".jsonl")
+            lambda document_ref: self._default_object_key(
+                document_ref,
+                config.did_log_key_prefix or "did-logs",
+                ".jsonl",
+            )
         )
         self._document_read_base_url = config.public_base_url or self._default_base_url(config)
         self._did_log_read_base_url = config.did_log_public_base_url or self._document_read_base_url

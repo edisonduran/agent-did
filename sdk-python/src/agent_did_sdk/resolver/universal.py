@@ -8,12 +8,12 @@ from urllib.parse import quote, unquote, urlparse
 from ..core.types import AgentDIDDocument
 from ..crypto.hash import generate_agent_metadata_hash
 from .http_source import HttpDIDDocumentSource
-from .webvh_source import WebvhDIDDocumentSource
 from .types import (
     ResolverCacheStats,
     ResolverResolutionEvent,
     UniversalResolverConfig,
 )
+from .webvh_source import WebvhDIDDocumentSource
 
 
 class _CachedDocument:

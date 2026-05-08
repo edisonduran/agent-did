@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+
 import httpx
 
 from agent_did_sdk import (

@@ -5,7 +5,6 @@ import json
 import sys
 
 import httpx
-
 from smoke_utils import (
     reset_agent_identity_state,
 )
