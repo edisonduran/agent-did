@@ -150,7 +150,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 > Detailed and tracked as GitHub issues under the `v1.0.0` milestone. The executed issue map is archived in [_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md](../_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md).
 
-> Status sync (2026-05-08): Sprint 0 foundation issues `#48`, `#51`, `#52`, and `#67`-`#71` are closed in GitHub. The signature-level API gate from `#60` shipped via PR `#93` and the issue is now closed; `#91` remains intentionally open as the tracker for the renewed `C-QA-8` 30-day green window on `main`.
+> Status sync (2026-05-08): Sprint 0 foundation issues `#48`, `#51`, `#52`, and `#67`-`#71` are closed in GitHub. The signature-level API gate from `#60` shipped via PR `#93` and the issue is now closed. Post-merge milestone audit: there are no open PRs against the release branch, and the open `v1.0.0` milestone now consists of Sprint 1 issues `#72`-`#81`, Sprint 2 issues `#82`-`#90`, plus follow-up issue `#91`. The immediate live blocker remains `#91`: `C-QA-8` is not yet met because the 30-day green window on `main` must be re-established for `CI — TypeScript SDK & RFC-001 Conformance`, `CI — Python SDK & RFC-001 Conformance`, and `CI - Microsoft Agent Framework Integration`. Based on the refreshed `main` audit after merge `#94`, the limiting workflow is currently the Python core validation workflow; if the 10 core validation workflows stay green from the successful `main` run at `2026-05-08T21:52:35Z`, the earliest timestamp at which `C-QA-8` can be satisfied is `2026-06-07T21:52:35Z`.
 
 ### Sprint 0 — Scope Freeze and Release Foundation
 
@@ -219,4 +219,4 @@ From `1.0.0` onward **strict SemVer** applies, per [DEPRECATION-POLICY.md](DEPRE
 
 This document is updated at the close of each Sprint. The *Criteria covered* column traces every task back to a checkbox in section 2.
 
-**Next expected revision:** after the next milestone audit for Sprint 1 hardening, with fresh evidence for `#91` / `C-QA-8` on `main`.
+**Next expected revision:** after the first Sprint 1 closures land on `main`, with refreshed evidence for `#91` / `C-QA-8` and explicit progress against Sprint 1 issues `#72`-`#81`.
