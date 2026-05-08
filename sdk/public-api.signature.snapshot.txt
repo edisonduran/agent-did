@@ -1,0 +1,840 @@
+# Public API signature snapshot for @agentdid/sdk
+
+## core/AgentIdentity.d.ts
+import { ethers } from 'ethers';
+import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { AgentSigner } from './signer';
+import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
+import { AgentRegistry } from '../registry/types';
+export interface AgentIdentityConfig {
+    signer: ethers.Signer;
+    network?: string;
+}
+export interface ProductionResolverProfileConfig {
+    registry: AgentRegistry;
+    documentSource: DIDDocumentSource;
+    wbaDocumentSource?: DIDDocumentSource;
+    webvhDocumentSource?: DIDDocumentSource;
+    cacheTtlMs?: number;
+    onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+}
+export interface ProductionHttpResolverProfileConfig {
+    registry: AgentRegistry;
+    cacheTtlMs?: number;
+    referenceToUrl?: (documentRef: string) => string;
+    referenceToUrls?: (documentRef: string) => string[];
+    fetchFn?: (url: string) => Promise<{
+        ok: boolean;
+        status: number;
+        json: () => Promise<unknown>;
+        text?: () => Promise<string>;
+    }>;
+    ipfsGateways?: string[];
+    onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+    httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+}
+export interface ProductionJsonRpcResolverProfileConfig {
+    registry: AgentRegistry;
+    cacheTtlMs?: number;
+    endpoint?: string;
+    endpoints?: string[];
+    method?: string;
+    buildParams?: (documentRef: string) => unknown[];
+    headers?: Record<string, string>;
+    transport?: (url: string, body: string, headers: Record<string, string>) => Promise<{
+        ok: boolean;
+        status: number;
+        json: () => Promise<unknown>;
+    }>;
+    onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+    httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+}
+export declare class AgentIdentity {
+    private static readonly defaultWebvhDomain;
+    private static resolver;
+    private static registry;
+    private static readonly documentHistoryStore;
+    private static readonly documentRevisionStore;
+    private readonly signer;
+    private readonly network;
+    constructor(config: AgentIdentityConfig);
+    private static nowIsoTimestamp;
+    /**
+     * Creates a new Agent-DID Document (Passport) from raw parameters.
+     * Automatically hashes sensitive IP (coreModel, systemPrompt) and generates the DID.
+     *
+     * @param params The raw agent configuration (name, prompt, capabilities, etc.)
+     * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
+     */
+    create(params: CreateAgentParams): Promise<CreateAgentResult>;
+    private static resolveWebvhCreateOptions;
+    private static requireWebvhCreateOptions;
+    private static buildDidWebvh;
+    private static composeDidWebvh;
+    private static normalizeDidPathSegment;
+    private static ensureBootstrapControllerDocument;
+    private static resolveActiveVerificationChain;
+    private static hasActiveVerificationMethod;
+    /**
+     * Signs a payload using an Ed25519 private key or an AgentSigner.
+     */
+    signMessage(payload: string, keyOrSigner: string | AgentSigner): Promise<string>;
+    /**
+     * Signs an HTTP request (Web Bot Auth) for secure API consumption.
+     * Implements a simplified version of IETF HTTP Message Signatures.
+     */
+    signHttpRequest(params: SignHttpRequestParams): Promise<Record<string, string>>;
+    static verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean>;
+    /**
+     * Verifies that a signature was produced by a specific Agent-DID.
+     * Uses the configured resolver and registry to validate against active verification methods.
+     */
+    static verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
+    /**
+     * Verifies a historical signature against deactivated (rotated-out) keys.
+     * Unlike verifySignature(), this searches ALL verification methods including
+     * those with a `deactivated` timestamp, enabling audit trail verification
+     * for signatures created before a key rotation.
+     */
+    static verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
+    /**
+     * Resolves a DID into its corresponding Agent-DID Document.
+     * Uses the configured resolver (in-memory or production) to retrieve the document.
+     */
+    static resolve(did: string): Promise<AgentDIDDocument>;
+    static resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
+    static revokeDid(did: string): Promise<void>;
+    static updateDidDocument(did: string, patch: UpdateAgentDocumentParams): Promise<AgentDIDDocument>;
+    static rotateVerificationMethod(did: string): Promise<RotateVerificationMethodResult>;
+    static getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
+    static exportDidWebvhHistory(did: string): string;
+    static importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
+    static saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void>;
+    static loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument>;
+    static persistDidWebvhHistoryToSource(did: string, documentRef: string, source: DIDDocumentSource): Promise<void>;
+    static restoreDidWebvhHistoryFromSource(documentRef: string, source: DIDDocumentSource): Promise<AgentDIDDocument>;
+    static setResolver(resolver: DIDResolver): void;
+    static setRegistry(registry: AgentRegistry): void;
+    static useProductionResolver(config: ProductionResolverProfileConfig): void;
+    static useProductionResolverFromHttp(config: ProductionHttpResolverProfileConfig): void;
+    static useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
+    private static computeDocumentReference;
+    private static computeContentDigest;
+    private static buildHttpSignatureBase;
+    private static generateNonce;
+    private static parseHttpSignatureInputDictionary;
+    private static parseHttpSignatureDictionary;
+    private static extractDidWebvhScid;
+    private static parseDidWebvhHistory;
+    private static inferImportedHistoryAction;
+    private static cloneDocument;
+    private static nextDocumentTimestamp;
+    private static appendHistory;
+}
+
+## core/http-security.d.ts
+/**
+ * SSRF protection — validates HTTP target URLs before requests.
+ */
+export interface HttpTargetValidationOptions {
+    /** Allow private/loopback/link-local targets (for dev/testing). Default: false */
+    allowPrivateTargets?: boolean;
+}
+/**
+ * Validates an HTTP target URL for SSRF safety.
+ * Throws if the URL is unsafe (loopback, private, metadata, embedded credentials).
+ */
+export declare function validateHttpTarget(url: string, options?: HttpTargetValidationOptions): void;
+
+## core/identity-composition.d.ts
+import { AgentDIDDocument, IdentityCompositionErrorReason, SigningVerificationPurpose, VerificationRelationship } from './types';
+export interface IdentityCompositionErrorDetails {
+    did?: string;
+    keyId: string;
+    requiredPurpose: VerificationRelationship;
+    foundIn: VerificationRelationship[];
+}
+export declare class IdentityCompositionError extends Error {
+    readonly reason: IdentityCompositionErrorReason;
+    readonly did?: string;
+    readonly keyId: string;
+    readonly requiredPurpose: VerificationRelationship;
+    readonly foundIn: VerificationRelationship[];
+    constructor(reason: IdentityCompositionErrorReason, details: IdentityCompositionErrorDetails);
+}
+export declare const DID_VERIFICATION_RELATIONSHIPS: readonly VerificationRelationship[];
+export declare const SIGNING_VERIFICATION_PURPOSES: readonly SigningVerificationPurpose[];
+export declare function getRelationshipKeyIds(didDoc: AgentDIDDocument, relationship: VerificationRelationship): string[];
+export declare function getKeyRelationships(keyId: string, didDoc: AgentDIDDocument): VerificationRelationship[];
+export declare function assertKeyPurpose(keyId: string, didDoc: AgentDIDDocument, requiredPurpose: VerificationRelationship): void;
+export declare function assertSigningPurpose(requiredPurpose: VerificationRelationship, didDoc: AgentDIDDocument, keyId?: string): asserts requiredPurpose is SigningVerificationPurpose;
+
+## core/signer.d.ts
+/**
+ * Interface for signing operations. Implement this to integrate with
+ * external key management (KMS, HSM, hardware wallets) in production.
+ */
+export interface AgentSigner {
+    /** Sign a message and return the signature as hex string. */
+    sign(payload: Uint8Array): Promise<string>;
+    /** Return the raw Ed25519 public key (32 bytes). */
+    getPublicKey(): Promise<Uint8Array>;
+}
+/**
+ * Default signer that uses a local Ed25519 private key.
+ * Suitable for development, testing, and demo scenarios.
+ */
+export declare class LocalKeySigner implements AgentSigner {
+    private readonly privateKeyBytes;
+    constructor(privateKeyHex: string);
+    sign(payload: Uint8Array): Promise<string>;
+    getPublicKey(): Promise<Uint8Array>;
+    /** Generate a new LocalKeySigner with a random key. Returns [signer, privateKeyHex]. */
+    static generate(): [LocalKeySigner, string];
+}
+
+## core/time.d.ts
+export declare function isUnixTimestampString(value: string): boolean;
+export declare function unixStringToIso(value: string): string;
+export declare function isoToUnixString(value: string): string;
+export declare function normalizeTimestampToIso(value?: string): string | undefined;
+
+## core/types.d.ts
+/**
+ * Core types for the Agent-DID Specification (RFC-001)
+ */
+export interface AgentMetadata {
+    name: string;
+    description?: string;
+    version: string;
+    coreModelHash: string;
+    systemPromptHash: string;
+    capabilities?: string[];
+    memberOf?: string;
+}
+export interface VerifiableCredentialLink {
+    type: string;
+    issuer: string;
+    credentialSubject: string;
+    proofHash: string;
+}
+export interface VerificationMethod {
+    id: string;
+    type: string;
+    controller: string;
+    publicKeyMultibase?: string;
+    blockchainAccountId?: string;
+    deactivated?: string;
+}
+export interface CreateDidWebvhOptions {
+    domain: string;
+    controllerDid: string;
+    pathSegments?: string[];
+    scid?: string;
+}
+export type VerificationRelationship = 'authentication' | 'assertionMethod' | 'capabilityDelegation' | 'capabilityInvocation' | 'keyAgreement';
+export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
+export type IdentityCompositionErrorReason = 'key_purpose_violation' | 'rotation_window_closed' | 'emergency_revoked' | 'tampered';
+export interface AgentDIDDocument {
+    "@context": string[];
+    id: string;
+    controller: string;
+    created: string;
+    updated: string;
+    agentMetadata: AgentMetadata;
+    complianceCertifications?: VerifiableCredentialLink[];
+    verificationMethod: VerificationMethod[];
+    authentication: string[];
+    assertionMethod?: string[];
+    capabilityDelegation?: string[];
+    capabilityInvocation?: string[];
+    keyAgreement?: string[];
+}
+/**
+ * Input parameters required to create a new Agent-DID
+ */
+export interface CreateAgentParams {
+    name: string;
+    description?: string;
+    version?: string;
+    coreModel: string;
+    systemPrompt: string;
+    capabilities?: string[];
+    memberOf?: string;
+    /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
+    signer?: import('./signer').AgentSigner;
+    /** DID emission profile. Defaults to the canonical `did:webvh` profile. */
+    didMethod?: 'agent' | 'webvh';
+    /** Optional when `didMethod` is `webvh`; omitted values trigger local bootstrap defaults. */
+    webvh?: CreateDidWebvhOptions;
+}
+/**
+ * The result of creating a new Agent-DID
+ */
+export interface CreateAgentResult {
+    document: AgentDIDDocument;
+    /** The Ed25519 private key (hex) — present only in demo mode (no external signer). */
+    agentPrivateKey: string;
+}
+/**
+ * Parameters to evolve an existing Agent-DID document while preserving DID.
+ */
+export interface UpdateAgentDocumentParams {
+    description?: string;
+    version?: string;
+    coreModel?: string;
+    systemPrompt?: string;
+    capabilities?: string[];
+    memberOf?: string;
+    complianceCertifications?: VerifiableCredentialLink[];
+}
+export interface RotateVerificationMethodResult {
+    document: AgentDIDDocument;
+    verificationMethodId: string;
+    agentPrivateKey: string;
+}
+export type AgentDocumentHistoryAction = 'created' | 'updated' | 'rotated-key' | 'revoked';
+export interface AgentDocumentHistoryEntry {
+    did: string;
+    revision: number;
+    action: AgentDocumentHistoryAction;
+    timestamp: string;
+    version?: string;
+    documentRef?: string;
+}
+/**
+ * Parameters for signing an HTTP request (Web Bot Auth)
+ */
+export interface SignHttpRequestParams {
+    method: string;
+    url: string;
+    body?: string;
+    /** Ed25519 private key hex. Either this or `signer` must be provided. */
+    agentPrivateKey?: string;
+    /** External signer. Preferred over agentPrivateKey when both are present. */
+    signer?: import('./signer').AgentSigner;
+    agentDid: string;
+    verificationMethodId?: string;
+    /** Signature expiration window in seconds (default: 30). */
+    expiresInSeconds?: number;
+    /** SSRF protection options. */
+    httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+}
+export interface VerifyHttpRequestSignatureParams {
+    method: string;
+    url: string;
+    body?: string;
+    headers: Record<string, string>;
+    maxCreatedSkewSeconds?: number;
+}
+
+## crypto/hash.d.ts
+/**
+ * Generates a deterministic SHA-256 hash of a string payload.
+ * Used to protect intellectual property (like system prompts) while allowing verification.
+ *
+ * @param payload The raw string to hash (e.g., "You are a helpful assistant...")
+ * @returns A hex string representing the SHA-256 hash (e.g., "0x1234...")
+ */
+export declare function hashPayload(payload: string): string;
+/**
+ * Formats a raw hash into a URI format suitable for the Agent-DID JSON-LD document.
+ * Currently supports a simple hash URI scheme, but can be extended to IPFS CIDs.
+ *
+ * @param hashHex The raw hex hash (e.g., "0x1234...")
+ * @returns A formatted URI string (e.g., "hash://sha256/1234...")
+ */
+export declare function formatHashUri(hashHex: string): string;
+/**
+ * Convenience function that hashes a payload and formats it as a URI in one step.
+ *
+ * @param payload The raw string to hash
+ * @returns A formatted URI string
+ */
+export declare function generateAgentMetadataHash(payload: string): string;
+export declare function canonicalizeJson(value: unknown): string;
+export declare function generateCanonicalDocumentHash(document: unknown): string;
+
+## crypto/multibase.d.ts
+/**
+ * Encodes a raw Ed25519 public key into W3C-compliant publicKeyMultibase format.
+ *
+ * Format: 'z' + Base58btc(multicodec_prefix + raw_public_key)
+ *   - 'z' is the Multibase prefix for Base58btc
+ *   - multicodec_prefix is 0xed01 for Ed25519 public keys
+ *
+ * @param rawPublicKey - 32-byte Ed25519 public key
+ * @returns Multibase-encoded string (e.g., "z6Mkf5rGMoatrSj1f...")
+ */
+export declare function encodePublicKeyMultibase(rawPublicKey: Uint8Array): string;
+/**
+ * Decodes a publicKeyMultibase string back into a raw Ed25519 public key.
+ *
+ * Accepts both:
+ *   - Standard format: 'z' + Base58btc(0xed01 + raw_key)  (W3C compliant)
+ *   - Legacy format:   'z' + hex(raw_key)                  (SDK v0.1.0 simplified)
+ *
+ * @param encoded - The publicKeyMultibase string
+ * @returns 32-byte raw Ed25519 public key
+ */
+export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
+
+## index.d.ts
+/**
+ * @agentdid/sdk
+ * The official TypeScript SDK for the Agent-DID Specification (RFC-001)
+ *
+ * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
+ * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
+ */
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
+export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
+export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
+export { hashPayload, formatHashUri, generateAgentMetadataHash } from './crypto/hash';
+export { encodePublicKeyMultibase, decodePublicKeyMultibase } from './crypto/multibase';
+export { AgentSigner, LocalKeySigner } from './core/signer';
+export { validateHttpTarget, HttpTargetValidationOptions } from './core/http-security';
+export { isUnixTimestampString, unixStringToIso, isoToUnixString, normalizeTimestampToIso } from './core/time';
+export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage } from './resolver/types';
+export { InMemoryDIDResolver } from './resolver/InMemoryDIDResolver';
+export { UniversalResolverClient } from './resolver/UniversalResolverClient';
+export { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './resolver/HttpDIDDocumentSource';
+export { BearerTokenHttpDIDDocumentSource, BearerTokenHttpDIDDocumentSourceConfig } from './resolver/BearerTokenHttpDIDDocumentSource';
+export { FilesystemDIDDocumentSource, FilesystemDIDDocumentSourceConfig } from './resolver/FilesystemDIDDocumentSource';
+export { PresignedHttpDIDDocumentSource, PresignedHttpDIDDocumentSourceConfig } from './resolver/PresignedHttpDIDDocumentSource';
+export { S3CompatibleDIDDocumentSource, S3CompatibleDIDDocumentSourceConfig } from './resolver/S3CompatibleDIDDocumentSource';
+export { AwsSigV4S3DIDDocumentSource, AwsSigV4S3DIDDocumentSourceConfig } from './resolver/AwsSigV4S3DIDDocumentSource';
+export { JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig } from './resolver/JsonRpcDIDDocumentSource';
+export { AgentRegistry, AgentRegistryRecord } from './registry/types';
+export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
+export { EvmAgentRegistry } from './registry/EvmAgentRegistry';
+export { EthersAgentRegistryContractClient } from './registry/EthersAgentRegistryContractClient';
+export { EvmTxResponse, EvmAgentRegistryContract, EvmAgentRegistryAdapterConfig } from './registry/evm-types';
+
+## registry/EthersAgentRegistryContractClient.d.ts
+import { AgentRegistryRecord } from './types';
+import { EvmAgentRegistryContract, EvmTxResponse } from './evm-types';
+interface EthersLikeContract {
+    registerAgent?: (did: string, controller: string, documentRef?: string) => Promise<EvmTxResponse | void>;
+    registerAgentWithDocument?: (did: string, controller: string, documentRef: string) => Promise<EvmTxResponse | void>;
+    setDocumentRef?: (did: string, documentRef: string) => Promise<EvmTxResponse | void>;
+    revokeAgent?: (did: string) => Promise<EvmTxResponse | void>;
+    getAgentRecord?: (did: string) => Promise<AgentRegistryRecord | null>;
+    isRevoked?: (did: string) => Promise<boolean>;
+}
+export declare class EthersAgentRegistryContractClient implements EvmAgentRegistryContract {
+    private readonly contract;
+    constructor(contract: EthersLikeContract);
+    registerAgent(did: string, controller: string): Promise<EvmTxResponse | void>;
+    registerAgentWithDocument(did: string, controller: string, documentRef: string): Promise<EvmTxResponse | void>;
+    setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void>;
+    revokeAgent(did: string): Promise<EvmTxResponse | void>;
+    getAgentRecord(did: string): Promise<AgentRegistryRecord | null>;
+    isRevoked(did: string): Promise<boolean>;
+}
+export {};
+
+## registry/evm-types.d.ts
+import { AgentRegistryRecord } from './types';
+export interface EvmTxResponse {
+    wait?: () => Promise<unknown>;
+}
+export interface EvmAgentRegistryContract {
+    registerAgent(did: string, controller: string, documentRef?: string): Promise<EvmTxResponse | void>;
+    registerAgentWithDocument?(did: string, controller: string, documentRef: string): Promise<EvmTxResponse | void>;
+    setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void>;
+    revokeAgent(did: string): Promise<EvmTxResponse | void>;
+    getAgentRecord(did: string): Promise<AgentRegistryRecord | null>;
+    isRevoked?(did: string): Promise<boolean>;
+}
+export interface EvmAgentRegistryAdapterConfig {
+    contractClient: EvmAgentRegistryContract;
+    awaitTransactionConfirmation?: boolean;
+}
+
+## registry/EvmAgentRegistry.d.ts
+import { AgentRegistry, AgentRegistryRecord } from './types';
+import { EvmAgentRegistryAdapterConfig } from './evm-types';
+export declare class EvmAgentRegistry implements AgentRegistry {
+    private readonly contractClient;
+    private readonly awaitTransactionConfirmation;
+    constructor(config: EvmAgentRegistryAdapterConfig);
+    register(did: string, controller: string, documentRef?: string): Promise<void>;
+    setDocumentReference(did: string, documentRef: string): Promise<void>;
+    revoke(did: string): Promise<void>;
+    getRecord(did: string): Promise<AgentRegistryRecord | null>;
+    isRevoked(did: string): Promise<boolean>;
+    private waitForConfirmationIfNeeded;
+}
+
+## registry/InMemoryAgentRegistry.d.ts
+import { AgentRegistry, AgentRegistryRecord } from './types';
+export declare class InMemoryAgentRegistry implements AgentRegistry {
+    private readonly records;
+    register(did: string, controller: string, documentRef?: string): Promise<void>;
+    setDocumentReference(did: string, documentRef: string): Promise<void>;
+    revoke(did: string): Promise<void>;
+    getRecord(did: string): Promise<AgentRegistryRecord | null>;
+    isRevoked(did: string): Promise<boolean>;
+}
+
+## registry/types.d.ts
+export interface AgentRegistryRecord {
+    did: string;
+    controller: string;
+    createdAt: string;
+    revokedAt?: string;
+    documentRef?: string;
+}
+export interface AgentRegistry {
+    register(did: string, controller: string, documentRef?: string): Promise<void>;
+    setDocumentReference(did: string, documentRef: string): Promise<void>;
+    revoke(did: string): Promise<void>;
+    getRecord(did: string): Promise<AgentRegistryRecord | null>;
+    isRevoked(did: string): Promise<boolean>;
+}
+
+## resolver/AwsSigV4S3DIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
+import { S3CompatibleDIDDocumentSourceConfig } from './S3CompatibleDIDDocumentSource';
+import { DIDDocumentSource } from './types';
+export interface AwsSigV4S3DIDDocumentSourceConfig extends Omit<S3CompatibleDIDDocumentSourceConfig, 'fetchFn'> {
+    region: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
+    service?: string;
+    fetchFn?: HttpDIDDocumentSourceConfig['fetchFn'];
+    now?: () => Date;
+}
+export declare class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
+    private readonly config;
+    private readonly source;
+    constructor(config: AwsSigV4S3DIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference(documentRef: string): Promise<string | null>;
+    storeDidLogByReference(documentRef: string, didLog: string): Promise<void>;
+    private createSignedFetchFn;
+    private signRequest;
+    private buildCanonicalHeaders;
+    private normalizeHeaders;
+    private buildCanonicalUri;
+    private buildCanonicalQuery;
+    private signHex;
+    private hashHex;
+    private formatAmzDate;
+    private encodeRfc3986;
+}
+
+## resolver/BearerTokenHttpDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
+import { DIDDocumentSource } from './types';
+export interface BearerTokenHttpDIDDocumentSourceConfig {
+    token?: string;
+    getToken?: () => string | Promise<string>;
+    headerName?: string;
+    scheme?: string;
+    referenceToUrl?: HttpDIDDocumentSourceConfig['referenceToUrl'];
+    referenceToUrls?: HttpDIDDocumentSourceConfig['referenceToUrls'];
+    fetchFn?: HttpDIDDocumentSourceConfig['fetchFn'];
+    ipfsGateways?: HttpDIDDocumentSourceConfig['ipfsGateways'];
+    httpSecurity?: HttpDIDDocumentSourceConfig['httpSecurity'];
+    storeMethod?: HttpDIDDocumentSourceConfig['storeMethod'];
+    didLogStoreMethod?: HttpDIDDocumentSourceConfig['didLogStoreMethod'];
+}
+export declare class BearerTokenHttpDIDDocumentSource implements DIDDocumentSource {
+    private readonly source;
+    private readonly headerName;
+    private readonly scheme;
+    private readonly token;
+    private readonly getToken;
+    constructor(config: BearerTokenHttpDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference(documentRef: string): Promise<string | null>;
+    storeDidLogByReference(documentRef: string, didLog: string): Promise<void>;
+    private createAuthenticatedFetchFn;
+    private resolveToken;
+    private formatToken;
+}
+
+## resolver/FilesystemDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { DIDDocumentSource } from './types';
+export interface FilesystemDIDDocumentSourceConfig {
+    referenceToPath?: (documentRef: string) => string;
+    referenceToPaths?: (documentRef: string) => string[];
+}
+export declare class FilesystemDIDDocumentSource implements DIDDocumentSource {
+    private readonly referenceToPath;
+    private readonly referenceToPaths;
+    constructor(config?: FilesystemDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference(documentRef: string): Promise<string | null>;
+    storeDidLogByReference(documentRef: string, didLog: string): Promise<void>;
+    private resolveCandidatePaths;
+    private resolvePrimaryPath;
+    private isMissingFile;
+}
+
+## resolver/HttpDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpTargetValidationOptions } from '../core/http-security';
+import { DIDDocumentSource } from './types';
+type FetchLikeResponse = {
+    ok: boolean;
+    status: number;
+    json?: () => Promise<unknown>;
+    text?: () => Promise<string>;
+};
+type FetchLikeInit = {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+};
+type FetchLike = (url: string, init?: FetchLikeInit) => Promise<FetchLikeResponse>;
+export interface HttpDIDDocumentSourceConfig {
+    referenceToUrl?: (documentRef: string) => string;
+    referenceToUrls?: (documentRef: string) => string[];
+    fetchFn?: FetchLike;
+    ipfsGateways?: string[];
+    httpSecurity?: HttpTargetValidationOptions;
+    storeMethod?: string;
+    didLogStoreMethod?: string;
+}
+export declare class HttpDIDDocumentSource implements DIDDocumentSource {
+    private readonly referenceToUrl;
+    private readonly referenceToUrls;
+    private readonly fetchFn;
+    private readonly ipfsGateways;
+    private readonly httpSecurity;
+    private readonly storeMethod;
+    private readonly didLogStoreMethod;
+    constructor(config?: HttpDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference(documentRef: string): Promise<string | null>;
+    storeDidLogByReference(documentRef: string, didLog: string): Promise<void>;
+    private resolveCandidateUrls;
+    private resolvePrimaryUrl;
+    private writeReference;
+    private readResponseText;
+    private readResponseJson;
+}
+export {};
+
+## resolver/InMemoryDIDResolver.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { DIDResolver } from './types';
+export declare class InMemoryDIDResolver implements DIDResolver {
+    private readonly documentStore;
+    registerDocument(document: AgentDIDDocument): void;
+    resolve(did: string): Promise<AgentDIDDocument>;
+    remove(did: string): void;
+}
+
+## resolver/JsonRpcDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpTargetValidationOptions } from '../core/http-security';
+import { DIDDocumentSource } from './types';
+type JsonRpcResponse = {
+    ok: boolean;
+    status: number;
+    json: () => Promise<unknown>;
+};
+type JsonRpcTransport = (url: string, body: string, headers: Record<string, string>) => Promise<JsonRpcResponse>;
+export interface JsonRpcDIDDocumentSourceConfig {
+    endpoint?: string;
+    endpoints?: string[];
+    method?: string;
+    buildParams?: (documentRef: string) => unknown[];
+    transport?: JsonRpcTransport;
+    headers?: Record<string, string>;
+    httpSecurity?: HttpTargetValidationOptions;
+}
+export declare class JsonRpcDIDDocumentSource implements DIDDocumentSource {
+    private readonly endpoints;
+    private readonly method;
+    private readonly buildParams;
+    private readonly transport;
+    private readonly headers;
+    private readonly httpSecurity;
+    constructor(config?: JsonRpcDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    private defaultTransport;
+}
+export {};
+
+## resolver/PresignedHttpDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
+import { DIDDocumentSource } from './types';
+export interface PresignedHttpDIDDocumentSourceConfig {
+    referenceToReadUrl?: HttpDIDDocumentSourceConfig['referenceToUrl'];
+    referenceToReadUrls?: HttpDIDDocumentSourceConfig['referenceToUrls'];
+    didLogReferenceToReadUrl?: HttpDIDDocumentSourceConfig['referenceToUrl'];
+    didLogReferenceToReadUrls?: HttpDIDDocumentSourceConfig['referenceToUrls'];
+    referenceToWriteUrl?: HttpDIDDocumentSourceConfig['referenceToUrl'];
+    didLogReferenceToWriteUrl?: HttpDIDDocumentSourceConfig['referenceToUrl'];
+    fetchFn?: HttpDIDDocumentSourceConfig['fetchFn'];
+    ipfsGateways?: HttpDIDDocumentSourceConfig['ipfsGateways'];
+    httpSecurity?: HttpDIDDocumentSourceConfig['httpSecurity'];
+    storeMethod?: HttpDIDDocumentSourceConfig['storeMethod'];
+    didLogStoreMethod?: HttpDIDDocumentSourceConfig['didLogStoreMethod'];
+}
+export declare class PresignedHttpDIDDocumentSource implements DIDDocumentSource {
+    private readonly documentReadSource;
+    private readonly didLogReadSource;
+    private readonly documentWriteSource;
+    private readonly didLogWriteSource;
+    constructor(config?: PresignedHttpDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference(documentRef: string): Promise<string | null>;
+    storeDidLogByReference(documentRef: string, didLog: string): Promise<void>;
+}
+
+## resolver/S3CompatibleDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
+import { DIDDocumentSource } from './types';
+export interface S3CompatibleDIDDocumentSourceConfig {
+    bucket: string;
+    endpoint?: string;
+    publicBaseUrl?: string;
+    didLogPublicBaseUrl?: string;
+    keyPrefix?: string;
+    didLogKeyPrefix?: string;
+    forcePathStyle?: boolean;
+    referenceToObjectKey?: (documentRef: string) => string;
+    referenceToDidLogObjectKey?: (documentRef: string) => string;
+    referenceToWriteUrl?: (documentRef: string, objectKey: string) => string;
+    didLogReferenceToWriteUrl?: (documentRef: string, objectKey: string) => string;
+    fetchFn?: HttpDIDDocumentSourceConfig['fetchFn'];
+    httpSecurity?: HttpDIDDocumentSourceConfig['httpSecurity'];
+    storeMethod?: HttpDIDDocumentSourceConfig['storeMethod'];
+    didLogStoreMethod?: HttpDIDDocumentSourceConfig['didLogStoreMethod'];
+}
+export declare class S3CompatibleDIDDocumentSource implements DIDDocumentSource {
+    private readonly source;
+    private readonly documentKeyResolver;
+    private readonly didLogKeyResolver;
+    private readonly documentReadBaseUrl;
+    private readonly didLogReadBaseUrl;
+    private readonly referenceToWriteUrl;
+    private readonly didLogReferenceToWriteUrl;
+    constructor(config: S3CompatibleDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference(documentRef: string): Promise<string | null>;
+    storeDidLogByReference(documentRef: string, didLog: string): Promise<void>;
+    private resolveDocumentWriteUrl;
+    private resolveDidLogWriteUrl;
+    private defaultObjectKey;
+    private defaultBaseUrl;
+    private buildObjectUrl;
+    private ensureTrailingSlash;
+}
+
+## resolver/types.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { AgentRegistry } from '../registry/types';
+export interface DIDResolver {
+    registerDocument(document: AgentDIDDocument): void;
+    resolve(did: string): Promise<AgentDIDDocument>;
+    remove(did: string): void;
+}
+export interface DIDDocumentSource {
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    storeByReference?(documentRef: string, document: AgentDIDDocument): Promise<void>;
+    getDidLogByReference?(documentRef: string): Promise<string | null>;
+    storeDidLogByReference?(documentRef: string, didLog: string): Promise<void>;
+}
+export interface UniversalResolverConfig {
+    registry: AgentRegistry;
+    documentSource: DIDDocumentSource;
+    wbaDocumentSource?: DIDDocumentSource;
+    webvhDocumentSource?: DIDDocumentSource;
+    fallbackResolver?: DIDResolver;
+    cacheTtlMs?: number;
+    onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+}
+export interface ResolverCacheStats {
+    hits: number;
+    misses: number;
+    size: number;
+}
+export type ResolverResolutionStage = 'cache-hit' | 'cache-miss' | 'registry-lookup' | 'source-fetch' | 'source-fetched' | 'fallback' | 'resolved' | 'error';
+export interface ResolverResolutionEvent {
+    did: string;
+    stage: ResolverResolutionStage;
+    durationMs: number;
+    message?: string;
+}
+
+## resolver/UniversalResolverClient.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { DIDResolver, ResolverCacheStats, UniversalResolverConfig } from './types';
+export declare class UniversalResolverClient implements DIDResolver {
+    private readonly config;
+    private readonly registry;
+    private readonly documentSource;
+    private readonly wbaDocumentSource;
+    private readonly webvhDocumentSource;
+    private readonly fallbackResolver;
+    private readonly cacheTtlMs;
+    private readonly onResolutionEvent;
+    private readonly cache;
+    private hits;
+    private misses;
+    constructor(config: UniversalResolverConfig);
+    registerDocument(document: AgentDIDDocument): void;
+    resolve(did: string): Promise<AgentDIDDocument>;
+    remove(did: string): void;
+    getCacheStats(): ResolverCacheStats;
+    private resolveWithFallback;
+    private resolveDidWba;
+    private resolveDidWebvh;
+    private emitEvent;
+    private isDidWba;
+    private isDidWebvh;
+    private deriveDidWbaDocumentUrl;
+    private deriveDidWebvhDocumentUrl;
+    private decodeDidWbaSegment;
+    private computeDocumentReference;
+    private clone;
+}
+
+## resolver/WebvhDIDDocumentSource.d.ts
+import { AgentDIDDocument } from '../core/types';
+import { HttpTargetValidationOptions } from '../core/http-security';
+import { DIDDocumentSource } from './types';
+type FetchLikeResponse = {
+    ok: boolean;
+    status: number;
+    text?: () => Promise<string>;
+    json?: () => Promise<unknown>;
+};
+type FetchLike = (url: string) => Promise<FetchLikeResponse>;
+export interface WebvhDIDDocumentSourceConfig {
+    referenceToUrl?: (documentRef: string) => string;
+    referenceToUrls?: (documentRef: string) => string[];
+    fetchFn?: FetchLike;
+    httpSecurity?: HttpTargetValidationOptions;
+}
+export declare class WebvhDIDDocumentSource implements DIDDocumentSource {
+    private readonly referenceToUrl;
+    private readonly referenceToUrls;
+    private readonly fetchFn;
+    private readonly httpSecurity;
+    constructor(config?: WebvhDIDDocumentSourceConfig);
+    getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    private resolveCandidateUrls;
+    private readResponseText;
+    private extractLatestState;
+}
+export {};

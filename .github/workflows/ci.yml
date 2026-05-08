@@ -57,6 +57,9 @@ jobs:
       - name: Check TypeScript public API snapshot
         run: npm --prefix sdk run api:check
 
+      - name: Check TypeScript public API signature snapshot
+        run: npm --prefix sdk run api:signature:check
+
       - name: Install contract dependencies
         run: npm --prefix contracts ci
 

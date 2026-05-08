@@ -12,9 +12,11 @@
   "scripts": {
     "api:snapshot": "node ./scripts/public-api-snapshot.mjs --write",
     "api:check": "node ./scripts/public-api-snapshot.mjs --check",
+    "api:signature:snapshot": "node ./scripts/public-api-signature-snapshot.mjs --write",
+    "api:signature:check": "node ./scripts/public-api-signature-snapshot.mjs --check",
     "build": "tsc",
     "test": "jest",
-    "prepublishOnly": "npm run api:check && npm run build && npm test"
+    "prepublishOnly": "npm run api:check && npm run api:signature:check && npm run build && npm test"
   },
   "keywords": [
     "did",

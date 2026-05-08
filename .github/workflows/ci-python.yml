@@ -60,6 +60,11 @@ jobs:
         working-directory: sdk-python
         run: python scripts/public_api_snapshot.py --check
 
+      - name: Check Python public API signature snapshot
+        if: matrix.python-version == '3.12'
+        working-directory: sdk-python
+        run: python scripts/public_api_signature_snapshot.py --check
+
       - name: Install contract dependencies
         if: matrix.python-version == '3.12'
         run: npm --prefix contracts ci

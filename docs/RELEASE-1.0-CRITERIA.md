@@ -72,8 +72,8 @@ The path to `1.0.0` is now:
   - Snapshot drift is a blocking CI failure in `ci.yml` (TS) and `ci-python.yml` (Python).
   - Scope limitation: this stage detects **added/removed/renamed** public exports only. It does **not** detect signature, type, or class-member changes — those are covered by C-API-2.
 - [ ] **C-API-2** — Signature-level public API compatibility gate (follow-up to C-API-1):
-  - TypeScript: emit `.d.ts` (or use `@microsoft/api-extractor`) and diff the generated API report on every PR.
-  - Python: capture signatures and class members via `griffe` or `mypy stubgen` and diff per PR.
+  - TypeScript: emit `.d.ts` and diff the generated signature snapshot on every PR (`sdk/public-api.signature.snapshot.txt`, checked via `npm --prefix sdk run api:signature:check`).
+  - Python: capture signatures and class members and diff the generated signature snapshot on every PR (`sdk-python/public-api.signature.snapshot.txt`, checked via `python sdk-python/scripts/public_api_signature_snapshot.py --check`).
   - Any change to this signature-level snapshot requires a major bump (post-1.0).
   - Tracking issue: see `RELEASE-1.0-CRITERIA` follow-up issue *Harden public API snapshot to signature-level gate*.
 - [ ] **C-API-3** — `@internal` / private symbols clearly marked; not part of the public contract.

@@ -78,11 +78,14 @@ Public Review example: SDK signature verification now enforces DID verification-
 The following should be treated as breaking unless explicitly documented otherwise:
 
 - changing method names, parameter names, or required fields in the TS or Python SDKs
+- changing a public symbol in a way that changes the signature-level API snapshot (`sdk/public-api.signature.snapshot.txt` or `sdk-python/public-api.signature.snapshot.txt`)
 - changing DID document field semantics or requiredness
 - changing HTTP signature header semantics, covered components, or verification defaults
 - changing revocation, key rotation, or resolution behavior in a way that can flip a previous pass to a fail
 - changing canonical serialization rules used by signing or verification
 - changing package names, import paths, or integration bootstrap APIs
+
+After `1.0.0`, any intentional diff in the signature-level public API snapshot must be treated as a **major-version** change unless the symbol is explicitly out of the public contract.
 
 ## Communication Rules
 
