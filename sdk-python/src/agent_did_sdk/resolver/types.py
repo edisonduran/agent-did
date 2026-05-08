@@ -20,6 +20,8 @@ class DIDResolver(Protocol):
 @runtime_checkable
 class DIDDocumentSource(Protocol):
     async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None: ...
+    async def get_did_log_by_reference(self, document_ref: str) -> str | None: ...
+    async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None: ...
 
 
 ResolverResolutionStage = Literal[
@@ -54,6 +56,7 @@ class UniversalResolverConfig:
     registry: AgentRegistry
     document_source: DIDDocumentSource
     wba_document_source: DIDDocumentSource | None = None
+    webvh_document_source: DIDDocumentSource | None = None
     fallback_resolver: DIDResolver | None = None
     cache_ttl_ms: int = 60_000
     on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None

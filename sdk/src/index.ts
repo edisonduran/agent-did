@@ -98,6 +98,31 @@ export {
 } from './resolver/HttpDIDDocumentSource';
 
 export {
+  BearerTokenHttpDIDDocumentSource,
+  BearerTokenHttpDIDDocumentSourceConfig
+} from './resolver/BearerTokenHttpDIDDocumentSource';
+
+export {
+  FilesystemDIDDocumentSource,
+  FilesystemDIDDocumentSourceConfig
+} from './resolver/FilesystemDIDDocumentSource';
+
+export {
+  PresignedHttpDIDDocumentSource,
+  PresignedHttpDIDDocumentSourceConfig
+} from './resolver/PresignedHttpDIDDocumentSource';
+
+export {
+  S3CompatibleDIDDocumentSource,
+  S3CompatibleDIDDocumentSourceConfig
+} from './resolver/S3CompatibleDIDDocumentSource';
+
+export {
+  AwsSigV4S3DIDDocumentSource,
+  AwsSigV4S3DIDDocumentSourceConfig
+} from './resolver/AwsSigV4S3DIDDocumentSource';
+
+export {
   JsonRpcDIDDocumentSource,
   JsonRpcDIDDocumentSourceConfig
 } from './resolver/JsonRpcDIDDocumentSource';

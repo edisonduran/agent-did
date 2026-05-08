@@ -56,7 +56,8 @@ async function main() {
   const { document, agentPrivateKey } = await identity.create({
     name: 'EvmLinkedBot',
     coreModel: 'gpt-4o-mini',
-    systemPrompt: 'You are a compliant enterprise assistant'
+    systemPrompt: 'You are a compliant enterprise assistant',
+    didMethod: 'agent'
   });
 
   const payload = 'approve:order:456';

@@ -23,6 +23,7 @@ import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
 import { UniversalResolverClient } from '../resolver/UniversalResolverClient';
 import { HttpDIDDocumentSource } from '../resolver/HttpDIDDocumentSource';
 import { JsonRpcDIDDocumentSource } from '../resolver/JsonRpcDIDDocumentSource';
+import { WebvhDIDDocumentSource } from '../resolver/WebvhDIDDocumentSource';
 import { AgentRegistry } from '../registry/types';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
@@ -37,6 +38,7 @@ export interface ProductionResolverProfileConfig {
   registry: AgentRegistry;
   documentSource: DIDDocumentSource;
   wbaDocumentSource?: DIDDocumentSource;
+  webvhDocumentSource?: DIDDocumentSource;
   cacheTtlMs?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
 }
@@ -46,7 +48,7 @@ export interface ProductionHttpResolverProfileConfig {
   cacheTtlMs?: number;
   referenceToUrl?: (documentRef: string) => string;
   referenceToUrls?: (documentRef: string) => string[];
-  fetchFn?: (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+  fetchFn?: (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text?: () => Promise<string> }>;
   ipfsGateways?: string[];
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
   httpSecurity?: import('./http-security').HttpTargetValidationOptions;
@@ -65,10 +67,17 @@ export interface ProductionJsonRpcResolverProfileConfig {
   httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 
+interface StoredDocumentRevision {
+  entry: AgentDocumentHistoryEntry;
+  document: AgentDIDDocument;
+}
+
 export class AgentIdentity {
+  private static readonly defaultWebvhDomain = 'agents.local';
   private static resolver: DIDResolver = new InMemoryDIDResolver();
   private static registry: AgentRegistry = new InMemoryAgentRegistry();
   private static readonly documentHistoryStore: Map<string, AgentDocumentHistoryEntry[]> = new Map();
+  private static readonly documentRevisionStore: Map<string, StoredDocumentRevision[]> = new Map();
   private readonly signer: ethers.Signer;
   private readonly network: string;
 
@@ -89,15 +98,26 @@ export class AgentIdentity {
    * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
    */
   public async create(params: CreateAgentParams): Promise<CreateAgentResult> {
-    // 1. Get the Controller's address (The Creator)
     const controllerAddress = await this.signer.getAddress();
-    const controllerDid = `did:ethr:${controllerAddress}`;
+    const didMethod = params.didMethod || 'webvh';
+    const webvhOptions = didMethod === 'webvh'
+      ? AgentIdentity.resolveWebvhCreateOptions(params, controllerAddress)
+      : undefined;
+
+    // 1. Get the Controller's address (The Creator)
+    const controllerDid = webvhOptions?.controllerDid || `did:ethr:${controllerAddress}`;
+    if (didMethod === 'webvh') {
+      await AgentIdentity.ensureBootstrapControllerDocument(controllerDid);
+    }
 
     // 2. Generate a unique Agent ID (Hash of controller + timestamp + random nonce)
     const timestamp = AgentIdentity.nowIsoTimestamp();
     const nonce = ethers.hexlify(ethers.randomBytes(16));
-    const rawAgentId = ethers.keccak256(ethers.toUtf8Bytes(`${controllerAddress}-${timestamp}-${nonce}`));
-    const agentDid = `did:agent:${this.network}:${rawAgentId}`;
+    const identitySeed = webvhOptions?.controllerDid || controllerAddress;
+    const rawAgentId = ethers.keccak256(ethers.toUtf8Bytes(`${identitySeed}-${timestamp}-${nonce}`));
+    const agentDid = didMethod === 'webvh'
+      ? AgentIdentity.buildDidWebvh(rawAgentId, webvhOptions as NonNullable<CreateAgentParams['webvh']>)
+      : `did:agent:${this.network}:${rawAgentId}`;
 
     // 3. Hash the sensitive Intellectual Property (IP)
     const coreModelHashUri = generateAgentMetadataHash(params.coreModel);
@@ -116,16 +136,18 @@ export class AgentIdentity {
       publicKeyBytes = await localSigner.getPublicKey();
     }
     
-    // We also generate an EVM wallet for Account Abstraction (ERC-4337)
-    const agentWallet = ethers.Wallet.createRandom();
     const verificationMethodId = `${agentDid}#key-1`;
-    
+
+    const blockchainAccountId = didMethod === 'webvh'
+      ? undefined
+      : `eip155:1:${ethers.Wallet.createRandom().address}`;
+
     const verificationMethod: VerificationMethod = {
       id: verificationMethodId,
       type: "Ed25519VerificationKey2020",
       controller: controllerDid,
       publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes),
-      blockchainAccountId: `eip155:1:${agentWallet.address}` // Assuming Ethereum Mainnet format for the account ID
+      blockchainAccountId
     };
 
     // 5. Assemble the final JSON-LD Document (RFC-001 Compliant)
@@ -157,6 +179,123 @@ export class AgentIdentity {
       document,
       agentPrivateKey: privateKeyHex
     };
+  }
+
+  private static resolveWebvhCreateOptions(
+    params: CreateAgentParams,
+    controllerAddress: string
+  ): NonNullable<CreateAgentParams['webvh']> {
+    if (params.webvh?.domain?.trim()) {
+      return AgentIdentity.requireWebvhCreateOptions(params);
+    }
+
+    const normalizedControllerAddress = controllerAddress.trim().toLowerCase();
+    const controllerScid = ethers.keccak256(
+      ethers.toUtf8Bytes(`${normalizedControllerAddress}:controller`)
+    ).replace(/^0x/, '');
+    const controllerDid = AgentIdentity.composeDidWebvh(
+      controllerScid,
+      AgentIdentity.defaultWebvhDomain,
+      ['controllers', AgentIdentity.normalizeDidPathSegment(normalizedControllerAddress)]
+    );
+
+    return {
+      domain: AgentIdentity.defaultWebvhDomain,
+      controllerDid,
+      pathSegments: ['agents', AgentIdentity.normalizeDidPathSegment(params.name)]
+    };
+  }
+
+  private static requireWebvhCreateOptions(params: CreateAgentParams): NonNullable<CreateAgentParams['webvh']> {
+    if (!params.webvh?.domain?.trim()) {
+      throw new Error('webvh.domain is required when didMethod is webvh');
+    }
+
+    if (!params.webvh.controllerDid?.trim()) {
+      throw new Error('webvh.controllerDid is required when didMethod is webvh');
+    }
+
+    return params.webvh;
+  }
+
+  private static buildDidWebvh(rawAgentId: string, options: NonNullable<CreateAgentParams['webvh']>): string {
+    const scid = (options.scid?.trim() || rawAgentId.replace(/^0x/, ''));
+    return AgentIdentity.composeDidWebvh(scid, options.domain, options.pathSegments);
+  }
+
+  private static composeDidWebvh(scid: string, domain: string, pathSegments?: string[]): string {
+    const encodedDomain = encodeURIComponent(domain.trim());
+    const encodedPathSegments = (pathSegments || [])
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0)
+      .map((segment) => encodeURIComponent(segment));
+
+    return ['did:webvh', scid.replace(/^0x/, ''), encodedDomain, ...encodedPathSegments].join(':');
+  }
+
+  private static normalizeDidPathSegment(value: string): string {
+    const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return normalized || 'agent';
+  }
+
+  private static async ensureBootstrapControllerDocument(controllerDid: string): Promise<void> {
+    const existing = await AgentIdentity.registry.getRecord(controllerDid);
+    if (existing) {
+      return;
+    }
+
+    const controllerKeySeed = ethers.keccak256(
+      ethers.toUtf8Bytes(`${controllerDid}:bootstrap-key`)
+    ).replace(/^0x/, '');
+    const controllerPublicKey = ed25519.getPublicKey(hexToBytes(controllerKeySeed));
+    const controllerVerificationMethodId = `${controllerDid}#key-1`;
+    const timestamp = AgentIdentity.nowIsoTimestamp();
+    const controllerDocument: AgentDIDDocument = {
+      '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
+      id: controllerDid,
+      controller: controllerDid,
+      created: timestamp,
+      updated: timestamp,
+      agentMetadata: {
+        name: `controller-${AgentIdentity.normalizeDidPathSegment(controllerDid.split(':').at(-1) || 'root')}`,
+        description: 'Local bootstrap controller root for canonical did:webvh flows.',
+        version: '1.0.0',
+        coreModelHash: generateAgentMetadataHash(`controller:${controllerDid}`),
+        systemPromptHash: generateAgentMetadataHash('controller-bootstrap-root')
+      },
+      verificationMethod: [{
+        id: controllerVerificationMethodId,
+        type: 'Ed25519VerificationKey2020',
+        controller: controllerDid,
+        publicKeyMultibase: encodePublicKeyMultibase(controllerPublicKey)
+      }],
+      authentication: [controllerVerificationMethodId],
+      assertionMethod: [controllerVerificationMethodId]
+    };
+
+    AgentIdentity.resolver.registerDocument(controllerDocument);
+    await AgentIdentity.registry.register(
+      controllerDocument.id,
+      controllerDocument.controller,
+      AgentIdentity.computeDocumentReference(controllerDocument)
+    );
+    AgentIdentity.appendHistory(controllerDocument, 'created');
+  }
+
+  private static async resolveActiveVerificationChain(did: string): Promise<AgentDIDDocument[]> {
+    const chain = did.startsWith('did:webvh:')
+      ? await AgentIdentity.resolveControllerChain(did)
+      : [await AgentIdentity.resolve(did)];
+
+    if (chain.some((document) => !AgentIdentity.hasActiveVerificationMethod(document))) {
+      throw new Error(`DID is not active: ${did}`);
+    }
+
+    return chain;
+  }
+
+  private static hasActiveVerificationMethod(document: AgentDIDDocument): boolean {
+    return document.verificationMethod.some((method) => Boolean(method.publicKeyMultibase) && !method.deactivated);
   }
 
   /**
@@ -335,13 +474,14 @@ export class AgentIdentity {
     keyId?: string,
     requiredPurpose: VerificationRelationship = 'assertionMethod'
   ): Promise<boolean> {
-    const isRevoked = await AgentIdentity.registry.isRevoked(did);
-
-    if (isRevoked) {
+    let verificationChain: AgentDIDDocument[];
+    try {
+      verificationChain = await AgentIdentity.resolveActiveVerificationChain(did);
+    } catch {
       return false;
     }
 
-    const didDoc = await AgentIdentity.resolve(did);
+    const didDoc = verificationChain[0];
     assertSigningPurpose(requiredPurpose, didDoc, keyId || '');
     if (keyId) {
       assertKeyPurpose(keyId, didDoc, requiredPurpose);
@@ -395,12 +535,14 @@ export class AgentIdentity {
     keyId: string,
     requiredPurpose: VerificationRelationship = 'assertionMethod'
   ): Promise<boolean> {
-    const isRevoked = await AgentIdentity.registry.isRevoked(did);
-    if (isRevoked) {
+    let verificationChain: AgentDIDDocument[];
+    try {
+      verificationChain = await AgentIdentity.resolveActiveVerificationChain(did);
+    } catch {
       return false;
     }
 
-    const didDoc = await AgentIdentity.resolve(did);
+    const didDoc = verificationChain[0];
     assertSigningPurpose(requiredPurpose, didDoc, keyId);
     assertKeyPurpose(keyId, didDoc, requiredPurpose);
 
@@ -437,6 +579,37 @@ export class AgentIdentity {
     return AgentIdentity.resolver.resolve(did);
   }
 
+  public static async resolveControllerChain(did: string, maxDepth = 8): Promise<AgentDIDDocument[]> {
+    if (!Number.isInteger(maxDepth) || maxDepth < 1) {
+      throw new Error('maxDepth must be a positive integer');
+    }
+
+    const chain: AgentDIDDocument[] = [];
+    const visited = new Set<string>();
+    let currentDid = did;
+
+    while (true) {
+      if (visited.has(currentDid)) {
+        throw new Error(`Controller chain cycle detected at DID: ${currentDid}`);
+      }
+
+      if (chain.length >= maxDepth) {
+        throw new Error(`Controller chain exceeded max depth of ${maxDepth} starting from DID: ${did}`);
+      }
+
+      visited.add(currentDid);
+      const current = await AgentIdentity.resolve(currentDid);
+      chain.push(current);
+
+      const controllerDid = current.controller?.trim();
+      if (!controllerDid || controllerDid === currentDid || !controllerDid.startsWith('did:')) {
+        return chain;
+      }
+
+      currentDid = controllerDid;
+    }
+  }
+
   public static async revokeDid(did: string): Promise<void> {
     const existing = await AgentIdentity.resolve(did);
     await AgentIdentity.registry.revoke(did);
@@ -449,7 +622,7 @@ export class AgentIdentity {
     }
 
     const existing = await AgentIdentity.resolve(did);
-    const now = AgentIdentity.nowIsoTimestamp();
+    const now = AgentIdentity.nextDocumentTimestamp(existing.updated);
 
     const updatedDocument: AgentDIDDocument = {
       ...existing,
@@ -498,7 +671,7 @@ export class AgentIdentity {
       publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes)
     };
 
-    const deactivatedTimestamp = AgentIdentity.nowIsoTimestamp();
+    const deactivatedTimestamp = AgentIdentity.nextDocumentTimestamp(existing.updated);
     const deactivatedMethods = existing.verificationMethod.map((method) => ({
       ...method,
       deactivated: method.deactivated || deactivatedTimestamp
@@ -528,6 +701,86 @@ export class AgentIdentity {
     return JSON.parse(JSON.stringify(history)) as AgentDocumentHistoryEntry[];
   }
 
+  public static exportDidWebvhHistory(did: string): string {
+    const scid = AgentIdentity.extractDidWebvhScid(did);
+    const revisions = AgentIdentity.documentRevisionStore.get(did) || [];
+
+    if (revisions.length === 0) {
+      throw new Error(`No document history found for DID: ${did}`);
+    }
+
+    const stateRevisions = revisions.filter(({ entry }) => entry.action !== 'revoked');
+
+    if (stateRevisions.length === 0) {
+      throw new Error(`No did:webvh state revisions available for DID: ${did}`);
+    }
+
+    return stateRevisions.map(({ document }, index) => JSON.stringify({
+      versionId: `${index + 1}-${scid}`,
+      versionTime: document.updated,
+      state: AgentIdentity.cloneDocument(document)
+    })).join('\n');
+  }
+
+  public static async importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument> {
+    const revisions = AgentIdentity.parseDidWebvhHistory(didLog);
+    const latestRevision = revisions[revisions.length - 1];
+    const did = latestRevision.document.id;
+    const latestDocument = AgentIdentity.cloneDocument(latestRevision.document);
+    const documentRef = AgentIdentity.computeDocumentReference(latestDocument);
+
+    AgentIdentity.documentHistoryStore.set(did, revisions.map(({ entry }) => JSON.parse(JSON.stringify(entry)) as AgentDocumentHistoryEntry));
+    AgentIdentity.documentRevisionStore.set(did, revisions.map(({ entry, document }) => ({
+      entry: JSON.parse(JSON.stringify(entry)) as AgentDocumentHistoryEntry,
+      document: AgentIdentity.cloneDocument(document)
+    })));
+
+    AgentIdentity.resolver.registerDocument(latestDocument);
+    await AgentIdentity.registry.register(latestDocument.id, latestDocument.controller, documentRef);
+    await AgentIdentity.registry.setDocumentReference(latestDocument.id, documentRef);
+
+    return latestDocument;
+  }
+
+  public static async saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void> {
+    const fs = await import('node:fs/promises');
+    await fs.writeFile(filePath, AgentIdentity.exportDidWebvhHistory(did), 'utf8');
+  }
+
+  public static async loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument> {
+    const fs = await import('node:fs/promises');
+    const didLog = await fs.readFile(filePath, 'utf8');
+    return AgentIdentity.importDidWebvhHistory(didLog);
+  }
+
+  public static async persistDidWebvhHistoryToSource(
+    did: string,
+    documentRef: string,
+    source: DIDDocumentSource
+  ): Promise<void> {
+    if (!source.storeDidLogByReference) {
+      throw new Error('DIDDocumentSource does not support did:webvh log persistence');
+    }
+
+    await source.storeDidLogByReference(documentRef, AgentIdentity.exportDidWebvhHistory(did));
+  }
+
+  public static async restoreDidWebvhHistoryFromSource(
+    documentRef: string,
+    source: DIDDocumentSource
+  ): Promise<AgentDIDDocument> {
+    if (!source.getDidLogByReference) {
+      throw new Error('DIDDocumentSource does not support did:webvh log retrieval');
+    }
+
+    const didLog = await source.getDidLogByReference(documentRef);
+    if (!didLog) {
+      throw new Error(`did:webvh DID log not found for reference: ${documentRef}`);
+    }
+
+    return AgentIdentity.importDidWebvhHistory(didLog);
+  }
+
   public static setResolver(resolver: DIDResolver): void {
     AgentIdentity.resolver = resolver;
   }
@@ -541,6 +794,7 @@ export class AgentIdentity {
       registry: config.registry,
       documentSource: config.documentSource,
       wbaDocumentSource: config.wbaDocumentSource,
+      webvhDocumentSource: config.webvhDocumentSource,
       fallbackResolver: AgentIdentity.resolver,
       cacheTtlMs: config.cacheTtlMs,
       onResolutionEvent: config.onResolutionEvent
@@ -555,11 +809,18 @@ export class AgentIdentity {
       ipfsGateways: config.ipfsGateways,
       httpSecurity: config.httpSecurity
     });
+    const webvhSource = new WebvhDIDDocumentSource({
+      referenceToUrl: config.referenceToUrl,
+      referenceToUrls: config.referenceToUrls,
+      fetchFn: config.fetchFn,
+      httpSecurity: config.httpSecurity
+    });
 
     AgentIdentity.useProductionResolver({
       registry: config.registry,
       documentSource: httpSource,
       wbaDocumentSource: httpSource,
+      webvhDocumentSource: webvhSource,
       cacheTtlMs: config.cacheTtlMs,
       onResolutionEvent: config.onResolutionEvent
     });
@@ -698,9 +959,103 @@ export class AgentIdentity {
     return parsed;
   }
 
+  private static extractDidWebvhScid(did: string): string {
+    if (!did.startsWith('did:webvh:')) {
+      throw new Error(`did:webvh DID is required for history export: ${did}`);
+    }
+
+    const suffix = did.slice('did:webvh:'.length);
+    const [scid] = suffix.split(':');
+
+    if (!scid) {
+      throw new Error(`Invalid did:webvh DID: ${did}`);
+    }
+
+    return scid;
+  }
+
+  private static parseDidWebvhHistory(didLog: string): StoredDocumentRevision[] {
+    const lines = didLog
+      .split(/\r?\n/u)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      throw new Error('did:webvh DID log is empty');
+    }
+
+    let currentDid: string | undefined;
+    let previousDocument: AgentDIDDocument | undefined;
+
+    return lines.map((line, index) => {
+      const parsed = JSON.parse(line) as { versionId?: string; versionTime?: string; state?: AgentDIDDocument };
+      if (!parsed.state || typeof parsed.state.id !== 'string') {
+        throw new Error('did:webvh DID log does not contain a resolvable state entry');
+      }
+
+      const document = AgentIdentity.cloneDocument(parsed.state);
+      const scid = AgentIdentity.extractDidWebvhScid(document.id);
+      if (parsed.versionId && !parsed.versionId.endsWith(`-${scid}`)) {
+        throw new Error(`did:webvh DID log versionId does not match DID SCID: ${parsed.versionId}`);
+      }
+
+      if (currentDid && document.id !== currentDid) {
+        throw new Error(`did:webvh DID log mixes multiple DIDs: ${currentDid} and ${document.id}`);
+      }
+      currentDid = document.id;
+
+      const action = AgentIdentity.inferImportedHistoryAction(previousDocument, document, index);
+      const entry: AgentDocumentHistoryEntry = {
+        did: document.id,
+        revision: index + 1,
+        action,
+        timestamp: typeof parsed.versionTime === 'string' && parsed.versionTime.trim().length > 0
+          ? parsed.versionTime
+          : document.updated,
+        version: document.agentMetadata.version,
+        documentRef: AgentIdentity.computeDocumentReference(document)
+      };
+
+      previousDocument = AgentIdentity.cloneDocument(document);
+      return { entry, document };
+    });
+  }
+
+  private static inferImportedHistoryAction(
+    previousDocument: AgentDIDDocument | undefined,
+    currentDocument: AgentDIDDocument,
+    index: number
+  ): AgentDocumentHistoryAction {
+    if (index === 0 || !previousDocument) {
+      return 'created';
+    }
+
+    if (currentDocument.verificationMethod.length !== previousDocument.verificationMethod.length) {
+      return 'rotated-key';
+    }
+
+    return 'updated';
+  }
+
+  private static cloneDocument(document: AgentDIDDocument): AgentDIDDocument {
+    return JSON.parse(JSON.stringify(document)) as AgentDIDDocument;
+  }
+
+  private static nextDocumentTimestamp(previousTimestamp?: string): string {
+    const now = Date.now();
+    const previous = previousTimestamp ? Date.parse(previousTimestamp) : Number.NaN;
+
+    if (!Number.isNaN(previous) && now <= previous) {
+      return normalizeTimestampToIso(new Date(previous + 1).toISOString()) as string;
+    }
+
+    return AgentIdentity.nowIsoTimestamp();
+  }
+
   private static appendHistory(document: AgentDIDDocument, action: AgentDocumentHistoryAction): void {
     const did = document.id;
     const currentHistory = AgentIdentity.documentHistoryStore.get(did) || [];
+    const currentRevisions = AgentIdentity.documentRevisionStore.get(did) || [];
     const nextRevision = currentHistory.length + 1;
 
     const entry: AgentDocumentHistoryEntry = {
@@ -713,5 +1068,9 @@ export class AgentIdentity {
     };
 
     AgentIdentity.documentHistoryStore.set(did, [...currentHistory, entry]);
+    AgentIdentity.documentRevisionStore.set(did, [...currentRevisions, {
+      entry: JSON.parse(JSON.stringify(entry)) as AgentDocumentHistoryEntry,
+      document: AgentIdentity.cloneDocument(document)
+    }]);
   }
 }

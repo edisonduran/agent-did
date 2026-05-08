@@ -33,6 +33,7 @@ from .core.types import (
     AgentMetadata,
     CreateAgentParams,
     CreateAgentResult,
+    CreateDidWebvhOptions,
     IdentityCompositionErrorReason,
     RotateVerificationMethodResult,
     SignHttpRequestParams,
@@ -51,8 +52,14 @@ from .registry.in_memory import InMemoryAgentRegistry
 from .registry.types import AgentRegistry, AgentRegistryRecord
 from .registry.web3_client import Web3AgentRegistryContractClient
 from .resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
+from .resolver.bearer_http_source import BearerTokenHttpDIDDocumentSource, BearerTokenHttpDIDDocumentSourceConfig
+from .resolver.file_source import FilesystemDIDDocumentSource, FilesystemDIDDocumentSourceConfig
 from .resolver.in_memory import InMemoryDIDResolver
 from .resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
+from .resolver.aws_sigv4_s3_source import AwsSigV4S3DIDDocumentSource, AwsSigV4S3DIDDocumentSourceConfig
+from .resolver.presigned_http_source import PresignedHttpDIDDocumentSource, PresignedHttpDIDDocumentSourceConfig
+from .resolver.s3_compatible_source import S3CompatibleDIDDocumentSource, S3CompatibleDIDDocumentSourceConfig
+from .resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
 from .resolver.types import (
     DIDDocumentSource,
     DIDResolver,
@@ -69,6 +76,7 @@ __all__ = [
     "VerifiableCredentialLink",
     "VerificationMethod",
     "AgentDIDDocument",
+    "CreateDidWebvhOptions",
     "VerificationRelationship",
     "SigningVerificationPurpose",
     "IdentityCompositionErrorReason",
@@ -131,6 +139,18 @@ __all__ = [
     "UniversalResolverClient",
     "HttpDIDDocumentSource",
     "HttpDIDDocumentSourceConfig",
+    "BearerTokenHttpDIDDocumentSource",
+    "BearerTokenHttpDIDDocumentSourceConfig",
+    "FilesystemDIDDocumentSource",
+    "FilesystemDIDDocumentSourceConfig",
+    "AwsSigV4S3DIDDocumentSource",
+    "AwsSigV4S3DIDDocumentSourceConfig",
+    "PresignedHttpDIDDocumentSource",
+    "PresignedHttpDIDDocumentSourceConfig",
+    "S3CompatibleDIDDocumentSource",
+    "S3CompatibleDIDDocumentSourceConfig",
     "JsonRpcDIDDocumentSource",
     "JsonRpcDIDDocumentSourceConfig",
+    "WebvhDIDDocumentSource",
+    "WebvhDIDDocumentSourceConfig",
 ]

@@ -20,12 +20,19 @@ export interface VerifiableCredentialLink {
 }
 
 export interface VerificationMethod {
-  id: string; // e.g., "did:agent:0x...#key-1"
+  id: string; // e.g., "did:agent:0x...#key-1" or "did:webvh:...#key-1"
   type: string; // e.g., "Ed25519VerificationKey2020" or "EcdsaSecp256k1RecoveryMethod2020"
   controller: string; // DID of the creator/owner
   publicKeyMultibase?: string;
   blockchainAccountId?: string; // For EVM/Smart Account compatibility (ERC-4337)
   deactivated?: string; // ISO 8601 timestamp when the key was rotated out
+}
+
+export interface CreateDidWebvhOptions {
+  domain: string;
+  controllerDid: string;
+  pathSegments?: string[];
+  scid?: string;
 }
 
 export type VerificationRelationship =
@@ -72,6 +79,10 @@ export interface CreateAgentParams {
   memberOf?: string;
   /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
   signer?: import('./signer').AgentSigner;
+  /** DID emission profile. Defaults to the canonical `did:webvh` profile. */
+  didMethod?: 'agent' | 'webvh';
+  /** Optional when `didMethod` is `webvh`; omitted values trigger local bootstrap defaults. */
+  webvh?: CreateDidWebvhOptions;
 }
 
 /**

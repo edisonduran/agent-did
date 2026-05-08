@@ -38,6 +38,34 @@ def _make_doc(did: str = "did:agent:polygon:0xtest") -> AgentDIDDocument:
     )
 
 
+def _make_webvh_doc(did: str = "did:webvh:QmExampleScid:example.com:agents:test") -> AgentDIDDocument:
+    return AgentDIDDocument(
+        **{
+            "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
+            "id": did,
+            "controller": "did:webvh:QmControllerScid:example.com:organizations:acme-support",
+            "created": "2024-01-01T00:00:00Z",
+            "updated": "2024-01-01T00:00:00Z",
+            "agentMetadata": {
+                "name": "WebvhTestAgent",
+                "version": "1.0.0",
+                "coreModelHash": "hash://sha256/abc",
+                "systemPromptHash": "hash://sha256/def",
+            },
+            "verificationMethod": [
+                {
+                    "id": f"{did}#key-1",
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": "did:webvh:QmControllerScid:example.com:organizations:acme-support",
+                    "publicKeyMultibase": "z1234",
+                }
+            ],
+            "authentication": [f"{did}#key-1"],
+            "assertionMethod": [f"{did}#key-1"],
+        }
+    )
+
+
 class FakeSource:
     def __init__(self, doc: AgentDIDDocument | None = None) -> None:
         self._doc = doc
@@ -139,4 +167,41 @@ class TestUniversalResolverClient:
         assert resolved.id == did
         assert registry.get_record_calls == 0
         assert wba_source.calls == ["https://agents.example:8443/profiles/alice/did.json"]
+        assert resolver.get_cache_stats().misses == 1
+
+    async def test_resolve_did_webvh_from_well_known_without_registry_lookup(self) -> None:
+        did = "did:webvh:QmExampleScid:agents.example"
+        registry = SpyRegistry()
+        source = FakeSource(_make_doc())
+        webvh_source = FakeSource(_make_webvh_doc(did))
+        resolver = UniversalResolverClient(UniversalResolverConfig(
+            registry=registry,
+            document_source=source,
+            webvh_document_source=webvh_source,
+            cache_ttl_ms=60_000,
+        ))
+
+        resolved = await resolver.resolve(did)
+
+        assert resolved.id == did
+        assert registry.get_record_calls == 0
+        assert source.calls == []
+        assert webvh_source.calls == ["https://agents.example/.well-known/did.jsonl"]
+
+    async def test_resolve_did_webvh_nested_path(self) -> None:
+        did = "did:webvh:QmExampleScid:agents.example%3A8443:profiles:alice"
+        registry = SpyRegistry()
+        webvh_source = FakeSource(_make_webvh_doc(did))
+        resolver = UniversalResolverClient(UniversalResolverConfig(
+            registry=registry,
+            document_source=FakeSource(None),
+            webvh_document_source=webvh_source,
+            cache_ttl_ms=60_000,
+        ))
+
+        resolved = await resolver.resolve(did)
+
+        assert resolved.id == did
+        assert registry.get_record_calls == 0
+        assert webvh_source.calls == ["https://agents.example:8443/profiles/alice/did.jsonl"]
         assert resolver.get_cache_stats().misses == 1

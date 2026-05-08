@@ -22,8 +22,10 @@ This index is the fast path through the repository documentation.
 
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
-| [../CHANGELOG.md](../CHANGELOG.md) | Users, Contributors, Reviewers | Stable | Root changelog for the co-versioned ecosystem release train (RFC + SDKs + integrations + contracts). |
+| [../CHANGELOG.md](../CHANGELOG.md) | Users, Contributors, Reviewers | Stable | Root changelog for the co-versioned core ecosystem release train (RFC + SDKs + integrations). |
+| [RFC-001-CHANGELOG.md](RFC-001-CHANGELOG.md) | Users, Contributors, Reviewers | Draft | Tracks normative/document-history changes specific to RFC-001, including the planned v0.3 pivot to the `did:webvh` application-pattern model. |
 | [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md) | Contributors, Reviewers, Maintainers | Draft | Non-negotiable exit criteria and 3-sprint plan toward `v1.0.0`. |
+| [RELEASE-1.0-COMPATIBILITY-MATRIX.md](RELEASE-1.0-COMPATIBILITY-MATRIX.md) | Contributors, Reviewers, Maintainers | Draft | Initial package compatibility view for the co-versioned core `v1.0.0` release train. |
 
 ## Core Specification, Governance, and Operations
 
@@ -33,6 +35,7 @@ This index is the fast path through the repository documentation.
 | [Documentation-Governance.md](Documentation-Governance.md) | Contributors, Reviewers | Stable | Defines canonical sources of truth and live-document update rules. |
 | [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) | Users, Contributors, Reviewers | Stable | Explains breaking-change and support expectations during Public Review. |
 | [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) | Users, Contributors, Reviewers | Draft | Canonical Agent-DID specification under Public Review. |
+| [RFC-001-EVM-Profile.md](RFC-001-EVM-Profile.md) | Contributors, Reviewers | Draft | Optional deployment profile for EVM anchoring, contract policy, and smart-account behavior on top of core RFC-001. |
 | [RFC-001-A2A-Identity-Composition-Contract.md](RFC-001-A2A-Identity-Composition-Contract.md) | Contributors, Reviewers | Draft | Defines the A2A Agent Card and per-request signing composition contract co-drafted with APS. |
 | [RFC-001-Compliance-Checklist.md](RFC-001-Compliance-Checklist.md) | Contributors, Reviewers | Stable | Tracks RFC conformance claims against implemented behavior. |
 | [RFC-001-Implementation-Backlog.md](RFC-001-Implementation-Backlog.md) | Contributors, Reviewers | Stable | Execution history and remaining implementation work. |

@@ -127,7 +127,7 @@ These are publicly acknowledged limitations in the current Public Review baselin
 
 - **No formal external audit yet.** Roadmap item F3-04 (formal contract audit for mainnet deployment) is planned. The repository runs automated audit tools in CI but has not been reviewed by an independent firm.
 - **Resolver persistence is not bundled by default.** The universal resolver core is shipped, but F2-03 tracks operator-grade persistent backend hardening and optional additional transports such as Arweave. Operators running their own resolver should harden persistence and access control.
-- **No public testnet deployment of `AgentRegistry`.** F2-06 tracks this. Until then, third-party verification of on-chain behavior depends on running the contract locally.
+- **EVM/on-chain profile is deferred outside core 1.0.** Core `did:webvh` verification does not depend on public testnet deployment or on-chain overlay behavior. Any future EVM profile will require a separate scope decision and security review.
 - **No fuzzing of the HTTP signature verifier.** Property-based / adversarial tests for replay, header injection, and signature stripping are an open contribution area.
 - **Cross-SDK interop tests** exist via the shared conformance fixtures but are not yet exercised as a dedicated CI matrix that signs in one SDK and verifies in the other end-to-end on every PR.
 - **Supply chain provenance** (npm `--provenance`, PyPI Trusted Publishers, Sigstore) is not yet enabled on the publish workflows; see §6.

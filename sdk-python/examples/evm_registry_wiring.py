@@ -54,6 +54,7 @@ async def main() -> None:
             name="EvmLinkedBot",
             core_model="gpt-4o-mini",
             system_prompt="You are a compliant enterprise assistant",
+            did_method="agent",
         )
     )
 

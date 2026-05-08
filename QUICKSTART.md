@@ -2,11 +2,16 @@
 
 This guide gets you from install to a signed outbound HTTP request in a couple of minutes.
 
-The examples below are intentionally local and self-contained. They use an in-memory registry so you can prove the end-to-end flow without deploying a contract or a resolver.
+The canonical RFC-001 v0.3 deployment pattern starts from a `did:webvh` identity chain, for example:
+
+- controller/root: `did:webvh:example.com:organizations:acme-support`
+- agent: `did:webvh:example.com:agents:quickstart-bot`
+
+The examples below are intentionally local and self-contained. They use an in-memory registry so you can prove the end-to-end signing flow before wiring a hosted `did:webvh` publication and resolver path.
 
 If you want a live browser walkthrough before wiring code, open [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/): real signed handoffs, live tamper detection, and the published `@agentdid/sdk` running in the browser.
 
-## Node.js (TypeScript SDK)
+## Node.js (TypeScript SDK, local signing flow)
 
 Install:
 
@@ -53,7 +58,9 @@ const main = async () => {
 void main();
 ```
 
-## Python
+This snippet proves the current local SDK signing flow. The hosted `did:webvh` publication step from RFC-001 v0.3 is a separate deployment concern from this minimal example.
+
+## Python (local signing flow)
 
 Install:
 
@@ -98,6 +105,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+This snippet likewise validates the local SDK lifecycle first. Treat `did:webvh` publication and controller-chain hosting as the next deployment step, not as something this minimal example automates yet.
+
 ## What You Just Proved
 
 After the example runs successfully, you have demonstrated that Agent-DID can:
@@ -106,9 +115,11 @@ After the example runs successfully, you have demonstrated that Agent-DID can:
 - sign an outbound HTTP request with the agent's key material
 - verify that signature using the DID as the trust anchor
 
+This quickstart validates the local signing lifecycle. For the canonical deployment model introduced in RFC-001 v0.3, publish the resulting agent/controller relationship under `did:webvh` with a resolvable controller chain and hosted/verifiable history.
+
 ## Next Steps
 
+- Read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md) first if you want the canonical `did:webvh` pattern rather than the minimal local flow.
 - Open [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) for the live browser demo gallery.
-- Read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md) for the normative model.
 - Read [docs/Anti-Replay-HTTP-Signatures.md](docs/Anti-Replay-HTTP-Signatures.md) before deploying signed HTTP calls in production.
 - Read [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md) for pre-1.0 compatibility expectations.

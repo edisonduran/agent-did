@@ -42,6 +42,13 @@ class VerificationMethod(BaseModel):
     deactivated: str | None = None
 
 
+class CreateDidWebvhOptions(BaseModel):
+    domain: str
+    controller_did: str
+    path_segments: list[str] | None = None
+    scid: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # DID Document (top-level JSON-LD)
 # ---------------------------------------------------------------------------
@@ -85,6 +92,8 @@ class CreateAgentParams(BaseModel):
     capabilities: list[str] | None = None
     member_of: str | None = None
     signer: Any | None = None  # AgentSigner — optional external signer for production mode
+    did_method: Literal["agent", "webvh"] = "webvh"
+    webvh: CreateDidWebvhOptions | None = None
 
 
 class CreateAgentResult(BaseModel):

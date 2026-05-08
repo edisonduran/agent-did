@@ -201,11 +201,11 @@ The project occupies a strategic space of very high value with virtually no dire
 | F1-01 | Publish SDK on npm as `@agentdid/sdk` open-source | Technical | Visibility + organic adoption |
 | F1-02 | Translate README and key docs to English | Documentation | Global reach |
 | F1-03 | Deliver LangChain integration that injects Agent-DID identity | Integration | Access to the largest agent ecosystem |
-| F1-04 | Submit RFC-001 to DIF (Decentralized Identity Foundation) | Standards | Institutional credibility |
+| F1-04 | Prepare optional DIF / `did:webvh` companion-note material | Standards | Credibility by collaboration, not a 1.0 gate |
 | F1-05 | Automated smart contract audit (Slither/Mythril) | Security | Prerequisite for mainnet |
 | F1-06 | CI/CD pipeline with GitHub Actions | DevOps | Automated conformance per PR |
 
-Current status: F1-01, F1-02, F1-03, F1-05, and F1-06 are completed. F1-04 (DIF submission) remains open.
+Current status: F1-01, F1-02, F1-03, F1-05, and F1-06 are completed. F1-04 was reframed after ADR-001 as optional companion-note / ecosystem-collaboration work rather than a release blocker.
 
 ### Phase 2 — Ecosystem expansion (3-6 months)
 
@@ -216,18 +216,18 @@ Current status: F1-01, F1-02, F1-03, F1-05, and F1-06 are completed. F1-04 (DIF 
 | F2-03 | Production resolver with real backend (IPFS/Arweave + HTTP) | Technical | Production-readiness |
 | F2-04 | Semantic Kernel integration (completed) | Integration | Access to the Microsoft agent runtime already validated in Python |
 | F2-05 | CrewAI integration (completed) | Integration | Coverage of the most popular independent agent framework |
-| F2-06 | Deployment on public testnet with documentation | Infrastructure | Validation in real environment |
+| F2-06 | EVM/on-chain profile evaluation | Infrastructure | Deferred; revisit only if a concrete need appears after the web-native core path stabilizes |
 | F2-07 | Publication of theoretical paper as formal whitepaper | Marketing | Technical credibility |
 | F2-08 | Explore integration with Azure AI Agent Service | Integration | Identity layer for Azure-hosted agents |
 | F2-09 | Microsoft Agent Framework integration (completed) | Integration | Coverage of enterprise-oriented agent orchestration with native workflow validation |
 
-Phase 2 status: F2-01, F2-02, F2-04, F2-05, and F2-09 are completed. The Python SDK and the Semantic Kernel, CrewAI, Microsoft Agent Framework, and Google A2A integrations are implemented with dedicated CI and runtime-oriented validation. The remaining open tracks in this phase are F2-03, F2-06, F2-07, and F2-08.
+Phase 2 status: F2-01, F2-02, F2-04, F2-05, and F2-09 are completed. The Python SDK and the Semantic Kernel, CrewAI, Microsoft Agent Framework, and Google A2A integrations are implemented with dedicated CI and runtime-oriented validation. The remaining active open tracks in this phase are post-core hardening or ecosystem expansion: F2-03, F2-07, and F2-08. F2-06 is deferred and should only be reopened if a concrete EVM/on-chain need appears.
 
 ### Phase 3 — Maturity and standardization (6-12 months)
 
 | # | Action | Type | Expected impact |
 |---|---|---|---|
-| F3-01 | DID Method proposal (`did:agent`) to W3C DID WG | Standards | Recognition as official DID method |
+| F3-01 | Explore Agent-DID as a DIF / `did:webvh` companion note | Standards | Ecosystem collaboration without defining a new DID method |
 | F3-02 | Conformance certification as a service | Business | Monetization model |
 | F3-03 | Implement ZKP for capability verification | Technical | Advanced privacy without IP exposure |
 | F3-04 | Formal contract audit for mainnet | Security | Production deployment on Polygon/Base |

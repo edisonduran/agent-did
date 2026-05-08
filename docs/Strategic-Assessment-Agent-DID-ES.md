@@ -216,18 +216,18 @@ Estado actual: F1-01, F1-02, F1-03, F1-05 y F1-06 ya están completados. F1-04 (
 | F2-03 | Resolver de producción con backend real (IPFS/Arweave + HTTP) | Técnico | Production-readiness |
 | F2-04 | Integración para Semantic Kernel (completada) | Integración | Acceso al runtime de agentes de Microsoft ya validado en Python |
 | F2-05 | Integración para CrewAI (completada) | Integración | Cobertura del framework independiente de agentes más popular |
-| F2-06 | Despliegue en testnet pública con documentación | Infraestructura | Validación en entorno real |
+| F2-06 | Evaluación de perfil EVM/on-chain | Infraestructura | Diferido; reabrir sólo si aparece una necesidad concreta después de estabilizar el core web-native |
 | F2-07 | Publicación de paper teórico como whitepaper formal | Marketing | Credibilidad técnica |
 | F2-08 | Explorar integración con Azure AI Agent Service | Integración | Identity layer para agentes hospedados en Azure |
 | F2-09 | Integración para Microsoft Agent Framework (completada) | Integración | Cobertura de orquestación enterprise con validación nativa de workflows |
 
-Estado actual Fase 2: F2-01, F2-02, F2-04, F2-05 y F2-09 ya están completados. El SDK Python y las integraciones de Semantic Kernel, CrewAI, Microsoft Agent Framework y Google A2A están implementados con CI dedicada y validación orientada a runtime. Los tracks abiertos restantes en esta fase son F2-03, F2-06, F2-07 y F2-08.
+Estado actual Fase 2: F2-01, F2-02, F2-04, F2-05 y F2-09 ya están completados. El SDK Python y las integraciones de Semantic Kernel, CrewAI, Microsoft Agent Framework y Google A2A están implementados con CI dedicada y validación orientada a runtime. Los tracks activos restantes en esta fase son hardening post-core o expansión de ecosistema: F2-03, F2-07 y F2-08. F2-06 queda diferido y sólo debe reabrirse si aparece una necesidad concreta de EVM/on-chain.
 
 ### Fase 3 — Madurez y estándar (6-12 meses)
 
 | # | Acción | Tipo | Impacto esperado |
 |---|---|---|---|
-| F3-01 | Propuesta de DID Method (`did:agent`) a W3C DID WG | Estándares | Reconocimiento como método DID oficial |
+| F3-01 | Explorar Agent-DID como nota complementaria DIF / `did:webvh` | Estándares | Colaboración de ecosistema sin definir un DID Method nuevo |
 | F3-02 | Certificación de conformidad como servicio | Negocio | Modelo de monetización |
 | F3-03 | Implementar ZKP para verificación de capabilities | Técnico | Privacidad avanzada sin exposición de IP |
 | F3-04 | Auditoría formal de contrato para mainnet | Seguridad | Despliegue producción en Polygon/Base |

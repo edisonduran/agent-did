@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import httpx
 import pytest
 
@@ -13,6 +14,7 @@ from agent_did_sdk.core.identity_composition import (
     assert_signing_purpose,
 )
 from agent_did_sdk.core.types import (
+    AgentDIDDocument,
     CreateAgentParams,
     SignHttpRequestParams,
     UpdateAgentDocumentParams,
@@ -23,6 +25,10 @@ from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 
 @pytest.fixture()
 def identity() -> AgentIdentity:
+    AgentIdentity.set_resolver(InMemoryDIDResolver())
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    AgentIdentity._history_store = {}
+    AgentIdentity._history_revision_store = {}
     return AgentIdentity(AgentIdentityConfig(signer_address="0xTestController1234567890"))
 
 
@@ -34,16 +40,70 @@ class TestAgentIdentityCreate:
             system_prompt="You are helpful.",
         ))
         doc = result.document
-        assert doc.id.startswith("did:agent:polygon:")
-        assert doc.controller.startswith("did:ethr:")
+        assert doc.id.startswith("did:webvh:")
+        assert doc.controller.startswith("did:webvh:")
         assert doc.agent_metadata.name == "TestBot"
         assert doc.agent_metadata.version == "1.0.0"
         assert doc.created.endswith("Z")
         assert doc.updated.endswith("Z")
         assert len(doc.verification_method) == 1
         assert doc.verification_method[0].public_key_multibase is not None
+        assert doc.verification_method[0].blockchain_account_id is None
         assert doc.assertion_method == [doc.verification_method[0].id]
+        chain = await AgentIdentity.resolve_controller_chain(doc.id)
+        assert [entry.id for entry in chain] == [doc.id, doc.controller]
         assert len(result.agent_private_key) == 64  # 32 bytes hex
+
+    async def test_create_legacy_agent_when_explicitly_requested(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="LegacyBot",
+            core_model="gpt-4-turbo",
+            system_prompt="You are a legacy compatibility agent.",
+            did_method="agent",
+        ))
+        doc = result.document
+        assert doc.id.startswith("did:agent:polygon:")
+        assert doc.controller.startswith("did:ethr:")
+        assert doc.verification_method[0].blockchain_account_id is not None
+
+    async def test_create_webvh_agent_when_requested(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="WebvhBot",
+            description="A web-native agent identity",
+            core_model="gpt-4.1-mini",
+            system_prompt="You are a web-native agent.",
+            did_method="webvh",
+            webvh={
+                "domain": "agents.example",
+                "path_segments": ["agents", "webvh-bot"],
+                "controller_did": "did:webvh:QmControllerScid:agents.example:organizations:acme-support",
+                "scid": "QmAgentScid",
+            },
+        ))
+
+        doc = result.document
+        expected_did = "did:webvh:QmAgentScid:agents.example:agents:webvh-bot"
+        assert doc.id == expected_did
+        assert doc.controller == "did:webvh:QmControllerScid:agents.example:organizations:acme-support"
+        assert doc.verification_method[0].id == f"{expected_did}#key-1"
+        assert doc.verification_method[0].controller == doc.controller
+        assert doc.verification_method[0].blockchain_account_id is None
+        assert doc.authentication == [f"{expected_did}#key-1"]
+        assert doc.assertion_method == [f"{expected_did}#key-1"]
+
+        resolved = await AgentIdentity.resolve(expected_did)
+        assert resolved.id == expected_did
+        assert resolved.controller == doc.controller
+
+    async def test_create_webvh_requires_controller_for_custom_domain(self, identity: AgentIdentity) -> None:
+        with pytest.raises(ValueError, match="webvh.controller_did"):
+            await identity.create(CreateAgentParams(
+                name="BrokenWebvhBot",
+                core_model="gpt-4.1-mini",
+                system_prompt="broken",
+                did_method="webvh",
+                webvh={"domain": "agents.example", "controller_did": ""},
+            ))
 
     async def test_create_with_all_params(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
@@ -132,9 +192,11 @@ class TestAgentIdentitySignVerify:
             update={"authentication": [], "assertion_method": [], "key_agreement": [key_id]},
             deep=True,
         )
+        controller_chain = await AgentIdentity.resolve_controller_chain(result.document.id)
 
         resolver = InMemoryDIDResolver()
         resolver.register_document(misbound_doc)
+        resolver.register_document(controller_chain[1])
         AgentIdentity.set_resolver(resolver)
         AgentIdentity.set_registry(InMemoryAgentRegistry())
 
@@ -228,6 +290,19 @@ class TestAgentIdentityHttpSignature:
         )
         assert is_valid is True
 
+    async def test_verify_returns_false_when_controller_chain_is_inactive(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="ChainVerifier", core_model="m", system_prompt="p",
+        ))
+        payload = "approve:controller-chain:1"
+        signature = await identity.sign_message(payload, result.agent_private_key)
+        chain = await AgentIdentity.resolve_controller_chain(result.document.id)
+
+        await AgentIdentity.revoke_did(chain[1].id)
+
+        is_valid = await AgentIdentity.verify_signature(result.document.id, payload, signature)
+        assert is_valid is False
+
     async def test_sign_http_missing_method(self, identity: AgentIdentity) -> None:
         with pytest.raises(ValueError, match="method"):
             await identity.sign_http_request(SignHttpRequestParams(
@@ -319,6 +394,74 @@ class TestAgentIdentityResolve:
         doc = await AgentIdentity.resolve(result.document.id)
         assert doc.id == result.document.id
 
+    async def test_resolve_webvh_controller_chain(self, identity: AgentIdentity) -> None:
+        controller_did = "did:webvh:QmControllerScid:agents.example:organizations:acme-support"
+        controller_result = await identity.create(CreateAgentParams(
+            name="ControllerRoot",
+            core_model="controller-model",
+            system_prompt="You are the controller root.",
+            did_method="webvh",
+            webvh={
+                "domain": "agents.example",
+                "path_segments": ["organizations", "acme-support"],
+                "controller_did": controller_did,
+                "scid": "QmControllerScid",
+            },
+        ))
+        agent_result = await identity.create(CreateAgentParams(
+            name="SupportBot",
+            core_model="agent-model",
+            system_prompt="You are a support agent.",
+            did_method="webvh",
+            webvh={
+                "domain": "agents.example",
+                "path_segments": ["agents", "supportbot-x"],
+                "controller_did": controller_did,
+                "scid": "QmAgentScid",
+            },
+        ))
+
+        chain = await AgentIdentity.resolve_controller_chain(agent_result.document.id)
+
+        assert [doc.id for doc in chain] == [agent_result.document.id, controller_result.document.id]
+
+    async def test_resolve_controller_chain_rejects_cycles(self) -> None:
+        def make_chain_document(did: str, controller: str) -> AgentDIDDocument:
+            return AgentDIDDocument(**{
+                "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
+                "id": did,
+                "controller": controller,
+                "created": "2026-05-06T00:00:00.000Z",
+                "updated": "2026-05-06T00:00:00.000Z",
+                "agentMetadata": {
+                    "name": "CycleBot",
+                    "version": "1.0.0",
+                    "coreModelHash": "hash://sha256/cycle-model",
+                    "systemPromptHash": "hash://sha256/cycle-prompt",
+                },
+                "verificationMethod": [
+                    {
+                        "id": f"{did}#key-1",
+                        "type": "Ed25519VerificationKey2020",
+                        "controller": controller,
+                        "publicKeyMultibase": "z6MkjTsREfRXe13mbS7GZQ9DKcrTuexb5YYdpbSFkwtWdRva",
+                    }
+                ],
+                "authentication": [f"{did}#key-1"],
+                "assertionMethod": [f"{did}#key-1"],
+            })
+
+        cycle_a_did = "did:webvh:QmCycleA:agents.example:agents:cycle-a"
+        cycle_b_did = "did:webvh:QmCycleB:agents.example:agents:cycle-b"
+        resolver = InMemoryDIDResolver()
+        resolver.register_document(make_chain_document(cycle_a_did, cycle_b_did))
+        resolver.register_document(make_chain_document(cycle_b_did, cycle_a_did))
+        AgentIdentity.set_resolver(resolver)
+        AgentIdentity.set_registry(InMemoryAgentRegistry())
+
+        with pytest.raises(ValueError, match="Controller chain cycle detected"):
+            await AgentIdentity.resolve_controller_chain(cycle_a_did)
+
     async def test_resolve_revoked_raises(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
             name="ToRevoke", core_model="m", system_prompt="p",
@@ -357,6 +500,53 @@ class TestAgentIdentityResolve:
             if str(request.url) != expected_url:
                 return httpx.Response(status_code=404, json={})
             return httpx.Response(status_code=200, json=payload)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(mock_send)) as http_client:
+            AgentIdentity.set_registry(InMemoryAgentRegistry())
+            AgentIdentity.use_production_resolver_from_http(
+                ProductionHttpResolverProfileConfig(
+                    registry=InMemoryAgentRegistry(),
+                    http_client=http_client,
+                )
+            )
+
+            resolved = await AgentIdentity.resolve(did)
+
+        assert resolved.id == did
+        assert resolved.agent_metadata.name == "WeatherBot"
+
+    async def test_resolve_did_webvh_uses_http_bootstrap_client(self) -> None:
+        did = "did:webvh:QmExampleScid:agents.example:profiles:weather-bot"
+        expected_url = "https://agents.example/profiles/weather-bot/did.jsonl"
+        payload = {
+            "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
+            "id": did,
+            "controller": "did:webvh:QmControllerScid:agents.example:organizations:weather-support",
+            "created": "2026-03-22T00:00:00Z",
+            "updated": "2026-03-22T00:00:00Z",
+            "agentMetadata": {
+                "name": "WeatherBot",
+                "version": "1.0.0",
+                "coreModelHash": "hash://sha256/weather-model",
+                "systemPromptHash": "hash://sha256/weather-prompt",
+            },
+            "verificationMethod": [
+                {
+                    "id": f"{did}#key-1",
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": "did:webvh:QmControllerScid:agents.example:organizations:weather-support",
+                    "publicKeyMultibase": "z6MkexampleWeatherBotKey",
+                }
+            ],
+            "authentication": [f"{did}#key-1"],
+            "assertionMethod": [f"{did}#key-1"],
+        }
+        did_log = '{"versionId":"1-QmExampleScid","state":' + httpx.Response(200, json=payload).text + '}'
+
+        def mock_send(request: httpx.Request) -> httpx.Response:
+            if str(request.url) != expected_url:
+                return httpx.Response(status_code=404, json={})
+            return httpx.Response(status_code=200, text=did_log)
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(mock_send)) as http_client:
             AgentIdentity.set_registry(InMemoryAgentRegistry())
@@ -542,3 +732,135 @@ class TestAgentIdentityHistory:
         assert history[0].action == "created"
         assert history[1].action == "updated"
         assert history[2].action == "rotated-key"
+
+    async def test_export_did_webvh_history_as_jsonl(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="HistoryExportBot", core_model="m", system_prompt="p",
+        ))
+        did = result.document.id
+
+        await AgentIdentity.update_did_document(did, UpdateAgentDocumentParams(version="2.0.0"))
+        await AgentIdentity.rotate_verification_method(did)
+        await AgentIdentity.revoke_did(did)
+
+        scid = did.split(":")[2]
+        lines = [json.loads(line) for line in AgentIdentity.export_did_webvh_history(did).splitlines()]
+
+        assert len(lines) == 3
+        assert [line["versionId"] for line in lines] == [f"1-{scid}", f"2-{scid}", f"3-{scid}"]
+        assert lines[0]["state"]["id"] == did
+        assert lines[1]["state"]["agentMetadata"]["version"] == "2.0.0"
+        assert lines[2]["state"]["authentication"] == [f"{did}#key-2"]
+        assert any(method["id"] == f"{did}#key-2" for method in lines[2]["state"]["verificationMethod"])
+
+    async def test_import_did_webvh_history_restores_runtime_state(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="HistoryImportBot", core_model="m", system_prompt="p",
+        ))
+        did = result.document.id
+
+        await AgentIdentity.update_did_document(
+            did,
+            UpdateAgentDocumentParams(version="2.0.0", description="restored from did log"),
+        )
+        await AgentIdentity.rotate_verification_method(did)
+
+        did_log = AgentIdentity.export_did_webvh_history(did)
+
+        AgentIdentity.set_resolver(InMemoryDIDResolver())
+        AgentIdentity.set_registry(InMemoryAgentRegistry())
+        AgentIdentity._history_store = {}
+        AgentIdentity._history_revision_store = {}
+
+        restored = await AgentIdentity.import_did_webvh_history(did_log)
+        resolved = await AgentIdentity.resolve(did)
+        history = AgentIdentity.get_document_history(did)
+
+        assert restored.id == did
+        assert resolved.authentication == [f"{did}#key-2"]
+        assert [entry.action for entry in history] == ["created", "updated", "rotated-key"]
+        assert AgentIdentity.export_did_webvh_history(did) == did_log
+
+    async def test_persist_and_restore_did_webvh_history_via_file(self, identity: AgentIdentity, tmp_path) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="HistoryFileBot", core_model="m", system_prompt="p",
+        ))
+        did = result.document.id
+
+        await AgentIdentity.update_did_document(
+            did,
+            UpdateAgentDocumentParams(version="2.0.0", description="saved to disk"),
+        )
+        await AgentIdentity.rotate_verification_method(did)
+
+        did_log_path = tmp_path / "history.did.jsonl"
+        AgentIdentity.save_did_webvh_history_to_file(did, did_log_path)
+        saved_did_log = did_log_path.read_text(encoding="utf-8")
+
+        AgentIdentity.set_resolver(InMemoryDIDResolver())
+        AgentIdentity.set_registry(InMemoryAgentRegistry())
+        AgentIdentity._history_store = {}
+        AgentIdentity._history_revision_store = {}
+
+        restored = await AgentIdentity.load_did_webvh_history_from_file(did_log_path)
+
+        assert saved_did_log == AgentIdentity.export_did_webvh_history(did)
+        assert restored.authentication == [f"{did}#key-2"]
+        assert (await AgentIdentity.resolve(did)).id == did
+
+    async def test_persist_and_restore_did_webvh_history_via_backend_source(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="HistorySourceBot", core_model="m", system_prompt="p",
+        ))
+        did = result.document.id
+
+        await AgentIdentity.update_did_document(
+            did,
+            UpdateAgentDocumentParams(version="2.0.0", description="saved to source backend"),
+        )
+        await AgentIdentity.rotate_verification_method(did)
+
+        class InMemoryDidLogSource:
+            def __init__(self) -> None:
+                self.logs: dict[str, str] = {}
+                self.stored_refs: list[str] = []
+                self.loaded_refs: list[str] = []
+
+            async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None:
+                return None
+
+            async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None:
+                self.stored_refs.append(document_ref)
+                self.logs[document_ref] = did_log
+
+            async def get_did_log_by_reference(self, document_ref: str) -> str | None:
+                self.loaded_refs.append(document_ref)
+                return self.logs.get(document_ref)
+
+        source = InMemoryDidLogSource()
+        document_ref = "history://agentdid/source-bot"
+
+        await AgentIdentity.persist_did_webvh_history_to_source(did, document_ref, source)
+
+        AgentIdentity.set_resolver(InMemoryDIDResolver())
+        AgentIdentity.set_registry(InMemoryAgentRegistry())
+        AgentIdentity._history_store = {}
+        AgentIdentity._history_revision_store = {}
+
+        restored = await AgentIdentity.restore_did_webvh_history_from_source(document_ref, source)
+
+        assert restored.authentication == [f"{did}#key-2"]
+        assert source.stored_refs == [document_ref]
+        assert source.loaded_refs == [document_ref]
+        assert (await AgentIdentity.resolve(did)).id == did
+
+    async def test_export_did_webvh_history_rejects_legacy_did(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="LegacyHistoryBot",
+            core_model="m",
+            system_prompt="p",
+            did_method="agent",
+        ))
+
+        with pytest.raises(ValueError, match="did:webvh DID is required"):
+            AgentIdentity.export_did_webvh_history(result.document.id)

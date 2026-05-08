@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regenerates fixtures/interop-vectors.json with a fresh Ed25519 keypair
- * that includes anti-replay fields (x-request-nonce, expires).
+ * and shared legacy + did:webvh vectors that include anti-replay fields.
  *
  * Usage: node scripts/regenerate-interop-vectors.js
  */
@@ -81,12 +81,7 @@ function buildHttpSignatureBase({ method, url, dateHeader, contentDigest, nonce 
 // --- Generate ---
 const privateKeyBytes = crypto.randomBytes(32);
 const publicKeyBytes = ed25519GetPublicKey(privateKeyBytes);
-const privateKeyHex = privateKeyBytes.toString('hex');
 const publicKeyMultibase = encodePublicKeyMultibase(publicKeyBytes);
-
-const did = 'did:agent:polygon:0xinteropfixture';
-const controller = 'did:ethr:0xfixturecontroller';
-const keyId = `${did}#key-1`;
 
 // 1. Message vector
 const messagePayload = 'interop-message:v1';
@@ -115,34 +110,52 @@ const signatureBase = buildHttpSignatureBase({
 const httpSigBytes = ed25519Sign(Buffer.from(signatureBase, 'utf-8'), privateKeyBytes);
 const httpSigBase64 = httpSigBytes.toString('base64');
 
-const fixture = {
-  did,
-  controller,
-  verificationMethod: {
-    id: keyId,
-    type: 'Ed25519VerificationKey2020',
+function buildVector({ did, controller }) {
+  const keyId = `${did}#key-1`;
+
+  return {
+    did,
     controller,
-    publicKeyMultibase
-  },
-  messageVector: {
-    payload: messagePayload,
-    signatureHex: messageSignatureHex
-  },
-  httpVector: {
-    method: httpMethod,
-    url: httpUrl,
-    body: httpBody,
-    date: httpDate,
-    contentDigest,
-    headers: {
-      'Signature': `sig1=:${httpSigBase64}:`,
-      'Signature-Input': `sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${created};expires=${expiresAt};keyid="${keyId}";alg="ed25519"`,
-      'Signature-Agent': did,
-      'Date': httpDate,
-      'Content-Digest': contentDigest,
-      'X-Request-Nonce': nonce
+    verificationMethod: {
+      id: keyId,
+      type: 'Ed25519VerificationKey2020',
+      controller,
+      publicKeyMultibase
     },
-    maxCreatedSkewSeconds: 999999999
+    messageVector: {
+      payload: messagePayload,
+      signatureHex: messageSignatureHex
+    },
+    httpVector: {
+      method: httpMethod,
+      url: httpUrl,
+      body: httpBody,
+      date: httpDate,
+      contentDigest,
+      headers: {
+        'Signature': `sig1=:${httpSigBase64}:`,
+        'Signature-Input': `sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${created};expires=${expiresAt};keyid="${keyId}";alg="ed25519"`,
+        'Signature-Agent': did,
+        'Date': httpDate,
+        'Content-Digest': contentDigest,
+        'X-Request-Nonce': nonce
+      },
+      maxCreatedSkewSeconds: 999999999
+    }
+  };
+}
+
+const fixture = {
+  formatVersion: 2,
+  vectors: {
+    legacy: buildVector({
+      did: 'did:agent:polygon:0xinteropfixture',
+      controller: 'did:ethr:0xfixturecontroller'
+    }),
+    webvh: buildVector({
+      did: 'did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot',
+      controller: 'did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller'
+    })
   }
 };
 
@@ -158,8 +171,7 @@ if (fs.existsSync(path.dirname(pyPath))) {
 }
 
 console.log('\nGenerated fixture details:');
-console.log(`  DID: ${did}`);
+console.log(`  DIDs: ${Object.values(fixture.vectors).map((vector) => vector.did).join(', ')}`);
 console.log(`  Public key (multibase): ${publicKeyMultibase}`);
-console.log(`  Private key (hex): ${privateKeyHex}`);
 console.log(`  Nonce: ${nonce}`);
 console.log(`  Expires: ${expiresAt}`);

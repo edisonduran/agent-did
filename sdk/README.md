@@ -76,7 +76,13 @@ await AgentIdentity.revokeDid(document.id);
 | Revoke DID | `AgentIdentity.revokeDid(did)` | ✅ |
 | Update document | `AgentIdentity.updateDidDocument(did, patch)` | ✅ |
 | Rotate verification keys | `AgentIdentity.rotateVerificationMethod(did)` | ✅ |
-| Document history/audit | `AgentIdentity.getDocumentHistory(did)` | ✅ |
+| Document history/audit | `AgentIdentity.getDocumentHistory(did)` + `AgentIdentity.exportDidWebvhHistory(did)` + `AgentIdentity.importDidWebvhHistory(log)` + `AgentIdentity.saveDidWebvhHistoryToFile(did, path)` + `AgentIdentity.loadDidWebvhHistoryFromFile(path)` + `AgentIdentity.persistDidWebvhHistoryToSource(did, ref, source)` + `AgentIdentity.restoreDidWebvhHistoryFromSource(ref, source)` | ✅ |
+| Filesystem storage adapter | `FilesystemDIDDocumentSource` | ✅ |
+| Remote HTTP storage adapter | `HttpDIDDocumentSource` (`storeByReference`, `getDidLogByReference`, `storeDidLogByReference`) | ✅ |
+| Authenticated HTTP gateway adapter | `BearerTokenHttpDIDDocumentSource` | ✅ |
+| Presigned/object-storage adapter | `PresignedHttpDIDDocumentSource` | ✅ |
+| S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
+| AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
 | EVM registry adapter | `EvmAgentRegistry` + `EthersAgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 

@@ -10,12 +10,15 @@ export interface DIDResolver {
 export interface DIDDocumentSource {
   getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
   storeByReference?(documentRef: string, document: AgentDIDDocument): Promise<void>;
+  getDidLogByReference?(documentRef: string): Promise<string | null>;
+  storeDidLogByReference?(documentRef: string, didLog: string): Promise<void>;
 }
 
 export interface UniversalResolverConfig {
   registry: AgentRegistry;
   documentSource: DIDDocumentSource;
   wbaDocumentSource?: DIDDocumentSource;
+  webvhDocumentSource?: DIDDocumentSource;
   fallbackResolver?: DIDResolver;
   cacheTtlMs?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
