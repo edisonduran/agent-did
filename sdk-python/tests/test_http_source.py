@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from agent_did_sdk.resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
@@ -79,3 +81,69 @@ class TestHttpDIDDocumentSource:
         ))
         doc = await source.get_by_reference("ipfs://QmTest123")
         assert doc is not None
+
+    async def test_store_document_over_http(self) -> None:
+        seen_requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            seen_requests.append(request)
+            return httpx.Response(204)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        source = HttpDIDDocumentSource(HttpDIDDocumentSourceConfig(http_client=client))
+        from agent_did_sdk.core.types import AgentDIDDocument
+
+        await source.store_by_reference(
+            "https://example.com/doc.json",
+            AgentDIDDocument.model_validate(_make_jsonld_response()),
+        )
+
+        assert len(seen_requests) == 1
+        assert seen_requests[0].method == "PUT"
+        assert seen_requests[0].headers["content-type"] == "application/json; charset=utf-8"
+        assert json.loads(seen_requests[0].content.decode("utf-8"))["id"] == "did:agent:polygon:0xtest"
+
+    async def test_fetch_raw_did_log_with_failover(self) -> None:
+        did_log = json.dumps({"versionId": "1-QmHttpScid", "state": _make_jsonld_response()})
+        call_count = 0
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(503)
+            return httpx.Response(200, text=did_log)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        source = HttpDIDDocumentSource(HttpDIDDocumentSourceConfig(
+            http_client=client,
+            reference_to_urls=lambda _ref: [
+                "https://resolver-a.example/history/did.jsonl",
+                "https://resolver-b.example/history/did.jsonl",
+            ],
+        ))
+
+        loaded = await source.get_did_log_by_reference("https://example.com/history/did.jsonl")
+        assert loaded == did_log
+        assert call_count == 2
+
+    async def test_store_raw_did_log_over_http_with_custom_method(self) -> None:
+        seen_requests: list[httpx.Request] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            seen_requests.append(request)
+            return httpx.Response(201)
+
+        did_log = json.dumps({"versionId": "1-QmHttpScid", "state": _make_jsonld_response()})
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        source = HttpDIDDocumentSource(HttpDIDDocumentSourceConfig(
+            http_client=client,
+            did_log_store_method="POST",
+        ))
+
+        await source.store_did_log_by_reference("https://example.com/history/did.jsonl", did_log)
+
+        assert len(seen_requests) == 1
+        assert seen_requests[0].method == "POST"
+        assert seen_requests[0].headers["content-type"] == "application/jsonl; charset=utf-8"
+        assert seen_requests[0].content.decode("utf-8") == did_log

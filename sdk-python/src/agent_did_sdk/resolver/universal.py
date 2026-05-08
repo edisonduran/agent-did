@@ -13,6 +13,7 @@ from .types import (
     ResolverResolutionEvent,
     UniversalResolverConfig,
 )
+from .webvh_source import WebvhDIDDocumentSource
 
 
 class _CachedDocument:
@@ -30,6 +31,7 @@ class UniversalResolverClient:
         self._registry = config.registry
         self._source = config.document_source
         self._wba_source = config.wba_document_source or HttpDIDDocumentSource()
+        self._webvh_source = config.webvh_document_source or WebvhDIDDocumentSource()
         self._fallback = config.fallback_resolver
         self._cache_ttl_ms = config.cache_ttl_ms
         self._on_event = config.on_resolution_event
@@ -70,6 +72,9 @@ class UniversalResolverClient:
 
         if self._is_did_wba(did):
             return await self._resolve_did_wba(did, started, now)
+
+        if self._is_did_webvh(did):
+            return await self._resolve_did_webvh(did, started, now)
 
         self._emit(did, "registry-lookup", started)
 
@@ -146,6 +151,30 @@ class UniversalResolverClient:
         self._emit(did, "resolved", started)
         return resolved.model_copy(deep=True)
 
+    async def _resolve_did_webvh(self, did: str, started: float, now: float) -> AgentDIDDocument:
+        document_url = self._derive_did_webvh_document_url(did)
+        self._emit(did, "source-fetch", started, message=f"url={document_url}")
+
+        try:
+            resolved = await self._webvh_source.get_by_reference(document_url)
+        except Exception as exc:
+            msg = str(exc)
+            self._emit(did, "error", started, message=msg)
+            return await self._fallback_resolve(did, msg, started)
+
+        if resolved is None:
+            return await self._fallback_resolve(
+                did, f"Document not found for did:webvh URL: {document_url}", started
+            )
+
+        if resolved.id != did:
+            raise ValueError(f"Resolved document DID mismatch. Expected {did}, got {resolved.id}")
+
+        self._emit(did, "source-fetched", started)
+        self._cache[did] = _CachedDocument(resolved.model_copy(deep=True), now + self._cache_ttl_ms)
+        self._emit(did, "resolved", started)
+        return resolved.model_copy(deep=True)
+
     def _emit(self, did: str, stage: str, started: float, *, message: str | None = None) -> None:
         if self._on_event:
             self._on_event(ResolverResolutionEvent(
@@ -155,6 +184,10 @@ class UniversalResolverClient:
     @staticmethod
     def _is_did_wba(did: str) -> bool:
         return did.startswith("did:wba:")
+
+    @staticmethod
+    def _is_did_webvh(did: str) -> bool:
+        return did.startswith("did:webvh:")
 
     def _derive_did_wba_document_url(self, did: str) -> str:
         suffix = did[len("did:wba:"):]
@@ -180,6 +213,39 @@ class UniversalResolverClient:
         parsed = urlparse(url)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError(f"Invalid did:wba DID: {did}")
+
+        return url
+
+    def _derive_did_webvh_document_url(self, did: str) -> str:
+        suffix = did[len("did:webvh:"):]
+        if not suffix:
+            raise ValueError(f"Invalid did:webvh DID: {did}")
+
+        scid_segment, *rest = suffix.split(":")
+        if not scid_segment:
+            raise ValueError(f"Invalid did:webvh DID: missing SCID in {did}")
+        if not rest:
+            raise ValueError(f"Invalid did:webvh DID: missing domain in {did}")
+
+        domain_segment, *path_segments = rest
+        domain = self._decode_did_wba_segment(domain_segment, "domain")
+        if not domain:
+            raise ValueError(f"Invalid did:webvh DID: missing domain in {did}")
+
+        safe_segments = [
+            quote(self._decode_did_wba_segment(segment, "path"), safe="")
+            for segment in path_segments
+            if segment
+        ]
+        if safe_segments:
+            pathname = f"/{'/'.join(safe_segments)}/did.jsonl"
+        else:
+            pathname = "/.well-known/did.jsonl"
+
+        url = f"https://{domain}{pathname}"
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError(f"Invalid did:webvh DID: {did}")
 
         return url
 

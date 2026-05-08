@@ -3,44 +3,50 @@
 ## Document Status
 
 - **Status:** Public Review v1 (open for community feedback)
-- **Version:** 0.2-unified-public-review-v1
-- **Date:** 2026-04-25
-- **Scope:** This RFC is the canonical and sole document for the Agent-DID specification. It includes the data model, reference architecture, and SDK implementation guidelines.
+- **Version:** 0.3-pivot-pattern-on-webvh
+- **Date:** 2026-05-06
+- **Scope:** This RFC is the canonical core specification for Agent-DID as an application pattern on top of `did:webvh`, including the data model, composition semantics, runtime authentication profile, and SDK implementation guidelines.
 - **Feedback:** Use the RFC feedback issue template or GitHub Discussions for public review. Report vulnerabilities privately through [SECURITY.md](../SECURITY.md).
 
 ---
 
 ## 1. Summary
 
-Agent-DID defines a verifiable cryptographic identity for autonomous AI agents. Its goal is to allow any actor (human, organization, API, or agent) to reliably verify:
+Agent-DID defines an application pattern on top of W3C DID documents for autonomous AI agents, with `did:webvh` as the recommended default DID method. Its goal is to allow any actor (human, organization, API, or agent) to reliably verify:
 
 1. Who controls the agent.
 2. What "brain" it runs (model/base prompt) without exposing sensitive IP.
 3. What capabilities or certifications it declares.
 4. Whether its identity is active, evolved, or revoked.
+5. Whether runtime requests were signed by a key authorized for that agent identity.
 
-The standard extends W3C DIDs/VCs with AI-specific metadata and adopts a hybrid off-chain/on-chain architecture to balance cost, speed, and trust.
+The standard extends W3C DIDs/VCs with AI-specific metadata, defines an A2A identity composition contract that binds an agent to a human or organizational controller, and specifies a runtime authentication profile based on HTTP Message Signatures plus anti-replay controls. `did:webvh` is the normative reference method because it provides web-native discoverability and verifiable history; other DID methods MAY be supported as compatibility profiles when they preserve the same composition and verification semantics. EVM anchoring remains available as an optional deployment profile for environments that need additional on-chain immutability.
+
+Agent-DID's conformance scope is deliberately limited to identity, controller/delegation semantics, and runtime signature authorization. A conforming implementation proves who had standing to make a call and whether the signing key was authorized for that action; it does **not** by itself prove that the agent's reasoning was correct or capture the full decision state that led to a call. Those concerns belong to a separate decision-provenance layer, such as signed execution receipts or trace attestations.
 
 ---
 
 ## 2. Relationship with Existing Standards
 
 - **W3C DID / DID Document:** Foundation for decentralized identity.
+- **`did:webvh`:** Recommended default method for agent identifiers, controller chains, and verifiable DID history.
 - **W3C Verifiable Credentials (VC):** Support for compliance certifications.
-- **ERC-4337 / Account Abstraction (optional):** Autonomous account for agent payments and economic operations.
+- **`/whois` + organizational evidence (recommended pattern):** Publishes legal-entity and governance evidence that an agent verifier can recurse to.
 - **HTTP Message Signatures / Web Bot Auth (emerging):** HTTP request signing for A2A/API authentication.
+- **ERC-4337 / Account Abstraction (optional):** Additional deployment profile for autonomous account and economic operations.
 
-Agent-DID does not replace these standards; it orchestrates them for the specific case of autonomous agents.
+Agent-DID does not replace these standards and does not define a new DID method. It composes them for the specific case of autonomous agents by standardizing AI-specific metadata, controller relationships, verification behavior, and runtime signing expectations.
 
 ---
 
 ## 3. Design Principles
 
 1. **Persistent identity, mutable state:** The DID remains stable; the document can evolve.
-2. **Minimal on-chain data:** Only anchoring and revocation; full metadata in decentralized storage.
+2. **Method-aligned default:** `did:webvh` is the default and recommended DID method for normative examples and conformance guidance.
 3. **Strong cryptography by default:** Ed25519 recommended for frequent signing.
-4. **Blockchain-agnostic:** Compatible with multiple networks, with reference implementations on EVM.
-5. **Interoperability:** JSON-LD schema and universal resolution.
+4. **Composition over method invention:** Agent-DID adds application-layer semantics on top of existing DID methods rather than defining a new method.
+5. **Deployment-profile flexibility:** Web-native deployment is the default; optional profiles such as EVM MAY add stronger anchoring where justified.
+6. **Interoperability:** JSON-LD schema, method-aware resolution, and deterministic verification behavior across SDKs.
 
 ---
 
@@ -51,8 +57,8 @@ Agent-DID does not replace these standards; it orchestrates them for the specifi
 ```json
 {
   "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
-  "id": "did:agent:polygon:0x1234...abcd",
-  "controller": "did:ethr:0xCreatorWalletAddress",
+  "id": "did:webvh:example.com:agents:supportbot-x",
+  "controller": "did:webvh:example.com:organizations:acme-support",
   "created": "2026-02-22T14:00:00Z",
   "updated": "2026-02-22T14:00:00Z",
   "agentMetadata": {
@@ -67,21 +73,21 @@ Agent-DID does not replace these standards; it orchestrates them for the specifi
   "complianceCertifications": [
     {
       "type": "VerifiableCredential",
-      "issuer": "did:auditor:0xTrustCorp",
-      "credentialSubject": "SOC2-AI-Compliance",
+      "issuer": "did:webvh:trust.example:auditors:trustcorp",
+      "credentialSubject": "did:webvh:example.com:agents:supportbot-x",
       "proofHash": "ipfs://Qm..."
     }
   ],
   "verificationMethod": [
     {
-      "id": "did:agent:polygon:0x1234...abcd#key-1",
+      "id": "did:webvh:example.com:agents:supportbot-x#key-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:ethr:0xCreatorWalletAddress",
-      "publicKeyMultibase": "z6Mk...",
-      "blockchainAccountId": "eip155:1:0xAgentSmartWalletAddress"
+      "controller": "did:webvh:example.com:organizations:acme-support",
+      "publicKeyMultibase": "z6Mk..."
     }
   ],
-  "authentication": ["did:agent:polygon:0x1234...abcd#key-1"]
+  "assertionMethod": ["did:webvh:example.com:agents:supportbot-x#key-1"],
+  "authentication": ["did:webvh:example.com:agents:supportbot-x#key-1"]
 }
 ```
 
@@ -89,13 +95,14 @@ Agent-DID does not replace these standards; it orchestrates them for the specifi
 
 | Field | Requirement | Description |
 | :--- | :--- | :--- |
-| `id` | **REQUIRED** | Unique agent DID (`did:agent:<network>:<id>`). |
-| `controller` | **REQUIRED** | DID or identifier of the human/corporate controller. |
+| `id` | **REQUIRED** | Unique agent DID. `did:webvh:...` is the recommended/default identifier form; other DID methods MAY be used if they preserve the composition and verification semantics in this RFC. |
+| `controller` | **REQUIRED** | DID of the human, organizational, or higher-level agent controller. A resolvable `did:webvh` controller is RECOMMENDED for the canonical pattern. |
 | `created` / `updated` | **REQUIRED** | ISO-8601 timestamps of the document. |
 | `agentMetadata.coreModelHash` | **REQUIRED** | Immutable hash/URI of the base model. |
 | `agentMetadata.systemPromptHash` | **REQUIRED** | Immutable hash/URI of the base prompt. |
 | `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
 | `verificationMethod[].deactivated` | OPTIONAL | ISO-8601 timestamp marking when a key was deactivated via rotation. Deactivated keys remain in the document for historical signature verification. |
+| `assertionMethod` | **REQUIRED** for signing flows | References to keys authorized for payload and HTTP signature verification by default. |
 | `authentication` | **REQUIRED** | References to valid authentication methods. |
 | `complianceCertifications` | OPTIONAL | VC evidence and audits. |
 | `agentMetadata.capabilities` | OPTIONAL | Declared/authorized capabilities. |
@@ -105,37 +112,33 @@ Agent-DID does not replace these standards; it orchestrates them for the specifi
 
 ## 5. Reference Architecture
 
-### 5.1 Hybrid Model (off-chain / on-chain)
+### 5.1 Web-Native Reference Model
 
 ```mermaid
 graph TD
-    subgraph Off-chain
-        A[Agent Runtime] --> B[Ed25519 Key Pair]
-        A --> C[Message / HTTP Signing]
-        A --> D[JSON-LD Document]
-    end
-
-    subgraph On-chain
-        E[Agent Registry] --> F[DID Anchor + Controller + URI]
-        E --> G[Revocation State]
-        H[Optional Smart Account] --> A
-    end
-
-    I[Universal Resolver] --> E
-    I --> D
+  A[Root or Controller DID] --> B[Agent DID Document]
+  A --> C[Whois / VC Evidence]
+  B --> D[Agent Runtime]
+  D --> E[HTTP Message Signatures]
+  F[Verifier / Relying Party] --> G[Universal Resolver or Method Resolver]
+  G --> A
+  G --> B
+  H[Optional EVM Profile] -. additional anchor / policy .-> B
 ```
 
 ### 5.2 Mandatory Components
 
-1. **Agent Registry (on-chain or equivalent):** DID registration/revocation.
-2. **Universal Resolver:** DID → full document resolution.
-3. **Client SDK:** creation, signing, verification, and lifecycle operations.
+1. **Resolvable controller chain:** A verifier can resolve the agent DID and its controlling DID or equivalent authority chain.
+2. **Agent DID document:** Includes `agentMetadata`, verification methods, and the DID verification relationships required for signing.
+3. **Resolver path:** Universal resolver or method-native resolution that can obtain the current DID document and, where supported, verifiable history.
+4. **Client SDK:** creation, signing, verification, rotation, revocation/deactivation handling, and composition-aware lifecycle operations.
 
-### 5.3 On-chain vs Off-chain
+### 5.3 Deployment Profiles
 
-- **Minimal on-chain:** DID, controller, document reference, revocation state.
-- **Off-chain:** full JSON-LD document, extensive VCs, metadata not critical for consensus.
-- **Recommended production resolution profile:** HTTP/IPFS and JSON-RPC sources with multiple endpoints/gateways, TTL cache, resolution telemetry, and transient error failover.
+- **Default profile:** `did:webvh` over web-hosted DID history and documents, with controller recursion and VC-backed organizational evidence.
+- **Compatibility profile:** Other DID methods such as `did:web`, `did:key`, or `did:ethr`, provided the verifier can still resolve the document and enforce the semantics of this RFC.
+- **Optional EVM profile:** Additional anchoring, registry, or smart-account behavior for environments that require on-chain immutability. See `docs/RFC-001-EVM-Profile.md`.
+- **Recommended production resolution profile:** Use method-appropriate HTTPS, IPFS, and/or JSON-RPC sources with multiple endpoints/gateways, TTL cache, resolution telemetry, and transient error failover.
 - **HA operational guide:** see `docs/RFC-001-Resolver-HA-Runbook.md` for SLO, alerts, and resilience drills.
 
 ---
@@ -146,7 +149,7 @@ graph TD
 
 1. The controller generates the DID and agent keys.
 2. A JSON-LD document is built with model/prompt hashes.
-3. The DID reference and its controller are anchored in the registry.
+3. The DID document and, where applicable, its method-specific history are published so a verifier can resolve the agent and its controller chain.
 
 ### 6.2 Resolution and Verification
 
@@ -154,7 +157,7 @@ graph TD
 2. Resolves DID via universal resolver (with fallback/failover in production profile).
 3. Verifies the signing key is authorized for the required DID verification relationship.
 4. Verifies signature with `verificationMethod`.
-5. Verifies non-revoked state in registry.
+5. Verifies the DID is currently active according to the underlying DID method or declared deployment profile.
 
 #### 6.2.1 Verification Relationship Binding
 
@@ -178,23 +181,31 @@ These fields MUST be exposed as direct properties of the error object using the 
 
 The `assertKeyPurpose` helper is a membership-only predicate over the requested verification relationship and MUST NOT short-circuit on `keyAgreement`. The signing-purpose policy that rejects `keyAgreement` for signing flows lives in `assertSigningPurpose` (or the equivalent entry point) and is invoked by the SDK before `assertKeyPurpose` during signature verification.
 
+#### 6.2.1.2 Scope Boundary: Identity vs Decision Provenance
+
+Successful RFC-001 verification proves that the caller identity, controller chain, key authorization, and active-state checks succeeded for the evaluated action. It MUST NOT be interpreted as proof that the underlying planner state, intermediate reasoning, or final decision quality were correct.
+
+Implementations MAY pair Agent-DID verification with a separate signed execution receipt or trace attestation layer. A decision-provenance layer MAY include artifacts such as the tool name, canonicalized input hash, model/prompt/policy version references, trace or span identifiers, timestamps/nonces, and hashes of retrieved context or prior tool outputs.
+
+Raw chain-of-thought capture is out of scope for RFC-001. Implementations that need stronger replayability or compliance evidence SHOULD prefer stable, minimal execution receipts over mandatory disclosure of full internal reasoning text.
+
 ### 6.3 Evolution
 
 1. The DID remains stable.
 2. `updated` and hashes change in the new document version.
-3. Registry points to the new document reference.
+3. A new DID document version or history entry is published according to the underlying DID method.
 
 ### 6.4 Revocation
 
-1. The controller (or defined policy) marks the DID as revoked.
+1. The controller (or defined policy) marks the DID as revoked or deactivated according to the underlying DID method/profile.
 2. All subsequent verifications must fail for active authentication.
-3. In the reference EVM deployment, the contract policy allows revocation by `owner` or DID-authorized delegate, with explicit ownership transfer.
+3. In the optional EVM deployment profile, the contract policy MAY additionally allow revocation by `owner` or DID-authorized delegate, with explicit ownership transfer.
 
 ### 6.5 HTTP Signing (Web Bot Auth)
 
 - The agent signs HTTP components (`@request-target`, `host`, `date`, `content-digest`).
 - Must include an agent identity header (`Signature-Agent` or equivalent).
-- The server validates signature + DID + revocation state before authorizing.
+- The server validates signature + key purpose + DID resolution + active state before authorizing.
 
 ---
 
@@ -212,17 +223,7 @@ The reference SDK (TypeScript/Python) must expose at minimum:
 
 ### 7.1 Reference Contract/Registry (EVM)
 
-Recommended minimum ABI:
-
-```solidity
-function registerAgent(string did, string controller) external;
-function revokeAgent(string did) external;
-function getAgentRecord(string did)
-  external
-  view
-  returns (string did, string controller, string createdAt, string revokedAt);
-function isRevoked(string did) external view returns (bool);
-```
+The optional EVM deployment profile is defined in `docs/RFC-001-EVM-Profile.md`. It is not part of the minimum conformance floor for core RFC-001.
 
 ### 7.2 Interoperability Fixtures
 
@@ -248,7 +249,7 @@ Current fixture reference:
 | Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
 | Revocation (6.4) | `revokeDid(did)` |
 | Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
-| EVM Integration (5.2) | `EthersAgentRegistryContractClient` + `EvmAgentRegistry` |
+| Optional EVM Integration (5.3) | `EthersAgentRegistryContractClient` + `EvmAgentRegistry` |
 
 ### 7.4 Minimum End-to-End Flow (Onboarding)
 
@@ -260,7 +261,11 @@ Current fixture reference:
 
 Executable examples:
 
+- `sdk/examples/quickstart.js`
 - `sdk/examples/e2e-smoke.js`
+
+Optional EVM profile example:
+
 - `sdk/examples/evm-registry-wiring.ts`
 
 Recommended full validation command:
@@ -274,7 +279,7 @@ Recommended full validation command:
 - **Invalid signature/tampered payload:** verification returns `false`.
 - **Wrong key purpose:** verification raises or surfaces `key_purpose_violation` with the relationships where the key was found.
 - **Incompatible `Signature-Input`:** HTTP verification returns `false`.
-- **Unresolvable `documentRef`:** resolver attempts failover; if all fail, error.
+- **Unresolvable DID document or history entry:** resolver attempts failover; if all fail, error.
 
 ---
 
@@ -285,6 +290,8 @@ Recommended full validation command:
 3. **Immediate revocation:** critical requirement for key compromise.
 4. **Principle of least privilege:** explicit and bounded capabilities.
 5. **Auditing:** maintain evidence of versions and state changes.
+6. **Do not overclaim signature semantics:** a valid Agent-DID signature proves authorized caller identity, not reasoning correctness or policy soundness.
+7. **Reasoning privacy by default:** full chain-of-thought or planner-state disclosure is out of scope; if decision provenance is needed, prefer bounded execution receipts and hashed references.
 
 ---
 
@@ -304,15 +311,18 @@ An implementer is considered **RFC-001 conformant** if it:
 
 1. Emits a document compatible with section 4.
 2. Implements registration/resolution/verification/revocation flows (section 6).
-3. Can demonstrate signature verification against a resolved DID and non-revoked state.
-4. Respects the minimum on-chain/off-chain separation described in section 5.3.
+3. Can demonstrate signature verification against a resolved DID, including DID verification relationship enforcement for the signing key.
+4. Supports the Agent-DID application pattern on `did:webvh` or on another DID method that preserves the semantics of this RFC.
+5. Treats the EVM profile as optional unless the implementation explicitly claims conformance to `RFC-001-EVM-Profile`.
+
+RFC-001 conformance establishes identity/delegation and runtime signature-verification behavior only. It does not, by itself, certify reasoning correctness, planner integrity, or full decision-context capture.
 
 ---
 
 ## 11. RFC Governance
 
 - Major changes: new RFC version (e.g., RFC-002).
-- Compatible minor changes: revision of this version (`0.2.x`).
+- Compatible minor changes: revision of this version (`0.3.x`).
 - Any extension must preserve interoperability of the base schema.
 
 ### 11.1 Conformance Evaluation
@@ -326,10 +336,11 @@ The operational compliance evaluation is maintained in:
 ## 12. Operational Glossary
 
 - **Controller:** human/organizational identity that governs the agent in the DID document.
-- **Owner (on-chain):** EVM account with operational control of the DID registration in the contract.
-- **Delegate:** account authorized by `owner` for revocation actions.
-- **DocumentRef:** on-chain reference to the agent's off-chain document.
-- **Universal Resolver:** component that combines registry lookup + document retrieval + cache/failover.
+- **Root DID:** higher-level DID, typically organizational or legal-entity bound, from which trust in the agent can be recursively established.
+- **Owner (EVM profile):** EVM account with operational control of the DID registration in the optional contract profile.
+- **Delegate (EVM profile):** account authorized by `owner` for revocation actions in the optional contract profile.
+- **DocumentRef:** method-specific reference to the agent's DID document or history artifact.
+- **Universal Resolver:** component that combines DID resolution, document retrieval, and cache/failover across one or more supported methods.
 
 ---
 

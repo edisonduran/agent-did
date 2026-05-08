@@ -20,11 +20,11 @@
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Feedback Wanted](https://img.shields.io/badge/feedback-wanted-lightgrey)](https://github.com/edisonduran/agent-did/discussions)
 
-> **Give your AI agents a verifiable identity — in the framework you already use, with or without blockchain.**
+> **Give your AI agents a verifiable identity — with `did:webvh` as the core deployment path.**
 
-**Agent-DID** is an open standard and reference implementation that addresses a question the AI industry still lacks a clear answer for: *when an autonomous agent acts — signs a request, delegates a task, modifies data — how does the system on the other side know who that agent really is?*
+**Agent-DID** is an open standard and reference implementation for an application pattern on top of `did:webvh` for AI agent identity, composition, and runtime authentication. It addresses a question the AI industry still lacks a clear answer for: *when an autonomous agent acts — signs a request, delegates a task, modifies data — how does the system on the other side know who that agent really is?*
 
-OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in and with native integrations across several major AI orchestration frameworks.
+OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in, by extending W3C DID/VC with agent-specific metadata, an A2A composition contract, and a runtime profile based on HTTP Message Signatures.
 
 > **Interactive demo:** [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) shows real browser-side signed handoffs, live tamper detection, and the published `@agentdid/sdk` working across multiple use cases.
 
@@ -41,7 +41,7 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 - **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — 11/11 MUST conformant
 - **TypeScript and Python SDKs** backed by dedicated CI, interoperability fixtures, and conformance checks
 - **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, and Microsoft Agent Framework
-- **Flexible trust anchoring** — on-chain (EVM) for immutability, or web-based (`did:wba`) for zero-friction adoption
+- **A web-native deployment model** — `did:webvh` for canonical agent/controller identity, verifiable history, and recursive controller validation
 
 ---
 
@@ -50,7 +50,7 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 | Problem | What Agent-DID adds |
 |---|---|
 | MCP, A2A, and agent frameworks do not provide portable, verifiable agent identity | A DID-based identity layer that binds controller, model and prompt fingerprints, and declared capabilities |
-| Requiring blockchain for every deployment slows adoption | Flexible trust anchoring: EVM when immutability matters, web-based DID methods such as `did:wba` when low friction matters |
+| Requiring blockchain for every deployment slows adoption | A `did:webvh` core path that keeps the model web-native and avoids on-chain operational overhead for 1.0 |
 | Existing frameworks orchestrate behavior, not trust | Native integrations that add identity to LangChain, CrewAI, Semantic Kernel, and Microsoft Agent Framework without replacing them |
 | Agent actions are hard to attribute and verify | Ed25519 signing for payloads and HTTP requests, enabling verifiable actions and audit trails |
 | Revocation is inconsistent across environments | Compatible resolvers can propagate and enforce revocation state for compromised agents |
@@ -74,19 +74,21 @@ OAuth delegates this to a centralized provider. MCP leaves it out of scope by de
 **1. Identity is a first-class citizen of the AI stack**
 Identity is not a credential bolted on at the end. It is the foundation on which trust between autonomous systems is built. Without cryptographically verifiable identity there is no real audit trail, no algorithmic accountability, no revocation system that works when something goes wrong.
 
-**2. Flexible by design, not by accident**
-Not every system needs blockchain. Not every system can avoid it. Agent-DID rejects the imposition of a single trust-anchoring mechanism:
-- High-frequency financial agents need EVM immutability and on-chain cryptographic traceability.
-- Rapid-prototyping platforms need zero friction — no gas fees, no wallets.
-- Regulated environments need verifiable credentials compatible with compliance frameworks.
+**2. Method-aligned by design, flexible by deployment profile**
+Agent-DID now chooses a default instead of asking every adopter to re-litigate the DID-method question. The canonical pattern is `did:webvh`: web-native, domain-bound, and compatible with verifiable history plus recursive controller validation.
 
-The same standard — and the same SDK surface — is designed to work across all three cases.
+Flexibility still matters, but it now lives in the **deployment profile**, not in treating every DID method as equally primary:
+- Most deployments should stay web-native and publish agent/controller identity through `did:webvh`.
+- Storage and delivery can still vary across HTTP, mirrored content stores, and resolver topologies.
+- EVM/on-chain anchoring is deferred outside the 1.0 path and should only be revisited if a concrete need appears later.
+
+The same standard — and the same SDK surface over time — is designed to support those profiles without losing one canonical story.
 
 **3. Meet the developer where they are**
 A standard that requires learning a new paradigm before writing the first useful line of code has a structural adoption problem. Agent-DID integrates into the frameworks developers already use — LangChain, CrewAI, Semantic Kernel, Microsoft Agent Framework — and gives them verifiable identity without abandoning their workflow.
 
 **4. Open standards over proprietary lock-in**
-Agent-DID extends W3C DID Core and the Verifiable Credentials data model. It does not define a new identity format — it extends existing identity standards with AI-specific metadata: model hash, system prompt hash, declared capabilities, evolution lifecycle. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary identity format creates dependency where interoperability is needed.
+Agent-DID extends W3C DID Core and the Verifiable Credentials data model. It does not define a new DID method or proprietary identity format — it extends existing identity standards with AI-specific metadata: model hash, system prompt hash, declared capabilities, evolution lifecycle. An identity ecosystem for AI agents only has value if it is interoperable. A proprietary identity format creates dependency where interoperability is needed.
 
 **5. Verifiability without accidental complexity**
 Identity cryptography is complex. AI agent developers should not have to be. Agent-DID closes that gap with framework abstractions that inject identity into the agent's execution chain without extra developer code, and with Ed25519 as the default — a fast, compact, and widely trusted cryptographic primitive for high-frequency signing environments.
@@ -95,7 +97,7 @@ Identity cryptography is complex. AI agent developers should not have to be. Age
 
 - **Not an orchestration framework.** It does not replace LangChain or CrewAI. It integrates with them.
 - **Not a payment system.** ERC-4337 compatibility exists for agent wallets, but payment management is out of scope.
-- **Not a blockchain mandate.** The EVM registry is an option, not a requirement. `did:wba` and `did:web` are equally valid.
+- **Not a blockchain mandate.** The recommended default pattern is `did:webvh`; EVM/on-chain work is deferred outside core 1.0, and other DID methods are compatibility profiles rather than co-equal defaults.
 - **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol and SDKs are the primary interface.
 
 ---
@@ -106,7 +108,7 @@ Documentation governance for live project status and canonical sources of truth 
 
 The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
 
-- **RFC-001** is in **Public Review v1**: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- **RFC-001** is in **Public Review v1** as `0.3-pivot-pattern-on-webvh`: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
 - **Published SDKs**: `@agentdid/sdk` `0.2.0` on npm and `agent-did-sdk` `0.1.0` on PyPI
@@ -118,16 +120,15 @@ Agent-DID is an open, pre-1.0 project being built in public.
 
 - The core RFC lifecycle is implemented and covered by conformance checks.
 - The TypeScript SDK is published as `@agentdid/sdk` and the Python SDK is published as `agent-did-sdk`.
-- The EVM registry, validation drills, and framework integrations are functional.
+- The `did:webvh` runtime path, validation drills, and framework integrations are functional, while release planning is being aligned around `did:webvh` as the canonical deployment story.
 - Community feedback is explicitly welcome before the project reaches full production hardening.
 - Public-review compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
 - Security reporting instructions are documented in [SECURITY.md](SECURITY.md).
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
-- **F1-04** DIF submission and standards review
-- **F2-03** production resolver hardening (persistent backend / operator profile)
-- **F2-06** public testnet deployment and documentation
+- **v1.0 scope freeze**: API freeze, migration guides, compatibility matrix, and release-critical CI cleanup
+- **F2-03** production resolver hardening beyond the shipped source-adapter baseline
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration
 
@@ -173,6 +174,7 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 - Full conformance: `npm run conformance:rfc001`
 - E2E SDK + contract: `npm run smoke:e2e`
 - Resolver high-availability drill: `npm run smoke:ha`
+- External `did:webvh` smoke with repo-managed public defaults: `npm run smoke:webvh-external` / `npm run python:smoke:webvh-external`
 - JSON-RPC resolution smoke: `npm run smoke:rpc`
 - Revocation policy smoke: `npm run smoke:policy`
 
@@ -304,7 +306,7 @@ RFC-001 is implemented and fully conformant. The project follows a 3-phase roadm
 | F1-01 | Publish TypeScript SDK to npm (`@agentdid/sdk`) | Done |
 | F1-02 | Translate README and key docs to English | Done (README + course + strategic assessment) |
 | F1-03 | LangChain integration for Agent-DID identity | Done |
-| F1-04 | Submit RFC-001 to DIF | Open |
+| F1-04 | Prepare optional DIF / `did:webvh` companion-note material | Post-1.0 / optional |
 | F1-05 | Automated smart contract audit (Slither/Mythril) | Done |
 | F1-06 | CI/CD pipeline with GitHub Actions | Done |
 
@@ -342,10 +344,10 @@ The LangChain integration is available in [integrations/langchain/README.md](int
 |---|---|---|
 | F2-01 | Python SDK with feature parity | Done |
 | F2-02 | Google A2A proof-of-concept | Done |
-| F2-03 | Production resolver hardening (persistent backend + optional Arweave transport) | Open |
+| F2-03 | Production resolver hardening beyond shipped source adapters | Post-core hardening |
 | F2-04 | Semantic Kernel integration | Done |
 | F2-05 | CrewAI integration | Done |
-| F2-06 | Public testnet deployment | Open |
+| F2-06 | EVM/on-chain profile evaluation | Deferred — revisit only if a concrete need appears |
 | F2-07 | Formal whitepaper publication | Open |
 | F2-08 | Azure AI Agent Service integration | Open |
 | F2-09 | Microsoft Agent Framework integration | Done |
@@ -360,12 +362,14 @@ The next Python integration track is hardening and release maturation of LangCha
 
 | # | Item | Status |
 |---|---|---|
-| F3-01 | Propose `did:agent` to W3C DID WG | Planned |
+| F3-01 | Explore Agent-DID as a DIF / `did:webvh` companion note | Planned post-1.0 |
 | F3-02 | Conformance certification service | Planned |
 | F3-03 | ZKP for capability verification | Planned |
 | F3-04 | Formal contract audit for mainnet | Planned |
 | F3-05 | Enterprise partnerships | Planned |
 | F3-06 | Account Abstraction (ERC-4337) for agent wallets | Planned |
+
+Release 1.0 now follows the post-ADR-001 path in [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md): core `did:webvh` stability first; EVM/on-chain work is deferred outside the core tag, and standards outreach is not a release blocker.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to pick up roadmap items.
 

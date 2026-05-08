@@ -96,3 +96,9 @@ class JsonRpcDIDDocumentSource:
             return None
 
         raise RuntimeError(f"Failed to resolve DID document via JSON-RPC endpoints. {' | '.join(errors)}")
+
+    async def get_did_log_by_reference(self, document_ref: str) -> str | None:
+        return None
+
+    async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None:
+        raise NotImplementedError("JsonRpcDIDDocumentSource is read-only")

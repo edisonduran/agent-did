@@ -112,4 +112,78 @@ describe('HttpDIDDocumentSource', () => {
     expect(fetchFn).toHaveBeenNthCalledWith(1, 'https://gateway-a.example/ipfs/bafybeigdyrztcid/example.json');
     expect(fetchFn).toHaveBeenNthCalledWith(2, 'https://gateway-b.example/ipfs/bafybeigdyrztcid/example.json');
   });
+
+  it('should store a DID document through HTTP', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => ({})
+    });
+
+    const source = new HttpDIDDocumentSource({
+      fetchFn,
+      referenceToUrl: (ref) => `https://resolver.example/doc/${encodeURIComponent(ref)}`
+    });
+
+    await source.storeByReference('hash://sha256/example', sampleDocument);
+
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://resolver.example/doc/hash%3A%2F%2Fsha256%2Fexample',
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        },
+        body: JSON.stringify(sampleDocument)
+      }
+    );
+  });
+
+  it('should fetch a raw did:webvh log through HTTP failover', async () => {
+    const didLog = [JSON.stringify({ versionId: '1-QmHttpScid', state: sampleDocument })].join('\n');
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => '' })
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => didLog });
+
+    const source = new HttpDIDDocumentSource({
+      fetchFn,
+      referenceToUrls: (ref) => [
+        `https://resolver-1.example/doc/${encodeURIComponent(ref)}`,
+        `https://resolver-2.example/doc/${encodeURIComponent(ref)}`
+      ]
+    });
+
+    const result = await source.getDidLogByReference('hash://sha256/history');
+    expect(result).toEqual(didLog);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should store a raw did:webvh log through HTTP with a custom method', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({})
+    });
+    const didLog = JSON.stringify({ versionId: '1-QmHttpScid', state: sampleDocument });
+
+    const source = new HttpDIDDocumentSource({
+      fetchFn,
+      didLogStoreMethod: 'POST',
+      referenceToUrl: (ref) => `https://resolver.example/history/${encodeURIComponent(ref)}`
+    });
+
+    await source.storeDidLogByReference('hash://sha256/history', didLog);
+
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://resolver.example/history/hash%3A%2F%2Fsha256%2Fhistory',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/jsonl; charset=utf-8'
+        },
+        body: didLog
+      }
+    );
+  });
 });

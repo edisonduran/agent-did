@@ -65,14 +65,15 @@ async def build_document(identity: AgentIdentity):
 def evaluate_document_shape(document, result) -> list[CheckResult]:
     must_01_ok = all(
         [
-            document.id.startswith("did:agent:"),
-            bool(document.controller),
+            document.id.startswith("did:webvh:"),
+            document.controller.startswith("did:webvh:"),
             bool(document.created),
             bool(document.updated),
             bool(document.agent_metadata.core_model_hash),
             bool(document.agent_metadata.system_prompt_hash),
             len(document.verification_method) >= 1,
             len(document.authentication) >= 1,
+            bool(document.assertion_method),
         ]
     )
     return [
@@ -119,16 +120,26 @@ async def evaluate_resolution_and_registry(
     registry: InMemoryAgentRegistry,
 ):
     resolved = await AgentIdentity.resolve(document.id)
+    controller_chain = await AgentIdentity.resolve_controller_chain(document.id)
     record_after_create = await registry.get_record(document.id)
+    controller_record = await registry.get_record(document.controller)
+    must_05_ok = bool(
+        resolved.id == document.id
+        and len(controller_chain) >= 2
+        and controller_chain[0].id == document.id
+        and controller_chain[1].id == document.controller
+    )
     must_08_ok = bool(
         record_after_create
+        and controller_record
         and record_after_create.did == document.id
         and record_after_create.controller == document.controller
         and record_after_create.document_ref
+        and not await registry.is_revoked(document.controller)
         and not await registry.is_revoked(document.id)
     )
     return [
-        CheckResult("MUST-05", "PASS" if resolved.id == document.id else "FAIL"),
+        CheckResult("MUST-05", "PASS" if must_05_ok else "FAIL"),
         CheckResult("MUST-08", "PASS" if must_08_ok else "FAIL"),
     ], record_after_create
 
@@ -169,6 +180,14 @@ async def evaluate_revocation_controls(
         signature,
         rotated.verification_method_id,
     )
+    controller_chain = await AgentIdentity.resolve_controller_chain(document.id)
+    await AgentIdentity.revoke_did(controller_chain[1].id)
+    valid_after_controller_revocation = await AgentIdentity.verify_signature(
+        document.id,
+        payload,
+        signature,
+        rotated.verification_method_id,
+    )
     await AgentIdentity.revoke_did(document.id)
     revoked_record = await registry.get_record(document.id)
     valid_after_revocation = await AgentIdentity.verify_signature(
@@ -186,7 +205,10 @@ async def evaluate_revocation_controls(
     ]
 
     return [
-        CheckResult("MUST-06", "PASS" if not valid_after_revocation else "FAIL"),
+        CheckResult(
+            "MUST-06",
+            "PASS" if not valid_after_controller_revocation and not valid_after_revocation else "FAIL",
+        ),
         CheckResult("MUST-07", "PASS" if bool(revoked_record and revoked_record.revoked_at) else "FAIL"),
         CheckResult("MUST-09", "PASS" if valid_before_revocation and not valid_after_revocation else "FAIL"),
     ], [CheckResult("SHOULD-05", "PASS" if should_05_ok else "FAIL")]
@@ -203,10 +225,10 @@ def evaluate_document_reference_controls(record_after_create, record_after_rotat
     return [CheckResult("MUST-11", "PASS" if must_11_ok else "FAIL")]
 
 
-def build_interop_document(interop_vectors: dict[str, object]) -> AgentDIDDocument:
-    did = interop_vectors["did"]
-    controller = interop_vectors["controller"]
-    verification_method = interop_vectors["verificationMethod"]
+def build_interop_document(interop_vector: dict[str, object]) -> AgentDIDDocument:
+    did = interop_vector["did"]
+    controller = interop_vector["controller"]
+    verification_method = interop_vector["verificationMethod"]
     return AgentDIDDocument(
         **{
             "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
@@ -227,6 +249,47 @@ def build_interop_document(interop_vectors: dict[str, object]) -> AgentDIDDocume
     )
 
 
+def build_interop_controller_document(interop_vector: dict[str, object]) -> AgentDIDDocument:
+    controller = interop_vector["controller"]
+    verification_method = interop_vector["verificationMethod"]
+    return AgentDIDDocument(
+        **{
+            "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
+            "id": controller,
+            "controller": controller,
+            "created": "2024-01-01T00:00:00Z",
+            "updated": "2024-01-01T00:00:00Z",
+            "agentMetadata": {
+                "name": "InteropFixtureController",
+                "version": "1.0.0",
+                "coreModelHash": "hash://sha256/controller",
+                "systemPromptHash": "hash://sha256/controller",
+            },
+            "verificationMethod": [
+                {
+                    "id": f"{controller}#key-1",
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": controller,
+                    "publicKeyMultibase": verification_method["publicKeyMultibase"],
+                }
+            ],
+            "authentication": [f"{controller}#key-1"],
+            "assertionMethod": [f"{controller}#key-1"],
+        }
+    )
+
+
+def derive_did_webvh_document_url(did: str) -> str:
+    suffix = did[len("did:webvh:"):]
+    scid_segment, *rest = suffix.split(":")
+    if not scid_segment or not rest:
+        raise ValueError(f"Invalid did:webvh DID: {did}")
+    domain_segment, *path_segments = rest
+    if path_segments:
+        return f"https://{domain_segment}/{'/'.join(path_segments)}/did.jsonl"
+    return f"https://{domain_segment}/.well-known/did.jsonl"
+
+
 async def evaluate_universal_resolver_should(document) -> CheckResult:
     class FakeSource:
         def __init__(self) -> None:
@@ -242,12 +305,14 @@ async def evaluate_universal_resolver_should(document) -> CheckResult:
 
     registry = InMemoryAgentRegistry()
     source = FakeSource()
+    webvh_source = FakeSource()
     fallback = InMemoryDIDResolver()
     events = []
 
     document_ref = AgentIdentity._compute_document_reference(document)
     await registry.register(document.id, document.controller, document_ref)
     await source.store_by_reference(document_ref, document)
+    await webvh_source.store_by_reference(derive_did_webvh_document_url(document.id), document)
 
     fallback_document = document.model_copy(update={"id": "did:agent:polygon:fallback-only"}, deep=True)
     fallback.register_document(fallback_document)
@@ -256,6 +321,7 @@ async def evaluate_universal_resolver_should(document) -> CheckResult:
         UniversalResolverConfig(
             registry=registry,
             document_source=source,
+            webvh_document_source=webvh_source,
             fallback_resolver=fallback,
             cache_ttl_ms=60_000,
             on_resolution_event=events.append,
@@ -283,30 +349,38 @@ async def evaluate_universal_resolver_should(document) -> CheckResult:
 
 async def evaluate_interop_should() -> CheckResult:
     fixture_path = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "interop-vectors.json"
-    interop_vectors = json.loads(fixture_path.read_text(encoding="utf-8"))
-    interop_document = build_interop_document(interop_vectors)
-    AgentIdentity._resolver.register_document(interop_document)
+    interop_fixture_set = json.loads(fixture_path.read_text(encoding="utf-8"))
 
-    message_vector = interop_vectors["messageVector"]
-    http_vector = interop_vectors["httpVector"]
-    verification_method = interop_vectors["verificationMethod"]
+    results: list[bool] = []
 
-    message_valid = await AgentIdentity.verify_signature(
-        interop_document.id,
-        message_vector["payload"],
-        message_vector["signatureHex"],
-        verification_method["id"],
-    )
-    http_valid = await AgentIdentity.verify_http_request_signature(
-        VerifyHttpRequestSignatureParams(
-            method=http_vector["method"],
-            url=http_vector["url"],
-            body=http_vector["body"],
-            headers=http_vector["headers"],
-            max_created_skew_seconds=http_vector.get("maxCreatedSkewSeconds", 999_999_999),
+    for interop_vector in interop_fixture_set["vectors"].values():
+        interop_document = build_interop_document(interop_vector)
+        controller_document = build_interop_controller_document(interop_vector)
+        AgentIdentity._resolver.register_document(interop_document)
+        AgentIdentity._resolver.register_document(controller_document)
+
+        message_vector = interop_vector["messageVector"]
+        http_vector = interop_vector["httpVector"]
+        verification_method = interop_vector["verificationMethod"]
+
+        message_valid = await AgentIdentity.verify_signature(
+            interop_document.id,
+            message_vector["payload"],
+            message_vector["signatureHex"],
+            verification_method["id"],
         )
-    )
-    return CheckResult("SHOULD-03", "PASS" if message_valid and http_valid else "FAIL")
+        http_valid = await AgentIdentity.verify_http_request_signature(
+            VerifyHttpRequestSignatureParams(
+                method=http_vector["method"],
+                url=http_vector["url"],
+                body=http_vector["body"],
+                headers=http_vector["headers"],
+                max_created_skew_seconds=http_vector.get("maxCreatedSkewSeconds", 999_999_999),
+            )
+        )
+        results.append(message_valid and http_valid)
+
+    return CheckResult("SHOULD-03", "PASS" if results and all(results) else "FAIL")
 
 
 def evaluate_contract_policy_should() -> CheckResult:

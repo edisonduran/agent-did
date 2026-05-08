@@ -1,30 +1,65 @@
 {
-  "did": "did:agent:polygon:0xinteropfixture",
-  "controller": "did:ethr:0xfixturecontroller",
-  "verificationMethod": {
-    "id": "did:agent:polygon:0xinteropfixture#key-1",
-    "type": "Ed25519VerificationKey2020",
-    "controller": "did:ethr:0xfixturecontroller",
-    "publicKeyMultibase": "z6MkuBpnGeuAAWWJ9koqNqMsCv7vhPZt3mmQQ5YhEZFesE1S"
-  },
-  "messageVector": {
-    "payload": "interop-message:v1",
-    "signatureHex": "93e407528ec16fe55e101870ad8ec481a8866ced9aece233c4b6afc9043de480e00197312b0fe3ecf3f1ebe6429fdf9f920e001fe7465d9eac9d0565dfdbc806"
-  },
-  "httpVector": {
-    "method": "POST",
-    "url": "https://api.example.com/v1/interop?mode=fixture",
-    "body": "{\"fixture\":true}",
-    "date": "Mon, 01 Jan 2024 00:00:00 GMT",
-    "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
-    "headers": {
-      "Signature": "sig1=:I61IxkIYGlOttI28XdB8fMcCnxRSVkM//FlVHu9W4qC85AudaWmAxPs1BOkULNU+sJazjPkIMrXAo00gybR6CQ==:",
-      "Signature-Input": "sig1=(\"@request-target\" \"host\" \"date\" \"content-digest\" \"x-request-nonce\");created=1704067200;expires=2704067199;keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\"",
-      "Signature-Agent": "did:agent:polygon:0xinteropfixture",
-      "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
-      "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
-      "X-Request-Nonce": "242a9a8745d82312fff5b806cb0b9f5f"
+  "formatVersion": 2,
+  "vectors": {
+    "legacy": {
+      "did": "did:agent:polygon:0xinteropfixture",
+      "controller": "did:ethr:0xfixturecontroller",
+      "verificationMethod": {
+        "id": "did:agent:polygon:0xinteropfixture#key-1",
+        "type": "Ed25519VerificationKey2020",
+        "controller": "did:ethr:0xfixturecontroller",
+        "publicKeyMultibase": "z6MkjTsREfRXe13mbS7GZQ9DKcrTuexb5YYdpbSFkwtWdRva"
+      },
+      "messageVector": {
+        "payload": "interop-message:v1",
+        "signatureHex": "3dcea97dddb88bf0770ab9d576783fcdcff1709e34434b5dacf32fa16b74d08dcc0388d11247f20da28f44c00f9bf0e06a27a43efab565daa154e4edf41ee901"
+      },
+      "httpVector": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/interop?mode=fixture",
+        "body": "{\"fixture\":true}",
+        "date": "Mon, 01 Jan 2024 00:00:00 GMT",
+        "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
+        "headers": {
+          "Signature": "sig1=:FY9NnpZVDqUSwzOxe2pTaIwkuwb2gJL6T4ykCSp0273jDP7EwD3PjVndBdhHST+aOqCqxGIdV1AIE/LpTexqDA==:",
+          "Signature-Input": "sig1=(\"@request-target\" \"host\" \"date\" \"content-digest\" \"x-request-nonce\");created=1704067200;expires=2704067199;keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\"",
+          "Signature-Agent": "did:agent:polygon:0xinteropfixture",
+          "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
+          "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
+          "X-Request-Nonce": "7b75eabffba468fdbacd3bf1dee54f84"
+        },
+        "maxCreatedSkewSeconds": 999999999
+      }
     },
-    "maxCreatedSkewSeconds": 999999999
+    "webvh": {
+      "did": "did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot",
+      "controller": "did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller",
+      "verificationMethod": {
+        "id": "did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1",
+        "type": "Ed25519VerificationKey2020",
+        "controller": "did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller",
+        "publicKeyMultibase": "z6MkjTsREfRXe13mbS7GZQ9DKcrTuexb5YYdpbSFkwtWdRva"
+      },
+      "messageVector": {
+        "payload": "interop-message:v1",
+        "signatureHex": "3dcea97dddb88bf0770ab9d576783fcdcff1709e34434b5dacf32fa16b74d08dcc0388d11247f20da28f44c00f9bf0e06a27a43efab565daa154e4edf41ee901"
+      },
+      "httpVector": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/interop?mode=fixture",
+        "body": "{\"fixture\":true}",
+        "date": "Mon, 01 Jan 2024 00:00:00 GMT",
+        "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
+        "headers": {
+          "Signature": "sig1=:FY9NnpZVDqUSwzOxe2pTaIwkuwb2gJL6T4ykCSp0273jDP7EwD3PjVndBdhHST+aOqCqxGIdV1AIE/LpTexqDA==:",
+          "Signature-Input": "sig1=(\"@request-target\" \"host\" \"date\" \"content-digest\" \"x-request-nonce\");created=1704067200;expires=2704067199;keyid=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1\";alg=\"ed25519\"",
+          "Signature-Agent": "did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot",
+          "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
+          "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
+          "X-Request-Nonce": "7b75eabffba468fdbacd3bf1dee54f84"
+        },
+        "maxCreatedSkewSeconds": 999999999
+      }
+    }
   }
 }

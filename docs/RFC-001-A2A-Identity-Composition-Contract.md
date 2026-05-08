@@ -70,15 +70,35 @@ For cross-implementation interop with [`a2a-compliance-harness`](https://github.
 {
   "name": "...",
   "description": "...",
-  "issuer": "did:...",
+  "issuer": "did:webvh:example.com:organizations:acme-support",
   "capabilities": ["..."],
   "schema_version": "...",
-  "signature": { "alg": "EdDSA", "kid": "did:web:host#key-1", "value": "<base64url>" },
+  "signature": { "alg": "EdDSA", "kid": "did:webvh:example.com:agents:supportbot-x#key-1", "value": "<base64url>" },
   "delegation_chain": []
 }
 ```
 
 The `signature` field is stripped before JCS canonicalization (§1.1). The `kid` follows the DID URL fragment convention (`did:method:identifier#fragment`) and is the key whose membership the verifier checks per §2. Implementations MAY add fields beyond this shape; the listed fields MUST be present and MUST canonicalize identically across implementations for the harness to accept the Card.
+
+### 3.2 Canonical `did:webvh` controller-to-agent composition path
+
+Under RFC-001 v0.3, the canonical Agent-DID composition path is a `did:webvh` agent controlled by another `did:webvh` identity higher in the trust chain.
+
+Reference pattern:
+
+1. **Controller/root DID:** `did:webvh:example.com:organizations:acme-support`
+2. **Agent DID:** `did:webvh:example.com:agents:supportbot-x`
+3. **Agent DID document:** lists the controller DID above and publishes the signing key under the required DID verification relationship.
+4. **Controller `/whois` evidence:** publishes KYB or equivalent organizational evidence binding the controller DID to a legal entity.
+5. **Optional agent `/whois` evidence:** publishes role, lifecycle, or operational claims specific to the agent.
+
+Verifier behavior for the canonical pattern:
+
+- Resolve the agent DID and verify that the per-request `keyid` is authorized both by the DID document and by the Agent Card.
+- If policy requires organizational or legal accountability, recurse to the controller DID and evaluate its `/whois` evidence or attached VC chain.
+- Treat the controller recursion as policy-layer trust expansion on top of the composition contract, not as a replacement for the per-request key cross-check.
+
+Scenario 3e (§4.1) remains valid as a compatibility backstop when a verifier encounters an unsupported DID method. It is not the expected mainline path for Agent-DID deployments after the `did:webvh` pivot.
 
 ## 4. Key rotation state machine
 
@@ -95,7 +115,7 @@ Rotation modes:
 | 3b | Signature under **prior key** during planned overlap window, prior key still listed in resolved DID document | Accept. |
 | 3c | Signature under **prior key** after planned overlap window has closed | Reject with `IdentityCompositionError(reason="rotation_window_closed" / "OverlapWindowExceeded")`. |
 | 3d | Signature under **emergency-revoked prior key** at any time | Reject with `IdentityCompositionError(reason="emergency_revoked" / "EmergencyRevokedKey")`, regardless of in-flight signature timestamps or resolver cache state. |
-| 3e | Signature whose `keyid` resolves through a **DID method the verifier does not support** `[APS-aligned pre-pass, open to revision in counter-draft]` | **Degrade gracefully**: do NOT fail-closed. Mark the verification result with `did_resolver_unsupported` and surface it to the calling policy layer. The composition contract is undefined for unknown DID methods; failing closed would penalize agents using methods not yet registered with the verifier and contradicts APS posture (per `a2a-compliance-harness/README.md`). |
+| 3e | Signature whose `keyid` resolves through a **DID method the verifier does not support** `[APS-aligned pre-pass, open to revision in counter-draft]` | **Degrade gracefully**: do NOT fail-closed. Mark the verification result with `did_resolver_unsupported` and surface it to the calling policy layer. The composition contract is undefined for unknown DID methods; failing closed would penalize agents using methods not yet registered with the verifier and contradicts APS posture (per `a2a-compliance-harness/README.md`). In the canonical Agent-DID profile this is a compatibility fallback, not the expected `did:webvh` path. |
 
 ### 4.2 Resolver cache hazard
 
@@ -243,7 +263,7 @@ agent-passport-system `main`) provides:
 
 Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 
-- The composition contract is well-defined **within a single DID method**. `did:web` cross-checks `did:web`; `did:agent-did` cross-checks `did:agent-did`.
+- The composition contract is well-defined **within a single DID method**. The canonical Agent-DID profile is `did:webvh` cross-checking `did:webvh` for the agent and its controller recursion; other supported methods cross-check within their own method.
 - Cross-method bridging is **explicitly out of scope** for this draft and is recorded as **Future Work**.
 - Rationale: cross-method bridging touches DID method registry semantics still in flux at the broader DIF community level. Landing it here would force premature closure on that question and tie the composition contract's lifecycle to a DID-method-registry timeline that is not under this spec's control.
 

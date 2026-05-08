@@ -17,6 +17,7 @@ export class UniversalResolverClient implements DIDResolver {
   private readonly registry;
   private readonly documentSource;
   private readonly wbaDocumentSource;
+  private readonly webvhDocumentSource;
   private readonly fallbackResolver;
   private readonly cacheTtlMs: number;
   private readonly onResolutionEvent;
@@ -28,6 +29,7 @@ export class UniversalResolverClient implements DIDResolver {
     this.registry = config.registry;
     this.documentSource = config.documentSource;
     this.wbaDocumentSource = config.wbaDocumentSource ?? new HttpDIDDocumentSource();
+    this.webvhDocumentSource = config.webvhDocumentSource ?? new HttpDIDDocumentSource();
     this.fallbackResolver = config.fallbackResolver;
     this.cacheTtlMs = config.cacheTtlMs ?? 60_000;
     this.onResolutionEvent = config.onResolutionEvent;
@@ -64,6 +66,10 @@ export class UniversalResolverClient implements DIDResolver {
 
     if (this.isDidWba(did)) {
       return this.resolveDidWba(did, startedAt, now);
+    }
+
+    if (this.isDidWebvh(did)) {
+      return this.resolveDidWebvh(did, startedAt, now);
     }
 
     this.emitEvent({ did, stage: 'registry-lookup', durationMs: Date.now() - startedAt });
@@ -178,12 +184,52 @@ export class UniversalResolverClient implements DIDResolver {
     return this.clone(resolved);
   }
 
+  private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<AgentDIDDocument> {
+    const documentUrl = this.deriveDidWebvhDocumentUrl(did);
+
+    this.emitEvent({
+      did,
+      stage: 'source-fetch',
+      durationMs: Date.now() - startedAt,
+      message: `url=${documentUrl}`
+    });
+
+    const resolved = await this.webvhDocumentSource.getByReference(documentUrl).catch(async (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      return this.resolveWithFallback(did, message, startedAt);
+    });
+
+    if (!resolved) {
+      return this.resolveWithFallback(did, `Document not found for did:webvh URL: ${documentUrl}`, startedAt);
+    }
+
+    if (resolved.id !== did) {
+      throw new Error(`Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`);
+    }
+
+    this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
+
+    this.cache.set(did, {
+      document: this.clone(resolved),
+      expiresAt: now + this.cacheTtlMs
+    });
+
+    this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
+
+    return this.clone(resolved);
+  }
+
   private emitEvent(event: ResolverResolutionEvent): void {
     this.onResolutionEvent?.(event);
   }
 
   private isDidWba(did: string): boolean {
     return did.startsWith('did:wba:');
+  }
+
+  private isDidWebvh(did: string): boolean {
+    return did.startsWith('did:webvh:');
   }
 
   private deriveDidWbaDocumentUrl(did: string): string {
@@ -212,6 +258,40 @@ export class UniversalResolverClient implements DIDResolver {
       return new URL(pathname, `https://${domain}`).toString();
     } catch {
       throw new Error(`Invalid did:wba DID: ${did}`);
+    }
+  }
+
+  private deriveDidWebvhDocumentUrl(did: string): string {
+    const suffix = did.slice('did:webvh:'.length);
+
+    if (!suffix) {
+      throw new Error(`Invalid did:webvh DID: ${did}`);
+    }
+
+    const [scidSegment, domainSegment, ...pathSegments] = suffix.split(':');
+
+    if (!scidSegment) {
+      throw new Error(`Invalid did:webvh DID: missing SCID in ${did}`);
+    }
+
+    const domain = this.decodeDidWbaSegment(domainSegment || '', 'domain');
+
+    if (!domain) {
+      throw new Error(`Invalid did:webvh DID: missing domain in ${did}`);
+    }
+
+    const normalizedPathSegments = pathSegments
+      .filter((segment) => segment.length > 0)
+      .map((segment) => encodeURIComponent(this.decodeDidWbaSegment(segment, 'path')));
+
+    const pathname = normalizedPathSegments.length === 0
+      ? '/.well-known/did.jsonl'
+      : `/${normalizedPathSegments.join('/')}/did.jsonl`;
+
+    try {
+      return new URL(pathname, `https://${domain}`).toString();
+    } catch {
+      throw new Error(`Invalid did:webvh DID: ${did}`);
     }
   }
 

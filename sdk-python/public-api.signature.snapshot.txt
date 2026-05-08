@@ -1,0 +1,533 @@
+# Public API signature snapshot for agent-did-sdk
+
+## AgentDIDDocument
+class AgentDIDDocument(*, context: list[str], id: str, controller: str, created: str, updated: str, agentMetadata: agent_did_sdk.core.types.AgentMetadata, complianceCertifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None, verificationMethod: list[agent_did_sdk.core.types.VerificationMethod], authentication: list[str], assertionMethod: list[str] | None = None, capabilityDelegation: list[str] | None = None, capabilityInvocation: list[str] | None = None, keyAgreement: list[str] | None = None) -> None
+  attr agent_metadata: AgentMetadata
+  attr assertion_method: list[str] | None
+  attr authentication: list[str]
+  attr capability_delegation: list[str] | None
+  attr capability_invocation: list[str] | None
+  attr compliance_certifications: list[VerifiableCredentialLink] | None
+  attr context: list[str]
+  attr controller: str
+  attr created: str
+  attr id: str
+  attr key_agreement: list[str] | None
+  attr updated: str
+  attr verification_method: list[VerificationMethod]
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  def model_dump_jsonld(self) -> 'dict[str, object]'
+
+## AgentDocumentHistoryAction
+value AgentDocumentHistoryAction = typing.Literal['created', 'updated', 'rotated-key', 'revoked']
+
+## AgentDocumentHistoryEntry
+class AgentDocumentHistoryEntry(*, did: str, revision: int, action: Literal['created', 'updated', 'rotated-key', 'revoked'], timestamp: str, version: str | None = None, documentRef: str | None = None) -> None
+  attr action: AgentDocumentHistoryAction
+  attr did: str
+  attr document_ref: str | None
+  attr revision: int
+  attr timestamp: str
+  attr version: str | None
+  member model_config = {}
+
+## AgentIdentity
+class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
+  def create(self, params: 'CreateAgentParams') -> 'CreateAgentResult'
+  classmethod export_did_webvh_history(cls, did: 'str') -> 'str'
+  classmethod get_document_history(cls, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
+  classmethod import_did_webvh_history(cls, did_log: 'str') -> 'AgentDIDDocument'
+  classmethod load_did_webvh_history_from_file(cls, file_path: 'str | Path') -> 'AgentDIDDocument'
+  classmethod persist_did_webvh_history_to_source(cls, did: 'str', document_ref: 'str', source: 'DIDDocumentSource') -> 'None'
+  classmethod resolve(cls, did: 'str') -> 'AgentDIDDocument'
+  classmethod resolve_controller_chain(cls, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
+  classmethod restore_did_webvh_history_from_source(cls, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
+  classmethod revoke_did(cls, did: 'str') -> 'None'
+  classmethod rotate_verification_method(cls, did: 'str') -> 'RotateVerificationMethodResult'
+  classmethod save_did_webvh_history_to_file(cls, did: 'str', file_path: 'str | Path') -> 'Path'
+  classmethod set_registry(cls, registry: 'AgentRegistry') -> 'None'
+  classmethod set_resolver(cls, resolver: 'DIDResolver') -> 'None'
+  def sign_http_request(self, params: 'SignHttpRequestParams') -> 'dict[str, str]'
+  def sign_message(self, payload: 'str', key_or_signer: 'str | AgentSigner') -> 'str'
+  classmethod update_did_document(cls, did: 'str', patch: 'UpdateAgentDocumentParams') -> 'AgentDIDDocument'
+  classmethod use_production_resolver(cls, config: 'ProductionResolverProfileConfig') -> 'None'
+  classmethod use_production_resolver_from_http(cls, config: 'ProductionHttpResolverProfileConfig') -> 'None'
+  classmethod use_production_resolver_from_json_rpc(cls, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
+  classmethod verify_historical_signature(cls, did: 'str', payload: 'str', signature: 'str', key_id: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
+  classmethod verify_http_request_signature(cls, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
+  classmethod verify_signature(cls, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
+
+## AgentIdentityConfig
+class AgentIdentityConfig(signer_address: 'str', network: 'str' = 'polygon') -> None
+  attr network: str
+  attr signer_address: str
+
+## AgentMetadata
+class AgentMetadata(*, name: str, description: str | None = None, version: str, coreModelHash: str, systemPromptHash: str, capabilities: list[str] | None = None, memberOf: str | None = None) -> None
+  attr capabilities: list[str] | None
+  attr core_model_hash: str
+  attr description: str | None
+  attr member_of: str | None
+  attr name: str
+  attr system_prompt_hash: str
+  attr version: str
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+
+## AgentRegistry
+class AgentRegistry(*args, **kwargs)
+  def get_record(self, did: 'str') -> 'AgentRegistryRecord | None'
+  def is_revoked(self, did: 'str') -> 'bool'
+  def register(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'None'
+  def revoke(self, did: 'str') -> 'None'
+  def set_document_reference(self, did: 'str', document_ref: 'str') -> 'None'
+
+## AgentRegistryRecord
+class AgentRegistryRecord(*, did: str, controller: str, createdAt: str, revokedAt: str | None = None, documentRef: str | None = None) -> None
+  attr controller: str
+  attr created_at: str
+  attr did: str
+  attr document_ref: str | None
+  attr revoked_at: str | None
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+
+## AgentSigner
+class AgentSigner(*args, **kwargs)
+  def get_public_key(self) -> 'bytes'
+  def sign(self, payload: 'bytes') -> 'str'
+
+## AwsSigV4S3DIDDocumentSource
+class AwsSigV4S3DIDDocumentSource(config: 'AwsSigV4S3DIDDocumentSourceConfig') -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_by_reference(self, document_ref: 'str', document: 'AgentDIDDocument') -> 'None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## AwsSigV4S3DIDDocumentSourceConfig
+class AwsSigV4S3DIDDocumentSourceConfig(bucket: 'str', region: 'str', access_key_id: 'str', secret_access_key: 'str', session_token: 'str | None' = None, service: 'str' = 's3', endpoint: 'str | None' = None, public_base_url: 'str | None' = None, did_log_public_base_url: 'str | None' = None, key_prefix: 'str | None' = None, did_log_key_prefix: 'str | None' = None, force_path_style: 'bool' = True, reference_to_object_key: 'Callable[[str], str] | None' = None, reference_to_did_log_object_key: 'Callable[[str], str] | None' = None, reference_to_write_url: 'Callable[[str, str], str] | None' = None, did_log_reference_to_write_url: 'Callable[[str, str], str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None, now: 'Callable[[], datetime] | None' = None) -> None
+  attr access_key_id: str
+  attr bucket: str
+  attr did_log_key_prefix: str | None
+  attr did_log_public_base_url: str | None
+  attr did_log_reference_to_write_url: Callable[[str, str], str] | None
+  attr did_log_store_method: str | None
+  attr endpoint: str | None
+  attr force_path_style: bool
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr key_prefix: str | None
+  attr now: Callable[[], datetime] | None
+  attr public_base_url: str | None
+  attr reference_to_did_log_object_key: Callable[[str], str] | None
+  attr reference_to_object_key: Callable[[str], str] | None
+  attr reference_to_write_url: Callable[[str, str], str] | None
+  attr region: str
+  attr secret_access_key: str
+  attr service: str
+  attr session_token: str | None
+  attr store_method: str
+
+## BearerTokenHttpDIDDocumentSource
+class BearerTokenHttpDIDDocumentSource(config: 'BearerTokenHttpDIDDocumentSourceConfig') -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_by_reference(self, document_ref: 'str', document: 'AgentDIDDocument') -> 'None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## BearerTokenHttpDIDDocumentSourceConfig
+class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+  attr did_log_store_method: str | None
+  attr get_token: Callable[[], str | Awaitable[str]] | None
+  attr header_name: str
+  attr http_client: httpx.AsyncClient | None
+  attr ipfs_gateways: list[str] | None
+  attr reference_to_url: Callable[[str], str] | None
+  attr reference_to_urls: Callable[[str], list[str]] | None
+  attr scheme: str
+  attr store_method: str
+  attr token: str | None
+  member http_security = None
+
+## CreateAgentParams
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, capabilities: list[str] | None = None, member_of: str | None = None, signer: Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
+  attr capabilities: list[str] | None
+  attr core_model: str
+  attr description: str | None
+  attr did_method: Literal['agent', 'webvh']
+  attr member_of: str | None
+  attr name: str
+  attr signer: Any | None
+  attr system_prompt: str
+  attr version: str | None
+  attr webvh: CreateDidWebvhOptions | None
+  member model_config = {'arbitrary_types_allowed': True}
+
+## CreateAgentResult
+class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str) -> None
+  attr agent_private_key: str
+  attr document: AgentDIDDocument
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+
+## CreateDidWebvhOptions
+class CreateDidWebvhOptions(*, domain: str, controller_did: str, path_segments: list[str] | None = None, scid: str | None = None) -> None
+  attr controller_did: str
+  attr domain: str
+  attr path_segments: list[str] | None
+  attr scid: str | None
+  member model_config = {}
+
+## DIDDocumentSource
+class DIDDocumentSource(*args, **kwargs)
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## DIDResolver
+class DIDResolver(*args, **kwargs)
+  def register_document(self, document: 'AgentDIDDocument') -> 'None'
+  def remove(self, did: 'str') -> 'None'
+  def resolve(self, did: 'str') -> 'AgentDIDDocument'
+
+## DID_VERIFICATION_RELATIONSHIPS
+value DID_VERIFICATION_RELATIONSHIPS = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement')
+
+## EvmAgentRegistry
+class EvmAgentRegistry(config: 'EvmAgentRegistryAdapterConfig') -> 'None'
+  def get_record(self, did: 'str') -> 'AgentRegistryRecord | None'
+  def is_revoked(self, did: 'str') -> 'bool'
+  def register(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'None'
+  def revoke(self, did: 'str') -> 'None'
+  def set_document_reference(self, did: 'str', document_ref: 'str') -> 'None'
+
+## EvmAgentRegistryAdapterConfig
+class EvmAgentRegistryAdapterConfig(contract_client: 'EvmAgentRegistryContract', await_transaction_confirmation: 'bool' = True) -> None
+  attr await_transaction_confirmation: bool
+  attr contract_client: EvmAgentRegistryContract
+
+## EvmAgentRegistryContract
+class EvmAgentRegistryContract(*args, **kwargs)
+  def get_agent_record(self, did: 'str') -> 'AgentRegistryRecord | None'
+  def is_revoked(self, did: 'str') -> 'bool'
+  def register_agent(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'EvmTxResponse | None'
+  def register_agent_with_document(self, did: 'str', controller: 'str', document_ref: 'str') -> 'EvmTxResponse | None'
+  def revoke_agent(self, did: 'str') -> 'EvmTxResponse | None'
+  def set_document_ref(self, did: 'str', document_ref: 'str') -> 'EvmTxResponse | None'
+
+## EvmTxResponse
+class EvmTxResponse(wait: 'object | None' = None) -> None
+  attr wait: object | None
+
+## FilesystemDIDDocumentSource
+class FilesystemDIDDocumentSource(config: 'FilesystemDIDDocumentSourceConfig | None' = None) -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_by_reference(self, document_ref: 'str', document: 'AgentDIDDocument') -> 'None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## FilesystemDIDDocumentSourceConfig
+class FilesystemDIDDocumentSourceConfig(reference_to_path: 'Callable[[str], str | Path] | None' = None, reference_to_paths: 'Callable[[str], list[str | Path]] | None' = None) -> None
+  attr reference_to_path: Callable[[str], str | Path] | None
+  attr reference_to_paths: Callable[[str], list[str | Path]] | None
+
+## HttpDIDDocumentSource
+class HttpDIDDocumentSource(config: 'HttpDIDDocumentSourceConfig | None' = None) -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_by_reference(self, document_ref: 'str', document: 'AgentDIDDocument') -> 'None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## HttpDIDDocumentSourceConfig
+class HttpDIDDocumentSourceConfig(reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+  attr did_log_store_method: str | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr ipfs_gateways: list[str] | None
+  attr reference_to_url: Callable[[str], str] | None
+  attr reference_to_urls: Callable[[str], list[str]] | None
+  attr store_method: str
+
+## HttpTargetValidationOptions
+class HttpTargetValidationOptions(*, allow_private_targets: 'bool' = False) -> 'None'
+
+## IdentityCompositionError
+class IdentityCompositionError(reason: 'IdentityCompositionErrorReason', *, key_id: 'str', required_purpose: 'VerificationRelationship', found_in: 'Sequence[VerificationRelationship]', did: 'str | None' = None) -> 'None'
+
+## IdentityCompositionErrorReason
+value IdentityCompositionErrorReason = typing.Literal['key_purpose_violation', 'rotation_window_closed', 'emergency_revoked', 'tampered']
+
+## InMemoryAgentRegistry
+class InMemoryAgentRegistry() -> 'None'
+  def get_record(self, did: 'str') -> 'AgentRegistryRecord | None'
+  def is_revoked(self, did: 'str') -> 'bool'
+  def register(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'None'
+  def revoke(self, did: 'str') -> 'None'
+  def set_document_reference(self, did: 'str', document_ref: 'str') -> 'None'
+
+## InMemoryDIDResolver
+class InMemoryDIDResolver() -> 'None'
+  def register_document(self, document: 'AgentDIDDocument') -> 'None'
+  def remove(self, did: 'str') -> 'None'
+  def resolve(self, did: 'str') -> 'AgentDIDDocument'
+
+## JsonRpcDIDDocumentSource
+class JsonRpcDIDDocumentSource(config: 'JsonRpcDIDDocumentSourceConfig | None' = None) -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## JsonRpcDIDDocumentSourceConfig
+class JsonRpcDIDDocumentSourceConfig(endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str' = 'agent_resolveDocumentRef', build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+  attr build_params: Callable[[str], list[Any]] | None
+  attr endpoint: str | None
+  attr endpoints: list[str] | None
+  attr headers: dict[str, str] | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr method: str
+
+## LocalKeySigner
+class LocalKeySigner(private_key_hex: 'str') -> 'None'
+  staticmethod generate() -> 'tuple[LocalKeySigner, str]'
+  def get_public_key(self) -> 'bytes'
+  def sign(self, payload: 'bytes') -> 'str'
+
+## PresignedHttpDIDDocumentSource
+class PresignedHttpDIDDocumentSource(config: 'PresignedHttpDIDDocumentSourceConfig | None' = None) -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_by_reference(self, document_ref: 'str', document: 'AgentDIDDocument') -> 'None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## PresignedHttpDIDDocumentSourceConfig
+class PresignedHttpDIDDocumentSourceConfig(reference_to_read_url: 'Callable[[str], str] | None' = None, reference_to_read_urls: 'Callable[[str], list[str]] | None' = None, did_log_reference_to_read_url: 'Callable[[str], str] | None' = None, did_log_reference_to_read_urls: 'Callable[[str], list[str]] | None' = None, reference_to_write_url: 'Callable[[str], str] | None' = None, did_log_reference_to_write_url: 'Callable[[str], str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+  attr did_log_reference_to_read_url: Callable[[str], str] | None
+  attr did_log_reference_to_read_urls: Callable[[str], list[str]] | None
+  attr did_log_reference_to_write_url: Callable[[str], str] | None
+  attr did_log_store_method: str | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr ipfs_gateways: list[str] | None
+  attr reference_to_read_url: Callable[[str], str] | None
+  attr reference_to_read_urls: Callable[[str], list[str]] | None
+  attr reference_to_write_url: Callable[[str], str] | None
+  attr store_method: str
+
+## ProductionHttpResolverProfileConfig
+class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+  attr cache_ttl_ms: int | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr ipfs_gateways: list[str] | None
+  attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
+  attr reference_to_url: Callable[[str], str] | None
+  attr reference_to_urls: Callable[[str], list[str]] | None
+  attr registry: AgentRegistry
+
+## ProductionJsonRpcResolverProfileConfig
+class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str | None' = None, build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+  attr build_params: Callable[[str], list[Any]] | None
+  attr cache_ttl_ms: int | None
+  attr endpoint: str | None
+  attr endpoints: list[str] | None
+  attr headers: dict[str, str] | None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr method: str | None
+  attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
+  attr registry: AgentRegistry
+
+## ProductionResolverProfileConfig
+class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, cache_ttl_ms: 'int | None' = None, on_resolution_event: 'object | None' = None) -> None
+  attr cache_ttl_ms: int | None
+  attr document_source: DIDDocumentSource
+  attr on_resolution_event: object | None
+  attr registry: AgentRegistry
+  attr wba_document_source: DIDDocumentSource | None
+  attr webvh_document_source: DIDDocumentSource | None
+
+## ResolverCacheStats
+class ResolverCacheStats(hits: 'int', misses: 'int', size: 'int') -> None
+  attr hits: int
+  attr misses: int
+  attr size: int
+
+## ResolverResolutionEvent
+class ResolverResolutionEvent(did: 'str', stage: 'ResolverResolutionStage', duration_ms: 'float', message: 'str | None' = None) -> None
+  attr did: str
+  attr duration_ms: float
+  attr message: str | None
+  attr stage: ResolverResolutionStage
+
+## ResolverResolutionStage
+value ResolverResolutionStage = typing.Literal['cache-hit', 'cache-miss', 'registry-lookup', 'source-fetch', 'source-fetched', 'fallback', 'resolved', 'error']
+
+## RotateVerificationMethodResult
+class RotateVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, verificationMethodId: str, agentPrivateKey: str) -> None
+  attr agent_private_key: str
+  attr document: AgentDIDDocument
+  attr verification_method_id: str
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+
+## S3CompatibleDIDDocumentSource
+class S3CompatibleDIDDocumentSource(config: 'S3CompatibleDIDDocumentSourceConfig') -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_by_reference(self, document_ref: 'str', document: 'AgentDIDDocument') -> 'None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## S3CompatibleDIDDocumentSourceConfig
+class S3CompatibleDIDDocumentSourceConfig(bucket: 'str', endpoint: 'str | None' = None, public_base_url: 'str | None' = None, did_log_public_base_url: 'str | None' = None, key_prefix: 'str | None' = None, did_log_key_prefix: 'str | None' = None, force_path_style: 'bool' = True, reference_to_object_key: 'Callable[[str], str] | None' = None, reference_to_did_log_object_key: 'Callable[[str], str] | None' = None, reference_to_write_url: 'Callable[[str, str], str] | None' = None, did_log_reference_to_write_url: 'Callable[[str, str], str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+  attr bucket: str
+  attr did_log_key_prefix: str | None
+  attr did_log_public_base_url: str | None
+  attr did_log_reference_to_write_url: Callable[[str, str], str] | None
+  attr did_log_store_method: str | None
+  attr endpoint: str | None
+  attr force_path_style: bool
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr key_prefix: str | None
+  attr public_base_url: str | None
+  attr reference_to_did_log_object_key: Callable[[str], str] | None
+  attr reference_to_object_key: Callable[[str], str] | None
+  attr reference_to_write_url: Callable[[str, str], str] | None
+  attr store_method: str
+
+## SIGNING_VERIFICATION_PURPOSES
+value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
+
+## SignHttpRequestParams
+class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, agent_private_key: str | None = None, signer: Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: Any | None = None) -> None
+  attr agent_did: str
+  attr agent_private_key: str | None
+  attr body: str | None
+  attr expires_in_seconds: int | None
+  attr http_security: Any | None
+  attr method: str
+  attr signer: Any | None
+  attr url: str
+  attr verification_method_id: str | None
+  member model_config = {'arbitrary_types_allowed': True}
+
+## SigningVerificationPurpose
+value SigningVerificationPurpose = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation']
+
+## UniversalResolverClient
+class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
+  def get_cache_stats(self) -> 'ResolverCacheStats'
+  def register_document(self, document: 'AgentDIDDocument') -> 'None'
+  def remove(self, did: 'str') -> 'None'
+  def resolve(self, did: 'str') -> 'AgentDIDDocument'
+
+## UniversalResolverConfig
+class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, cache_ttl_ms: 'int' = 60000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None) -> None
+  attr cache_ttl_ms: int
+  attr document_source: DIDDocumentSource
+  attr fallback_resolver: DIDResolver | None
+  attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
+  attr registry: AgentRegistry
+  attr wba_document_source: DIDDocumentSource | None
+  attr webvh_document_source: DIDDocumentSource | None
+
+## UpdateAgentDocumentParams
+class UpdateAgentDocumentParams(*, description: str | None = None, version: str | None = None, core_model: str | None = None, system_prompt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, compliance_certifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None) -> None
+  attr capabilities: list[str] | None
+  attr compliance_certifications: list[VerifiableCredentialLink] | None
+  attr core_model: str | None
+  attr description: str | None
+  attr member_of: str | None
+  attr system_prompt: str | None
+  attr version: str | None
+  member model_config = {}
+
+## VerifiableCredentialLink
+class VerifiableCredentialLink(*, type: str, issuer: str, credentialSubject: str, proofHash: str) -> None
+  attr credential_subject: str
+  attr issuer: str
+  attr proof_hash: str
+  attr type: str
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+
+## VerificationMethod
+class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultibase: str | None = None, blockchainAccountId: str | None = None, deactivated: str | None = None) -> None
+  attr blockchain_account_id: str | None
+  attr controller: str
+  attr deactivated: str | None
+  attr id: str
+  attr public_key_multibase: str | None
+  attr type: str
+  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+
+## VerificationRelationship
+value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
+
+## VerifyHttpRequestSignatureParams
+class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None) -> None
+  attr body: str | None
+  attr headers: dict[str, str]
+  attr max_created_skew_seconds: int | None
+  attr method: str
+  attr url: str
+  member model_config = {}
+
+## Web3AgentRegistryContractClient
+class Web3AgentRegistryContractClient(contract: 'Any') -> 'None'
+  def get_agent_record(self, did: 'str') -> 'AgentRegistryRecord | None'
+  def is_revoked(self, did: 'str') -> 'bool'
+  def register_agent(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'EvmTxResponse | None'
+  def revoke_agent(self, did: 'str') -> 'EvmTxResponse | None'
+  def set_document_ref(self, did: 'str', document_ref: 'str') -> 'EvmTxResponse | None'
+
+## WebvhDIDDocumentSource
+class WebvhDIDDocumentSource(config: 'WebvhDIDDocumentSourceConfig | None' = None) -> 'None'
+  def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
+  def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
+
+## WebvhDIDDocumentSourceConfig
+class WebvhDIDDocumentSourceConfig(reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+  attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
+  attr reference_to_url: Callable[[str], str] | None
+  attr reference_to_urls: Callable[[str], list[str]] | None
+
+## assert_key_purpose
+def assert_key_purpose(key_id: 'str', did_doc: 'AgentDIDDocument', required_purpose: 'VerificationRelationship') -> 'None'
+
+## assert_signing_purpose
+def assert_signing_purpose(required_purpose: 'VerificationRelationship', did_doc: 'AgentDIDDocument', key_id: 'str' = '') -> 'None'
+
+## decode_public_key_multibase
+def decode_public_key_multibase(encoded: 'str') -> 'bytes'
+
+## encode_public_key_multibase
+def encode_public_key_multibase(raw_public_key: 'bytes') -> 'str'
+
+## format_hash_uri
+def format_hash_uri(hash_hex: 'str') -> 'str'
+
+## generate_agent_metadata_hash
+def generate_agent_metadata_hash(payload: 'str') -> 'str'
+
+## get_key_relationships
+def get_key_relationships(key_id: 'str', did_doc: 'AgentDIDDocument') -> 'list[VerificationRelationship]'
+
+## get_relationship_key_ids
+def get_relationship_key_ids(did_doc: 'AgentDIDDocument', relationship: 'VerificationRelationship') -> 'list[str]'
+
+## hash_payload
+def hash_payload(payload: 'str') -> 'str'
+
+## is_unix_timestamp_string
+def is_unix_timestamp_string(value: 'str') -> 'bool'
+
+## iso_to_unix_string
+def iso_to_unix_string(value: 'str') -> 'str'
+
+## normalize_timestamp_to_iso
+def normalize_timestamp_to_iso(value: 'str | None') -> 'str | None'
+
+## unix_string_to_iso
+def unix_string_to_iso(value: 'str') -> 'str'
+
+## validate_http_target
+def validate_http_target(url: 'str', options: 'HttpTargetValidationOptions | None' = None) -> 'None'

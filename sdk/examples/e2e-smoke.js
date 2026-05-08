@@ -53,7 +53,8 @@ async function main() {
   const { document, agentPrivateKey } = await identity.create({
     name: 'SmokeBot',
     coreModel: 'gpt-4o-mini',
-    systemPrompt: 'You are a smoke test bot'
+    systemPrompt: 'You are a smoke test bot',
+    didMethod: 'agent'
   });
 
   const payload = 'approve:smoke:1';

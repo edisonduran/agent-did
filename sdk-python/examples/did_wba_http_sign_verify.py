@@ -1,9 +1,10 @@
-"""End-to-end example: create a did:wba agent, sign an HTTP request, and verify
+"""End-to-end example: create a did:webvh agent, sign an HTTP request, and verify
 the signature using a mock HTTP resolver — no live network required."""
 
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
 
@@ -31,7 +32,7 @@ async def main() -> None:
 
     created = await identity.create(
         CreateAgentParams(
-            name="wba-example",
+            name="webvh-example",
             core_model="gpt-4.1-mini",
             system_prompt="Sign outbound API requests.",
         )
@@ -39,19 +40,23 @@ async def main() -> None:
 
     # 2. Prepare DID document and expected resolution URL
     did_doc = created.document
-
-    # Extract path from DID (did:wba:example.com:agent → agent)
-    did_suffix = created.document.id.split(":")[-1]
-    expected_url = f"https://example.com/{did_suffix}/did.json"
+    did_segments = created.document.id.split(":")
+    domain_segment = did_segments[3]
+    path_segments = did_segments[4:]
+    expected_url = (
+        f"https://{domain_segment}/{'/'.join(path_segments)}/did.jsonl"
+        if path_segments
+        else f"https://{domain_segment}/.well-known/did.jsonl"
+    )
 
     # 3. Mock HTTP resolver
     def handler(request: httpx.Request) -> httpx.Response:
         if str(request.url) == expected_url:
-            # Depending on SDK version: use model_dump() or dict()
-            try:
-                return httpx.Response(200, json=did_doc.model_dump())
-            except AttributeError:
-                return httpx.Response(200, json=did_doc.dict())
+            did_log = json.dumps({
+                "versionId": f"1-{did_segments[2]}",
+                "state": did_doc.model_dump(by_alias=True, exclude_none=True),
+            })
+            return httpx.Response(200, text=did_log)
         return httpx.Response(404, json={})
 
     transport = httpx.MockTransport(handler)

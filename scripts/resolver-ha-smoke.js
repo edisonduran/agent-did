@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { SDK_DIST, createJsonRpcServer } = require('./smoke-utils');
+const { SDK_DIST } = require('./smoke-utils');
 
 async function main() {
   let sdk;
@@ -11,12 +11,11 @@ async function main() {
 
   const { AgentIdentity, InMemoryAgentRegistry, InMemoryDIDResolver } = sdk;
 
-  const did = 'did:agent:polygon:0xha';
-  const documentRef = 'hash://sha256/ha-doc';
+  const did = 'did:webvh:QmHaDrillScid:agents.example:profiles:ha-bot';
   const document = {
     '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
     id: did,
-    controller: 'did:ethr:0xcontroller',
+    controller: 'did:webvh:QmHaControllerScid:agents.example:organizations:ops-root',
     created: '2026-01-01T00:00:00.000Z',
     updated: '2026-01-01T00:00:00.000Z',
     agentMetadata: {
@@ -29,77 +28,75 @@ async function main() {
       {
         id: `${did}#key-1`,
         type: 'Ed25519VerificationKey2020',
-        controller: 'did:ethr:0xcontroller',
+        controller: did,
         publicKeyMultibase: 'zabc'
       }
     ],
-    authentication: [`${did}#key-1`]
+    authentication: [`${did}#key-1`],
+    assertionMethod: [`${did}#key-1`]
+  };
+  const didLog = [
+    JSON.stringify({ versionId: '1-QmHaDrillScid', state: { ...document, updated: '2025-12-31T00:00:00.000Z' } }),
+    JSON.stringify({ versionId: '2-QmHaDrillScid', state: document })
+  ].join('\n');
+  const attemptedUrls = [];
+  const candidateUrls = [
+    'https://resolver-primary.example/profiles/ha-bot/did.jsonl',
+    'https://resolver-secondary.example/profiles/ha-bot/did.jsonl',
+    'https://resolver-tertiary.example/profiles/ha-bot/did.jsonl'
+  ];
+
+  const fetchFn = async (url) => {
+    attemptedUrls.push(url);
+
+    if (url === candidateUrls[0]) {
+      return { ok: false, status: 503, json: async () => ({}), text: async () => '' };
+    }
+
+    if (url === candidateUrls[1]) {
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    }
+
+    if (url === candidateUrls[2]) {
+      return { ok: true, status: 200, json: async () => ({}), text: async () => didLog };
+    }
+
+    throw new Error(`Unexpected HA drill URL: ${url}`);
   };
 
-  const primaryDown = createJsonRpcServer(async (payload) => ({
-    httpStatus: 503,
-    payload: { jsonrpc: '2.0', id: payload.id ?? null, error: { code: -32000, message: 'primary down' } }
-  }));
+  const registry = new InMemoryAgentRegistry();
 
-  const secondaryNotFound = createJsonRpcServer(async (payload) => ({
-    payload: { jsonrpc: '2.0', id: payload.id ?? null, error: { code: -32004, message: 'not found on secondary' } }
-  }));
+  AgentIdentity.setRegistry(registry);
+  AgentIdentity.setResolver(new InMemoryDIDResolver());
 
-  const tertiaryHealthy = createJsonRpcServer(async (payload) => {
-    if (payload.method !== 'agent_resolveDocumentRef') {
-      return { payload: { jsonrpc: '2.0', id: payload.id ?? null, error: { code: -32601, message: 'method not found' } } };
-    }
-
-    const params = Array.isArray(payload.params) ? payload.params : [];
-    if (params[0] !== documentRef) {
-      return { payload: { jsonrpc: '2.0', id: payload.id ?? null, error: { code: -32004, message: 'not found' } } };
-    }
-
-    return { payload: { jsonrpc: '2.0', id: payload.id ?? null, result: document } };
+  const events = [];
+  AgentIdentity.useProductionResolverFromHttp({
+    registry,
+    cacheTtlMs: 60_000,
+    referenceToUrls: () => candidateUrls,
+    fetchFn,
+    onResolutionEvent: (event) => events.push(event.stage)
   });
 
-  const primaryPort = await primaryDown.start();
-  const secondaryPort = await secondaryNotFound.start();
-  const tertiaryPort = await tertiaryHealthy.start();
+  const first = await AgentIdentity.resolve(did);
+  const second = await AgentIdentity.resolve(did);
 
-  try {
-    const registry = new InMemoryAgentRegistry();
-    await registry.register(did, document.controller, documentRef);
-
-    AgentIdentity.setRegistry(registry);
-    AgentIdentity.setResolver(new InMemoryDIDResolver());
-
-    const events = [];
-    AgentIdentity.useProductionResolverFromJsonRpc({
-      registry,
-      cacheTtlMs: 60_000,
-      endpoints: [
-        `http://127.0.0.1:${primaryPort}`,
-        `http://127.0.0.1:${secondaryPort}`,
-        `http://127.0.0.1:${tertiaryPort}`
-      ],
-      onResolutionEvent: (event) => events.push(event.stage),
-      httpSecurity: { allowPrivateTargets: true }
-    });
-
-    const first = await AgentIdentity.resolve(did);
-    const second = await AgentIdentity.resolve(did);
-
-    if (first.id !== did || second.id !== did) {
-      throw new Error('Resolución DID fallida durante drill HA');
-    }
-
-    const requiredStages = ['cache-miss', 'registry-lookup', 'source-fetch', 'source-fetched', 'resolved', 'cache-hit'];
-    for (const stage of requiredStages) {
-      if (!events.includes(stage)) {
-        throw new Error(`Evento requerido ausente en drill HA: ${stage}`);
-      }
-    }
-
-    console.log('✅ HA resolver drill completed successfully');
-  } finally {
-    await Promise.all([primaryDown.stop(), secondaryNotFound.stop(), tertiaryHealthy.stop()]);
+  if (first.id !== did || second.id !== did) {
+    throw new Error('Resolución DID fallida durante drill HA');
   }
+
+  const requiredStages = ['cache-miss', 'source-fetch', 'source-fetched', 'resolved', 'cache-hit'];
+  for (const stage of requiredStages) {
+    if (!events.includes(stage)) {
+      throw new Error(`Evento requerido ausente en drill HA: ${stage}`);
+    }
+  }
+
+  if (attemptedUrls.length !== candidateUrls.length || attemptedUrls.some((url, index) => url !== candidateUrls[index])) {
+    throw new Error(`Failover did:webvh no recorrió los candidate URLs esperados: ${attemptedUrls.join(', ')}`);
+  }
+
+  console.log('✅ HA resolver drill completed successfully');
 }
 
 main().catch((error) => {

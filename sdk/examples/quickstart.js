@@ -7,7 +7,7 @@ const main = async () => {
   AgentIdentity.setRegistry(new InMemoryAgentRegistry());
 
   const wallet = ethers.Wallet.createRandom();
-  const identity = new AgentIdentity({ signer: wallet, network: 'polygon' });
+  const identity = new AgentIdentity({ signer: wallet });
 
   const created = await identity.create({
     name: 'quickstart-bot',
@@ -32,6 +32,7 @@ const main = async () => {
 
   console.log({
     did: created.document.id,
+    controller: created.document.controller,
     ok,
     headerNames: Object.keys(headers).sort()
   });

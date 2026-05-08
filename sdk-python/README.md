@@ -71,7 +71,13 @@ asyncio.run(main())
 | Revoke DID | `AgentIdentity.revoke_did(did)` | ✅ |
 | Update document | `AgentIdentity.update_did_document(did, patch)` | ✅ |
 | Rotate verification keys | `AgentIdentity.rotate_verification_method(did)` | ✅ |
-| Document history/audit | `AgentIdentity.get_document_history(did)` | ✅ |
+| Document history/audit | `AgentIdentity.get_document_history(did)` + `AgentIdentity.export_did_webvh_history(did)` + `AgentIdentity.import_did_webvh_history(log)` + `AgentIdentity.save_did_webvh_history_to_file(did, path)` + `AgentIdentity.load_did_webvh_history_from_file(path)` + `AgentIdentity.persist_did_webvh_history_to_source(did, ref, source)` + `AgentIdentity.restore_did_webvh_history_from_source(ref, source)` | ✅ |
+| Filesystem storage adapter | `FilesystemDIDDocumentSource` | ✅ |
+| Remote HTTP storage adapter | `HttpDIDDocumentSource` (`store_by_reference`, `get_did_log_by_reference`, `store_did_log_by_reference`) | ✅ |
+| Authenticated HTTP gateway adapter | `BearerTokenHttpDIDDocumentSource` | ✅ |
+| Presigned/object-storage adapter | `PresignedHttpDIDDocumentSource` | ✅ |
+| S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
+| AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
 | EVM registry adapter | `EvmAgentRegistry` + `Web3AgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 
@@ -86,7 +92,7 @@ By default, `verify_signature` and HTTP signature verification require the signi
 | `core.time_utils` | ISO-8601 ↔ Unix timestamp utilities |
 | `crypto.hash` | SHA-256 hashing with `hash://` URI format |
 | `registry.*` | Agent registry (in-memory, EVM adapter, Web3 client) |
-| `resolver.*` | DID resolver (in-memory, HTTP source, JSON-RPC source, universal) |
+| `resolver.*` | DID resolver (in-memory, filesystem source, HTTP source, bearer/authenticated HTTP source, presigned/object-storage source, S3-compatible source, AWS SigV4 S3 source, JSON-RPC source, universal) |
 
 ## EVM Registry Integration
 
