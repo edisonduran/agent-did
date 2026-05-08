@@ -27,7 +27,7 @@ async def test_agent_card_has_required_a2a_fields() -> None:
 
     assert card.name == "CardAgent"
     assert card.url == "https://example.com/agent"
-    assert card.did.startswith("did:agent:")
+    assert card.did == result.document.id
     assert len(card.skills) == 1
     assert card.skills[0].id == "s1"
     assert "http-signature-did" in card.authentication.schemes

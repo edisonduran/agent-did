@@ -150,6 +150,8 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 > Detailed and tracked as GitHub issues under the `v1.0.0` milestone. The executed issue map is archived in [_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md](../_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md).
 
+> Status sync (2026-05-08): Sprint 0 foundation issues `#48`, `#51`, `#52`, and `#67`-`#71` are closed in GitHub. The signature-level API gate from `#60` shipped via PR `#93` and the issue is now closed; `#91` remains intentionally open as the tracker for the renewed `C-QA-8` 30-day green window on `main`.
+
 ### Sprint 0 — Scope Freeze and Release Foundation
 
 Goal: align the post-ADR-001 release scope so Sprints 1 and 2 can execute without re-litigating standards approval, EVM centrality, or optional integrations. **Not blocked by any PR currently in review.**
@@ -217,4 +219,4 @@ From `1.0.0` onward **strict SemVer** applies, per [DEPRECATION-POLICY.md](DEPRE
 
 This document is updated at the close of each Sprint. The *Criteria covered* column traces every task back to a checkbox in section 2.
 
-**Next expected revision:** after Sprint 0 issues #48, #51, #52, and #67-#71 are closed or explicitly deferred with maintainer approval.
+**Next expected revision:** after the next milestone audit for Sprint 1 hardening, with fresh evidence for `#91` / `C-QA-8` on `main`.

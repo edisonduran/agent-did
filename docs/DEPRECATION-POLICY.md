@@ -103,7 +103,7 @@ Until v1.0, the project supports the **latest published version** of each packag
 
 - TypeScript: latest `@agentdid/sdk`
 - Python: latest `agent-did-sdk`
-- Integrations: current repository `master`
+- Integrations: current repository `main`
 
 Older versions may receive critical fixes at maintainer discretion, but contributors and adopters should assume that the latest published version is the supported baseline.
 

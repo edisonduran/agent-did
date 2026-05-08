@@ -6,6 +6,8 @@
 **Author:** Automated assessment (GitHub Copilot)  
 **Version:** 1.0
 
+> Status note (2026-05-08): this draft predates ADR-001, the `did:webvh` pivot, and the core `1.0.0` scope freeze. References below to EVM anchoring as a central release assumption, hybrid on-chain/off-chain framing as the default story, or near-term standards submission as a release dependency should be read as historical strategic context, not current guidance. For the live direction, use [../README.md](../README.md), [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md), and [../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
+
 ---
 
 ## 1. Executive Summary
@@ -24,7 +26,7 @@ The project occupies a strategic space of very high value with virtually no dire
 
 | Component | Location | Status |
 |---|---|---|
-| RFC-001 Specification | `docs/RFC-001-Agent-DID-Specification.md` | Active draft v0.2-unified |
+| RFC-001 Specification | `docs/RFC-001-Agent-DID-Specification.md` | Public Review v1, version 0.3-pivot-pattern-on-webvh |
 | TypeScript SDK | `sdk/` | Functional — 14 source files, 584 LOC main class |
 | Python SDK | `sdk-python/` | Functional — dedicated Python pipeline, shared fixtures and own suite |
 | EVM Smart Contract | `contracts/src/AgentRegistry.sol` | Functional — Solidity 0.8.24, optimizer enabled |

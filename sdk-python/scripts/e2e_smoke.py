@@ -63,6 +63,7 @@ async def main() -> int:
                 name="SmokeBot",
                 core_model="gpt-4o-mini",
                 system_prompt="You are a smoke test bot",
+                did_method="agent",
             )
         )
 

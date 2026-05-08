@@ -148,7 +148,7 @@ class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_tok
   member http_security = None
 
 ## CreateAgentParams
-class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, capabilities: list[str] | None = None, member_of: str | None = None, signer: Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
   attr capabilities: list[str] | None
   attr core_model: str
   attr description: str | None
@@ -396,7 +396,7 @@ class S3CompatibleDIDDocumentSourceConfig(bucket: 'str', endpoint: 'str | None' 
 value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
 
 ## SignHttpRequestParams
-class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, agent_private_key: str | None = None, signer: Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: Any | None = None) -> None
+class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, agent_private_key: str | None = None, signer: typing.Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: typing.Any | None = None) -> None
   attr agent_did: str
   attr agent_private_key: str | None
   attr body: str | None

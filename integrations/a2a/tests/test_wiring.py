@@ -90,7 +90,7 @@ async def test_agent_card_json_serialization() -> None:
     card_json = integration.agent_card_json(agent_url="https://agents.example.com/jsonbot")
 
     assert isinstance(card_json, dict)
-    assert card_json["did"].startswith("did:agent:")
+    assert card_json["did"] == runtime_identity.document.id
     assert card_json["name"] == "JsonBot"
     assert "authentication" in card_json
     assert "http-signature-did" in card_json["authentication"]["schemes"]

@@ -7,6 +7,8 @@
 **Audiencia objetivo:** Mixta (desarrolladores, comunidad Web3/blockchain, comunidad IA/ML)  
 **Duración estimada:** ~10 horas (7 módulos + ejercicios)
 
+> Nota de estado (2026-05-08): este curso sigue en revisión. Las secciones fundacionales de los Módulos 1, 2 y 4 fueron actualizadas para el pivot de ADR-001 y ya enseñan la ruta canónica con `did:webvh`. Algunos ejercicios, answer keys y walkthroughs tardíos todavía conservan material histórico de `did:agent` / Polygon para una pasada posterior de limpieza. Para la ruta web-native vigente, usar [../QUICKSTART.md](../QUICKSTART.md), [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) y [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md).
+
 ---
 
 ## Índice General
@@ -118,15 +120,17 @@ Descompuesto:
 Formato:
 
 ```
-did:agent:polygon:0x1234...abcd
+did:webvh:example.com:agents:support-bot
 
 did          → prefijo estándar (dice "esto es un DID")
-agent        → el "método" (dice "este DID sigue las reglas de Agent-DID")
-polygon      → la red blockchain donde se ancló
-0x1234...    → el identificador único del agente (un hash criptográfico)
+webvh        → DID method usado por el path canónico de Agent-DID
+example.com  → host autoritativo para el historial DID
+agents:...   → path específico del método que identifica al sujeto agente
 ```
 
-**Analogía:** si una cédula es un identificador *centralizado* (el gobierno la emite y controla), un DID es como si TÚ pudieras crear tu propia cédula, y cualquiera pudiera verificarla sin llamar al gobierno — usando matemáticas.
+**Actualización clave:** Agent-DID ya no introduce un DID Method nuevo como historia central. Ahora es un patrón de aplicación encima de W3C DIDs, con `did:webvh` como default normativo en la RFC vigente.
+
+**Analogía:** si una cédula es un identificador *centralizado* (el gobierno la emite y controla), un DID es como si TÚ pudieras crear tu propia cédula, y cualquiera pudiera verificarla sin llamar al gobierno — usando matemáticas más un historial DID resolvible abiertamente.
 
 #### ¿Qué es una firma digital?
 
@@ -202,13 +206,13 @@ Si firmas un cheque con tu firma manuscrita, no puedes después decir "yo no fir
 
 **Importante:** la firma **viaja con el mensaje**. No se guarda automáticamente en un lugar central. Cuando el agente envía un mensaje firmado, el receptor recibe el mensaje, la firma y el DID.
 
-Lo que **SÍ** se guarda en blockchain es:
-- Que el agente **existe** (fue registrado)
-- Su **referencia al documento** (hash)
-- Si está **revocado** o no
-- El **historial de cambios** de su identidad
+Lo que **SÍ** se guarda en el path canónico es el historial DID y su estado documental resolvible:
+- el DID del agente y la relación con su controller
+- los verification methods activos y los hashes de metadata
+- el historial de cambios de la identidad a lo largo del tiempo
+- el estado activo/inactivo necesario para decisiones de confianza
 
-Los mensajes individuales firmados NO se guardan en blockchain. Si quisieras guardar cada acción, eso sería una decisión de la aplicación (guardar firmas en un log, base de datos, etc.). El SDK da la **capacidad de firmar**, pero no impone dónde se almacenan las firmas.
+Los mensajes individuales firmados NO se guardan automáticamente on-chain ni en el historial DID. Si quieres guardar cada acción, eso ya es decisión de la aplicación (logs, receipts, bases de datos o attestations). El SDK da la **capacidad de firmar y verificar**, pero no impone dónde almacenar la evidencia de runtime.
 
 ---
 
@@ -436,83 +440,59 @@ pero conceptualmente son capas diferentes.
 
 ---
 
-### 1.8 Arquitectura: qué va en blockchain y qué no
+### 1.8 Arquitectura: qué vive en el historial DID, qué vive en runtime y qué es opcional
 
-Este punto genera muchas confusiones. La clave pública **NO va directamente en blockchain**:
+Este punto antes se explicaba como un split on-chain/off-chain por defecto. La arquitectura canónica actual es web-native:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    EN BLOCKCHAIN (on-chain)                   │
-│                                                              │
-│  • DID:           "did:agent:polygon:0xABC..."               │
-│  • Controller:    "did:ethr:0xEdison..."                     │
-│  • DocumentRef:   "hash://sha256/7f8a9b..."  ← un HASH      │
-│  • Revocado:      sí / no                                    │
-│  • Owner:         0xEdison (dirección EVM)                   │
-│                                                              │
-│  ⚠ NO contiene: claves públicas, metadata, capabilities     │
-│  ⚠ Es MÍNIMO a propósito — para ahorrar gas (costo)         │
+│           HISTORIAL DID / ESTADO DOCUMENTAL PUBLICADO       │
+│                                                             │
+│  • DID:           "did:webvh:example.com:agents:support-bot"│
+│  • Controller:    "did:webvh:example.com:organizations:acme"│
+│  • verificationMethod / authentication / assertionMethod    │
+│  • hashes de metadata y capabilities declaradas             │
+│  • timestamps created / updated y evolucion del estado      │
+│                                                             │
+│  Publicado por HTTPS u otras fuentes soportadas             │
 └─────────────────────────────────────────────────────────────┘
-                          │
-                          │  documentRef apunta a ───▶
-                          │
+                          |
+                          | lo resuelve
+                          v
 ┌─────────────────────────────────────────────────────────────┐
-│                    FUERA DE BLOCKCHAIN (off-chain)            │
-│                                                              │
-│  El DID Document completo (JSON-LD):                         │
-│  • Claves públicas (verificationMethod)      ← AQUÍ están   │
-│  • Nombre, versión, capabilities                             │
-│  • Hashes de modelo y prompt                                 │
-│  • Certificaciones de compliance                             │
-│  • Timestamps                                                │
-│                                                              │
-│  Almacenado en: servidor HTTP, IPFS, o cualquier fuente      │
+│                LADO DEL VERIFICADOR / RESOLVER              │
+│                                                             │
+│  • resuelve el historial DID                                │
+│  • deriva el DID Document activo                            │
+│  • recurre la cadena de controllers si la policy lo pide    │
+│  • verifica firmas con claves autorizadas                   │
+└─────────────────────────────────────────────────────────────┘
+                          |
+                          | el material de firma queda en
+                          v
+┌─────────────────────────────────────────────────────────────┐
+│                 LADO LOCAL DE RUNTIME / SIGNER              │
+│                                                             │
+│  • clave privada o handle del signer                        │
+│  • creacion de firmas HTTP                                  │
+│  • anti-replay local y policy de runtime                    │
+│                                                             │
+│  Nunca se publica como estado DID                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-La resolución siempre tiene dos pasos:
-1. **Ir a blockchain** → obtener el `documentRef` (hash/URI del documento)
-2. **Ir a la fuente off-chain** → obtener el documento completo con las claves públicas
-
-#### ¿Sobre qué blockchain?
-
-El DID contiene la red: `did:agent:polygon:0xABC` → el verificador sabe que debe buscar en Polygon.
-
-```
-En Polygon:   did:agent:polygon:0x1234...abcd
-En Ethereum:  did:agent:ethereum:0x1234...abcd
-En Arbitrum:  did:agent:arbitrum:0x1234...abcd
-En Base:      did:agent:base:0x1234...abcd
-```
-
-**¿Por qué Polygon como default?** Porque registrar un agente en Ethereum mainnet cuesta ~$5-20 USD en gas. En Polygon cuesta fracciones de centavo. Para un sistema con miles de agentes, eso importa.
-
-**En la práctica**, un proyecto elegiría UNA red principal y todos sus agentes se registrarían ahí.
+El path del resolver ahora es:
+1. **Resolver `did:webvh`** -> derivar candidate URLs / traer historial DID.
+2. **Construir el estado activo mas reciente** -> obtener el DID Document y las claves autorizadas.
+3. **Verificar la firma y la policy de confianza** -> key purpose, cadena de controllers, estado activo.
 
 #### ¿Es necesaria la blockchain?
 
-**No, técnicamente no.** El SDK está diseñado con interfaces abstraídas. El `AgentRegistry` es una interfaz — cualquier cosa que implemente sus 5 métodos puede ser el backend:
+**No.** Blockchain ya no es el modelo mental por defecto para el core path. El SDK se apoya en interfaces abstractas de registry y document source, así que cada despliegue puede elegir el perfil que mejor encaje con sus necesidades operativas y de confianza.
 
-```
-Implementaciones posibles del Registry:
-│
-├── InMemoryAgentRegistry     → Map en memoria (ya implementado — testing)
-├── EvmAgentRegistry          → Blockchain EVM (ya implementado — producción)
-├── PostgresAgentRegistry     → Base de datos SQL (posible futuro)
-├── RedisAgentRegistry        → Cache distribuido (posible futuro)
-├── HttpApiAgentRegistry      → API REST centralizado (posible futuro)
-```
+#### ¿Dónde entra el perfil EVM opcional?
 
-| Propiedad | Con blockchain | Sin blockchain (ej: base de datos) |
-|---|---|---|
-| Inmutabilidad | Los registros no se pueden alterar | Un admin podría modificar la DB |
-| Descentralización | Miles de nodos verifican | Depende de quien opera la DB |
-| Transparencia | Cualquiera puede auditar | Solo quien tiene acceso |
-| Disponibilidad | La red no se cae fácil | Un servidor puede caerse |
-| Costo | Cada escritura cuesta gas | Escritura gratuita |
-| Velocidad | Segundos a minutos | Milisegundos |
-
-**Conclusión:** blockchain no es *necesaria* para que funcione el SDK, pero es *recomendable* para confianza, inmutabilidad y descentralización real. Sin blockchain, pierdes las garantías de descentralización pero todo lo demás sigue funcionando.
+Si un despliegue necesita anclaje on-chain adicional, el adaptador EVM se puede sumar como perfil de compatibilidad/despliegue. Es opcional, no la explicación canónica de cómo funciona Agent-DID.
 
 ---
 
@@ -746,9 +726,9 @@ Para audiencia general/ejecutiva:
 ### Objetivos de aprendizaje
 - Entender qué es un DID y un DID Document según el estándar W3C
 - Comprender cada componente de un DID Document y su función
-- Conocer los DID Methods existentes y por qué se necesita `did:agent`
+- Conocer los DID Methods existentes y por qué el core actual de Agent-DID se centra en `did:webvh`
 - Entender JSON-LD, resolución DID y Credenciales Verificables
-- Saber explicar ante la comunidad por qué se diseñó un nuevo DID Method
+- Saber explicar ante la comunidad por qué Agent-DID ahora prefiere composición sobre inventar un DID Method nuevo
 
 ---
 
@@ -777,49 +757,46 @@ La respuesta fue el estándar DID.
 
 ### 2.2 Anatomía de un DID: desglosando la cadena
 
-Un DID es una cadena de texto con una estructura especifica:
+Un DID es una cadena de texto con una estructura especifica. En el core path actual de Agent-DID, el ejemplo canónico es:
 
 ```
-did:agent:polygon:0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18
-│   │     │       │
-│   │     │       └── 4. El identificador específico (dirección Ethereum)
-│   │     └────────── 3. La sub-red (Polygon, una blockchain EVM-compatible)
-│   └──────────────── 2. El método (agent = nuestro DID Method)
-└──────────────────── 1. El esquema (siempre "did:")
+did:webvh:example.com:agents:trading-bot
+│   │      │           │
+│   │      │           └── 4. Path específico del método / sujeto
+│   │      └────────────── 3. Host autoritativo para publicar el historial DID
+│   └───────────────────── 2. El DID method (`webvh`)
+└───────────────────────── 1. El esquema (siempre `did:`)
 ```
 
 **Parte por parte:**
 
-1. **`did:`** — El esquema URI. Así como `https:` indica "esto es una URL web", `did:` indica "esto es un identificador descentralizado". Es constante, siempre empieza así.
-
-2. **`agent`** — El DID Method. Define *cómo* se crea, resuelve y gestiona este DID. Cada método tiene sus propias reglas. `agent` es el nuestro.
-
-3. **`polygon`** — La sub-red. Indica en qué blockchain está anclada la identidad. Podría ser `mainnet`, `polygon`, `arbitrum`, etc.
-
-4. **`0x742d35Cc...`** — El identificador específico del método. En nuestro caso, es una dirección de wallet Ethereum derivada de las claves del agente.
+1. **`did:`** — El esquema URI que dice "esto es un identificador descentralizado".
+2. **`webvh`** — El DID method usado por el path normativo de Agent-DID. Nos da descubribilidad web-native mas historial DID verificable.
+3. **`example.com`** — La autoridad desde la que se publica y resuelve el historial DID.
+4. **`agents:trading-bot`** — El path específico del método que identifica al sujeto dentro de esa autoridad.
 
 **Comparación con otros DIDs:**
 
 ```
 did:web:example.com:agents:trading-bot
-    │   └── dominio web (depende de DNS)
-    └── método web
+  │   └── documento DID web-hosted simple
+  └── método web
 
 did:ethr:0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18
-    │    └── dirección Ethereum
-    └── método Ethereum
+  │    └── dirección Ethereum
+  └── método Ethereum
 
 did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK
-    │   └── clave pública codificada
-    └── método efímero (sin blockchain)
+  │   └── clave pública codificada
+  └── método efímero (sin historial hospedado)
 
-did:agent:polygon:0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18
-    │      │       └── dirección derivada
-    │      └── sub-red
-    └── nuestro método
+did:webvh:example.com:agents:trading-bot
+  │      │           └── sujeto agente hospedado y basado en path
+  │      └──────────── objetivo autoritativo de publicación
+  └─────────────────── path canónico del core Agent-DID
 ```
 
-**Propiedad fundamental:** Un DID es **persistente** y **resolvible**. A diferencia de una URL que puede dejar de funcionar si el servidor se cae, un DID anclado en blockchain existe mientras la blockchain exista.
+**Propiedad fundamental:** Un DID es **persistente** y **resolvible**. En el modelo actual, `did:webvh` es el default recomendado porque combina publicación web-native con historial verificable.
 
 ---
 
@@ -827,7 +804,7 @@ did:agent:polygon:0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18
 
 Si el DID es el **número de pasaporte**, el DID Document es el **pasaporte completo** con toda la información.
 
-Un DID Document es un objeto JSON-LD que contiene todo lo que necesitas saber para interactuar criptográficamente con el sujeto identificado por el DID. Aquí está el **DID Document real** que genera nuestro SDK:
+Un DID Document es un objeto JSON-LD que contiene todo lo que necesitas saber para interactuar criptográficamente con el sujeto identificado por el DID. Aquí está el patrón canónico descrito por la RFC actual:
 
 ```json
 {
@@ -835,33 +812,37 @@ Un DID Document es un objeto JSON-LD que contiene todo lo que necesitas saber pa
     "https://www.w3.org/ns/did/v1",
     "https://agent-did.org/v1"
   ],
-  "id": "did:agent:polygon:0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18",
-  "controller": "did:web:acme-corp.com",
+  "id": "did:webvh:example.com:agents:trading-bot",
+  "controller": "did:webvh:example.com:organizations:acme-trading",
   "verificationMethod": [
     {
-      "id": "did:agent:polygon:0x742d35Cc...#key-1",
+      "id": "did:webvh:example.com:agents:trading-bot#key-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:agent:polygon:0x742d35Cc...",
-      "publicKeyMultibase": "z3a5b7c9d..."
+      "controller": "did:webvh:example.com:organizations:acme-trading",
+      "publicKeyMultibase": "z6Mk..."
     }
   ],
   "authentication": [
-    "did:agent:polygon:0x742d35Cc...#key-1"
+    "did:webvh:example.com:agents:trading-bot#key-1"
+  ],
+  "assertionMethod": [
+    "did:webvh:example.com:agents:trading-bot#key-1"
   ],
   "agentMetadata": {
     "name": "TradingBot-v3",
     "version": "3.2.1",
-    "modelHash": "hash://sha256/a1b2c3d4...",
-    "promptHash": "hash://sha256/e5f6g7h8...",
+    "coreModelHash": "hash://sha256/a1b2c3d4...",
+    "systemPromptHash": "hash://sha256/e5f6g7h8...",
     "capabilities": ["trading", "analysis", "reporting"],
     "framework": "langchain",
     "provider": "acme-corp.com"
   },
   "complianceCertifications": [
     {
-      "standard": "SOC2",
-      "auditor": "did:web:auditor-firm.com",
-      "validUntil": "2027-01-01T00:00:00Z"
+      "type": "VerifiableCredential",
+      "issuer": "did:webvh:trust.example:auditors:trustcorp",
+      "credentialSubject": "did:webvh:example.com:agents:trading-bot",
+      "proofHash": "ipfs://Qm..."
     }
   ],
   "created": "2026-03-02T10:30:00Z",
@@ -1094,61 +1075,57 @@ did:ion:EiClkZMDxPKqC9c-umQfTkR8vvZ9JPhl_xLDI9Nfk38w5w
 - **Ventaja**: Respaldado por Microsoft, escalable
 - **Desventaja**: Complejidad alta, resolución lenta, no tiene extensiones para IA
 
-#### `did:agent` — El nuestro
+#### `did:webvh` — El path canónico del core
 
 ```
-did:agent:polygon:0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18
+did:webvh:example.com:agents:trading-bot
 ```
 
-- **Cómo funciona**: Registro mínimo on-chain (smart contract) + documento completo off-chain
+- **Cómo funciona**: Historial DID hospedado + evolución verificable del estado + publicación web ordinaria
 - **Ventajas**:
-  - ✅ Metadata de agente IA (modelo, prompt, capabilities, framework)
-  - ✅ Hashes de protección de propiedad intelectual
-  - ✅ Fleets (agrupaciones de agentes)
-  - ✅ Certificaciones de compliance
-  - ✅ Gas fees bajos (Polygon)
-  - ✅ Resolución flexible (HTTP, IPFS, JSON-RPC)
+  - Descubribilidad web-native
+  - Historial DID verificable sin inventar un DID Method nuevo
+  - Encaja naturalmente con composición por controller chain
+  - Funciona con el perfil de metadata de Agent-DID
+  - Deja perfiles opcionales como EVM anchoring fuera del modelo mental central
 
 ---
 
-### 2.8 ¿Por qué crear un nuevo DID Method? — `did:agent`
+### 2.8 ¿Por qué el core path ahora prefiere `did:webvh`?
 
-Esta es probablemente **la pregunta más importante** que te harán en la comunidad. Aquí está la respuesta completa.
+Esta es una de las actualizaciones más importantes después de ADR-001.
 
-#### Lo que los métodos existentes NO tienen:
+El proyecto ya no trata "crear un DID Method nuevo" como la respuesta central. La respuesta actual es: **mantener la interoperabilidad W3C DID, usar `did:webvh` como método por defecto y estandarizar la semántica específica de agentes en la capa de aplicación.**
 
-| Necesidad del agente IA | `did:web` | `did:ethr` | `did:key` | `did:agent` |
-|-------------------------|-----------|------------|-----------|-------------|
-| Identidad persistente | ⚠️ Depende de DNS | ✅ | ❌ Efímera | ✅ |
-| Metadata del modelo/prompt | ❌ | ❌ | ❌ | ✅ |
-| Protección de IP (hashes) | ❌ | ❌ | ❌ | ✅ |
-| Fleet management | ❌ | ❌ | ❌ | ✅ |
-| Compliance certifications | ❌ | ❌ | ❌ | ✅ |
-| Revocación on-chain | ❌ | ✅ | ❌ | ✅ |
-| Gas fees bajos | N/A | ❌ (ETH caro) | N/A | ✅ (Polygon) |
-| Resolución flexible | Solo HTTP | Solo blockchain | Solo derivación | HTTP + IPFS + RPC |
+#### Lo que necesita el core path:
 
-#### Ejemplo con código real del SDK — Creación de un agente:
+| Necesidad del agente IA | `did:web` | `did:webvh` | `did:ethr` | `did:key` |
+|---|---|---|---|---|
+| Publicación web-native | Sí | Sí | No | No |
+| Historial de estado verificable | Limitado | Sí | Depende del método | No |
+| Perfil de metadata de agente | Vía extensión | Vía extensión | Vía extensión | Vía extensión |
+| Composición por controller chain | Sí | Sí | Sí | Limitada |
+| Paso local-a-hospedado simple | Medio | Fuerte | Débil | Fuerte solo para local/efímero |
+| Guía canónica de la RFC hoy | No | Sí | Solo compatibilidad | Solo local/efímero |
+
+#### Ejemplo con la postura actual del SDK:
 
 ```typescript
 import { AgentIdentity } from '@agentdid/sdk';
 
-const agent = await AgentIdentity.create({
-  name: "TradingBot-v3",
-  version: "3.2.1",
-  model: "gpt-4-turbo",
-  capabilities: ["trading", "analysis"],
-  framework: "langchain",
-  provider: "acme-corp.com",
-  controller: "did:web:acme-corp.com"
+const identity = new AgentIdentity({ signer });
+const result = await identity.create({
+  name: 'TradingBot-v3',
+  coreModel: 'gpt-4.1-mini',
+  systemPrompt: 'Eres un asistente de trading con control de riesgo.',
+  capabilities: ['trading', 'analysis'],
 });
 
-// El DID generado:
-console.log(agent.did);
-// → "did:agent:polygon:0x742d35Cc..."
+console.log(result.document.id);
+// -> los despliegues canónicos publican un identificador did:webvh y su historial
 ```
 
-Intenta hacer esto con `did:ethr` o `did:web` — no hay campo para `model`, `capabilities`, ni `framework`. Tendrías que inventar tu propia estructura, perdiendo interoperabilidad.
+Lo importante no es inventar una cadena nueva de DID Method. Lo importante es preservar el data model de Agent-DID, la semántica de controllers y el comportamiento de verificación de runtime sobre DID methods compatibles, con `did:webvh` como default normativo.
 
 ---
 
@@ -2235,7 +2212,7 @@ El diagrama de flujo presentado es **impecable**:
 ### Objetivos de aprendizaje
 - Entender la especificación RFC-001 en su totalidad
 - Conocer cada campo del Agent-DID Document y su justificación
-- Comprender la arquitectura híbrida on-chain/off-chain
+- Comprender la arquitectura web-native actual con `did:webvh` y perfiles opcionales de compatibilidad
 - Dominar los flujos operativos normativos
 - Dominar los 16 controles de conformancia y su evidencia
 - Saber responder preguntas de la comunidad sobre la madurez del estándar
@@ -2247,9 +2224,9 @@ El diagrama de flujo presentado es **impecable**:
 Nuestro **RFC-001** es un **RFC interno del proyecto Agent-DID**. La numeración "001" indica que es la primera especificación formal de este proyecto. Muchos proyectos open-source usan series de RFCs internas (Rust tiene `rust-lang/rfcs`, React tiene RFCs internos, Ethereum tiene los EIPs). No hay conflicto con el RFC 1 de la IETF porque nuestro RFC vive en el namespace de este proyecto. Futuras especificaciones serían RFC-002, RFC-003, etc.
 
 **Estado actual del documento:**
-- **Status:** Active Draft
-- **Version:** 0.2-unified
-- **Scope:** Documento canónico y único para la especificación Agent-DID
+- **Status:** Public Review v1
+- **Version:** 0.3-pivot-pattern-on-webvh
+- **Scope:** Especificación core canónica de Agent-DID como patrón de aplicación encima de `did:webvh`
 
 ### 4.2 Relación con estándares existentes
 
@@ -2269,27 +2246,29 @@ La frase clave de la RFC: *"Agent-DID does not replace these standards; it orche
 Estos principios son las **decisiones arquitectónicas fundamentales** que guían toda la especificación:
 
 #### Principio 1: Identidad persistente, estado mutable
-- El DID **nunca** cambia — `did:agent:polygon:0xABC123` es permanente
+- El DID **nunca** cambia — el agente conserva un identificador estable mientras el documento evoluciona
 - Pero el documento puede evolucionar: nuevo modelo, nuevo prompt, nuevas claves, nuevas capabilities
 - **Analogía**: Tu número de cédula no cambia aunque cambies de dirección, trabajo o foto
 
-#### Principio 2: Mínimo on-chain
-- Solo se pone en blockchain lo indispensable: DID, controller, referencia al documento, estado de revocación
-- Todo lo demás vive off-chain en almacenamiento descentralizado (IPFS, HTTP)
-- **Razones**: Costo de gas (almacenar 32 bytes on-chain ≈ 20,000 gas), velocidad, privacidad
+#### Principio 2: Default alineado al método
+- `did:webvh` es el DID method recomendado para ejemplos normativos y guía de conformancia
+- La explicación por defecto debe seguir el camino canónico de release, no un perfil diferido de compatibilidad
 
 #### Principio 3: Criptografía fuerte por defecto
 - Ed25519 viene configurada de fábrica — el desarrollador no tiene que elegir ni configurar algoritmos
 - "By default" es la clave: seguridad sin fricción
 - Ed25519: determinística, ~100K firmas/segundo, 32 bytes claves, 64 bytes firmas
 
-#### Principio 4: Agnóstico de blockchain
-- La especificación no está atada a ninguna blockchain específica
-- Compatible con **cualquier red**, no solo EVMs: podría adaptarse a Solana, Cosmos, Hyperledger
-- EVM (Polygon) es solo la **implementación de referencia**, no un requisito
+#### Principio 4: Composición sobre invención de método
+- Agent-DID agrega semántica de capa de aplicación sobre DID methods existentes en vez de definir un DID method core nuevo
+- El objetivo de estandarización es el data model, la semántica de controllers y las reglas de verificación de runtime
 
-#### Principio 5: Interoperabilidad
-- Dos mecanismos concretos: **JSON-LD schema** (documento legible por cualquier implementación) + **resolución universal** (cualquier resolver compatible puede resolver)
+#### Principio 5: Flexibilidad de perfiles de despliegue
+- El despliegue web-native es el default
+- Perfiles opcionales como EVM MAY agregar anclaje más fuerte cuando se justifique
+
+#### Principio 6: Interoperabilidad
+- JSON-LD schema, resolución consciente del método y comportamiento determinista de verificación deben mantenerse alineados entre SDKs
 - Si alguien implementa RFC-001 en Python, Go o Rust, debe poder verificar firmas generadas por el SDK TypeScript
 
 ### 4.4 Estructura del Agent-DID Document
@@ -2299,8 +2278,8 @@ Estos principios son las **decisiones arquitectónicas fundamentales** que guía
 ```json
 {
   "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
-  "id": "did:agent:polygon:0x1234...abcd",
-  "controller": "did:ethr:0xCreatorWalletAddress",
+  "id": "did:webvh:example.com:agents:supportbot-x",
+  "controller": "did:webvh:example.com:organizations:acme-support",
   "created": "2026-02-22T14:00:00Z",
   "updated": "2026-02-22T14:00:00Z",
   "agentMetadata": {
@@ -2315,21 +2294,21 @@ Estos principios son las **decisiones arquitectónicas fundamentales** que guía
   "complianceCertifications": [
     {
       "type": "VerifiableCredential",
-      "issuer": "did:auditor:0xTrustCorp",
-      "credentialSubject": "SOC2-AI-Compliance",
+      "issuer": "did:webvh:trust.example:auditors:trustcorp",
+      "credentialSubject": "did:webvh:example.com:agents:supportbot-x",
       "proofHash": "ipfs://Qm..."
     }
   ],
   "verificationMethod": [
     {
-      "id": "did:agent:polygon:0x1234...abcd#key-1",
+      "id": "did:webvh:example.com:agents:supportbot-x#key-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:ethr:0xCreatorWalletAddress",
-      "publicKeyMultibase": "z...",
-      "blockchainAccountId": "eip155:1:0xAgentSmartWalletAddress"
+      "controller": "did:webvh:example.com:organizations:acme-support",
+      "publicKeyMultibase": "z6Mk..."
     }
   ],
-  "authentication": ["did:agent:polygon:0x1234...abcd#key-1"]
+  "assertionMethod": ["did:webvh:example.com:agents:supportbot-x#key-1"],
+  "authentication": ["did:webvh:example.com:agents:supportbot-x#key-1"]
 }
 ```
 
@@ -2337,13 +2316,15 @@ Estos principios son las **decisiones arquitectónicas fundamentales** que guía
 
 | Campo | Requisito | Descripción |
 |---|---|---|
-| `id` | **REQUIRED** | DID único del agente (`did:agent:<network>:<id>`) |
-| `controller` | **REQUIRED** | DID o identificador del controlador humano/organizacional |
+| `id` | **REQUIRED** | DID único del agente. `did:webvh:...` es la forma recomendada/default para el core path. |
+| `controller` | **REQUIRED** | DID del controller humano, organizacional o de más alto nivel. Un `did:webvh` resolvible se recomienda para el patrón canónico. |
 | `created` / `updated` | **REQUIRED** | Timestamps ISO-8601 del documento |
 | `agentMetadata.coreModelHash` | **REQUIRED** | Hash inmutable del modelo base |
 | `agentMetadata.systemPromptHash` | **REQUIRED** | Hash inmutable del prompt de sistema |
 | `verificationMethod` | **REQUIRED** | Claves públicas válidas para verificación de firma |
+| `verificationMethod[].deactivated` | OPTIONAL | Timestamp ISO-8601 para claves retenidas solo para verificación histórica después de rotación |
 | `authentication` | **REQUIRED** | Referencias a métodos de autenticación válidos |
+| `assertionMethod` | **RECOMMENDED** | Relación de verificación usada para firma de mensajes/assertions |
 | `complianceCertifications` | OPTIONAL | Evidencia de auditorías y VCs |
 | `agentMetadata.capabilities` | OPTIONAL | Capacidades declaradas/autorizadas |
 | `agentMetadata.memberOf` | OPTIONAL | Enlace a flota/cohort de agentes |
