@@ -4,6 +4,7 @@ the signature using a mock HTTP resolver — no live network required."""
 from __future__ import annotations
 
 import asyncio
+
 import httpx
 
 from agent_did_sdk import (
