@@ -63,6 +63,7 @@ jobs:
         working-directory: ${{ matrix.package-path }}
         run: |
           npm exec --yes @cyclonedx/cyclonedx-npm@4.2.1 -- \
+            --ignore-npm-errors \
             --output-reproducible \
             --output-format JSON \
             --output-file "$RUNNER_TEMP/${{ matrix.artifact-name }}.cdx.json"
