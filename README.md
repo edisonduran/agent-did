@@ -393,6 +393,7 @@ Thanks to everyone who has contributed code, reviews, or design input:
 - [@Ashish-KumarGupta](https://github.com/Ashish-KumarGupta) — `sdk-python/examples/`: `http_sign_verify_example.py` ([PR #32](https://github.com/edisonduran/agent-did/pull/32)) and `did_wba_http_sign_verify.py` ([PR #37](https://github.com/edisonduran/agent-did/pull/37))
 - [@haroldmalikfrimpong-ops](https://github.com/haroldmalikfrimpong-ops) — design partner and reviewer for the `add_verified_handoff` Microsoft Agent Framework helper (originating thread [`microsoft/agent-framework#4842`](https://github.com/microsoft/agent-framework/issues/4842), [PR #31 review](https://github.com/edisonduran/agent-did/pull/31))
 - [@mdqamarhussain](https://github.com/mdqamarhussain) — README contributor navigation block ([PR #25](https://github.com/edisonduran/agent-did/pull/25))
+- [@Shahila-Shifani](https://github.com/Shahila-Shifani) — `sdk/examples/quickstart_http_sign_verify.js` ([PR #63](https://github.com/edisonduran/agent-did/pull/63)), Ruff coverage for `sdk-python/examples/` plus example cleanup ([PR #92](https://github.com/edisonduran/agent-did/pull/92)), and documentation updates in `README.md`, `docs/Anti-Replay-HTTP-Signatures.md`, and `docs/Analisis-criticas/` ([PR #47](https://github.com/edisonduran/agent-did/pull/47), [PR #61](https://github.com/edisonduran/agent-did/pull/61), [PR #39](https://github.com/edisonduran/agent-did/pull/39))
 
 ### Cross-ecosystem
 
