@@ -89,4 +89,4 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Publish TypeScript SDK to npm with provenance
-        run: npm publish dist/*.tgz --access public --provenance
+        run: npm publish ./dist/*.tgz --access public --provenance

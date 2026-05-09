@@ -174,7 +174,7 @@ jobs:
           fi
 
       - name: Publish npm package with provenance
-        run: npm publish dist/*.tgz --access public --provenance --tag "${{ steps.npm_meta.outputs.dist_tag }}"
+        run: npm publish ./dist/*.tgz --access public --provenance --tag "${{ steps.npm_meta.outputs.dist_tag }}"
 
   build-python-packages:
     name: Build Python package — ${{ matrix.package_name }}
