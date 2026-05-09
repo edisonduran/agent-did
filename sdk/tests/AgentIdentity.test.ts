@@ -389,6 +389,92 @@ describe('AgentIdentity Core Module', () => {
     expect(valid).toBe(false);
   });
 
+  it('should enforce maxCreatedSkewSeconds within and beyond a 60 second window', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'SkewBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const headers = await agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"skew": true}',
+      agentPrivateKey,
+      agentDid: document.id,
+      expiresInSeconds: 120
+    });
+    const now = Math.floor(Date.now() / 1000);
+
+    const withinSkewHeaders = {
+      ...headers,
+      'Signature-Input': headers['Signature-Input'].replace(/created=\d+/, `created=${now - 59}`)
+    };
+    const outsideSkewHeaders = {
+      ...headers,
+      'Signature-Input': headers['Signature-Input'].replace(/created=\d+/, `created=${now - 61}`)
+    };
+
+    await expect(AgentIdentity.verifyHttpRequestSignature({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"skew": true}',
+      headers: withinSkewHeaders,
+      maxCreatedSkewSeconds: 60
+    })).resolves.toBe(true);
+
+    await expect(AgentIdentity.verifyHttpRequestSignature({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"skew": true}',
+      headers: outsideSkewHeaders,
+      maxCreatedSkewSeconds: 60
+    })).resolves.toBe(false);
+  });
+
+  it('should support verifier-side nonce cache rejection for duplicate requests', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'NonceCacheBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const headers = await agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"nonce-cache": true}',
+      agentPrivateKey,
+      agentDid: document.id,
+      expiresInSeconds: 120
+    });
+    const nonceCache = new Map<string, number>();
+    const verifyWithNonceCache = async (): Promise<boolean> => {
+      const nonce = headers['X-Request-Nonce'];
+      const expiresMatch = /expires=(\d+)/.exec(headers['Signature-Input']);
+      const expires = Number(expiresMatch?.[1] ?? 0);
+
+      if (nonceCache.has(nonce)) {
+        return false;
+      }
+
+      const valid = await AgentIdentity.verifyHttpRequestSignature({
+        method: 'POST',
+        url: 'https://api.example.com/v1/data',
+        body: '{"nonce-cache": true}',
+        headers
+      });
+
+      if (valid) {
+        nonceCache.set(nonce, expires);
+      }
+
+      return valid;
+    };
+
+    await expect(verifyWithNonceCache()).resolves.toBe(true);
+    await expect(verifyWithNonceCache()).resolves.toBe(false);
+  });
+
   it('should reject HTTP signatures missing x-request-nonce header', async () => {
     const { document, agentPrivateKey } = await agentIdentity.create({
       name: 'NoNonceBot',
@@ -771,14 +857,16 @@ describe('AgentIdentity Core Module', () => {
     );
 
     expect(oldKey).toBeDefined();
-    expect(oldKey!.deactivated).toBeDefined();
-    expect(new Date(oldKey!.deactivated!).toISOString()).toEqual(oldKey!.deactivated);
+    if (!oldKey?.deactivated) {
+      throw new Error('expected the prior key to be marked as deactivated');
+    }
+    expect(new Date(oldKey.deactivated).toISOString()).toEqual(oldKey.deactivated);
 
     const newKey = rotation.document.verificationMethod.find(
       m => m.id === rotation.verificationMethodId
     );
     expect(newKey).toBeDefined();
-    expect(newKey!.deactivated).toBeUndefined();
+    expect(newKey?.deactivated).toBeUndefined();
   });
 
   it('should verify historical signatures after key rotation', async () => {
@@ -802,6 +890,38 @@ describe('AgentIdentity Core Module', () => {
     const historicalValid = await AgentIdentity.verifyHistoricalSignature(
       document.id, payload, oldSignature, oldKeyId
     );
+    expect(historicalValid).toBe(true);
+  });
+
+  it('should preserve historical verification after three did:webvh rotation cycles', async () => {
+    const { document, agentPrivateKey: oldestPrivateKey } = await agentIdentity.create({
+      name: 'ThreeCycleBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+    const payload = 'approve:historical:three-cycle';
+    const oldestKeyId = `${document.id}#key-1`;
+    const oldestSignature = await agentIdentity.signMessage(payload, oldestPrivateKey);
+
+    expect(document.id.startsWith('did:webvh:')).toBe(true);
+
+    await AgentIdentity.rotateVerificationMethod(document.id);
+    await AgentIdentity.rotateVerificationMethod(document.id);
+    const thirdRotation = await AgentIdentity.rotateVerificationMethod(document.id);
+
+    expect(thirdRotation.verificationMethodId).toEqual(`${document.id}#key-4`);
+    expect(thirdRotation.document.authentication).toEqual([`${document.id}#key-4`]);
+    expect(thirdRotation.document.verificationMethod).toHaveLength(4);
+
+    const activeValid = await AgentIdentity.verifySignature(document.id, payload, oldestSignature, oldestKeyId);
+    const historicalValid = await AgentIdentity.verifyHistoricalSignature(
+      document.id,
+      payload,
+      oldestSignature,
+      oldestKeyId
+    );
+
+    expect(activeValid).toBe(false);
     expect(historicalValid).toBe(true);
   });
 

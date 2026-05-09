@@ -9,6 +9,11 @@ module.exports = {
     ...tsJestTransformCfg,
     "^.+\\.(js|jsx)$": "babel-jest",
   },
+  coverageThreshold: {
+    global: {
+      lines: 85,
+    },
+  },
   transformIgnorePatterns: [
     "node_modules/(?!@noble/curves|@noble/hashes)"
   ]
