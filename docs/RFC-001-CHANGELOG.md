@@ -2,7 +2,23 @@
 
 This document tracks normative and materially relevant editorial changes to RFC-001 independently from the ecosystem release train tracked in [../CHANGELOG.md](../CHANGELOG.md).
 
-> **Current canonical text:** [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) is now at `0.3-pivot-pattern-on-webvh`.
+> **Current canonical text:** [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) is Stable and frozen for the `1.0.0-rc.1` release train.
+
+---
+
+## [stable-promotion-1.0.0-rc.1] - 2026-05-08
+
+### Decision Trigger
+
+- Sprint 1 hardening, API freeze, and release-train evidence were completed for the core `did:webvh` path.
+- The release train moved into the `1.0.0-rc.1` freeze, so the RFC text needed to stop presenting itself as an open Public Review contract.
+
+### Result
+
+- RFC-001 document header was promoted from Public Review to Stable.
+- `docs/INDEX.md` now classifies RFC-001 as Stable.
+- RFC governance now includes an explicit errata procedure for post-`1.0` corrections.
+- Stable in this repository means the release contract is frozen; it does not claim W3C, DIF, or external standards-body approval.
 
 ---
 

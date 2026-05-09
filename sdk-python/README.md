@@ -6,7 +6,7 @@ Functional parity with the TypeScript SDK (`@agentdid/sdk`), with a dedicated Py
 
 Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.md`.
 
-> **Public Review note:** Agent-DID is pre-1.0 and the RFC is still under community review. See [../docs/DEPRECATION-POLICY.md](../docs/DEPRECATION-POLICY.md) for compatibility and breaking-change expectations during this phase.
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.1` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
 > **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md).
 
@@ -19,7 +19,7 @@ Pythonic surface conventions apply:
 ## Installation
 
 ```bash
-pip install agent-did-sdk
+pip install agent-did-sdk==1.0.0rc1
 ```
 
 For development:

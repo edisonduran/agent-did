@@ -1,6 +1,6 @@
 {
   "name": "@agentdid/sdk",
-  "version": "0.2.0",
+  "version": "1.0.0-rc.1",
   "description": "TypeScript SDK for creating, signing, and verifying Agent-DIDs based on RFC-001. Decentralized identity for autonomous AI agents with Ed25519 signatures, HTTP Bot Auth, and EVM registry support.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

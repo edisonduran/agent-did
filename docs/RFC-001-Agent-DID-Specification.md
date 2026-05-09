@@ -2,11 +2,13 @@
 
 ## Document Status
 
-- **Status:** Public Review v1 (open for community feedback)
+- **Status:** Stable
 - **Version:** 0.3-pivot-pattern-on-webvh
-- **Date:** 2026-05-06
+- **Date:** 2026-05-08
 - **Scope:** This RFC is the canonical core specification for Agent-DID as an application pattern on top of `did:webvh`, including the data model, composition semantics, runtime authentication profile, and SDK implementation guidelines.
-- **Feedback:** Use the RFC feedback issue template or GitHub Discussions for public review. Report vulnerabilities privately through [SECURITY.md](../SECURITY.md).
+- **Feedback:** Use the RFC feedback issue template or GitHub Discussions for errata, clarifications, and post-`1.0` proposals. Report vulnerabilities privately through [SECURITY.md](../SECURITY.md).
+
+This Stable status means the repository treats RFC-001 as the frozen compatibility contract for the `1.0.0-rc.1` release train. It does **not** imply W3C, DIF, or any other external standards-body approval.
 
 ---
 
@@ -330,6 +332,16 @@ RFC-001 conformance establishes identity/delegation and runtime signature-verifi
 The operational compliance evaluation is maintained in:
 
 - `docs/RFC-001-Compliance-Checklist.md`
+
+### 11.2 Errata and Post-1.0 Corrections
+
+After `1.0.0`, corrections to this RFC must follow an explicit errata path:
+
+1. File the proposed correction through GitHub Discussions or the RFC feedback issue template and link the affected section.
+2. Maintainers classify the proposal as one of: editorial erratum, compatible clarification, or normative change.
+3. Editorial errata and non-behavioral clarifications may be merged into this document and recorded in `docs/RFC-001-CHANGELOG.md` without requiring a major version bump.
+4. Any accepted change that alters conformance obligations, DID document requiredness, verification semantics, or the signature-level public API compatibility contract must ship under a new release plan and, after `1.0.0`, a SemVer major release.
+5. Every accepted erratum must update any affected conformance fixtures, implementation notes, or migration guidance in the same change set.
 
 ---
 

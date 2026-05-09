@@ -14,6 +14,7 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 - [x] `integrations/crewai/README.md` no longer describes the Python SDK as future work.
 - [x] `docs/F2-05-CrewAI-Integration-Design.md` still matches the intended CrewAI surface.
 - [x] `docs/F2-05-CrewAI-Maturity-Gap-Assessment.md` remains the reference document for the remaining maturity delta versus LangChain.
+- [x] RC metadata stays aligned with the coordinated `1.0.0rc1` release train and the package continues to declare `agent-did-sdk==1.0.0rc1` as its core dependency floor for the frozen release candidate.
 
 ---
 
@@ -77,4 +78,5 @@ F2-05 is complete for repo scope when the package has a functional factory, expl
 
 | Date | Change |
 |------|--------|
+| 2026-05-08 | RC metadata refreshed for the coordinated `1.0.0rc1` release train and the checklist now records the frozen `agent-did-sdk==1.0.0rc1` dependency expectation. |
 | 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |

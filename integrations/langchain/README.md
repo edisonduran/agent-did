@@ -10,7 +10,7 @@ La matriz de parity entre ambas integraciones vive en `../../docs/F1-03-LangChai
 
 - `langchain` `^1.2.35`
 - `@langchain/core` `^1.1.34`
-- `@agentdid/sdk` `^0.2.0`
+- `@agentdid/sdk` `1.0.0-rc.1`
 - Node.js 20+
 
 ## Estado
@@ -23,7 +23,7 @@ La matriz de parity entre ambas integraciones vive en `../../docs/F1-03-LangChai
 ## Instalacion
 
 ```bash
-npm install @agentdid/sdk langchain @langchain/core zod
+npm install @agentdid/sdk@next langchain @langchain/core zod
 ```
 
 Para habilitar el adaptador opcional de LangSmith:
@@ -35,7 +35,7 @@ npm install langsmith
 Si publicas este paquete por separado:
 
 ```bash
-npm install @agentdid/langchain
+npm install @agentdid/langchain@next
 ```
 
 ## Uso rapido

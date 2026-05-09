@@ -63,6 +63,7 @@ La parity de integracion se define en cinco dimensiones:
 | Receta tipo produccion | `agentDidLangChain.productionRecipe.example.js` | `agent_did_langchain_production_recipe_example.py` | ✅ | Ambos usan guardas de entorno. |
 | Demo integrado `did:wba` | `agentDidLangChain.didWbaDemo.example.js` | `agent_did_langchain_did_wba_demo.py` | ✅ | Ambos muestran runtime `did:wba`, partner remoto `did:wba`, `createAgent`/`create_agent` local y firma HTTP verificable sin credenciales externas. Los DID documents de demo declaran las claves de firma en `assertionMethod` para cumplir el binding de relaciones de verificacion del SDK. |
 | Smoke cross-package `did:wba` | `npm run smoke:langchain-didwba` ejecuta el demo JavaScript publicado y valida su contrato JSON. | El mismo comando ejecuta el demo Python publicado y valida su contrato JSON en la misma corrida. | ✅ | Este smoke es gate de parity operativa entre ambos demos, no solo una conveniencia local. |
+| Metadata de release candidate | `@agentdid/langchain@1.0.0-rc.1` y peer `@agentdid/sdk@1.0.0-rc.1` | `agent-did-langchain==1.0.0rc1` y `agent-did-sdk==1.0.0rc1` | ✅ | La parity de publicacion usa normalizacion nativa por ecosistema sin cambiar el contrato funcional entre TS y Python. |
 | Integracion LangSmith dedicada | `createLangSmithRunTree(...)` + `createLangSmithEventHandler(...)` | Adapter dedicado disponible | ✅ | Ambos paquetes exponen adaptador dedicado sin cambiar la factory principal. |
 | Profundidad de suite automatizada | tests funcionales, seguridad y observabilidad | tests funcionales, seguridad, observabilidad y modulos internos | ⚠️ | Python sigue mas granular. |
 
@@ -127,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-05-08 | Se agrego una fila de parity para la metadata de release candidate: LangChain JS queda en `1.0.0-rc.1` con peer `@agentdid/sdk@1.0.0-rc.1`, mientras LangChain Python queda en `1.0.0rc1` con dependencia `agent-did-sdk==1.0.0rc1`. La divergencia de formato es solo normalizacion por ecosistema. |
 | 2026-05-08 | README de LangChain JS refrescado para dejar explicito que el flujo local usa bootstrap del controller web-native y que la publicacion hospedada de `did:webvh` es un concern separado. La matriz mantiene parity con Python sobre ese modelo conceptual. |
 | 2026-05-04 | Los demos integrados `did:wba` TS/Python ahora declaran `assertionMethod` en los DID documents usados para firma HTTP, manteniendo parity con el enforcement de key purpose binding del SDK. |
 | 2026-03-31 | Rename del repositorio a `agent-did` y normalizacion de metadata publica para LangChain TS/Python: URLs de GitHub, referencias de instalacion y ejemplos activos alineados con `@agentdid/sdk` y `@agentdid/langchain`. Sin cambios en la API publica ni en la parity funcional. |
