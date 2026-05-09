@@ -26,6 +26,9 @@ This index is the fast path through the repository documentation.
 | [RFC-001-CHANGELOG.md](RFC-001-CHANGELOG.md) | Users, Contributors, Reviewers | Draft | Tracks normative/document-history changes specific to RFC-001, including the recorded v0.3 pivot to the `did:webvh` application-pattern model. |
 | [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md) | Contributors, Reviewers, Maintainers | Draft | Non-negotiable exit criteria and 3-sprint plan toward `v1.0.0`. |
 | [RELEASE-1.0-COMPATIBILITY-MATRIX.md](RELEASE-1.0-COMPATIBILITY-MATRIX.md) | Contributors, Reviewers, Maintainers | Draft | Initial package compatibility view for the co-versioned core `v1.0.0` release train. |
+| [RELEASE-1.0-INTEGRATION-EVIDENCE.md](RELEASE-1.0-INTEGRATION-EVIDENCE.md) | Contributors, Reviewers, Maintainers | Draft | Release evidence matrix for the shipped integrations, used in place of synthetic adapter-only coverage thresholds. |
+| [../sdk/MIGRATION-0.x-to-1.0.md](../sdk/MIGRATION-0.x-to-1.0.md) | Users, Contributors | Draft | Migration guide for TypeScript SDK adopters moving from `0.x` assumptions to the core `1.0.0` web-native path. |
+| [../sdk-python/MIGRATION-0.x-to-1.0.md](../sdk-python/MIGRATION-0.x-to-1.0.md) | Users, Contributors | Draft | Migration guide for Python SDK adopters moving from `0.x` assumptions to the core `1.0.0` web-native path. |
 
 ## Core Specification, Governance, and Operations
 

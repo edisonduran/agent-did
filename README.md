@@ -112,6 +112,9 @@ The project is past the specification-only phase: it includes a functional imple
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
 - **Published SDKs**: `@agentdid/sdk` `0.2.0` on npm and `agent-did-sdk` `0.1.0` on PyPI
+- **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
+- **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
+- **Current release target**: `1.0.0-rc.1` is the intended first prerelease for the stable path; the 30-day green-window gate applies to final `v1.0.0`, not to the RC cut
 - **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 ## Build In Public
@@ -127,7 +130,7 @@ Agent-DID is an open, pre-1.0 project being built in public.
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
-- **v1.0 release hardening**: 30-day green evidence on `main`, migration guides, compatibility matrix, and clean install smokes
+- **v1.0 RC execution and stable hardening**: cut `1.0.0-rc.1`, validate public-registry clean install smokes, and continue accumulating the 30-day green evidence required for final `v1.0.0`
 - **F2-03** production resolver hardening beyond the shipped source-adapter baseline
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration
@@ -158,7 +161,9 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 - Revocation, document update, key rotation, and history
 - Dedicated Python CI with lint, type-check, coverage, conformance, and smoke tests
 
-### 2) EVM Registry (`contracts/`)
+### 2) Optional EVM Profile Material (`contracts/`)
+
+The Solidity contract remains in the repository as deferred profile material. It is not part of the core `1.0.0` release gate and should only be wired in deployments that explicitly need the optional EVM/on-chain profile.
 
 `AgentRegistry` contract with:
 
@@ -326,6 +331,7 @@ Current CI split in GitHub Actions:
 - `CI — Microsoft Agent Framework Integration`: dedicated validation for `integrations/microsoft-agent-framework/`.
 - `CI — Google A2A Integration`: dedicated validation for `integrations/a2a/` with DID-enriched AgentCards, JSON-RPC signing, and mutual authentication tests.
 - `CI — Integration Governance`: validates the required parity/checklist artifacts that must stay aligned with supported integrations.
+- `CI — CycloneDX SBOM`: generates per-package SBOM artifacts for the core SDKs and shipped integrations, uploaded on each run as `sbom-*` workflow artifacts.
 - `Contract Audit`: Slither/Mythril security audit pipeline for `contracts/`.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.

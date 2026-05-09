@@ -45,6 +45,9 @@
   "bugs": {
     "url": "https://github.com/edisonduran/agent-did/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   },

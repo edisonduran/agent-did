@@ -9,6 +9,8 @@ Verifiable decentralized identity for autonomous AI agents. Create, sign, resolv
 > **SDK en TypeScript para identidad descentralizada verificable de agentes de IA autónomos.**
 >
 > **Public Review note:** Agent-DID is pre-1.0 and the RFC is still under community review. See [../docs/DEPRECATION-POLICY.md](../docs/DEPRECATION-POLICY.md) for compatibility and breaking-change expectations during this phase.
+>
+> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md).
 
 ---
 
@@ -62,6 +64,8 @@ await AgentIdentity.revokeDid(document.id);
 // All subsequent verifications will fail
 ```
 
+This quickstart validates the local signing lifecycle first. By default the SDK follows the canonical `did:webvh` path and bootstraps the local controller side for you; hosted publication of `did.jsonl` is a separate deployment concern.
+
 ## Features
 
 | Feature | API | Status |
@@ -88,9 +92,9 @@ await AgentIdentity.revokeDid(document.id);
 
 By default, `verifySignature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
-## EVM Registry Integration
+## Optional EVM Registry Integration
 
-Connect to a real on-chain `AgentRegistry` contract:
+If a deployment explicitly needs the deferred EVM profile, connect the SDK to a real on-chain `AgentRegistry` contract:
 
 ```ts
 import { EthersAgentRegistryContractClient, EvmAgentRegistry } from '@agentdid/sdk';
@@ -117,7 +121,7 @@ import { AgentIdentity } from '@agentdid/sdk';
 
 // HTTP resolver with IPFS gateway failover
 AgentIdentity.useProductionResolverFromHttp({
-  registry: evmRegistry,
+  registry: evmRegistry, // optional when using the EVM compatibility profile
   cacheTtlMs: 60_000,
   ipfsGateways: ['https://gateway.pinata.cloud', 'https://ipfs.io'],
   onResolutionEvent: (event) => console.log('Resolution:', event)
@@ -181,6 +185,35 @@ This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edison
 - Default resolver is in-memory (not persistent) — use production resolver for real deployments
 - Optional EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
 - EVM timestamps consumed as Unix-string, SDK normalizes to ISO-8601
+
+## Maintainer Release to npm
+
+The repository includes `.github/workflows/publish-sdk.yml` for npm Trusted Publishing with provenance.
+
+Before the first release, create the `@agentdid/sdk` package in npm and register GitHub Trusted Publishing for:
+
+- repository: `edisonduran/agent-did`
+- workflow file: `.github/workflows/publish-sdk.yml`
+- workflow trigger: tag `sdk-vX.Y.Z` for npm, or `workflow_dispatch` from `main`
+
+Release preparation:
+
+```bash
+cd sdk
+npm ci
+npm run api:check
+npm run api:signature:check
+npm test -- --coverage --runInBand
+npm run build
+npm pack --dry-run
+```
+
+Release flow:
+
+- bump `version` in `package.json`
+- publish to npm by pushing a tag named `sdk-vX.Y.Z`
+- alternatively, run the workflow manually from `main`
+- verify the published npm release shows GitHub Actions provenance for `.github/workflows/publish-sdk.yml`
 
 ## Contributing
 

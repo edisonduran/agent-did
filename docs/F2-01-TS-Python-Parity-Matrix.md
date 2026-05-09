@@ -131,6 +131,14 @@ They are consumed by:
 2. Equivalent DID documents must yield the same canonical `documentRef`.
 3. Timestamp normalization must converge to the same serialized UTC output.
 
+### Explicit Sprint 1 Interop Evidence
+
+For the `1.0.0` release train, the cross-SDK evidence path is now explicit instead of implicit:
+
+1. `npm run interop:ts` runs the TypeScript shared-fixture verification path for message signatures, HTTP signatures, and canonical `documentRef` agreement.
+2. `npm run interop:python` runs the Python shared-fixture verification path for message signatures, HTTP signatures, and canonical `documentRef` agreement.
+3. `.github/workflows/ci-cross-sdk-interop.yml` exposes that evidence as a dedicated release-critical workflow rather than relying on broad SDK test suites alone.
+
 ---
 
 ## Current Status

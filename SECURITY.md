@@ -53,7 +53,7 @@ Until Agent-DID reaches v1.0, security fixes are applied to the **latest publish
 |---|---|---|
 | `@agentdid/sdk` | npm | latest published (`v0.2.x` line) |
 | `agent-did-sdk` | PyPI | latest published (`v0.1.x` line) |
-| Reference smart contracts | repo `contracts/` | `main` branch (no mainnet deployment claimed) |
+| Deferred EVM profile material | repo `contracts/` | `main` branch (optional profile only; no public testnet or mainnet deployment claimed) |
 | Framework integrations | repo `integrations/*/` | `main` branch |
 
 Older versions may receive backports for critical issues at maintainer discretion. The deprecation and breaking-change policy is documented in [`docs/DEPRECATION-POLICY.md`](docs/DEPRECATION-POLICY.md).
@@ -71,12 +71,12 @@ A security policy that doesn't state its threat model is theater. Here is what A
 | T1 | **Identity impersonation of an agent** (an attacker claims to be a known agent) | Ed25519 signatures bound to a published DID document; verifier resolves the DID and checks signature against the declared `verificationMethod`. |
 | T2 | **Tampering with a signed payload in transit** | Ed25519 detached signature + canonical serialization of the signed payload. |
 | T3 | **Replay of a signed HTTP request** | HTTP message signing per the canonical scheme documented in [`docs/Anti-Replay-HTTP-Signatures.md`](docs/Anti-Replay-HTTP-Signatures.md): timestamp window, nonce, request-target binding, and `created`/`expires` parameters. |
-| T4 | **Use of a key after compromise / agent retirement** | Revocation lifecycle on the EVM registry (or the equivalent for `did:web` / `did:wba`) propagated through resolver clients with cache invalidation. Resolver HA drill (`npm run smoke:ha`) exercises this path. |
-| T5 | **Unauthorized revocation** of an agent identity by a third party | On-chain access policy: only `owner`, an explicitly delegated revoker (`setRevocationDelegate`), or the new owner after `transferAgentOwnership` may revoke. Validated by `npm run smoke:policy`. |
+| T4 | **Use of a key after compromise / agent retirement** | Revocation lifecycle on the canonical `did:webvh` controller chain or, for the optional compatibility profile, the EVM registry, propagated through resolver clients with cache invalidation. Resolver HA drill (`npm run smoke:ha`) exercises the core web-native path. |
+| T5 | **Unauthorized revocation** of an agent identity by a third party | For the optional EVM/on-chain profile, contract access policy allows revocation only by `owner`, an explicitly delegated revoker (`setRevocationDelegate`), or the new owner after `transferAgentOwnership`. Validated by `npm run smoke:policy`. |
 | T6 | **DID document forgery via a malicious resolver** | DID document content is verified against the controller's signing material; resolvers are **untrusted transport**, not trusted authorities. The TS and Python SDKs verify the document on receipt, not on-trust. |
 | T7 | **Cross-SDK divergence enabling parser confusion** | Conformance suite (`npm run conformance:rfc001`) runs against shared fixtures in `fixtures/`. Both TS and Python SDKs are required to agree on every conformance vector. |
-| T8 | **Supply chain tampering of the published packages** | npm and PyPI packages are published from CI through tagged release workflows (`.github/workflows/publish-*.yml`). Manual pipeline runs are auditable in repo history. Provenance (npm provenance, PyPI trusted publishing) is on the hardening roadmap; see §6. |
-| T9 | **Smart contract vulnerabilities in the EVM registry** | Slither + Mythril run in CI via `.github/workflows/contract-audit.yml`. Findings tracked in [`contracts/reports/security/README.md`](contracts/reports/security/README.md) with explicit accepted-noise rules in [`contracts/audit-triage-rules.json`](contracts/audit-triage-rules.json). Current state: 0 actionable, 0 blocking. |
+| T8 | **Supply chain tampering of the published packages** | npm and PyPI packages are published from CI through tagged release workflows (`.github/workflows/publish-sdk.yml`, `.github/workflows/publish-python-sdk.yml`). Manual pipeline runs are auditable in repo history. npm publication is wired for GitHub Actions provenance, and PyPI publication is wired for Trusted Publishing via OIDC. Sigstore and extra attestations remain on the hardening roadmap; see §6. |
+| T9 | **Smart contract vulnerabilities in the deferred EVM profile** | Slither + Mythril run in CI via `.github/workflows/contract-audit.yml`. Findings tracked in [`contracts/reports/security/README.md`](contracts/reports/security/README.md) with explicit accepted-noise rules in [`contracts/audit-triage-rules.json`](contracts/audit-triage-rules.json). Current state: 0 actionable, 0 blocking. |
 | T10 | **Key-purpose confusion** where a valid DID key is used outside its intended verification relationship | SDK verification enforces purpose binding: payload and HTTP signatures require `assertionMethod` by default, `keyAgreement` is never accepted for signing, and mismatches surface `key_purpose_violation`. |
 
 ### 3.2 Out of scope (Agent-DID does NOT solve)
@@ -114,7 +114,7 @@ If you are auditing the project, these are the surfaces with the highest blast r
    - DID document validation on resolution
 2. **Canonicalization** of payloads before signing/verification — divergence between TS and Python implementations is a critical class of bug.
 3. **Resolver client** cache and failover (`UniversalResolverClient`): a malicious cache entry must not be trusted across resolution rounds.
-4. **EVM `AgentRegistry` contract** access control: `owner`, delegated revoker, ownership transfer.
+4. **Optional EVM `AgentRegistry` contract** access control: `owner`, delegated revoker, ownership transfer.
 5. **Integration adapters** in `integrations/*/`: identity must be injected without being mutable by the LLM-generated content.
 
 The conformance suite (`npm run conformance:rfc001`) and the smoke drills (`npm run smoke:e2e`, `npm run smoke:ha`, `npm run smoke:rpc`, `npm run smoke:policy`) are the primary defensive testing surface today.
@@ -129,8 +129,8 @@ These are publicly acknowledged limitations in the current Public Review baselin
 - **Resolver persistence is not bundled by default.** The universal resolver core is shipped, but F2-03 tracks operator-grade persistent backend hardening and optional additional transports such as Arweave. Operators running their own resolver should harden persistence and access control.
 - **EVM/on-chain profile is deferred outside core 1.0.** Core `did:webvh` verification does not depend on public testnet deployment or on-chain overlay behavior. Any future EVM profile will require a separate scope decision and security review.
 - **No fuzzing of the HTTP signature verifier.** Property-based / adversarial tests for replay, header injection, and signature stripping are an open contribution area.
-- **Cross-SDK interop tests** exist via the shared conformance fixtures but are not yet exercised as a dedicated CI matrix that signs in one SDK and verifies in the other end-to-end on every PR.
-- **Supply chain provenance** (npm `--provenance`, PyPI Trusted Publishers, Sigstore) is not yet enabled on the publish workflows; see §6.
+- **Cross-SDK interop tests** now run as a dedicated release workflow via `.github/workflows/ci-cross-sdk-interop.yml`, but the evidence still focuses on the repo-managed TS/Python fixture corpus rather than a third-party implementation matrix.
+- **Supply chain hardening beyond registry-native provenance** is still incomplete. npm provenance and PyPI Trusted Publishing are wired in repo workflows, but Sigstore signing and broader artifact attestations remain roadmap work; see §6.
 
 ---
 
@@ -138,13 +138,13 @@ These are publicly acknowledged limitations in the current Public Review baselin
 
 Items the maintainers track as security-relevant work, in addition to the public roadmap in `README.md`:
 
-- Enable npm `--provenance` on `publish-sdk.yml`.
-- Enable PyPI Trusted Publishing for `agent-did-sdk`.
+- Keep npm Trusted Publishing configuration aligned with `.github/workflows/publish-sdk.yml` and verify provenance on each release.
+- Keep PyPI Trusted Publishing configuration aligned with `.github/workflows/publish-python-sdk.yml`.
 - Add Sigstore signing for release artifacts.
-- Add a dedicated `cross-sdk-interop` CI workflow that signs payloads and HTTP requests in TS and verifies in Python, and vice versa, on every PR.
+- Keep the dedicated `cross-sdk-interop` CI workflow green and extend it further when third-party fixture coverage becomes available.
 - Add property-based / fuzz tests for the HTTP signature parser/verifier and DID document parser.
 - Add a documented threat model and security considerations section to the published RFC-001 (currently lives partially here and partially in `docs/Anti-Replay-HTTP-Signatures.md`).
-- Stand up a public testnet deployment of `AgentRegistry` with a published address and verification instructions.
+- If the deferred EVM profile is ever re-scoped into active development, stand up a public testnet deployment of `AgentRegistry` with a published address and verification instructions as a separate gate.
 - Engage an external auditor before any maintainer-recommended mainnet deployment.
 
 If you want to contribute to any of these, see [`CONTRIBUTING.md`](CONTRIBUTING.md) and tag your issue or PR `[Security]`.
