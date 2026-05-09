@@ -403,7 +403,10 @@ class TestAgentIdentityHttpSignature:
             )
         ) is False
 
-    async def test_support_verifier_side_nonce_cache_rejection_for_duplicate_requests(self, identity: AgentIdentity) -> None:
+    async def test_support_verifier_side_nonce_cache_rejection_for_duplicate_requests(
+        self,
+        identity: AgentIdentity,
+    ) -> None:
         result = await identity.create(CreateAgentParams(
             name="NonceCacheBot", core_model="m", system_prompt="p",
         ))
@@ -744,7 +747,10 @@ class TestAgentIdentityRotateKey:
         assert exc.value.reason == "key_purpose_violation"
         assert exc.value.found_in == []
 
-    async def test_preserve_historical_verification_after_three_did_webvh_rotation_cycles(self, identity: AgentIdentity) -> None:
+    async def test_preserve_historical_verification_after_three_did_webvh_rotation_cycles(
+        self,
+        identity: AgentIdentity,
+    ) -> None:
         result = await identity.create(CreateAgentParams(
             name="ThreeCycleBot", core_model="m", system_prompt="p",
         ))
