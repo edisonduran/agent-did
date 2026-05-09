@@ -8,7 +8,7 @@ Verifiable decentralized identity for autonomous AI agents. Create, sign, resolv
 
 > **SDK en TypeScript para identidad descentralizada verificable de agentes de IA autónomos.**
 >
-> **Public Review note:** Agent-DID is pre-1.0 and the RFC is still under community review. See [../docs/DEPRECATION-POLICY.md](../docs/DEPRECATION-POLICY.md) for compatibility and breaking-change expectations during this phase.
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.1` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
 > **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md).
 
@@ -30,7 +30,7 @@ Agent-DID solves this with:
 ## Installation
 
 ```bash
-npm install @agentdid/sdk ethers
+npm install @agentdid/sdk@next ethers
 ```
 
 Requires **Node.js 18+**.

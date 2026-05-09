@@ -36,8 +36,8 @@ This index is the fast path through the repository documentation.
 |---|---|---|---|
 | [INDEX.md](INDEX.md) | Users, Contributors, Reviewers | Stable | Entry point for navigating the docs set. |
 | [Documentation-Governance.md](Documentation-Governance.md) | Contributors, Reviewers | Stable | Defines canonical sources of truth and live-document update rules. |
-| [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) | Users, Contributors, Reviewers | Stable | Explains breaking-change and support expectations during Public Review. |
-| [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) | Users, Contributors, Reviewers | Draft | Canonical Agent-DID specification under Public Review. |
+| [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) | Users, Contributors, Reviewers | Stable | Explains RC freeze, post-`1.0` SemVer, and compatibility expectations for the published packages. |
+| [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) | Users, Contributors, Reviewers | Stable | Canonical Agent-DID specification, frozen as the `1.0` release contract for the current RC train. |
 | [RFC-001-EVM-Profile.md](RFC-001-EVM-Profile.md) | Contributors, Reviewers | Draft | Optional deployment profile for EVM anchoring, contract policy, and smart-account behavior on top of core RFC-001. |
 | [RFC-001-A2A-Identity-Composition-Contract.md](RFC-001-A2A-Identity-Composition-Contract.md) | Contributors, Reviewers | Draft | Defines the A2A Agent Card and per-request signing composition contract co-drafted with APS. |
 | [RFC-001-Compliance-Checklist.md](RFC-001-Compliance-Checklist.md) | Contributors, Reviewers | Stable | Tracks RFC conformance claims against implemented behavior. |

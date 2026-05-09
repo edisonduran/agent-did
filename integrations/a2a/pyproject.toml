@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-did-a2a"
-version = "0.1.0"
+version = "1.0.0rc1"
 description = "Google A2A protocol integration for Agent-DID — DID-based identity, AgentCard enrichment, and HTTP Signature authentication for agent-to-agent communication."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ authors = [
   { name = "Edison Munoz", email = "edison.munoz@agent-did.org" }
 ]
 dependencies = [
-  "agent-did-sdk>=0.1.0",
+  "agent-did-sdk==1.0.0rc1",
   "pydantic>=2.0",
 ]
 

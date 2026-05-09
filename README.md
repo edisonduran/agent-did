@@ -108,29 +108,30 @@ Documentation governance for live project status and canonical sources of truth 
 
 The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
 
-- **RFC-001** is in **Public Review v1** as `0.3-pivot-pattern-on-webvh`: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.1` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
-- **Published SDKs**: `@agentdid/sdk` `0.2.0` on npm and `agent-did-sdk` `0.1.0` on PyPI
+- **Repository release train**: core npm packages are pinned to `1.0.0-rc.1`; core Python packages are pinned to `1.0.0rc1`
+- **Latest public stable SDKs before the RC cut**: `@agentdid/sdk` `0.2.0` on npm and `agent-did-sdk` `0.1.0` on PyPI
 - **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
 - **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
-- **Current release target**: `1.0.0-rc.1` is the intended first prerelease for the stable path; the 30-day green-window gate applies to final `v1.0.0`, not to the RC cut
+- **Current RC work**: publish the `1.0.0-rc.1` prerelease train, validate public-registry clean-install smokes, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
 - **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 ## Build In Public
 
-Agent-DID is an open, pre-1.0 project being built in public.
+Agent-DID is an open project being finalized in public for the `1.0.0-rc.1` release train.
 
-- The core RFC lifecycle is implemented and covered by conformance checks.
-- The TypeScript SDK is published as `@agentdid/sdk` and the Python SDK is published as `agent-did-sdk`.
+- The core RFC lifecycle is implemented, covered by conformance checks, and frozen in-repo as the current Stable release contract.
+- The next public publication step is the co-versioned `1.0.0-rc.1` prerelease across the shipped SDK and integration packages.
 - The `did:webvh` runtime path, validation drills, and framework integrations are functional, and the release path now explicitly follows `did:webvh` as the canonical deployment story.
-- Community feedback is explicitly welcome before the project reaches full production hardening.
-- Public-review compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
+- Community feedback is explicitly welcome during the RC window before the final `v1.0.0` tag.
+- RC and post-`1.0` compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
 - Security reporting instructions are documented in [SECURITY.md](SECURITY.md).
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
-- **v1.0 RC execution and stable hardening**: cut `1.0.0-rc.1`, validate public-registry clean install smokes, and continue accumulating the 30-day green evidence required for final `v1.0.0`
+- **v1.0 RC publication and stable hardening**: publish and validate `1.0.0-rc.1`, then continue accumulating the 30-day green evidence required for final `v1.0.0`
 - **F2-03** production resolver hardening beyond the shipped source-adapter baseline
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration

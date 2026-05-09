@@ -153,7 +153,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 ### 2.10 Release Engineering
 
-- [ ] **C-REL-1** — All core packages bumped simultaneously under a single monorepo tag for each prerelease stage used (`1.0.0-beta.N`, if any, and `1.0.0-rc.N`). The first RC cut for the stable path is `1.0.0-rc.1`.
+- [ ] **C-REL-1** — All core packages bumped simultaneously under a single monorepo tag for each prerelease stage used (`1.0.0-beta.N`, if any, and `1.0.0-rc.N`). The first RC cut for the stable path is `1.0.0-rc.1`. Package manifests may use ecosystem-native prerelease normalization when required by the registry (`1.0.0-rc.1` on npm, `1.0.0rc1` on PyPI).
 - [ ] **C-REL-2** — Public feedback window of **≥1 week** on the RC, announced on GitHub Discussions.
 - [ ] **C-REL-3** — `v1.0.0` tag only after every criterion above is met.
 - [ ] **C-REL-4** — Release note and README status update coordinated with the tag. Broad public announcement is optional and should follow the visibility gates in `docs/Estrategia-Divulgacion-2-Semanas-Agent-DID.md`.
@@ -221,6 +221,17 @@ Goal: cut the appropriate prerelease (`beta` only if contract-shaping feedback i
 | S2-7 | `DEPRECATION-POLICY.md` updated with strict SemVer post-1.0 | tech-writer | C-DOC-3 |
 | S2-8 | `v1.0.0` tag + consolidated release notes + final publication | dev + pm | C-REL-3 |
 | S2-9 | README `1.0` badge/status update and release note; broader announcement only if visibility gates are met | pm | C-REL-4, C-DOC-6 |
+
+#### RC Tag Plan
+
+The coordinated `1.0.0-rc.1` cut uses a single monorepo release tag with ecosystem-native prerelease normalization:
+
+1. npm packages declare `1.0.0-rc.1`.
+2. Python packages declare `1.0.0rc1`.
+3. The coordinated release tag is `v1.0.0-rc.1`.
+4. `.github/workflows/publish-release-train.yml` is the coordinated publication entrypoint for the core release train.
+5. npm prereleases publish under dist-tag `next`; PyPI packages publish as prerelease versions derived from the normalized Python manifests.
+6. Legacy `sdk-v*` and `sdk-python-v*` tags remain package-specific workflows for SDK-only publication paths and are not the coordinated core RC tag.
 
 ---
 

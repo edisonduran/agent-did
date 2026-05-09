@@ -37,7 +37,7 @@ Integrar Agent-DID como capa de identidad verificable para agentes y crews de Cr
 
 ## Compatibilidad objetivo
 
-- `agent-did-sdk >=0.1.0`
+- `agent-did-sdk ==1.0.0rc1`
 - Python 3.10+
 - CrewAI host runtime opcional via `python -m pip install -e ".[runtime]"`; el paquete expone herramientas compatibles sin forzar dependencia dura para tests locales del repo
 

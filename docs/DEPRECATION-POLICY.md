@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Agent-DID is in a pre-1.0 Public Review phase. That is the right time for strong feedback, but it is also the moment when maintainers need to be explicit about how change is handled.
+Agent-DID has now frozen the public contract for the `1.0.0-rc.1` release train. That is late enough that compatibility rules must be explicit even though the final stable tag is still pending release validation.
 
 This policy defines how the project communicates deprecations, breaking changes, and support expectations across:
 
@@ -13,19 +13,32 @@ This policy defines how the project communicates deprecations, breaking changes,
 
 ## Current Compatibility Phase
 
-Agent-DID is currently **pre-1.0** and under **Public Review**.
+Agent-DID is currently in the **`1.0.0-rc.1` release-candidate phase**.
 
 That means:
 
-- the RFC can still evolve based on community feedback
-- the SDKs are usable today, but some public APIs and wire-level expectations may still change
-- maintainers will prefer compatibility when possible, but correctness, interoperability, and security take priority over short-term stability
+- RFC-001 text is treated as Stable for this release train
+- the SDK public APIs, DID document shape, and runtime verification contract are expected to remain frozen
+- remaining repo changes before `v1.0.0` should be limited to bugfixes, documentation corrections, packaging, CI hardening, and release operations
+- if a public-contract change is still required, maintainers should cut another prerelease rather than slipping a breaking change into the active RC
 
 ## Versioning Expectations
 
+### RC changes before `v1.0.0`
+
+During the RC phase:
+
+- fixes should preserve backward compatibility for the frozen public contract
+- any intentional diff in the signature-level API snapshot, required DID document format, or default verification semantics is a release-contract change, not a routine bugfix
+- deferred EVM/on-chain profile work may evolve independently, but it does not redefine the core `1.0` compatibility floor unless it changes the RFC, the shipped SDK API, or the web-native verification contract
+
+### Historical pre-1.0 note
+
+Before the `1.0.0-rc.1` freeze, minor releases could include breaking changes during Public Review. That exception no longer applies to the RC branch.
+
 ### Patch releases
 
-Patch releases should not intentionally introduce breaking changes.
+Patch releases after `1.0.0` must not intentionally introduce breaking changes.
 
 Typical patch-release work includes:
 
@@ -37,14 +50,25 @@ Typical patch-release work includes:
 
 ### Minor releases
 
-Before v1.0, **minor releases may include breaking changes** when one of the following is true:
+Minor releases after `1.0.0` add backward-compatible functionality.
 
-- the RFC changes during Public Review
-- an interoperability defect must be corrected
-- a security issue requires a behavior change
-- an API surface is still experimental and needs simplification
+Typical minor-release work includes:
 
-When a minor release contains a breaking change, maintainers will document it explicitly in release notes and, when practical, provide migration guidance.
+- additive APIs or helpers that do not break the existing signature-level public surface
+- new optional integration capabilities
+- new compatibility profiles or adapters that do not alter the core `did:webvh` contract
+- editorial or operational updates that accompany backward-compatible feature growth
+
+When a minor release adds public functionality, maintainers should update release notes and migration guidance when adoption steps are needed.
+
+### Major releases
+
+Major releases are required for incompatible changes, including:
+
+- intentional diffs in the signature-level API snapshots
+- changes to DID document requiredness or semantics
+- breaking changes to verification defaults, signing semantics, or lifecycle behavior
+- incompatible package renames, import-path changes, or bootstrap-surface changes
 
 ## Deprecation Window
 
@@ -71,7 +95,7 @@ In those cases, maintainers will still document:
 - why it changed immediately
 - how to migrate
 
-Public Review example: SDK signature verification now enforces DID verification-relationship binding by default. Agent payload and HTTP signatures require `assertionMethod`, and a key listed only under another relationship such as `keyAgreement` fails with `key_purpose_violation`. Documents that previously placed signing keys only in `authentication` should add the appropriate signing relationship.
+Recent example: SDK signature verification now enforces DID verification-relationship binding by default. Agent payload and HTTP signatures require `assertionMethod`, and a key listed only under another relationship such as `keyAgreement` fails with `key_purpose_violation`. Documents that previously placed signing keys only in `authentication` should add the appropriate signing relationship.
 
 ## What Counts as a Breaking Change
 
@@ -84,8 +108,11 @@ The following should be treated as breaking unless explicitly documented otherwi
 - changing revocation, key rotation, or resolution behavior in a way that can flip a previous pass to a fail
 - changing canonical serialization rules used by signing or verification
 - changing package names, import paths, or integration bootstrap APIs
+- changing the core `did:webvh` release contract to depend on deferred EVM/on-chain profile contracts, ABIs, or deployment metadata
 
 After `1.0.0`, any intentional diff in the signature-level public API snapshot must be treated as a **major-version** change unless the symbol is explicitly out of the public contract.
+
+Changes limited to deferred EVM/on-chain profile contracts, ABIs, deployment metadata, or audit artifacts do **not** by themselves alter the core `1.0` compatibility contract unless they also change the RFC, the shipped SDK surface, or the release-critical web-native verification semantics.
 
 ## Communication Rules
 

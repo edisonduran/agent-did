@@ -6,6 +6,8 @@ Provide a single repository-level release checklist for the TypeScript SDK in `s
 
 Documentation status and canonical-source rules are defined in `docs/Documentation-Governance.md`.
 
+For the coordinated core `1.0.0` prerelease/stable train, the canonical publication entrypoint is `.github/workflows/publish-release-train.yml` driven by a monorepo tag such as `v1.0.0-rc.1`. The package-specific workflows `.github/workflows/publish-sdk.yml` and `.github/workflows/publish-python-sdk.yml` remain valid for SDK-only release paths.
+
 This checklist is intended for:
 
 1. Release preparation.

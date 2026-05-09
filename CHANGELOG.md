@@ -21,6 +21,8 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 - `README.md`, `sdk/README.md`, `sdk-python/README.md`, and `SECURITY.md` now consistently frame EVM/on-chain material as an optional deferred profile rather than a core `1.0.0` assumption.
 - `docs/RELEASE-1.0-CRITERIA.md`, `README.md`, and this changelog now treat `1.0.0-rc.1` as the default first prerelease and reserve the 30-day green-window gate for the final stable `v1.0.0` tag.
+- RFC-001 is now marked Stable in-repo for the `1.0.0-rc.1` release train, with `docs/INDEX.md`, `docs/RFC-001-CHANGELOG.md`, and `docs/DEPRECATION-POLICY.md` aligned to the frozen release contract.
+- Core package manifests are now pinned to the `1.0.0-rc.1` release train (`1.0.0-rc.1` on npm packages, `1.0.0rc1` on Python packages) and a unified `publish-release-train.yml` workflow now orchestrates prerelease publication across npm and PyPI.
 
 ### Planned (path to 1.0.0)
 

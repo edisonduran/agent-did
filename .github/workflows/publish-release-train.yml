@@ -1,0 +1,329 @@
+name: Publish 1.0 Release Train
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      python_repository:
+        description: "Target Python package repository"
+        required: true
+        default: testpypi
+        type: choice
+        options:
+          - testpypi
+          - pypi
+      npm_tag:
+        description: "npm dist-tag for npm packages"
+        required: true
+        default: next
+        type: string
+
+concurrency:
+  group: publish-release-train-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-typescript-sdk:
+    name: Build npm package — @agentdid/sdk
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.18.0
+          cache: npm
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Verify tag matches @agentdid/sdk version
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: sdk
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag version $TAG_VERSION does not match sdk/package.json version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Install SDK dependencies
+        run: npm --prefix sdk ci
+
+      - name: Check TypeScript public API snapshot
+        run: npm --prefix sdk run api:check
+
+      - name: Check TypeScript public API signature snapshot
+        run: npm --prefix sdk run api:signature:check
+
+      - name: Run TypeScript SDK tests with coverage gate
+        run: npm --prefix sdk test -- --coverage --runInBand
+
+      - name: Build TypeScript SDK
+        run: npm --prefix sdk run build
+
+      - name: Pack TypeScript SDK tarball
+        working-directory: sdk
+        run: npm pack
+
+      - name: Upload TypeScript SDK tarball
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: typescript-sdk-tarball
+          path: sdk/*.tgz
+          if-no-files-found: error
+
+  build-langchain-js:
+    name: Build npm package — @agentdid/langchain
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.18.0
+
+      - name: Verify tag matches @agentdid/langchain version
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: integrations/langchain
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag version $TAG_VERSION does not match integrations/langchain/package.json version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Install and build shared TypeScript SDK
+        run: |
+          npm --prefix sdk ci
+          npm --prefix sdk run build
+
+      - name: Install LangChain JS dependencies
+        run: npm --prefix integrations/langchain ci
+
+      - name: Run LangChain JS tests
+        run: npm --prefix integrations/langchain test
+
+      - name: Pack LangChain JS tarball
+        working-directory: integrations/langchain
+        run: npm pack
+
+      - name: Upload LangChain JS tarball
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: langchain-js-tarball
+          path: integrations/langchain/*.tgz
+          if-no-files-found: error
+
+  publish-npm:
+    name: Publish npm packages
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs:
+      - build-typescript-sdk
+      - build-langchain-js
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_name: typescript-sdk-tarball
+            package_name: '@agentdid/sdk'
+          - artifact_name: langchain-js-tarball
+            package_name: '@agentdid/langchain'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download package tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.18.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve npm dist-tag
+        id: npm_meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "dist_tag=${{ inputs.npm_tag }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_REF_NAME#v}" == *-* ]]; then
+            echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish npm package with provenance
+        run: npm publish dist/*.tgz --access public --provenance --tag "${{ steps.npm_meta.outputs.dist_tag }}"
+
+  build-python-packages:
+    name: Build Python package — ${{ matrix.package_name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_dir: sdk-python
+            package_name: agent-did-sdk
+            artifact_name: agent-did-sdk-dist
+          - package_dir: integrations/langchain-python
+            package_name: agent-did-langchain
+            artifact_name: agent-did-langchain-dist
+          - package_dir: integrations/crewai
+            package_name: agent-did-crewai
+            artifact_name: agent-did-crewai-dist
+          - package_dir: integrations/semantic-kernel
+            package_name: agent-did-semantic-kernel
+            artifact_name: agent-did-semantic-kernel-dist
+          - package_dir: integrations/microsoft-agent-framework
+            package_name: agent-did-microsoft-agent-framework
+            artifact_name: agent-did-microsoft-agent-framework-dist
+          - package_dir: integrations/a2a
+            package_name: agent-did-a2a
+            artifact_name: agent-did-a2a-dist
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Verify tag matches Python package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: ${{ matrix.package_dir }}
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
+          print(data['project']['version'])
+          PY
+          )
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          NORMALIZED_TAG=$(python - "$TAG_VERSION" <<'PY'
+          import re
+          import sys
+
+          raw = sys.argv[1]
+          match = re.fullmatch(r'(\d+\.\d+\.\d+)(?:-(a|alpha|b|beta|rc)\.?(\d+))?', raw)
+          if match is None:
+              raise SystemExit(f'Unsupported release tag format: {raw}')
+
+          base, label, number = match.groups()
+          if label is None:
+              print(base)
+          else:
+              normalized_label = {'alpha': 'a', 'beta': 'b'}.get(label, label)
+              print(f'{base}{normalized_label}{number}')
+          PY
+          )
+
+          if [ "$PACKAGE_VERSION" != "$NORMALIZED_TAG" ]; then
+            echo "Tag version $TAG_VERSION normalizes to $NORMALIZED_TAG but ${{ matrix.package_dir }}/pyproject.toml declares $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Build Python distribution
+        working-directory: ${{ matrix.package_dir }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Upload Python distribution artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.package_dir }}/dist/*
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish Python packages to TestPyPI
+    if: github.event_name == 'workflow_dispatch' && inputs.python_repository == 'testpypi'
+    needs: build-python-packages
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_name: agent-did-sdk-dist
+          - artifact_name: agent-did-langchain-dist
+          - artifact_name: agent-did-crewai-dist
+          - artifact_name: agent-did-semantic-kernel-dist
+          - artifact_name: agent-did-microsoft-agent-framework-dist
+          - artifact_name: agent-did-a2a-dist
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist
+
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    name: Publish Python packages to PyPI
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.python_repository == 'pypi' && github.ref == 'refs/heads/main')
+    needs: build-python-packages
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_name: agent-did-sdk-dist
+          - artifact_name: agent-did-langchain-dist
+          - artifact_name: agent-did-crewai-dist
+          - artifact_name: agent-did-semantic-kernel-dist
+          - artifact_name: agent-did-microsoft-agent-framework-dist
+          - artifact_name: agent-did-a2a-dist
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
