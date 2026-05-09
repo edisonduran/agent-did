@@ -1,0 +1,135 @@
+name: CI — CycloneDX SBOM
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ci-sbom.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'sdk/package.json'
+      - 'sdk/package-lock.json'
+      - 'sdk-python/pyproject.toml'
+      - 'integrations/**/package.json'
+      - 'integrations/**/package-lock.json'
+      - 'integrations/**/pyproject.toml'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-sbom.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'sdk/package.json'
+      - 'sdk/package-lock.json'
+      - 'sdk-python/pyproject.toml'
+      - 'integrations/**/package.json'
+      - 'integrations/**/package-lock.json'
+      - 'integrations/**/pyproject.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: sbom-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  npm-sbom:
+    name: NPM SBOM — ${{ matrix.artifact-name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package-path: sdk
+            artifact-name: agentdid-sdk
+          - package-path: integrations/langchain
+            artifact-name: agentdid-langchain
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.18.0
+
+      - name: Install npm package dependencies
+        working-directory: ${{ matrix.package-path }}
+        run: npm ci
+
+      - name: Generate npm CycloneDX SBOM
+        working-directory: ${{ matrix.package-path }}
+        run: |
+          npm exec --yes @cyclonedx/cyclonedx-npm@4.2.1 -- \
+            --ignore-npm-errors \
+            --output-reproducible \
+            --output-format JSON \
+            --output-file "$RUNNER_TEMP/${{ matrix.artifact-name }}.cdx.json"
+
+      - name: Upload npm SBOM artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.artifact-name }}
+          path: ${{ runner.temp }}/${{ matrix.artifact-name }}.cdx.json
+          if-no-files-found: error
+
+  python-sbom:
+    name: Python SBOM — ${{ matrix.artifact-name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package-path: sdk-python
+            artifact-name: agent-did-sdk
+          - package-path: integrations/langchain-python
+            artifact-name: agent-did-langchain
+          - package-path: integrations/crewai
+            artifact-name: agent-did-crewai
+          - package-path: integrations/semantic-kernel
+            artifact-name: agent-did-semantic-kernel
+          - package-path: integrations/microsoft-agent-framework
+            artifact-name: agent-did-microsoft-agent-framework
+          - package-path: integrations/a2a
+            artifact-name: agent-did-a2a
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Install CycloneDX CLI
+        run: python -m pip install --upgrade pip cyclonedx-bom
+
+      - name: Generate Python CycloneDX SBOM
+        env:
+          PACKAGE_PATH: ${{ matrix.package-path }}
+          ARTIFACT_NAME: ${{ matrix.artifact-name }}
+        run: |
+          venv_dir="$RUNNER_TEMP/${ARTIFACT_NAME}-venv"
+          python -m venv "$venv_dir"
+          "$venv_dir/bin/python" -m pip install --upgrade pip
+          if [ "$PACKAGE_PATH" != "sdk-python" ]; then
+            "$venv_dir/bin/python" -m pip install -e ./sdk-python
+          fi
+          "$venv_dir/bin/python" -m pip install -e "./$PACKAGE_PATH"
+          python -m cyclonedx_py environment "$venv_dir" \
+            --pyproject "./$PACKAGE_PATH/pyproject.toml" \
+            --mc-type library \
+            --output-reproducible \
+            --output-format JSON \
+            --output-file "$RUNNER_TEMP/${ARTIFACT_NAME}.cdx.json"
+
+      - name: Upload Python SBOM artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.artifact-name }}
+          path: ${{ runner.temp }}/${{ matrix.artifact-name }}.cdx.json
+          if-no-files-found: error

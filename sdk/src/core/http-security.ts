@@ -7,17 +7,11 @@ export interface HttpTargetValidationOptions {
   allowPrivateTargets?: boolean;
 }
 
-const PRIVATE_IPV4_RANGES = [
-  { prefix: [10], mask: 8 },              // 10.0.0.0/8
-  { prefix: [172], mask: 12, min2: 16, max2: 31 },  // 172.16.0.0/12
-  { prefix: [192, 168], mask: 16 },       // 192.168.0.0/16
-];
-
 function parseIpv4(host: string): number[] | null {
   const parts = host.split('.');
   if (parts.length !== 4) return null;
   const octets = parts.map(Number);
-  if (octets.some((o) => isNaN(o) || o < 0 || o > 255)) return null;
+  if (octets.some((o) => Number.isNaN(o) || o < 0 || o > 255)) return null;
   return octets;
 }
 
@@ -34,19 +28,10 @@ function isLinkLocalIpv4(octets: number[]): boolean {
 }
 
 function isPrivateIpv4(octets: number[]): boolean {
-  for (const range of PRIVATE_IPV4_RANGES) {
-    if (range.prefix.length === 1 && octets[0] === range.prefix[0]) {
-      if (range.min2 !== undefined && range.max2 !== undefined) {
-        if (octets[1] >= range.min2 && octets[1] <= range.max2) return true;
-      } else {
-        return true;
-      }
-    }
-    if (range.prefix.length === 2 && octets[0] === range.prefix[0] && octets[1] === range.prefix[1]) {
-      return true;
-    }
-  }
-  return false;
+  const [first, second] = octets;
+  return first === 10
+    || (first === 172 && second >= 16 && second <= 31)
+    || (first === 192 && second === 168);
 }
 
 function isLoopbackIpv6(host: string): boolean {
@@ -54,17 +39,51 @@ function isLoopbackIpv6(host: string): boolean {
   return normalized === '::1' || normalized === '0:0:0:0:0:0:0:1';
 }
 
+function parseIpv4MappedIpv6(host: string): number[] | null {
+  const normalized = host.replace(/^\[/, '').replace(/]$/, '').toLowerCase();
+  if (!normalized.startsWith('::ffff:')) {
+    return null;
+  }
+
+  const tail = normalized.slice('::ffff:'.length);
+  if (tail.includes('.')) {
+    return parseIpv4(tail);
+  }
+
+  const groups = tail.split(':');
+  if (groups.length !== 2) {
+    return null;
+  }
+
+  const values = groups.map((group) => Number.parseInt(group, 16));
+  if (values.some((value) => Number.isNaN(value) || value < 0 || value > 0xffff)) {
+    return null;
+  }
+
+  return [
+    (values[0] >> 8) & 0xff,
+    values[0] & 0xff,
+    (values[1] >> 8) & 0xff,
+    values[1] & 0xff,
+  ];
+}
+
+function isPrivateOrReservedIpv4(octets: number[]): boolean {
+  return isLoopbackIpv4(octets)
+    || isZeroAddress(octets)
+    || isLinkLocalIpv4(octets)
+    || isPrivateIpv4(octets);
+}
+
 function isPrivateOrReservedHost(hostname: string): boolean {
   // IPv6 loopback
   if (isLoopbackIpv6(hostname)) return true;
 
+  const mappedIpv4 = parseIpv4MappedIpv6(hostname);
+  if (mappedIpv4 && isPrivateOrReservedIpv4(mappedIpv4)) return true;
+
   const ipv4 = parseIpv4(hostname);
-  if (ipv4) {
-    if (isLoopbackIpv4(ipv4)) return true;
-    if (isZeroAddress(ipv4)) return true;
-    if (isLinkLocalIpv4(ipv4)) return true;
-    if (isPrivateIpv4(ipv4)) return true;
-  }
+  if (ipv4 && isPrivateOrReservedIpv4(ipv4)) return true;
 
   // Common loopback hostnames
   const lower = hostname.toLowerCase();

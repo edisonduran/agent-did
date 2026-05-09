@@ -41,6 +41,10 @@ describe('validateHttpTarget — SSRF protection', () => {
     expect(() => validateHttpTarget('http://[::1]:8080/api')).toThrow('private/reserved');
   });
 
+  it('should block IPv6-mapped loopback ::ffff:127.0.0.1', () => {
+    expect(() => validateHttpTarget('http://[::ffff:127.0.0.1]/api')).toThrow('private/reserved');
+  });
+
   // ── Zero address ─────────────────────────────────────────────────
   it('should block 0.0.0.0', () => {
     expect(() => validateHttpTarget('http://0.0.0.0/')).toThrow('private/reserved');
@@ -66,6 +70,10 @@ describe('validateHttpTarget — SSRF protection', () => {
   // ── Metadata endpoint (link-local) ──────────────────────────────
   it('should block cloud metadata endpoint 169.254.169.254', () => {
     expect(() => validateHttpTarget('http://169.254.169.254/latest/meta-data/')).toThrow('private/reserved');
+  });
+
+  it('should block IPv6-mapped metadata endpoint ::ffff:169.254.169.254', () => {
+    expect(() => validateHttpTarget('http://[::ffff:169.254.169.254]/metadata/instance')).toThrow('private/reserved');
   });
 
   // ── allowPrivateTargets flag ─────────────────────────────────────

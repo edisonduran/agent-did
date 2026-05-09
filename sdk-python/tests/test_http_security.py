@@ -46,6 +46,10 @@ class TestValidateHttpTarget:
         with pytest.raises(ValueError, match="private/reserved"):
             validate_http_target("http://[::1]:8080/api")
 
+    def test_blocks_ipv6_mapped_loopback(self) -> None:
+        with pytest.raises(ValueError, match="private/reserved"):
+            validate_http_target("http://[::ffff:127.0.0.1]/api")
+
     # ── Zero address ─────────────────────────────────────────────────
     def test_blocks_0_0_0_0(self) -> None:
         with pytest.raises(ValueError, match="private/reserved"):
@@ -72,6 +76,10 @@ class TestValidateHttpTarget:
     def test_blocks_metadata_endpoint(self) -> None:
         with pytest.raises(ValueError, match="private/reserved"):
             validate_http_target("http://169.254.169.254/latest/meta-data/")
+
+    def test_blocks_ipv6_mapped_metadata_endpoint(self) -> None:
+        with pytest.raises(ValueError, match="private/reserved"):
+            validate_http_target("http://[::ffff:169.254.169.254]/metadata/instance")
 
     # ── allowPrivateTargets flag ─────────────────────────────────────
     def test_allows_private_when_flag_set(self) -> None:

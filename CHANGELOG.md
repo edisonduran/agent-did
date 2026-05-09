@@ -14,18 +14,27 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 - `docs/RELEASE-1.0-CRITERIA.md` — non-negotiable exit criteria and per-sprint work plan toward `1.0.0`.
 - Root `CHANGELOG.md` (this document).
+- `docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md` — explicit release evidence matrix for the shipped integrations in the core release train.
+- `sdk/MIGRATION-0.x-to-1.0.md` and `sdk-python/MIGRATION-0.x-to-1.0.md` — executable migration guides for adopters moving onto the `1.0.0` path.
+
+### Changed
+
+- `README.md`, `sdk/README.md`, `sdk-python/README.md`, and `SECURITY.md` now consistently frame EVM/on-chain material as an optional deferred profile rather than a core `1.0.0` assumption.
+- `docs/RELEASE-1.0-CRITERIA.md`, `README.md`, and this changelog now treat `1.0.0-rc.1` as the default first prerelease and reserve the 30-day green-window gate for the final stable `v1.0.0` tag.
 
 ### Planned (path to 1.0.0)
 
 See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Summary:
 
 - Co-versioning of the core SDK and integration packages (`@agentdid/sdk`, `agent-did-sdk`, `@agentdid/langchain`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework`, `agent-did-a2a`) under a single `v1.0.0` tag.
+- Direct prerelease path of `1.0.0-rc.1` for the current branch state; `1.0.0-beta.N` is reserved only for an explicit reopening of contract-shaping work.
 - EVM/on-chain profile work is deferred outside core `1.0.0`; the release train is centered on the `did:webvh` path.
 - Promotion of **RFC-001** from `Public Review v1` to `Stable`.
 - Public-API freeze per SDK with a blocking snapshot in CI.
 - SBOM (CycloneDX) and SLSA L2 provenance for every published package.
 - `0.x → 1.0` migration guides per SDK.
 - Package × package compatibility matrix.
+- Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
 - Explicit roadmap reconciliation before RC so the README clearly distinguishes what `1.0.0` includes versus which public roadmap tracks remain post-1.0.
 
 ---

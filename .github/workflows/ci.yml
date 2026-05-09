@@ -63,8 +63,8 @@ jobs:
       - name: Install contract dependencies
         run: npm --prefix contracts ci
 
-      - name: Run TypeScript SDK tests
-        run: npm --prefix sdk test
+      - name: Run TypeScript SDK tests with coverage gate
+        run: npm --prefix sdk test -- --coverage --runInBand
 
       - name: Build TypeScript SDK
         run: npm --prefix sdk run build

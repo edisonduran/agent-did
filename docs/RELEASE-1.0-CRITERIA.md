@@ -49,9 +49,29 @@ The path to `1.0.0` is now:
 
 1. **Freeze the core contract**: RFC-001 Stable, public SDK APIs frozen, DID document shape stable, A2A composition semantics stable.
 2. **Harden the release surface**: CI gates, coverage targets, API snapshots, migration guides, compatibility matrix, clean install smokes.
-3. **Publish a release candidate**: SDKs + integrations under `1.0.0-rc.1`, with a short feedback window. Because the project is still pre-adoption, this is a validation window, not a broad marketing launch.
-4. **Tag core `v1.0.0`**: only after the core gates pass.
-5. **Defer non-core tracks**: Azure integration, whitepaper, standards working-note outreach, certification service, and any future EVM/on-chain profile evaluation stay outside the core `1.0.0` release path.
+3. **Optionally publish a beta**: use `1.0.0-beta.N` only if the implementation is complete enough for external validation but the maintainers still expect narrow pre-freeze changes before declaring the release contract stable.
+4. **Publish a release candidate**: SDKs + integrations under `1.0.0-rc.N`, once the intended `1.0` contract is frozen and remaining work is limited to validation, release operations, or stable-only publication gates. Because the project is still pre-adoption, this is a validation window, not a broad marketing launch.
+5. **Tag core `v1.0.0`**: only after the stable gates pass.
+6. **Defer non-core tracks**: Azure integration, whitepaper, standards working-note outreach, certification service, and any future EVM/on-chain profile evaluation stay outside the core `1.0.0` release path.
+
+## 1.3 Pre-Release Label Policy
+
+The project uses the standard SemVer pre-release ladder:
+
+- **`1.0.0-beta.N`** — implementation-complete enough for outside testing, but the maintainers still reserve the right to make narrow pre-`1.0` contract changes. Beta should be used sparingly and only when the team still expects something more than bugfix, packaging, or documentation adjustments.
+- **`1.0.0-rc.N`** — the maintainers believe the release could become `1.0.0` without further breaking changes. At RC stage, the public contract is treated as frozen; only bugfixes, packaging fixes, documentation corrections, CI hardening, and release-ops fixes should remain.
+- **`1.0.0`** — stable. Every release criterion in section 2 must be satisfied.
+
+Promotion rules for this release train:
+
+- **Beta -> RC** requires that planned breaking changes are exhausted, the public SDK surface is frozen, migration guidance exists for both SDKs, and the remaining open items are no longer contract-shaping.
+- **RC -> Stable** requires that every non-negotiable criterion in section 2 is closed, including any time-window evidence such as `C-QA-8` and any stable-only documentation/status changes.
+- **Do not use `alpha` after `beta`**. If the team needs to step back from an RC or beta because the contract is no longer believed to be near-stable, cut a later beta or stay on `0.x`; do not relabel the train as `alpha`.
+
+Current recommendation for the normalized `v1.0.0` branch state:
+
+- The current target should be **`1.0.0-rc.1`**, not `1.0.0-beta.1`, because Sprint 1 hardening, migration guides, integration evidence, and API-freeze work are already in place.
+- A beta should only be introduced if maintainers deliberately reopen contract-shaping work before the first prerelease is cut.
 
 ---
 
@@ -101,7 +121,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 - [ ] **C-QA-5** — E2E tests for **key rotation** (≥3 cycles) + working historical verification.
 - [ ] **C-QA-6** — E2E tests for **revocation** in the canonical `did:webvh` path and explicit compatibility paths included in the release.
 - [ ] **C-QA-7** — **SSRF** tests covering loopback, link-local, AWS/GCP/Azure metadata, IPv6 mapped.
-- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging.
+- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`.
 - [ ] **C-QA-9** — Clean-machine smoke install from npm/PyPI validated for the core RC packages.
 - [ ] **C-QA-10** — Adversarial review (BMad core task `adversarial-review`) completed over crypto and signing code.
 
@@ -133,7 +153,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 ### 2.10 Release Engineering
 
-- [ ] **C-REL-1** — All core packages bumped to `1.0.0-rc.1` simultaneously under a single monorepo tag.
+- [ ] **C-REL-1** — All core packages bumped simultaneously under a single monorepo tag for each prerelease stage used (`1.0.0-beta.N`, if any, and `1.0.0-rc.N`). The first RC cut for the stable path is `1.0.0-rc.1`.
 - [ ] **C-REL-2** — Public feedback window of **≥1 week** on the RC, announced on GitHub Discussions.
 - [ ] **C-REL-3** — `v1.0.0` tag only after every criterion above is met.
 - [ ] **C-REL-4** — Release note and README status update coordinated with the tag. Broad public announcement is optional and should follow the visibility gates in `docs/Estrategia-Divulgacion-2-Semanas-Agent-DID.md`.
@@ -150,7 +170,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 > Detailed and tracked as GitHub issues under the `v1.0.0` milestone. The executed issue map is archived in [_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md](../_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md).
 
-> Status sync (2026-05-08): Sprint 0 foundation issues `#48`, `#51`, `#52`, and `#67`-`#71` are closed in GitHub. The signature-level API gate from `#60` shipped via PR `#93` and the issue is now closed; `#91` remains intentionally open as the tracker for the renewed `C-QA-8` 30-day green window on `main`.
+> Status sync (2026-05-09): Sprint 0 foundation issues `#48`, `#51`, `#52`, and `#67`-`#71` are closed in GitHub. The signature-level API gate from `#60` shipped via PR `#93` and the issue is now closed. Post-merge milestone audit: there are no open PRs against the release branch, and the open `v1.0.0` milestone now consists of normalized Sprint 1 issues `#73`-`#75`, `#77`-`#81`, and `#95`-`#98`; canonical Sprint 2 issues `#82`-`#90`; plus follow-up issue `#91`. During milestone normalization, duplicate tracker items `#72` and `#76` were superseded by `#87` and `#84` respectively and then closed. Since that sync, the normalized Sprint 1 issue set has been implemented on the release branch, including the adversarial review, resolver HA workflow, API freeze, SBOM/provenance, explicit integration evidence, migration guides, and the docs/security sweep fencing EVM/testnet assumptions outside core `1.0.0`. The current execution path for Sprint 2 is to cut `1.0.0-rc.1` directly. Follow-up issue `#91` remains the live blocker for the stable `v1.0.0` tag only: `C-QA-8` is not yet met because the 30-day green window on `main` must be re-established for `CI — TypeScript SDK & RFC-001 Conformance`, `CI — Python SDK & RFC-001 Conformance`, and `CI - Microsoft Agent Framework Integration`. Based on the refreshed `main` audit after merge `#94`, the limiting workflow is currently the Python core validation workflow; if the 10 core validation workflows stay green from the successful `main` run at `2026-05-08T21:52:35Z`, the earliest timestamp at which `C-QA-8` can be satisfied is `2026-06-07T21:52:35Z`.
 
 ### Sprint 0 — Scope Freeze and Release Foundation
 
@@ -186,14 +206,14 @@ Goal: close every core quality, security and supply-chain gap for the `did:webvh
 | S1-9 | Final docs/security sweep to remove EVM/testnet assumptions from core release messaging | qa + tech-writer | C-ROADMAP-2, C-DOC-* |
 | S1-10 | E2E anti-replay, key rotation, revocation, SSRF for core paths | qa | C-QA-4..7 |
 
-### Sprint 2 — Release Candidate and Tag
+### Sprint 2 — Pre-Release and Tag
 
-Goal: publish RC, gather focused validation feedback, tag core 1.0.0.
+Goal: cut the appropriate prerelease (`beta` only if contract-shaping feedback is still expected, otherwise `rc`), gather focused validation feedback, and tag core `1.0.0`.
 
 | ID | Task | Suggested owner | Criteria covered |
 |---|---|---|---|
-| S2-1 | Bump the core packages to `1.0.0-rc.1` (single tag) | dev | C-REL-1 |
-| S2-2 | Publish RC to npm/PyPI under dist-tag `next` / pre-release | dev | C-REL-1 |
+| S2-1 | Cut `1.0.0-rc.1` as the first prerelease for the stable path; only fall back to `1.0.0-beta.1` if maintainers explicitly reopen contract-shaping work | dev | C-REL-1 |
+| S2-2 | Publish `1.0.0-rc.1` to npm/PyPI under dist-tag `next` / pre-release | dev | C-REL-1 |
 | S2-3 | Clean smoke install of the core packages from public registries | qa | C-QA-9 |
 | S2-4 | `agent-did-in-action` demo serving the RC | dev | C-DEMO-1, C-DEMO-2 |
 | S2-5 | Focused RC feedback window (≥1 week) with GitHub Discussions as the canonical reference | pm | C-REL-2 |
@@ -219,4 +239,4 @@ From `1.0.0` onward **strict SemVer** applies, per [DEPRECATION-POLICY.md](DEPRE
 
 This document is updated at the close of each Sprint. The *Criteria covered* column traces every task back to a checkbox in section 2.
 
-**Next expected revision:** after the next milestone audit for Sprint 1 hardening, with fresh evidence for `#91` / `C-QA-8` on `main`.
+**Next expected revision:** after `#91` / `C-QA-8` can be closed on `main` and the Sprint 2 RC sequence begins.

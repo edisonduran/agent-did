@@ -1,0 +1,92 @@
+name: Publish TypeScript SDK to npm
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build TypeScript SDK package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.18.0
+          cache: npm
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Verify tag matches sdk version
+        if: startsWith(github.ref, 'refs/tags/sdk-v')
+        working-directory: sdk
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#sdk-v}"
+
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag version $TAG_VERSION does not match sdk/package.json version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Install SDK dependencies
+        run: npm --prefix sdk ci
+
+      - name: Check TypeScript public API snapshot
+        run: npm --prefix sdk run api:check
+
+      - name: Check TypeScript public API signature snapshot
+        run: npm --prefix sdk run api:signature:check
+
+      - name: Run TypeScript SDK tests with coverage gate
+        run: npm --prefix sdk test -- --coverage --runInBand
+
+      - name: Build TypeScript SDK
+        run: npm --prefix sdk run build
+
+      - name: Pack TypeScript SDK tarball
+        working-directory: sdk
+        run: npm pack
+
+      - name: Upload TypeScript SDK tarball
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: typescript-sdk-tarball
+          path: sdk/*.tgz
+          if-no-files-found: error
+
+  publish-npm:
+    name: Publish TypeScript SDK to npm
+    if: startsWith(github.ref, 'refs/tags/sdk-v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download TypeScript SDK tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: typescript-sdk-tarball
+          path: dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.18.0
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish TypeScript SDK to npm with provenance
+        run: npm publish dist/*.tgz --access public --provenance
