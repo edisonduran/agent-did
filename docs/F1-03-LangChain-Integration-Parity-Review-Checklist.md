@@ -55,6 +55,7 @@ Run this checklist when a change affects one or more of the following:
 ## Documentation And Examples
 
 - [ ] `integrations/langchain/README.md` and `integrations/langchain-python/README.md` still describe the same conceptual model.
+- [ ] If release-candidate metadata changes, both READMEs still document the coordinated prerelease install path (`@next` on npm, `1.0.0rc1` on Python) without implying divergent runtime behavior.
 - [ ] If a local quickstart clarifies controller bootstrap or hosted `did:webvh` publication boundaries, both READMEs still describe that deployment split consistently.
 - [ ] Both packages still ship, at minimum, base, observability and production-style examples.
 - [ ] If one package ships an integrated `did:wba` demo, the other package ships an equivalent integrated `did:wba` demo or the divergence is explicit in docs.
@@ -96,6 +97,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-05-08 | Added a governance check for coordinated RC metadata so TS/Python README guidance stays aligned when the release train uses ecosystem-native prerelease versions. |
 | 2026-05-08 | Added a review gate for README changes that clarify local controller bootstrap vs hosted `did:webvh` publication so the TS/Python conceptual model stays aligned. |
 | 2026-05-04 | Added parity review coverage for `assertionMethod` binding in signing-capable `did:wba` demo DID documents. |
 | 2026-03-31 | Repository slug updated to `agent-did` and active LangChain TS/Python package references normalized to `@agentdid/*` in README/examples/metadata. No functional changes to the integration surface; parity artifacts refreshed for governance compliance. |

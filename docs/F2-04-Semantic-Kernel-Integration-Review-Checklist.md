@@ -24,6 +24,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] The package status is still correct for the shipped state (`functional` for the current Python integration surface).
 - [ ] README, design doc and package metadata describe the same current state.
 - [ ] No Semantic Kernel document refers to the Python SDK as future work.
+- [ ] If release metadata changes, the README and package metadata still agree on the coordinated `1.0.0rc1` dependency on `agent-did-sdk`.
 
 ---
 
@@ -81,5 +82,6 @@ Semantic Kernel review is complete when the scaffold state is accurately describ
 
 | Date | Change |
 |------|--------|
+| 2026-05-08 | Added an explicit review gate for RC metadata alignment so README/package metadata stay synchronized during the `1.0.0rc1` freeze. |
 | 2026-03-31 | Repository slug updated to `agent-did` and Semantic Kernel package metadata refreshed to the new GitHub URL and project branding. Review artifacts updated to record that the change is packaging/governance-only, with no functional integration drift. |
 | 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |
