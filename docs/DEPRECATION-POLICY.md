@@ -84,7 +84,7 @@ When a non-security breaking change can be staged safely, the project aims to fo
 
 1. Mark the feature or behavior as deprecated in documentation and release notes.
 2. Keep it available for at least one subsequent minor release when practical.
-3. Remove it in a later minor release together with migration notes.
+3. Remove it in a later major release together with migration notes.
 
 This is a target, not an absolute guarantee. Some fixes cannot safely wait, especially when security or spec correctness is involved.
 
