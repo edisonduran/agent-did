@@ -24,6 +24,14 @@ That means:
 
 ## Versioning Expectations
 
+## Strict Semantic Versioning (Post 1.0.0)
+
+After version 1.0.0, Agent-DID strictly follows Semantic Versioning:
+
+- MAJOR version → breaking changes only
+- MINOR version → backward-compatible features only
+- PATCH version → bug fixes only
+
 ### RC changes before `v1.0.0`
 
 During the RC phase:
@@ -103,6 +111,10 @@ The following should be treated as breaking unless explicitly documented otherwi
 
 - changing method names, parameter names, or required fields in the TS or Python SDKs
 - changing a public symbol in a way that changes the signature-level API snapshot (`sdk/public-api.signature.snapshot.txt` or `sdk-python/public-api.signature.snapshot.txt`)
+
+Signature-level API snapshots act as compatibility gates.
+Any change in public API signatures must be validated against snapshot files and is considered a breaking change requiring a MAJOR version bump.
+
 - changing DID document field semantics or requiredness
 - changing HTTP signature header semantics, covered components, or verification defaults
 - changing revocation, key rotation, or resolution behavior in a way that can flip a previous pass to a fail
