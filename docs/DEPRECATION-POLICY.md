@@ -24,7 +24,7 @@ That means:
 
 ## Versioning Expectations
 
-## Strict Semantic Versioning (Post 1.0.0)
+### Strict Semantic Versioning (Post 1.0.0)
 
 After version 1.0.0, Agent-DID strictly follows Semantic Versioning:
 
