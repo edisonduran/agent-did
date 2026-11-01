@@ -24,6 +24,15 @@
   ],
   "author": "Edison Munoz <edison.munoz@agent-did.org>",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edisonduran/agent-did.git",
+    "directory": "integrations/langchain"
+  },
+  "homepage": "https://github.com/edisonduran/agent-did/tree/main/integrations/langchain#readme",
+  "bugs": {
+    "url": "https://github.com/edisonduran/agent-did/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
