@@ -306,16 +306,24 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.python_repository == 'pypi' && github.ref == 'refs/heads/main')
     needs: build-python-packages
     runs-on: ubuntu-24.04
+    # PyPI rejects identical pending publishers across projects, so each package gets its own environment.
+    environment: ${{ matrix.environment }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - artifact_name: agent-did-sdk-dist
+            environment: pypi-agent-did-sdk
           - artifact_name: agent-did-langchain-dist
+            environment: pypi-agent-did-langchain
           - artifact_name: agent-did-crewai-dist
+            environment: pypi-agent-did-crewai
           - artifact_name: agent-did-semantic-kernel-dist
+            environment: pypi-agent-did-semantic-kernel
           - artifact_name: agent-did-microsoft-agent-framework-dist
+            environment: pypi-agent-did-microsoft-agent-framework
           - artifact_name: agent-did-a2a-dist
+            environment: pypi-agent-did-a2a
     permissions:
       contents: read
       id-token: write
