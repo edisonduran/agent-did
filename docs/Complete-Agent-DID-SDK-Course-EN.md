@@ -4749,7 +4749,7 @@ The student has a **solid foundation for presenting** to the community. Strength
 ## Prerequisites and Resources
 
 ### To follow this course you need:
-- Node.js 18+ installed
+- Node.js 22+ installed
 - npm
 - The repository cloned and with dependencies installed:
   ```bash

@@ -2,7 +2,7 @@
 
 **Status:** Draft  
 **Audience:** Contributors, Reviewers, Maintainers  
-**Last updated:** 2026-05-08  
+**Last updated:** 2026-11-01  
 **Owner:** Maintainers (`edison.munoz` + team)  
 **Governed by:** [Documentation-Governance.md](Documentation-Governance.md)
 
@@ -49,6 +49,17 @@ The release train uses three compatibility relationships:
 | `agent-did-semantic-kernel` | I | D | C | C | C | self | C | C |
 | `agent-did-microsoft-agent-framework` | I | D | C | C | C | C | self | C |
 | `agent-did-a2a` | I | D | C | C | C | C | C | self |
+
+---
+
+## 3.1 Version x Version View
+
+| Signer \ Verifier | `0.x` (`@agentdid/sdk` ≤ 0.2.0, `agent-did-sdk` ≤ 0.1.0) | `1.0.0-rc.1` / `1.0.0rc1` |
+|---|---|---|
+| `0.x` | compatible | HTTP signatures rejected |
+| `1.0.0-rc.1` / `1.0.0rc1` | HTTP signatures rejected | compatible (fixtures `formatVersion: 3`) |
+
+The `1.0` signature base adds the `"@signature-params"` line (RFC 9421 §2.5), so HTTP signatures do not cross the `0.x`/`1.0` boundary in either direction. Runtime floors for the RC: Node.js 22+ for the npm packages, Python 3.10+ for the PyPI packages.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Audience:** Contributors, Reviewers, Maintainers
-**Last updated:** 2026-05-08
+**Last updated:** 2026-11-01
 **Owner:** Maintainers (`edison.munoz` + team)
 **Governed by:** [Documentation-Governance.md](Documentation-Governance.md)
 
@@ -16,16 +16,16 @@ The old path assumed `did:agent` might need to become a new DID method. That is 
 
 **A user installing `agent-did 1.0` must obtain a coherent, mutually compatible web-native set:**
 
-| Package | Current version | Target 1.0 | Registry |
-|---|---|---|---|
-| `@agentdid/sdk` (TypeScript) | 0.2.0 | 1.0.0 | npm |
-| `agent-did-sdk` (Python) | 0.1.0 | 1.0.0 | PyPI |
-| `@agentdid/langchain` (LangChain JS) | 0.1.0 | 1.0.0 | npm |
-| `agent-did-langchain` (LangChain Python) | 0.1.0 | 1.0.0 | PyPI |
-| `agent-did-crewai` | 0.1.0 | 1.0.0 | PyPI |
-| `agent-did-semantic-kernel` | 0.1.0 | 1.0.0 | PyPI |
-| `agent-did-microsoft-agent-framework` | 0.1.0 | 1.0.0 | PyPI |
-| `agent-did-a2a` | 0.1.0 | 1.0.0 | PyPI |
+| Package | Latest stable | Published RC | Target 1.0 | Registry |
+|---|---|---|---|---|
+| `@agentdid/sdk` (TypeScript) | 0.2.0 | 1.0.0-rc.1 (`next`) | 1.0.0 | npm |
+| `agent-did-sdk` (Python) | 0.1.0 | 1.0.0rc1 | 1.0.0 | PyPI |
+| `@agentdid/langchain` (LangChain JS) | 0.1.0 | 1.0.0-rc.1 (`next`) | 1.0.0 | npm |
+| `agent-did-langchain` (LangChain Python) | — | 1.0.0rc1 | 1.0.0 | PyPI |
+| `agent-did-crewai` | — | 1.0.0rc1 | 1.0.0 | PyPI |
+| `agent-did-semantic-kernel` | — | 1.0.0rc1 | 1.0.0 | PyPI |
+| `agent-did-microsoft-agent-framework` | — | 1.0.0rc1 | 1.0.0 | PyPI |
+| `agent-did-a2a` | — | 1.0.0rc1 | 1.0.0 | PyPI |
 
 The Solidity contracts and EVM deployment material are **out of scope for core `1.0.0`**. Existing contract work is retained as deferred research/profile material, but there is no EVM package, testnet, deployed-address, or ABI gate for the core web-native release. If a concrete need appears later, the maintainers will reopen the topic as a separate scope decision after `1.0.0`.
 
@@ -79,32 +79,32 @@ Current recommendation for the normalized `v1.0.0` branch state:
 
 ### 2.1 Specification
 
-- [ ] **C-SPEC-1** — RFC-001 marked as `Stable` in [docs/INDEX.md](INDEX.md) and on its own header.
-- [ ] **C-SPEC-2** — `RFC-001-Compliance-Checklist.md` reports MUST `11/11 PASS` and SHOULD `5/5 PASS`.
+- [x] **C-SPEC-1** — RFC-001 marked as `Stable` in [docs/INDEX.md](INDEX.md) and on its own header.
+- [x] **C-SPEC-2** — `RFC-001-Compliance-Checklist.md` reports MUST `11/11 PASS` and SHOULD `5/5 PASS`.
 - [ ] **C-SPEC-3** — Security section of the RFC reviewed and signed off by ≥1 reviewer external to the lead maintainer.
-- [ ] **C-SPEC-4** — Public errata procedure documented in the RFC (how corrections are proposed and accepted post-1.0 without a major bump).
+- [x] **C-SPEC-4** — Public errata procedure documented in the RFC (how corrections are proposed and accepted post-1.0 without a major bump). _Evidence: RFC-001 §11.2._
 
 ### 2.2 SDKs and Public API
 
-- [ ] **C-API-1** — Public **export-name** baseline frozen and enforced per SDK (first stage of the API gate):
+- [x] **C-API-1** — Public **export-name** baseline frozen and enforced per SDK (first stage of the API gate):
   - TypeScript: versioned export-name snapshot artifact checked into the repo (`sdk/public-api.snapshot.txt`), generated from `sdk/src/index.ts` named exports.
   - Python: explicit `__all__` in public modules + versioned export-name snapshot artifact checked into the repo (`sdk-python/public-api.snapshot.txt`), generated from `__all__` literals.
   - Snapshot drift is a blocking CI failure in `ci.yml` (TS) and `ci-python.yml` (Python).
   - Scope limitation: this stage detects **added/removed/renamed** public exports only. It does **not** detect signature, type, or class-member changes — those are covered by C-API-2.
-- [ ] **C-API-2** — Signature-level public API compatibility gate (follow-up to C-API-1):
+- [x] **C-API-2** — Signature-level public API compatibility gate (follow-up to C-API-1):
   - TypeScript: emit `.d.ts` and diff the generated signature snapshot on every PR (`sdk/public-api.signature.snapshot.txt`, checked via `npm --prefix sdk run api:signature:check`).
   - Python: capture signatures and class members and diff the generated signature snapshot on every PR (`sdk-python/public-api.signature.snapshot.txt`, checked via `python sdk-python/scripts/public_api_signature_snapshot.py --check`).
   - Any change to this signature-level snapshot requires a major bump (post-1.0).
   - Tracking issue: see `RELEASE-1.0-CRITERIA` follow-up issue *Harden public API snapshot to signature-level gate*.
-- [ ] **C-API-3** — `@internal` / private symbols clearly marked; not part of the public contract.
-- [ ] **C-API-4** — `MIGRATION-0.x-to-1.0.md` per SDK (TS and Python) with executable `before/after` examples.
+- [ ] **C-API-3** — `@internal` / private symbols clearly marked; not part of the public contract. _Open (2026-11-01 audit): Python uses `__all__`; the TypeScript SDK has no `@internal` markers yet._
+- [x] **C-API-4** — `MIGRATION-0.x-to-1.0.md` per SDK (TS and Python) with executable `before/after` examples.
 
 ### 2.3 Conformance and Interoperability
 
-- [ ] **C-INTEROP-1** — `conformance:rfc001` suite running as a **blocking gate** in CI (not informational).
-- [ ] **C-INTEROP-2** — Shared fixtures in `fixtures/` consumed by **both** SDKs in every PR.
-- [ ] **C-INTEROP-3** — Equivalent DID documents produce the same `documentRef` (canonical hash) in TS and Python.
-- [ ] **C-INTEROP-4** — Compatibility matrix published (package × package, version × version) in `docs/`, currently tracked in [RELEASE-1.0-COMPATIBILITY-MATRIX.md](RELEASE-1.0-COMPATIBILITY-MATRIX.md).
+- [x] **C-INTEROP-1** — `conformance:rfc001` suite running as a **blocking gate** in CI (not informational).
+- [x] **C-INTEROP-2** — Shared fixtures in `fixtures/` consumed by **both** SDKs in every PR. _Evidence: `ci-cross-sdk-interop.yml`; `ci.yml` and `ci-python.yml` trigger on `fixtures/**`._
+- [x] **C-INTEROP-3** — Equivalent DID documents produce the same `documentRef` (canonical hash) in TS and Python. _Evidence: `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py` against the shared `expectedDocumentRef`._
+- [x] **C-INTEROP-4** — Compatibility matrix published (package × package, version × version) in `docs/`, currently tracked in [RELEASE-1.0-COMPATIBILITY-MATRIX.md](RELEASE-1.0-COMPATIBILITY-MATRIX.md).
 
 ### 2.4 Deferred EVM / On-Chain Profile
 
@@ -114,35 +114,35 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 ### 2.5 Coverage and Quality
 
-- [ ] **C-QA-1** — Coverage ≥**85%** lines in `sdk/` and `sdk-python/`.
-- [ ] **C-QA-2** — Coverage **100%** in critical modules: `crypto`, `signing`, `verification`, `resolver`.
-- [ ] **C-QA-3** — Coverage ≥**75%** per integration (LangChain JS/Py, CrewAI, SK, MS AF, A2A).
-- [ ] **C-QA-4** — E2E tests for **anti-replay** (clock skew ±60s, nonce reuse, expired signature).
-- [ ] **C-QA-5** — E2E tests for **key rotation** (≥3 cycles) + working historical verification.
-- [ ] **C-QA-6** — E2E tests for **revocation** in the canonical `did:webvh` path and explicit compatibility paths included in the release.
-- [ ] **C-QA-7** — **SSRF** tests covering loopback, link-local, AWS/GCP/Azure metadata, IPv6 mapped.
-- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`.
+- [x] **C-QA-1** — Coverage ≥**85%** lines in `sdk/` and `sdk-python/`. _Evidence: `sdk/jest.config.js` global threshold; `--cov-fail-under=85` in `ci-python.yml`._
+- [ ] **C-QA-2** — Coverage **100%** in critical modules: `crypto`, `signing`, `verification`, `resolver`. _Open (2026-11-01 audit): no per-module threshold is enforced in either SDK._
+- [ ] **C-QA-3** — Coverage ≥**75%** per integration (LangChain JS/Py, CrewAI, SK, MS AF, A2A). _Needs maintainer decision: [RELEASE-1.0-INTEGRATION-EVIDENCE.md](RELEASE-1.0-INTEGRATION-EVIDENCE.md) replaces per-adapter percentages with scenario evidence; either reword this criterion or enforce the threshold._
+- [x] **C-QA-4** — E2E tests for **anti-replay** (clock skew ±60s, nonce reuse, expired signature).
+- [x] **C-QA-5** — E2E tests for **key rotation** (≥3 cycles) + working historical verification.
+- [x] **C-QA-6** — E2E tests for **revocation** in the canonical `did:webvh` path and explicit compatibility paths included in the release.
+- [x] **C-QA-7** — **SSRF** tests covering loopback, link-local, AWS/GCP/Azure metadata, IPv6 mapped.
+- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`. _Window restarted: last failure on `main` was `2026-11-01T14:42:04Z` (`f99d35b6`); earliest closure `2026-12-01T15:41:59Z`._
 - [ ] **C-QA-9** — Clean-machine smoke install from npm/PyPI validated for the core RC packages.
-- [ ] **C-QA-10** — Adversarial review (BMad core task `adversarial-review`) completed over crypto and signing code.
+- [x] **C-QA-10** — Adversarial review (BMad core task `adversarial-review`) completed over crypto and signing code.
 
 ### 2.6 Operations and Resolver
 
-- [ ] **C-OPS-1** — Resolver HA drill scheduled in GitHub Actions (`schedule:` weekly), green for ≥4 documented runs.
+- [x] **C-OPS-1** — Resolver HA drill scheduled in GitHub Actions (`schedule:` weekly), green for ≥4 documented runs. _Evidence: 14 green runs of `resolver-ha-drill.yml` (2026-05-11 → 2026-07-20); the schedule paused after 2026-07-20 and must be watched for resumption._
 - [ ] **C-OPS-2** — `RFC-001-Resolver-HA-Runbook.md` validated by a recent dry run.
 
 ### 2.7 Supply Chain
 
-- [ ] **C-SUPPLY-1** — SBOM (CycloneDX) generated and published per package.
-- [ ] **C-SUPPLY-2** — SLSA L2 provenance via OIDC for npm/PyPI publication.
-- [ ] **C-SUPPLY-3** — npm/PyPI publication uses short-lived tokens (no static PATs).
+- [ ] **C-SUPPLY-1** — SBOM (CycloneDX) generated and published per package. _Partial: `ci-sbom.yml` generates per-package workflow artifacts; SBOMs are not yet attached to the GitHub Release or published by `publish-release-train.yml`._
+- [x] **C-SUPPLY-2** — SLSA L2 provenance via OIDC for npm/PyPI publication.
+- [x] **C-SUPPLY-3** — npm/PyPI publication uses short-lived tokens (no static PATs).
 
 ### 2.8 Documentation
 
-- [ ] **C-DOC-1** — Root `CHANGELOG.md` with per-package section and `1.0.0` entry.
-- [ ] **C-DOC-2** — `MIGRATION-0.x-to-1.0.md` per SDK.
-- [ ] **C-DOC-3** — `DEPRECATION-POLICY.md` updated with strict SemVer post-1.0.
+- [ ] **C-DOC-1** — Root `CHANGELOG.md` with per-package section and `1.0.0` entry. _Open: the root changelog has no per-package sections and no package ships its own `CHANGELOG.md`._
+- [x] **C-DOC-2** — `MIGRATION-0.x-to-1.0.md` per SDK.
+- [x] **C-DOC-3** — `DEPRECATION-POLICY.md` updated with strict SemVer post-1.0.
 - [ ] **C-DOC-4** — Quickstart validated by ≥1 external contributor on a clean machine.
-- [ ] **C-DOC-5** — `docs/INDEX.md` with a **"Releases"** section pointing to CHANGELOG and compatibility matrix.
+- [x] **C-DOC-5** — `docs/INDEX.md` with a **"Releases"** section pointing to CHANGELOG and compatibility matrix.
 - [ ] **C-DOC-6** — README no longer carries the *"Public Review v1"* phrasing (replaced with *"Stable 1.0"*) — only at the moment of the final tag.
 
 ### 2.9 Demo and Anchor Adopter
@@ -153,16 +153,16 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 ### 2.10 Release Engineering
 
-- [ ] **C-REL-1** — All core packages bumped simultaneously under a single monorepo tag for each prerelease stage used (`1.0.0-beta.N`, if any, and `1.0.0-rc.N`). The first RC cut for the stable path is `1.0.0-rc.1`. Package manifests may use ecosystem-native prerelease normalization when required by the registry (`1.0.0-rc.1` on npm, `1.0.0rc1` on PyPI).
+- [x] **C-REL-1** — All core packages bumped simultaneously under a single monorepo tag for each prerelease stage used (`1.0.0-beta.N`, if any, and `1.0.0-rc.N`). The first RC cut for the stable path is `1.0.0-rc.1`. Package manifests may use ecosystem-native prerelease normalization when required by the registry (`1.0.0-rc.1` on npm, `1.0.0rc1` on PyPI).
 - [ ] **C-REL-2** — Public feedback window of **≥1 week** on the RC, announced on GitHub Discussions.
 - [ ] **C-REL-3** — `v1.0.0` tag only after every criterion above is met.
 - [ ] **C-REL-4** — Release note and README status update coordinated with the tag. Broad public announcement is optional and should follow the visibility gates in `docs/Estrategia-Divulgacion-2-Semanas-Agent-DID.md`.
 
 ### 2.11 Roadmap Consistency
 
-- [ ] **C-ROADMAP-1** — README roadmap statuses reconciled against current implementation evidence before `1.0.0-rc.1`.
-- [ ] **C-ROADMAP-2** — Any roadmap item still open but not included in `1.0.0` is explicitly documented as post-1.0 scope.
-- [ ] **C-ROADMAP-3** — Any roadmap item claimed as part of `1.0.0` has a linked implementation, CI, or release artifact proving readiness.
+- [x] **C-ROADMAP-1** — README roadmap statuses reconciled against current implementation evidence before `1.0.0-rc.1`.
+- [x] **C-ROADMAP-2** — Any roadmap item still open but not included in `1.0.0` is explicitly documented as post-1.0 scope.
+- [x] **C-ROADMAP-3** — Any roadmap item claimed as part of `1.0.0` has a linked implementation, CI, or release artifact proving readiness.
 
 ---
 
@@ -171,6 +171,10 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 > Detailed and tracked as GitHub issues under the `v1.0.0` milestone. The executed issue map is archived in [_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md](../_bmad-output/planning-artifacts/RELEASE-1.0-ISSUE-PACK.md).
 
 > Status sync (2026-05-09): Sprint 0 foundation issues `#48`, `#51`, `#52`, and `#67`-`#71` are closed in GitHub. The signature-level API gate from `#60` shipped via PR `#93` and the issue is now closed. Post-merge milestone audit: there are no open PRs against the release branch, and the open `v1.0.0` milestone now consists of normalized Sprint 1 issues `#73`-`#75`, `#77`-`#81`, and `#95`-`#98`; canonical Sprint 2 issues `#82`-`#90`; plus follow-up issue `#91`. During milestone normalization, duplicate tracker items `#72` and `#76` were superseded by `#87` and `#84` respectively and then closed. Since that sync, the normalized Sprint 1 issue set has been implemented on the release branch, including the adversarial review, resolver HA workflow, API freeze, SBOM/provenance, explicit integration evidence, migration guides, and the docs/security sweep fencing EVM/testnet assumptions outside core `1.0.0`. The current execution path for Sprint 2 is to cut `1.0.0-rc.1` directly. Follow-up issue `#91` remains the live blocker for the stable `v1.0.0` tag only: `C-QA-8` is not yet met because the 30-day green window on `main` must be re-established for `CI — TypeScript SDK & RFC-001 Conformance`, `CI — Python SDK & RFC-001 Conformance`, and `CI - Microsoft Agent Framework Integration`. Based on the refreshed `main` audit after merge `#94`, the limiting workflow is currently the Python core validation workflow; if the 10 core validation workflows stay green from the successful `main` run at `2026-05-08T21:52:35Z`, the earliest timestamp at which `C-QA-8` can be satisfied is `2026-06-07T21:52:35Z`.
+
+> Status sync (2026-11-01): S2-1 and S2-2 are done. Tag `v1.0.0-rc.1` (`ce743761`) published `1.0.0-rc.1` to npm under dist-tag `next` and `1.0.0rc1` to PyPI for all eight core packages. The RC includes a breaking HTTP signature-base change (`"@signature-params"`, RFC 9421 §2.5) and raises the npm runtime floor to Node.js 22. Next Sprint 2 steps are S2-3 (clean install smokes), S2-4 (demo on the RC) and S2-5 (feedback window).
+
+> Gate audit (2026-11-01): section 2 checkboxes reconciled against repository and GitHub Actions evidence. `C-QA-8` restarted: `CI — Python SDK & RFC-001 Conformance`, `CI — LangChain Python Integration` and `CI - Microsoft Agent Framework Integration` failed on `main` at `2026-11-01T14:42:04Z` (`f99d35b6`) and are green since `2026-11-01T15:41:59Z` (`d86b54d0`); every other CI workflow is green on its latest `main` run. If `main` stays green, `C-QA-8` closes no earlier than `2026-12-01T15:41:59Z`. Because the CI workflows run only on push/PR, there were no `main` runs between 2026-05-16 and 2026-11-01. Still open for stable: `C-SPEC-3`, `C-API-3`, `C-QA-2`, `C-QA-3` (wording decision), `C-QA-8`, `C-QA-9`, `C-OPS-2`, `C-SUPPLY-1`, `C-DOC-1`, `C-DOC-4`, `C-DOC-6`, `C-DEMO-*` and `C-REL-2`..`C-REL-4`.
 
 ### Sprint 0 — Scope Freeze and Release Foundation
 
@@ -250,4 +254,4 @@ From `1.0.0` onward **strict SemVer** applies, per [DEPRECATION-POLICY.md](DEPRE
 
 This document is updated at the close of each Sprint. The *Criteria covered* column traces every task back to a checkbox in section 2.
 
-**Next expected revision:** after `#91` / `C-QA-8` can be closed on `main` and the Sprint 2 RC sequence begins.
+**Next expected revision:** after S2-3/S2-4 land, and again when `C-QA-8` can close (no earlier than `2026-12-01T15:41:59Z`).

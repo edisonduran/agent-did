@@ -4,11 +4,25 @@ All notable changes to the **Agent-DID** ecosystem are documented here.
 
 The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and, starting with version `1.0.0`, this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) per [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
 
-> **Scope:** this root CHANGELOG records the *release train* of the core ecosystem (RFC + SDKs + integrations co-versioned starting at 1.0.0). Each publishable package additionally maintains its own `CHANGELOG.md` with granular detail.
+> **Scope:** this root CHANGELOG records the *release train* of the core ecosystem (RFC + SDKs + integrations co-versioned starting at 1.0.0). Per-package `CHANGELOG.md` files are still pending (`C-DOC-1` in [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md)).
 
 ---
 
 ## [Unreleased]
+
+### Planned (path to 1.0.0)
+
+See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.1`:
+
+- Clean-machine install smokes of the published RC packages from npm and PyPI.
+- `agent-did-in-action` demo switched to the RC, plus a focused feedback window of at least one week.
+- Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
+
+---
+
+## [1.0.0-rc.1] - 2026-11-01
+
+First co-versioned release candidate, tagged `v1.0.0-rc.1`. npm packages publish `1.0.0-rc.1` under dist-tag `next`; Python packages publish `1.0.0rc1` as PyPI prereleases.
 
 ### Added
 
@@ -23,26 +37,21 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 - `docs/RELEASE-1.0-CRITERIA.md`, `README.md`, and this changelog now treat `1.0.0-rc.1` as the default first prerelease and reserve the 30-day green-window gate for the final stable `v1.0.0` tag.
 - RFC-001 is now marked Stable in-repo for the `1.0.0-rc.1` release train, with `docs/INDEX.md`, `docs/RFC-001-CHANGELOG.md`, and `docs/DEPRECATION-POLICY.md` aligned to the frozen release contract.
 - Core package manifests are now pinned to the `1.0.0-rc.1` release train (`1.0.0-rc.1` on npm packages, `1.0.0rc1` on Python packages) and a unified `publish-release-train.yml` workflow now orchestrates prerelease publication across npm and PyPI.
+- `agent-did-microsoft-agent-framework` now accepts `agent-framework>=1.0.1,<2` (validated against `1.24.0`); the previous `<1.1` cap had become unresolvable.
+
+### Fixed
+
+- `agent-did-langchain` no longer emits duplicate LangSmith child runs with `langsmith>=0.14`.
+
+### Build
+
+- `publish-release-train.yml` upgrades npm to `>=11.5.1` for OIDC trusted publishing and publishes each PyPI package from its own GitHub environment (`pypi-<package>`).
+- `@agentdid/langchain` declares `repository` metadata, required for npm provenance.
 
 ### Security
 
 - HTTP message signatures in `@agentdid/sdk` and `agent-did-sdk` now cover the signature parameters (`created`, `expires`, `keyid`, `alg`) through an `"@signature-params"` line in the signature base (RFC 9421 §2.5). Previously those parameters were unsigned, so a captured request could be replayed with rewritten `created`/`expires` values. **Breaking wire change:** signatures produced by `@agentdid/sdk` ≤ 0.2.0 or `agent-did-sdk` ≤ 0.1.0 do not verify with this release, and vice versa. The shared interop fixture moves to `formatVersion: 3`.
 - `@agentdid/sdk` and `@agentdid/langchain` now declare `engines.node >=22.0.0`. Node 18 and 20 are end-of-life and did not receive the October 2026 Node.js security releases; DID resolution fetches documents from arbitrary hosts, so verifiers should run Node 22.23.4+, 24.22.1+ or 26.12.1+. CI and publish workflows move to Node 24 (contract audit to Node 22 for Hardhat 2 compatibility).
-
-### Planned (path to 1.0.0)
-
-See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Summary:
-
-- Co-versioning of the core SDK and integration packages (`@agentdid/sdk`, `agent-did-sdk`, `@agentdid/langchain`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework`, `agent-did-a2a`) under a single `v1.0.0` tag.
-- Direct prerelease path of `1.0.0-rc.1` for the current branch state; `1.0.0-beta.N` is reserved only for an explicit reopening of contract-shaping work.
-- EVM/on-chain profile work is deferred outside core `1.0.0`; the release train is centered on the `did:webvh` path.
-- Promotion of **RFC-001** from `Public Review v1` to `Stable`.
-- Public-API freeze per SDK with a blocking snapshot in CI.
-- SBOM (CycloneDX) and SLSA L2 provenance for every published package.
-- `0.x → 1.0` migration guides per SDK.
-- Package × package compatibility matrix.
-- Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
-- Explicit roadmap reconciliation before RC so the README clearly distinguishes what `1.0.0` includes versus which public roadmap tracks remain post-1.0.
 
 ---
 
@@ -63,4 +72,5 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Summary:
 
 ---
 
-[Unreleased]: https://github.com/edisonduran/agent-did/compare/main...HEAD
+[Unreleased]: https://github.com/edisonduran/agent-did/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.1

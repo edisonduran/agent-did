@@ -1,7 +1,7 @@
 # Agent-DID: The Identity Layer for AI Agents
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 [![Works with LangChain](https://img.shields.io/badge/works%20with-LangChain-blue)](integrations/langchain/)
 [![Works with CrewAI](https://img.shields.io/badge/works%20with-CrewAI-orange)](integrations/crewai/)
 [![Works with Semantic Kernel](https://img.shields.io/badge/works%20with-Semantic%20Kernel-purple)](integrations/semantic-kernel/)
@@ -16,7 +16,7 @@
 [![CI — Microsoft Agent Framework](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml)
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
 [![Contract Audit](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml)
-[![Public Review](https://img.shields.io/badge/status-public_review_v1-orange)](docs/RFC-001-Agent-DID-Specification.md)
+[![Release Candidate](https://img.shields.io/badge/status-1.0.0--rc.1-yellow)](docs/RELEASE-1.0-CRITERIA.md)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Feedback Wanted](https://img.shields.io/badge/feedback-wanted-lightgrey)](https://github.com/edisonduran/agent-did/discussions)
 
@@ -28,19 +28,19 @@ OAuth delegates this to a centralized provider. MCP leaves it out of scope by de
 
 > **Interactive demo:** [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) shows real browser-side signed handoffs, live tamper detection, and the published `@agentdid/sdk` working across multiple use cases.
 
-> **For contributors (Public Review):**
+> **For contributors (Release Candidate):**
 > - Start here: [QUICKSTART.md](QUICKSTART.md)
 > - Contribution workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
 > - Security reporting: [SECURITY.md](SECURITY.md)
 > - Docs navigation: [docs/INDEX.md](docs/INDEX.md)
-> - RFC under Public Review: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+> - RFC-001 (Stable, frozen for 1.0): [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 > - Compatibility expectations: [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
 - **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — 11/11 MUST conformant
 - **TypeScript and Python SDKs** backed by dedicated CI, interoperability fixtures, and conformance checks
-- **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, and Microsoft Agent Framework
+- **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, Microsoft Agent Framework, and Google A2A
 - **A web-native deployment model** — `did:webvh` for canonical agent/controller identity, verifiable history, and recursive controller validation
 
 ---
@@ -96,7 +96,7 @@ Identity cryptography is complex. AI agent developers should not have to be. Age
 ### What Agent-DID Is Not
 
 - **Not an orchestration framework.** It does not replace LangChain or CrewAI. It integrates with them.
-- **Not a payment system.** ERC-4337 compatibility exists for agent wallets, but payment management is out of scope.
+- **Not a payment system.** Payment and agent-wallet management are out of scope; ERC-4337 account abstraction belongs to the deferred EVM profile.
 - **Not a blockchain mandate.** The recommended default pattern is `did:webvh`; EVM/on-chain work is deferred outside core 1.0, and other DID methods are compatibility profiles rather than co-equal defaults.
 - **Not a centralized platform.** There is no Agent-DID server to connect to. The protocol and SDKs are the primary interface.
 
@@ -111,11 +111,13 @@ The project is past the specification-only phase: it includes a functional imple
 - **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.1` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
-- **Repository release train**: core npm packages are pinned to `1.0.0-rc.1`; core Python packages are pinned to `1.0.0rc1`
-- **Latest public stable SDKs before the RC cut**: `@agentdid/sdk` `0.2.0` on npm and `agent-did-sdk` `0.1.0` on PyPI
+- **Published prerelease (2026-11-01, tag `v1.0.0-rc.1`)**: `@agentdid/sdk` and `@agentdid/langchain` `1.0.0-rc.1` on npm under dist-tag `next`; `agent-did-sdk`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework` and `agent-did-a2a` `1.0.0rc1` on PyPI
+- **Install the RC explicitly**: `npm install @agentdid/sdk@next` / `pip install agent-did-sdk==1.0.0rc1`; a plain `npm install @agentdid/sdk` or `pip install agent-did-sdk` still resolves the pre-RC `0.2.0` / `0.1.0` releases
+- **Breaking wire change in the RC**: HTTP message signatures now sign the `"@signature-params"` line (RFC 9421 §2.5), so signatures from `@agentdid/sdk` ≤ 0.2.0 or `agent-did-sdk` ≤ 0.1.0 do not verify against the RC and vice versa; see [CHANGELOG.md](CHANGELOG.md)
+- **Runtime floor**: `@agentdid/sdk` and `@agentdid/langchain` require Node.js 22+
 - **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
 - **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
-- **Current RC work**: publish the `1.0.0-rc.1` prerelease train, validate public-registry clean-install smokes, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
+- **Current RC work**: validate public-registry clean-install smokes against the published `1.0.0-rc.1` packages, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
 - **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 ## Build In Public
@@ -123,7 +125,7 @@ The project is past the specification-only phase: it includes a functional imple
 Agent-DID is an open project being finalized in public for the `1.0.0-rc.1` release train.
 
 - The core RFC lifecycle is implemented, covered by conformance checks, and frozen in-repo as the current Stable release contract.
-- The next public publication step is the co-versioned `1.0.0-rc.1` prerelease across the shipped SDK and integration packages.
+- The co-versioned `1.0.0-rc.1` prerelease is published on npm and PyPI across the shipped SDK and integration packages.
 - The `did:webvh` runtime path, validation drills, and framework integrations are functional, and the release path now explicitly follows `did:webvh` as the canonical deployment story.
 - Community feedback is explicitly welcome during the RC window before the final `v1.0.0` tag.
 - RC and post-`1.0` compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
@@ -131,7 +133,7 @@ Agent-DID is an open project being finalized in public for the `1.0.0-rc.1` rele
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
-- **v1.0 RC publication and stable hardening**: publish and validate `1.0.0-rc.1`, then continue accumulating the 30-day green evidence required for final `v1.0.0`
+- **v1.0 RC validation and stable hardening**: validate the published `1.0.0-rc.1`, then continue accumulating the 30-day green evidence required for final `v1.0.0`
 - **F2-03** production resolver hardening beyond the shipped source-adapter baseline
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration
@@ -305,7 +307,7 @@ By default the audit gate is strict: any unmatched finding at severity `Low` or 
 
 RFC-001 is implemented and fully conformant. The project follows a 3-phase roadmap:
 
-### Phase 1 — Consolidation & Visibility (current)
+### Phase 1 — Consolidation & Visibility
 
 | # | Item | Status |
 |---|---|---|
@@ -341,7 +343,7 @@ Smart contract audit automation is available through `npm run audit:contracts` a
 
 The audit runner preserves the raw JSON reports, classifies only exact known-noise matches in the generated summary, and applies a severity-aware gate to unmatched findings.
 
-Initial triage of the current contract findings is documented in [docs/F1-05-Contract-Audit-Triage.md](docs/F1-05-Contract-Audit-Triage.md). Formal external audit remains a later milestone under F3-04.
+Initial triage of the current contract findings is documented in [docs/F1-05-Contract-Audit-Triage.md](docs/F1-05-Contract-Audit-Triage.md). Formal external audit (F3-04) is deferred together with the EVM profile.
 
 The LangChain integration is available in [integrations/langchain/README.md](integrations/langchain/README.md).
 
@@ -372,9 +374,9 @@ The next Python integration track is hardening and release maturation of LangCha
 | F3-01 | Explore Agent-DID as a DIF / `did:webvh` companion note | Planned post-1.0 |
 | F3-02 | Conformance certification service | Planned |
 | F3-03 | ZKP for capability verification | Planned |
-| F3-04 | Formal contract audit for mainnet | Planned |
+| F3-04 | Formal contract audit for mainnet | Deferred with the EVM profile (ADR-001) |
 | F3-05 | Enterprise partnerships | Planned |
-| F3-06 | Account Abstraction (ERC-4337) for agent wallets | Planned |
+| F3-06 | Account Abstraction (ERC-4337) for agent wallets | Deferred with the EVM profile (ADR-001) |
 
 Release 1.0 now follows the post-ADR-001 path in [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md): core `did:webvh` stability first; EVM/on-chain work is deferred outside the core tag, and standards outreach is not a release blocker.
 

@@ -2,7 +2,7 @@
 
 Integracion funcional de Agent-DID para Microsoft Agent Framework con foco en Python.
 
-Esta variante usa el paquete oficial `agent-framework --pre` documentado en Microsoft Learn y ya no se limita a wiring basico de `Agent(...)`: ahora cubre helpers nativos para `AgentExecutor` y `WorkflowBuilder`, observabilidad especializada con OpenTelemetry, recipes operativas profundas y validacion automatizada de runtime/orquestacion sin depender de proveedores externos.
+Esta variante usa el paquete oficial `agent-framework` documentado en Microsoft Learn y ya no se limita a wiring basico de `Agent(...)`: ahora cubre helpers nativos para `AgentExecutor` y `WorkflowBuilder`, observabilidad especializada con OpenTelemetry, recipes operativas profundas y validacion automatizada de runtime/orquestacion sin depender de proveedores externos.
 
 ## Estado
 
