@@ -6,6 +6,19 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [errata-http-signature-params] - 2026-11-01
+
+### Decision Trigger
+
+- The HTTP signature base did not cover `created`, `expires`, `keyid`, or `alg`, so a captured request could be replayed with rewritten time parameters after verifier nonce caches purged the original entry.
+
+### Result
+
+- §6.5 now requires the `"@signature-params"` line in the signature base and lists `x-request-nonce` as a covered component.
+- Signatures produced under the previous base do not verify under the corrected base.
+
+---
+
 ## [stable-promotion-1.0.0-rc.1] - 2026-05-08
 
 ### Decision Trigger

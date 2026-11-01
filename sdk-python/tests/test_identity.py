@@ -341,20 +341,23 @@ class TestAgentIdentityHttpSignature:
         )
         assert is_valid is True
 
-    async def test_reject_expired_signature(self, identity: AgentIdentity) -> None:
+    async def test_reject_expired_signature(
+        self, identity: AgentIdentity, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         result = await identity.create(CreateAgentParams(
             name="ExpiredBot", core_model="m", system_prompt="p",
         ))
-        headers = await identity.sign_http_request(SignHttpRequestParams(
-            method="POST",
-            url="https://api.example.com/v1/test",
-            body='{"expired":true}',
-            agent_private_key=result.agent_private_key,
-            agent_did=result.document.id,
-            expires_in_seconds=1,
-        ))
-        import re
-        headers["Signature-Input"] = re.sub(r"expires=\d+", "expires=1000000000", headers["Signature-Input"])
+        signed_at = time.time() - 120
+        with monkeypatch.context() as patched:
+            patched.setattr(time, "time", lambda: signed_at)
+            headers = await identity.sign_http_request(SignHttpRequestParams(
+                method="POST",
+                url="https://api.example.com/v1/test",
+                body='{"expired":true}',
+                agent_private_key=result.agent_private_key,
+                agent_did=result.document.id,
+                expires_in_seconds=30,
+            ))
 
         is_valid = await AgentIdentity.verify_http_request_signature(
             VerifyHttpRequestSignatureParams(
@@ -366,23 +369,55 @@ class TestAgentIdentityHttpSignature:
         )
         assert is_valid is False
 
-    async def test_enforce_max_created_skew_within_and_beyond_60_seconds(self, identity: AgentIdentity) -> None:
+    async def test_reject_replay_with_rewritten_created_and_expires(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="ParamTamperBot", core_model="m", system_prompt="p",
+        ))
+        url, body = "https://api.example.com/v1/transfer", '{"amount":500}'
+        headers = await identity.sign_http_request(SignHttpRequestParams(
+            method="POST", url=url, body=body,
+            agent_private_key=result.agent_private_key, agent_did=result.document.id,
+        ))
+        now = int(time.time())
+        rewritten = dict(headers)
+        rewritten["Signature-Input"] = re.sub(
+            r"expires=\d+", f"expires={now + 86_400}",
+            re.sub(r"created=\d+", f"created={now}", headers["Signature-Input"]),
+        )
+        without_expires = dict(headers)
+        without_expires["Signature-Input"] = re.sub(r";expires=\d+", "", headers["Signature-Input"])
+
+        async def verify(h: dict[str, str]) -> bool:
+            return await AgentIdentity.verify_http_request_signature(
+                VerifyHttpRequestSignatureParams(method="POST", url=url, body=body, headers=h)
+            )
+
+        assert await verify(headers) is True
+        assert await verify(rewritten) is False
+        assert await verify(without_expires) is False
+
+    async def test_enforce_max_created_skew_within_and_beyond_60_seconds(
+        self, identity: AgentIdentity, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         result = await identity.create(CreateAgentParams(
             name="SkewBot", core_model="m", system_prompt="p",
         ))
-        headers = await identity.sign_http_request(SignHttpRequestParams(
-            method="POST",
-            url="https://api.example.com/v1/test",
-            body='{"skew":true}',
-            agent_private_key=result.agent_private_key,
-            agent_did=result.document.id,
-            expires_in_seconds=120,
-        ))
-        now = int(time.time())
-        within_headers = dict(headers)
-        outside_headers = dict(headers)
-        within_headers["Signature-Input"] = re.sub(r"created=\d+", f"created={now - 59}", headers["Signature-Input"])
-        outside_headers["Signature-Input"] = re.sub(r"created=\d+", f"created={now - 61}", headers["Signature-Input"])
+
+        async def sign_at(seconds_ago: int) -> dict[str, str]:
+            signed_at = time.time() - seconds_ago
+            with monkeypatch.context() as patched:
+                patched.setattr(time, "time", lambda: signed_at)
+                return await identity.sign_http_request(SignHttpRequestParams(
+                    method="POST",
+                    url="https://api.example.com/v1/test",
+                    body='{"skew":true}',
+                    agent_private_key=result.agent_private_key,
+                    agent_did=result.document.id,
+                    expires_in_seconds=120,
+                ))
+
+        within_headers = await sign_at(55)
+        outside_headers = await sign_at(65)
 
         assert await AgentIdentity.verify_http_request_signature(
             VerifyHttpRequestSignatureParams(

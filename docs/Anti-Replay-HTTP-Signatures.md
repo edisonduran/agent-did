@@ -119,3 +119,5 @@ The following components are now **required** in the signature base:
 - `x-request-nonce` — Unique replay-prevention token
 
 Signatures missing `x-request-nonce` in their covered components will be rejected by the verifier.
+
+The signature base also ends with an `"@signature-params"` line carrying the exact `Signature-Input` value, so `created`, `expires`, `keyid`, and `alg` are signed. This is what makes it safe to purge a nonce once its `expires` has passed: a captured request cannot be replayed later with a rewritten `expires`.

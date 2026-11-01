@@ -365,20 +365,21 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
 
-    const headers = await agentIdentity.signHttpRequest({
-      method: 'POST',
-      url: 'https://api.example.com/v1/data',
-      body: '{"expired": true}',
-      agentPrivateKey,
-      agentDid: document.id,
-      expiresInSeconds: 1
-    });
-
-    // Artificially expire: set expires far in the past
-    headers['Signature-Input'] = headers['Signature-Input'].replace(
-      /expires=\d+/,
-      'expires=1000000000'
-    );
+    const signedAtMs = Date.now() - 120_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(signedAtMs);
+    let headers: Record<string, string>;
+    try {
+      headers = await agentIdentity.signHttpRequest({
+        method: 'POST',
+        url: 'https://api.example.com/v1/data',
+        body: '{"expired": true}',
+        agentPrivateKey,
+        agentDid: document.id,
+        expiresInSeconds: 30
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
 
     const valid = await AgentIdentity.verifyHttpRequestSignature({
       method: 'POST',
@@ -389,6 +390,33 @@ describe('AgentIdentity Core Module', () => {
     expect(valid).toBe(false);
   });
 
+  it('should reject replayed HTTP requests whose created/expires params were rewritten', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'ParamTamperBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+
+    const request = { method: 'POST', url: 'https://api.example.com/v1/transfer', body: '{"amount":500}' };
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const now = Math.floor(Date.now() / 1000);
+
+    const rewritten = {
+      ...headers,
+      'Signature-Input': headers['Signature-Input']
+        .replace(/created=\d+/, `created=${now}`)
+        .replace(/expires=\d+/, `expires=${now + 86_400}`)
+    };
+    const withoutExpires = {
+      ...headers,
+      'Signature-Input': headers['Signature-Input'].replace(/;expires=\d+/, '')
+    };
+
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(true);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: rewritten })).resolves.toBe(false);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: withoutExpires })).resolves.toBe(false);
+  });
+
   it('should enforce maxCreatedSkewSeconds within and beyond a 60 second window', async () => {
     const { document, agentPrivateKey } = await agentIdentity.create({
       name: 'SkewBot',
@@ -396,24 +424,24 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
 
-    const headers = await agentIdentity.signHttpRequest({
-      method: 'POST',
-      url: 'https://api.example.com/v1/data',
-      body: '{"skew": true}',
-      agentPrivateKey,
-      agentDid: document.id,
-      expiresInSeconds: 120
-    });
-    const now = Math.floor(Date.now() / 1000);
+    const signAt = async (secondsAgo: number) => {
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.now() - secondsAgo * 1000);
+      try {
+        return await agentIdentity.signHttpRequest({
+          method: 'POST',
+          url: 'https://api.example.com/v1/data',
+          body: '{"skew": true}',
+          agentPrivateKey,
+          agentDid: document.id,
+          expiresInSeconds: 120
+        });
+      } finally {
+        nowSpy.mockRestore();
+      }
+    };
 
-    const withinSkewHeaders = {
-      ...headers,
-      'Signature-Input': headers['Signature-Input'].replace(/created=\d+/, `created=${now - 59}`)
-    };
-    const outsideSkewHeaders = {
-      ...headers,
-      'Signature-Input': headers['Signature-Input'].replace(/created=\d+/, `created=${now - 61}`)
-    };
+    const withinSkewHeaders = await signAt(55);
+    const outsideSkewHeaders = await signAt(65);
 
     await expect(AgentIdentity.verifyHttpRequestSignature({
       method: 'POST',

@@ -336,12 +336,14 @@ export class AgentIdentity {
     const dateHeader = new Date().toUTCString();
     const verificationMethodId = params.verificationMethodId || `${params.agentDid}#key-1`;
     const contentDigest = AgentIdentity.computeContentDigest(params.body);
+    const signatureParams = `("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${timestamp};expires=${expiresAt};keyid="${verificationMethodId}";alg="ed25519"`;
     const stringToSign = AgentIdentity.buildHttpSignatureBase({
       method: params.method,
       url: params.url,
       dateHeader,
       contentDigest,
-      nonce
+      nonce,
+      signatureParams
     });
 
     // 2. Sign the string with Ed25519
@@ -355,7 +357,7 @@ export class AgentIdentity {
     // 3. Return the headers to be injected into the HTTP request
     return {
       'Signature': `sig1=:${signatureBase64}:`,
-      'Signature-Input': `sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${timestamp};expires=${expiresAt};keyid="${verificationMethodId}";alg="ed25519"`,
+      'Signature-Input': `sig1=${signatureParams}`,
       'Signature-Agent': params.agentDid,
       'Date': dateHeader,
       'Content-Digest': contentDigest,
@@ -438,13 +440,13 @@ export class AgentIdentity {
         continue;
       }
 
-      // Rebuild signature base including nonce
       const signatureBase = AgentIdentity.buildHttpSignatureBase({
         method: params.method,
         url: params.url,
         dateHeader,
         contentDigest: contentDigestHeader,
-        nonce: nonceHeader
+        nonce: nonceHeader,
+        signatureParams: parsedSignatureInput.rawValue
       });
 
       const signatureHex = Buffer.from(signatureBase64, 'base64').toString('hex');
@@ -862,6 +864,7 @@ export class AgentIdentity {
     dateHeader: string;
     contentDigest: string;
     nonce?: string;
+    signatureParams: string;
   }): string {
     const urlObj = new URL(params.url);
 
@@ -876,6 +879,9 @@ export class AgentIdentity {
       lines.push(`x-request-nonce: ${params.nonce}`);
     }
 
+    // RFC 9421 §2.5: binds created, expires, keyid and alg to the signature.
+    lines.push(`"@signature-params": ${params.signatureParams}`);
+
     return lines.join('\n');
   }
 
@@ -887,6 +893,7 @@ export class AgentIdentity {
     label: string;
     components: string[];
     params: Record<string, string>;
+    rawValue: string;
   }> {
     const entries = value
       .split(',')
@@ -897,6 +904,7 @@ export class AgentIdentity {
       label: string;
       components: string[];
       params: Record<string, string>;
+      rawValue: string;
     }> = [];
 
     for (const entry of entries) {
@@ -931,7 +939,8 @@ export class AgentIdentity {
       parsed.push({
         label,
         components,
-        params
+        params,
+        rawValue: `(${componentSection})${paramsSection}`
       });
     }
 

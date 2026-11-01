@@ -64,7 +64,7 @@ function computeContentDigest(body) {
   return `sha-256=:${hash.toString('base64')}:`;
 }
 
-function buildHttpSignatureBase({ method, url, dateHeader, contentDigest, nonce }) {
+function buildHttpSignatureBase({ method, url, dateHeader, contentDigest, nonce, signatureParams }) {
   const urlObj = new URL(url);
   const lines = [
     `(request-target): ${method.toLowerCase()} ${urlObj.pathname}${urlObj.search}`,
@@ -75,6 +75,7 @@ function buildHttpSignatureBase({ method, url, dateHeader, contentDigest, nonce 
   if (nonce) {
     lines.push(`x-request-nonce: ${nonce}`);
   }
+  lines.push(`"@signature-params": ${signatureParams}`);
   return lines.join('\n');
 }
 
@@ -99,19 +100,19 @@ const created = 1704067200; // 2024-01-01T00:00:00Z
 const expiresAt = created + 999999999; // ~2055, so fixture never expires in tests
 
 const contentDigest = computeContentDigest(httpBody);
-const signatureBase = buildHttpSignatureBase({
-  method: httpMethod,
-  url: httpUrl,
-  dateHeader: httpDate,
-  contentDigest,
-  nonce
-});
-
-const httpSigBytes = ed25519Sign(Buffer.from(signatureBase, 'utf-8'), privateKeyBytes);
-const httpSigBase64 = httpSigBytes.toString('base64');
 
 function buildVector({ did, controller }) {
   const keyId = `${did}#key-1`;
+  const signatureParams = `("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${created};expires=${expiresAt};keyid="${keyId}";alg="ed25519"`;
+  const signatureBase = buildHttpSignatureBase({
+    method: httpMethod,
+    url: httpUrl,
+    dateHeader: httpDate,
+    contentDigest,
+    nonce,
+    signatureParams
+  });
+  const httpSigBase64 = ed25519Sign(Buffer.from(signatureBase, 'utf-8'), privateKeyBytes).toString('base64');
 
   return {
     did,
@@ -134,7 +135,7 @@ function buildVector({ did, controller }) {
       contentDigest,
       headers: {
         'Signature': `sig1=:${httpSigBase64}:`,
-        'Signature-Input': `sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${created};expires=${expiresAt};keyid="${keyId}";alg="ed25519"`,
+        'Signature-Input': `sig1=${signatureParams}`,
         'Signature-Agent': did,
         'Date': httpDate,
         'Content-Digest': contentDigest,
@@ -146,7 +147,7 @@ function buildVector({ did, controller }) {
 }
 
 const fixture = {
-  formatVersion: 2,
+  formatVersion: 3,
   vectors: {
     legacy: buildVector({
       did: 'did:agent:polygon:0xinteropfixture',

@@ -205,7 +205,8 @@ Raw chain-of-thought capture is out of scope for RFC-001. Implementations that n
 
 ### 6.5 HTTP Signing (Web Bot Auth)
 
-- The agent signs HTTP components (`@request-target`, `host`, `date`, `content-digest`).
+- The agent signs HTTP components (`@request-target`, `host`, `date`, `content-digest`, `x-request-nonce`).
+- The signature base MUST end with an `"@signature-params"` line whose value is the exact inner list and parameters sent in `Signature-Input` (RFC 9421 §2.5), so `created`, `expires`, `keyid`, and `alg` are covered by the signature. Verifiers MUST rebuild that line from the received `Signature-Input` value and MUST reject a signature whose parameters do not match.
 - Must include an agent identity header (`Signature-Agent` or equivalent).
 - The server validates signature + key purpose + DID resolution + active state before authorizing.
 

@@ -62,6 +62,7 @@ class _ParsedSigInputEntry(TypedDict):
     label: str
     components: list[str]
     params: dict[str, str]
+    raw_value: str
 
 
 @dataclass
@@ -338,8 +339,17 @@ class AgentIdentity:
         date_header = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
         vm_id = params.verification_method_id or f"{params.agent_did}#key-1"
         content_digest = AgentIdentity._compute_content_digest(params.body)
+        signature_params = (
+            f'("@request-target" "host" "date" "content-digest" "x-request-nonce");'
+            f'created={timestamp};expires={expires_at};keyid="{vm_id}";alg="ed25519"'
+        )
         string_to_sign = AgentIdentity._build_http_signature_base(
-            method=params.method, url=params.url, date_header=date_header, content_digest=content_digest, nonce=nonce
+            method=params.method,
+            url=params.url,
+            date_header=date_header,
+            content_digest=content_digest,
+            nonce=nonce,
+            signature_params=signature_params,
         )
 
         key_or_signer = params.signer or params.agent_private_key
@@ -350,10 +360,7 @@ class AgentIdentity:
 
         return {
             "Signature": f"sig1=:{signature_b64}:",
-            "Signature-Input": (
-                f'sig1=("@request-target" "host" "date" "content-digest" "x-request-nonce");'
-                f'created={timestamp};expires={expires_at};keyid="{vm_id}";alg="ed25519"'
-            ),
+            "Signature-Input": f"sig1={signature_params}",
             "Signature-Agent": params.agent_did,
             "Date": date_header,
             "Content-Digest": content_digest,
@@ -434,10 +441,10 @@ class AgentIdentity:
             if not key_id.startswith(f"{sig_agent}#"):
                 continue
 
-            # Rebuild signature base including nonce
             sig_base = cls._build_http_signature_base(
                 method=params.method, url=params.url, date_header=date_header,
                 content_digest=digest_header, nonce=nonce_header,
+                signature_params=entry["raw_value"],
             )
 
             sig_hex = bytes(base64.b64decode(sig_b64)).hex()
@@ -867,7 +874,13 @@ class AgentIdentity:
 
     @staticmethod
     def _build_http_signature_base(
-        *, method: str, url: str, date_header: str, content_digest: str, nonce: str | None = None,
+        *,
+        method: str,
+        url: str,
+        date_header: str,
+        content_digest: str,
+        signature_params: str,
+        nonce: str | None = None,
     ) -> str:
         parsed = urlparse(url)
         path_query = parsed.path + (f"?{parsed.query}" if parsed.query else "")
@@ -879,6 +892,8 @@ class AgentIdentity:
         ]
         if nonce:
             lines.append(f"x-request-nonce: {nonce}")
+        # RFC 9421 §2.5: binds created, expires, keyid and alg to the signature.
+        lines.append(f'"@signature-params": {signature_params}')
         return "\n".join(lines)
 
     @staticmethod
@@ -906,7 +921,12 @@ class AgentIdentity:
                 if raw_val.startswith('"') and raw_val.endswith('"'):
                     raw_val = raw_val[1:-1]
                 params[key] = raw_val
-            results.append({"label": label, "components": components, "params": params})
+            results.append({
+                "label": label,
+                "components": components,
+                "params": params,
+                "raw_value": f"({comp_section}){params_section}",
+            })
         return results
 
     @staticmethod
