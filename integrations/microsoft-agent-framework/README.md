@@ -9,7 +9,7 @@ Esta variante usa el paquete oficial `agent-framework --pre` documentado en Micr
 - Estado actual: `functional`
 - Roadmap: F2-09
 - Lenguaje objetivo: Python
-- Runtime objetivo: `agent-framework>=1.0.0rc5,<1.1`
+- Runtime objetivo: `agent-framework>=1.0.1,<2`
 - Implementacion: funcional para tools nativas, `Agent`, `AgentExecutor`, `WorkflowBuilder`, observabilidad saneada y recipes operativas multi-step
 
 Con el estado actual, la claim correcta para F2-09 ya no es solo “MVP de wiring basico”. El paquete tiene cierre operativo para el alcance gobernado en runtime/orchestrations, observabilidad y recipes, con CI dedicada y artefactos de gobernanza equivalentes al resto de integraciones Python del repositorio.
