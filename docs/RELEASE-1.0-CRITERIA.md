@@ -122,7 +122,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 - [x] **C-QA-6** — E2E tests for **revocation** in the canonical `did:webvh` path and explicit compatibility paths included in the release.
 - [x] **C-QA-7** — **SSRF** tests covering loopback, link-local, AWS/GCP/Azure metadata, IPv6 mapped.
 - [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`. _Window restarted: last failure on `main` was `2026-11-01T14:42:04Z` (`f99d35b6`); earliest closure `2026-12-01T15:41:59Z`. The 10 workflows are `ci`, `ci-python`, `ci-langchain-js`, `ci-langchain-python`, `ci-langchain-didwba-smoke`, `ci-crewai`, `ci-semantic-kernel`, `ci-microsoft-agent-framework`, `ci-a2a` and `ci-cross-sdk-interop`; each runs daily on `main` (`cron: '17 6 * * *'`), so the window is backed by actual runs._
-- [ ] **C-QA-9** — Clean-machine smoke install from npm/PyPI validated for the core RC packages.
+- [ ] **C-QA-9** — Clean-machine smoke install from npm/PyPI validated for the core RC packages. _Partial (2026-11-01): all 8 RC packages installed from the public registries into fresh npm/venv environments on a maintainer Windows machine (Node 22.23.4, Python 3.12.3); both QUICKSTART snippets verify (`ok: true`) and every Python integration imports and resolves `agent-did-sdk==1.0.0rc1`. Still needed: the same run on an ephemeral clean runner. `agent-did-microsoft-agent-framework` took ~7.5 min to resolve, versus <1 min for the other packages._
 - [x] **C-QA-10** — Adversarial review (BMad core task `adversarial-review`) completed over crypto and signing code.
 
 ### 2.6 Operations and Resolver
