@@ -21,6 +21,9 @@ on:
       - 'sdk/**'
       - 'sdk-python/**'
   workflow_dispatch:
+  # Daily run on main keeps the C-QA-8 green window evidence-based.
+  schedule:
+    - cron: '17 6 * * *'
 
 concurrency:
   group: interop-${{ github.workflow }}-${{ github.ref }}

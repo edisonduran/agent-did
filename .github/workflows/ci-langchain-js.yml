@@ -17,6 +17,9 @@ on:
       - 'sdk/**'
       - 'integrations/langchain/**'
   workflow_dispatch:
+  # Daily run on main keeps the C-QA-8 green window evidence-based.
+  schedule:
+    - cron: '17 6 * * *'
 
 concurrency:
   group: ci-langchain-js-${{ github.ref }}

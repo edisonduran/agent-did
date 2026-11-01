@@ -121,7 +121,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 - [x] **C-QA-5** — E2E tests for **key rotation** (≥3 cycles) + working historical verification.
 - [x] **C-QA-6** — E2E tests for **revocation** in the canonical `did:webvh` path and explicit compatibility paths included in the release.
 - [x] **C-QA-7** — **SSRF** tests covering loopback, link-local, AWS/GCP/Azure metadata, IPv6 mapped.
-- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`. _Window restarted: last failure on `main` was `2026-11-01T14:42:04Z` (`f99d35b6`); earliest closure `2026-12-01T15:41:59Z`._
+- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`. _Window restarted: last failure on `main` was `2026-11-01T14:42:04Z` (`f99d35b6`); earliest closure `2026-12-01T15:41:59Z`. The 10 workflows are `ci`, `ci-python`, `ci-langchain-js`, `ci-langchain-python`, `ci-langchain-didwba-smoke`, `ci-crewai`, `ci-semantic-kernel`, `ci-microsoft-agent-framework`, `ci-a2a` and `ci-cross-sdk-interop`; each runs daily on `main` (`cron: '17 6 * * *'`), so the window is backed by actual runs._
 - [ ] **C-QA-9** — Clean-machine smoke install from npm/PyPI validated for the core RC packages.
 - [x] **C-QA-10** — Adversarial review (BMad core task `adversarial-review`) completed over crypto and signing code.
 
