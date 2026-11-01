@@ -177,7 +177,7 @@ python -m pytest tests/ -q
 
 ### Requirements
 
-- Node.js 18+
+- Node.js 22+ (CI uses Node 24)
 - npm
 - Python 3.10+
 

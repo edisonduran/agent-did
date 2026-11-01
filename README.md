@@ -205,7 +205,7 @@ When these LangChain integrations change, the repository also expects the paired
 
 ### Requirements
 
-- Node.js 18+
+- Node.js 22+ (22.23.4+ or 24.22.1+ recommended for the October 2026 Node.js security fixes)
 - npm
 
 ### Installation

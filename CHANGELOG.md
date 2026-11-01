@@ -27,6 +27,7 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 ### Security
 
 - HTTP message signatures in `@agentdid/sdk` and `agent-did-sdk` now cover the signature parameters (`created`, `expires`, `keyid`, `alg`) through an `"@signature-params"` line in the signature base (RFC 9421 §2.5). Previously those parameters were unsigned, so a captured request could be replayed with rewritten `created`/`expires` values. **Breaking wire change:** signatures produced by `@agentdid/sdk` ≤ 0.2.0 or `agent-did-sdk` ≤ 0.1.0 do not verify with this release, and vice versa. The shared interop fixture moves to `formatVersion: 3`.
+- `@agentdid/sdk` and `@agentdid/langchain` now declare `engines.node >=22.0.0`. Node 18 and 20 are end-of-life and did not receive the October 2026 Node.js security releases; DID resolution fetches documents from arbitrary hosts, so verifiers should run Node 22.23.4+, 24.22.1+ or 26.12.1+. CI and publish workflows move to Node 24 (contract audit to Node 22 for Hardhat 2 compatibility).
 
 ### Planned (path to 1.0.0)
 
