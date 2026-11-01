@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   langchain-js:
-    name: Node 20 - Build SDK & Test LangChain JS Integration
+    name: Node 24 - Build SDK & Test LangChain JS Integration
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 

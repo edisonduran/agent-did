@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   didwba-demo-smoke:
-    name: Node 20 + Python 3.12 - LangChain did:wba Demo Smoke
+    name: Node 24 + Python 3.12 - LangChain did:wba Demo Smoke
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 

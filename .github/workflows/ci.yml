@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Node 20 - Build, Test & RFC-001 Conformance
+    name: Node 24 - Build, Test & RFC-001 Conformance
     runs-on: ubuntu-24.04
     timeout-minutes: 25
 
