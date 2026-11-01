@@ -161,6 +161,10 @@ jobs:
           node-version: 20.18.0
           registry-url: https://registry.npmjs.org
 
+      - name: Upgrade npm for trusted publishing
+        # npm OIDC trusted publishing requires npm >= 11.5.1; Node 20.18 ships npm 10.8.
+        run: npm install -g npm@^11.5.1
+
       - name: Resolve npm dist-tag
         id: npm_meta
         shell: bash
