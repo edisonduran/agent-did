@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   didwba-demo-smoke:
-    name: Node 20 + Python 3.12 - LangChain did:wba Demo Smoke
+    name: Node 24 + Python 3.12 - LangChain did:wba Demo Smoke
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -41,7 +41,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             sdk/package-lock.json
