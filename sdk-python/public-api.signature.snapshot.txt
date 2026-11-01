@@ -15,7 +15,7 @@ class AgentDIDDocument(*, context: list[str], id: str, controller: str, created:
   attr key_agreement: list[str] | None
   attr updated: str
   attr verification_method: list[VerificationMethod]
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
   def model_dump_jsonld(self) -> 'dict[str, object]'
 
 ## AgentDocumentHistoryAction
@@ -71,7 +71,7 @@ class AgentMetadata(*, name: str, description: str | None = None, version: str, 
   attr name: str
   attr system_prompt_hash: str
   attr version: str
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
 
 ## AgentRegistry
 class AgentRegistry(*args, **kwargs)
@@ -88,7 +88,7 @@ class AgentRegistryRecord(*, did: str, controller: str, createdAt: str, revokedA
   attr did: str
   attr document_ref: str | None
   attr revoked_at: str | None
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
 
 ## AgentSigner
 class AgentSigner(*args, **kwargs)
@@ -165,7 +165,7 @@ class CreateAgentParams(*, name: str, description: str | None = None, version: s
 class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str) -> None
   attr agent_private_key: str
   attr document: AgentDIDDocument
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
 
 ## CreateDidWebvhOptions
 class CreateDidWebvhOptions(*, domain: str, controller_did: str, path_segments: list[str] | None = None, scid: str | None = None) -> None
@@ -365,7 +365,7 @@ class RotateVerificationMethodResult(*, document: agent_did_sdk.core.types.Agent
   attr agent_private_key: str
   attr document: AgentDIDDocument
   attr verification_method_id: str
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
 
 ## S3CompatibleDIDDocumentSource
 class S3CompatibleDIDDocumentSource(config: 'S3CompatibleDIDDocumentSourceConfig') -> 'None'
@@ -445,7 +445,7 @@ class VerifiableCredentialLink(*, type: str, issuer: str, credentialSubject: str
   attr issuer: str
   attr proof_hash: str
   attr type: str
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
 
 ## VerificationMethod
 class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultibase: str | None = None, blockchainAccountId: str | None = None, deactivated: str | None = None) -> None
@@ -455,7 +455,7 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
   attr id: str
   attr public_key_multibase: str | None
   attr type: str
-  member model_config = {'populate_by_name': True, 'validate_by_alias': True, 'validate_by_name': True}
+  member model_config = {'populate_by_name': True}
 
 ## VerificationRelationship
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']

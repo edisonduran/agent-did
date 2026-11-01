@@ -9,7 +9,7 @@ Definir una integracion de Agent-DID para Microsoft Agent Framework que reproduz
 - Roadmap item: F2-09
 - Estado: integracion funcional Python
 - Paquete base: [../integrations/microsoft-agent-framework/README.md](../integrations/microsoft-agent-framework/README.md)
-- Dependencia base: `agent-framework>=1.0.0rc5,<1.1`
+- Dependencia base: `agent-framework>=1.0.1,<2`
 - Superficie publica confirmada: `Agent`, `FunctionTool`, `AgentExecutor`, `WorkflowBuilder`, `Workflow.run(...)` y `AgentSession`
 - Decision actual: implementar en Python sobre el SDK Python existente de Agent-DID y validar el host real mediante clientes stub locales para runtime y orquestacion
 

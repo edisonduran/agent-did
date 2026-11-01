@@ -97,6 +97,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-01 | LangChain Python LangSmith adapter no longer double-appends child runs when `langsmith>=0.14` already appends inside `RunTree.create_child`. Behavior now matches the TS adapter (one child run per event); no public surface change. |
 | 2026-05-08 | Added a governance check for coordinated RC metadata so TS/Python README guidance stays aligned when the release train uses ecosystem-native prerelease versions. |
 | 2026-05-08 | Added a review gate for README changes that clarify local controller bootstrap vs hosted `did:webvh` publication so the TS/Python conceptual model stays aligned. |
 | 2026-05-04 | Added parity review coverage for `assertionMethod` binding in signing-capable `did:wba` demo DID documents. |

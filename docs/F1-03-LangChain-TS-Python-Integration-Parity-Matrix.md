@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-01 | El adaptador LangSmith de LangChain Python ya no duplica child runs con `langsmith>=0.14`, que agrega el hijo dentro de `RunTree.create_child`. Queda alineado con el adaptador TS (un child run por evento). Sin cambios en la API publica. |
 | 2026-05-08 | Se agrego una fila de parity para la metadata de release candidate: LangChain JS queda en `1.0.0-rc.1` con peer `@agentdid/sdk@1.0.0-rc.1`, mientras LangChain Python queda en `1.0.0rc1` con dependencia `agent-did-sdk==1.0.0rc1`. La divergencia de formato es solo normalizacion por ecosistema. |
 | 2026-05-08 | README de LangChain JS refrescado para dejar explicito que el flujo local usa bootstrap del controller web-native y que la publicacion hospedada de `did:webvh` es un concern separado. La matriz mantiene parity con Python sobre ese modelo conceptual. |
 | 2026-05-04 | Los demos integrados `did:wba` TS/Python ahora declaran `assertionMethod` en los DID documents usados para firma HTTP, manteniendo parity con el enforcement de key purpose binding del SDK. |

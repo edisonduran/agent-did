@@ -206,7 +206,9 @@ def _create_langsmith_child_run(
         tags=tags,
         extra={"source": source, "agent_did_event_type": event_type},
     )
-    run_tree.child_runs.append(child_run)
+    # langsmith>=0.14 appends inside create_child; older releases do not.
+    if not any(existing is child_run for existing in run_tree.child_runs):
+        run_tree.child_runs.append(child_run)
     return child_run
 
 
