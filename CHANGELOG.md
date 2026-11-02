@@ -19,7 +19,7 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining afte
 
 ---
 
-## [1.0.0-rc.2] - UNRELEASED
+## [1.0.0-rc.2] - 2026-11-02
 
 Security release for the `1.0.0-rc.1` train. All eight co-versioned packages move to `1.0.0-rc.2` (npm, dist-tag `next`) / `1.0.0rc2` (PyPI). Every user of `1.0.0-rc.1` / `1.0.0rc1` should upgrade.
 
@@ -90,5 +90,6 @@ First co-versioned release candidate, tagged `v1.0.0-rc.1`. npm packages publish
 
 ---
 
-[Unreleased]: https://github.com/edisonduran/agent-did/compare/v1.0.0-rc.1...HEAD
+[Unreleased]: https://github.com/edisonduran/agent-did/compare/v1.0.0-rc.2...HEAD
+[1.0.0-rc.2]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.1

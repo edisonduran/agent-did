@@ -20,7 +20,7 @@ Ahora tambien expone una capa ligera de observabilidad vendor-neutral basada en 
 
 ## Compatibilidad objetivo
 
-- `agent-did-sdk ==1.0.0rc1`
+- `agent-did-sdk ==1.0.0rc2`
 - `langchain >=1.2.13,<1.3`
 - `langchain-core >=1.2.20,<1.3`
 - Python 3.10+
@@ -30,7 +30,7 @@ Ahora tambien expone una capa ligera de observabilidad vendor-neutral basada en 
 Para el paquete publicado del release candidate, la ruta objetivo es:
 
 ```bash
-python -m pip install agent-did-sdk==1.0.0rc1 agent-did-langchain==1.0.0rc1
+python -m pip install agent-did-sdk==1.0.0rc2 agent-did-langchain==1.0.0rc2
 ```
 
 Mientras la publicacion del RC corre, la validacion canonica en el repo sigue siendo:

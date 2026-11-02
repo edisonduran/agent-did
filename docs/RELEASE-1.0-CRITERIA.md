@@ -176,6 +176,8 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 > Status sync (2026-11-02): S2-3 is done (`C-QA-9`, PR #109). Next are S2-4 (demo on the RC) and S2-5 (feedback window).
 
+> Security release (2026-11-02): tag `v1.0.0-rc.2` publishes `1.0.0-rc.2` / `1.0.0rc2` for all eight core packages to fix [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf). `1.0.0-rc.1` / `1.0.0rc1` are deprecated on npm and yanked on PyPI. `C-QA-9` stays closed only after `registry-install-smoke.yml` is re-run green against `1.0.0-rc.2` / `1.0.0rc2`.
+
 > Gate audit (2026-11-01): section 2 checkboxes reconciled against repository and GitHub Actions evidence. `C-QA-8` restarted: `CI — Python SDK & RFC-001 Conformance`, `CI — LangChain Python Integration` and `CI - Microsoft Agent Framework Integration` failed on `main` at `2026-11-01T14:42:04Z` (`f99d35b6`) and are green since `2026-11-01T15:41:59Z` (`d86b54d0`); every other CI workflow is green on its latest `main` run. If `main` stays green, `C-QA-8` closes no earlier than `2026-12-01T15:41:59Z`. Because the CI workflows run only on push/PR, there were no `main` runs between 2026-05-16 and 2026-11-01. Still open for stable: `C-SPEC-3`, `C-API-3`, `C-QA-2`, `C-QA-8`, `C-OPS-2`, `C-SUPPLY-1`, `C-DOC-1`, `C-DOC-4`, `C-DOC-6`, `C-DEMO-*` and `C-REL-2`..`C-REL-4`.
 
 ### Sprint 0 — Scope Freeze and Release Foundation
