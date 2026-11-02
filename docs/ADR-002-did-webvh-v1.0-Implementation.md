@@ -125,5 +125,5 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
 
 ## Open questions for the decision
 
-1. Is the Python packaging limitation in condition 4 acceptable for `rc.3`, or must the Askar issue be solved, upstream or through option C, before `rc.3` ships?
+1. ~~Is the Python packaging limitation in condition 4 acceptable for `rc.3`?~~ **Resolved (2026-11-02):** the Alpine and Windows ARM64 limitation is **not** blocking for `rc.3`; it is documented and tracked through the upstream PR.
 2. Should `didDocumentMetadata` expose the full did:webvh parameters (`updateKeys`, `ttl`, `witness`) in Agent-DID resolution results, or only what RFC-001 needs?
