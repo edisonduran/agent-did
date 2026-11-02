@@ -35,6 +35,7 @@ InMemoryDIDResolver
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
 LocalKeySigner
+MetadataCommitmentSalts
 PresignedHttpDIDDocumentSource
 PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
@@ -62,11 +63,13 @@ WebvhDIDDocumentSourceConfig
 assert_key_purpose
 assert_signing_purpose
 canonicalize_json
+create_metadata_commitment
 decode_public_key_multibase
 encode_public_key_multibase
 format_hash_uri
 generate_agent_metadata_hash
 generate_canonical_document_hash
+generate_commitment_salt
 get_key_relationships
 get_relationship_key_ids
 hash_payload
@@ -75,3 +78,4 @@ iso_to_unix_string
 normalize_timestamp_to_iso
 unix_string_to_iso
 validate_http_target
+verify_metadata_commitment

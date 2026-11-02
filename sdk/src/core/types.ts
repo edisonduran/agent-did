@@ -73,8 +73,12 @@ export interface CreateAgentParams {
   name: string;
   description?: string;
   version?: string; // Defaults to "1.0.0"
-  coreModel: string; // The raw model name/string (will be hashed by SDK)
-  systemPrompt: string; // The raw prompt string (will be hashed by SDK)
+  coreModel: string; // The raw model name/string (committed to with a salted HMAC by the SDK)
+  systemPrompt: string; // The raw prompt string (committed to with a salted HMAC by the SDK)
+  /** 32-byte hex salt for the `coreModelHash` commitment. Generated randomly when omitted. */
+  coreModelSalt?: string;
+  /** 32-byte hex salt for the `systemPromptHash` commitment. Generated randomly when omitted. */
+  systemPromptSalt?: string;
   capabilities?: string[];
   memberOf?: string;
   /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
@@ -102,6 +106,19 @@ export interface CreateAgentResult {
    * registered). It is randomly generated and returned only once; store it securely or discard it.
    */
   controllerPrivateKey?: string;
+  /**
+   * Salts of the `coreModelHash` and `systemPromptHash` commitments (`hash://hmac-sha256/`).
+   * Keep them private; reveal a salt together with its value only to a party that should be
+   * able to verify it (see `verifyMetadataCommitment`). They are not stored anywhere else.
+   * Always set by `AgentIdentity.create()`; absent only when a result is built by hand.
+   */
+  metadataCommitmentSalts?: MetadataCommitmentSalts;
+}
+
+/** Salts (32-byte hex) of an agent's metadata commitments. */
+export interface MetadataCommitmentSalts {
+  coreModel: string;
+  systemPrompt: string;
 }
 
 /**
@@ -111,7 +128,11 @@ export interface UpdateAgentDocumentParams {
   description?: string;
   version?: string;
   coreModel?: string;
+  /** Required when `coreModel` is set: 32-byte hex salt for the new commitment (see `generateCommitmentSalt`). */
+  coreModelSalt?: string;
   systemPrompt?: string;
+  /** Required when `systemPrompt` is set: 32-byte hex salt for the new commitment (see `generateCommitmentSalt`). */
+  systemPromptSalt?: string;
   capabilities?: string[];
   memberOf?: string;
   complianceCertifications?: VerifiableCredentialLink[];

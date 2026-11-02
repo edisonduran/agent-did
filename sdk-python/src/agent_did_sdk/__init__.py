@@ -35,6 +35,7 @@ from .core.types import (
     CreateAgentResult,
     CreateDidWebvhOptions,
     IdentityCompositionErrorReason,
+    MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     SignHttpRequestParams,
     SigningVerificationPurpose,
@@ -46,10 +47,13 @@ from .core.types import (
 )
 from .crypto.hash import (
     canonicalize_json,
+    create_metadata_commitment,
     format_hash_uri,
     generate_agent_metadata_hash,
     generate_canonical_document_hash,
+    generate_commitment_salt,
     hash_payload,
+    verify_metadata_commitment,
 )
 from .crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
 from .registry.evm_registry import EvmAgentRegistry
@@ -89,6 +93,7 @@ __all__ = [
     "IdentityCompositionErrorReason",
     "CreateAgentParams",
     "CreateAgentResult",
+    "MetadataCommitmentSalts",
     "UpdateAgentDocumentParams",
     "RotateVerificationMethodResult",
     "SignHttpRequestParams",
@@ -126,6 +131,9 @@ __all__ = [
     "generate_agent_metadata_hash",
     "canonicalize_json",
     "generate_canonical_document_hash",
+    "generate_commitment_salt",
+    "create_metadata_commitment",
+    "verify_metadata_commitment",
     "encode_public_key_multibase",
     "decode_public_key_multibase",
     # Registry

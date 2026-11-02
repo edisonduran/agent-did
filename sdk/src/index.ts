@@ -19,6 +19,7 @@ export {
   IdentityCompositionErrorReason,
   CreateAgentParams,
   CreateAgentResult,
+  MetadataCommitmentSalts,
   SignHttpRequestParams,
   UpdateAgentDocumentParams,
   RotateVerificationMethodResult,
@@ -51,7 +52,10 @@ export {
   formatHashUri,
   generateAgentMetadataHash,
   canonicalizeJson,
-  generateCanonicalDocumentHash
+  generateCanonicalDocumentHash,
+  generateCommitmentSalt,
+  createMetadataCommitment,
+  verifyMetadataCommitment
 } from './crypto/hash';
 
 export {

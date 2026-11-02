@@ -278,6 +278,10 @@ export interface CreateAgentParams {
     version?: string;
     coreModel: string;
     systemPrompt: string;
+    /** 32-byte hex salt for the `coreModelHash` commitment. Generated randomly when omitted. */
+    coreModelSalt?: string;
+    /** 32-byte hex salt for the `systemPromptHash` commitment. Generated randomly when omitted. */
+    systemPromptSalt?: string;
     capabilities?: string[];
     memberOf?: string;
     /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
@@ -304,6 +308,18 @@ export interface CreateAgentResult {
      * registered). It is randomly generated and returned only once; store it securely or discard it.
      */
     controllerPrivateKey?: string;
+    /**
+     * Salts of the `coreModelHash` and `systemPromptHash` commitments (`hash://hmac-sha256/`).
+     * Keep them private; reveal a salt together with its value only to a party that should be
+     * able to verify it (see `verifyMetadataCommitment`). They are not stored anywhere else.
+     * Always set by `AgentIdentity.create()`; absent only when a result is built by hand.
+     */
+    metadataCommitmentSalts?: MetadataCommitmentSalts;
+}
+/** Salts (32-byte hex) of an agent's metadata commitments. */
+export interface MetadataCommitmentSalts {
+    coreModel: string;
+    systemPrompt: string;
 }
 /**
  * Parameters to evolve an existing Agent-DID document while preserving DID.
@@ -312,7 +328,11 @@ export interface UpdateAgentDocumentParams {
     description?: string;
     version?: string;
     coreModel?: string;
+    /** Required when `coreModel` is set: 32-byte hex salt for the new commitment (see `generateCommitmentSalt`). */
+    coreModelSalt?: string;
     systemPrompt?: string;
+    /** Required when `systemPrompt` is set: 32-byte hex salt for the new commitment (see `generateCommitmentSalt`). */
+    systemPromptSalt?: string;
     capabilities?: string[];
     memberOf?: string;
     complianceCertifications?: VerifiableCredentialLink[];
@@ -394,6 +414,29 @@ export declare function canonicalizeJson(value: unknown): string;
  * UTF-8 bytes of its RFC 8785 (JCS) canonical form.
  */
 export declare function generateCanonicalDocumentHash(document: unknown): string;
+/**
+ * Generates a random 32-byte salt (64 lowercase hex characters) for a metadata commitment.
+ * The controller keeps the salt private and reveals it only to parties allowed to verify
+ * the committed value.
+ */
+export declare function generateCommitmentSalt(): string;
+/**
+ * Commits to a metadata value (system prompt, model identifier) without making it guessable:
+ * `hash://hmac-sha256/<hex(HMAC-SHA256(key = salt, message = UTF-8(value)))>`.
+ *
+ * @param value The raw value to commit to. Must not be empty.
+ * @param saltHex A 32-byte salt as 64 hex characters, e.g. from `generateCommitmentSalt()`.
+ */
+export declare function createMetadataCommitment(value: string, saltHex: string): string;
+/**
+ * Checks a revealed value (and salt) against a metadata commitment URI.
+ *
+ * - `hash://hmac-sha256/...` requires the salt used at commitment time.
+ * - `hash://sha256/...` (unsalted, produced by `1.0.0-rc.2` and earlier) ignores the salt.
+ *
+ * Returns `false` for a mismatch, an unknown scheme, or a missing or malformed salt.
+ */
+export declare function verifyMetadataCommitment(commitmentUri: string, value: string, saltHex?: string): boolean;
 
 ## crypto/multibase.d.ts
 /**
@@ -427,10 +470,10 @@ export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
 export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
-export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash } from './crypto/hash';
+export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash, generateCommitmentSalt, createMetadataCommitment, verifyMetadataCommitment } from './crypto/hash';
 export { encodePublicKeyMultibase, decodePublicKeyMultibase } from './crypto/multibase';
 export { AgentSigner, LocalKeySigner } from './core/signer';
 export { validateHttpTarget, HttpTargetValidationOptions } from './core/http-security';

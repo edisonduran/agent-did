@@ -6,6 +6,19 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [metadata-commitments-hmac] - Unreleased (1.0.0-rc.3 train)
+
+### Decision Trigger
+
+- `systemPromptHash` and `coreModelHash` were unsalted SHA-256 digests. For short or predictable values, anyone can confirm a guess by hashing it, which defeats the stated goal of not exposing the prompt.
+
+### Result
+
+- New §4.3 defines salted commitments `hash://hmac-sha256/<hex(HMAC-SHA256(salt, UTF-8(value)))>` with per-commitment 32-byte random salts and an out-of-band disclosure model for auditors.
+- §4.2 field descriptions and §8 item 1 now point to §4.3. The unsalted `hash://sha256/` form remains verifiable for older documents.
+
+---
+
 ## [errata-document-ref-verification] - Unreleased (1.0.0-rc.3 train)
 
 ### Decision Trigger

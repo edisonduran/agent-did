@@ -9,6 +9,7 @@ import { DIDDocumentSource } from '../src/resolver/types';
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { encodePublicKeyMultibase } from '../src/crypto/multibase';
+import { generateCommitmentSalt, verifyMetadataCommitment } from '../src/crypto/hash';
 
 describe('AgentIdentity Core Module', () => {
   // Create a random wallet to act as the "Creator" (Controller)
@@ -60,8 +61,8 @@ describe('AgentIdentity Core Module', () => {
     expect(document.agentMetadata.memberOf).toEqual("did:fleet:test-fleet-1");
 
     // Ensure sensitive data was hashed into URIs
-    expect(document.agentMetadata.coreModelHash.startsWith("hash://sha256/")).toBe(true);
-    expect(document.agentMetadata.systemPromptHash.startsWith("hash://sha256/")).toBe(true);
+    expect(document.agentMetadata.coreModelHash.startsWith("hash://hmac-sha256/")).toBe(true);
+    expect(document.agentMetadata.systemPromptHash.startsWith("hash://hmac-sha256/")).toBe(true);
     
     // The raw prompt should NOT be in the document
     expect(JSON.stringify(document)).not.toContain("You are a helpful test assistant.");
@@ -805,7 +806,9 @@ describe('AgentIdentity Core Module', () => {
       version: '1.1.0',
       description: 'Updated description',
       coreModel: 'gpt-4.1-mini',
+      coreModelSalt: generateCommitmentSalt(),
       systemPrompt: 'updated prompt',
+      systemPromptSalt: generateCommitmentSalt(),
       capabilities: ['read:kb', 'write:ticket']
     });
 
@@ -830,7 +833,8 @@ describe('AgentIdentity Core Module', () => {
     expect(recordBefore?.documentRef).toBeDefined();
 
     await AgentIdentity.updateDidDocument(created.document.id, {
-      systemPrompt: 'new prompt for ref change'
+      systemPrompt: 'new prompt for ref change',
+      systemPromptSalt: generateCommitmentSalt()
     });
 
     const recordAfter = await registry.getRecord(created.document.id);
@@ -983,7 +987,8 @@ describe('AgentIdentity Core Module', () => {
 
     await AgentIdentity.updateDidDocument(document.id, {
       version: '1.0.1',
-      systemPrompt: 'audit trail updated prompt'
+      systemPrompt: 'audit trail updated prompt',
+      systemPromptSalt: generateCommitmentSalt()
     });
 
     await AgentIdentity.rotateVerificationMethod(document.id);
@@ -1013,7 +1018,8 @@ describe('AgentIdentity Core Module', () => {
 
     await AgentIdentity.updateDidDocument(document.id, {
       version: '1.0.1',
-      systemPrompt: 'export lifecycle prompt v2'
+      systemPrompt: 'export lifecycle prompt v2',
+      systemPromptSalt: generateCommitmentSalt()
     });
 
     await AgentIdentity.rotateVerificationMethod(document.id);
@@ -1070,7 +1076,7 @@ describe('AgentIdentity Core Module', () => {
     const { document } = await agentIdentity.create({
       name: 'HistoryFileBot',
       coreModel: 'gpt-4o-mini',
-      systemPrompt: 'file lifecycle prompt'
+      systemPrompt: 'file lifecycle prompt',
     });
 
     await AgentIdentity.updateDidDocument(document.id, {
@@ -1108,7 +1114,7 @@ describe('AgentIdentity Core Module', () => {
     const { document } = await agentIdentity.create({
       name: 'HistorySourceBot',
       coreModel: 'gpt-4o-mini',
-      systemPrompt: 'source lifecycle prompt'
+      systemPrompt: 'source lifecycle prompt',
     });
 
     await AgentIdentity.updateDidDocument(document.id, {
@@ -1302,5 +1308,65 @@ describe('Bootstrap controller keys', () => {
     expect(result.controllerPrivateKey).toBeUndefined();
     await expect(AgentIdentity.resolve(controllerDid)).rejects.toThrow();
     await expect(AgentIdentity.resolve(result.document.id)).resolves.toMatchObject({ id: result.document.id });
+  });
+
+  describe('Metadata commitments', () => {
+    const baseParams = {
+      name: 'CommitmentBot',
+      coreModel: 'gpt-4o-mini',
+      systemPrompt: 'You are a helpful assistant.'
+    };
+
+    it('commits to model and prompt with salted HMACs and returns the salts once', async () => {
+      const { document, metadataCommitmentSalts: salts } = await identity.create(baseParams);
+      const metadataCommitmentSalts = salts as NonNullable<typeof salts>;
+      const { coreModelHash, systemPromptHash } = document.agentMetadata;
+
+      expect(coreModelHash).toMatch(/^hash:\/\/hmac-sha256\/[0-9a-f]{64}$/);
+      expect(systemPromptHash).toMatch(/^hash:\/\/hmac-sha256\/[0-9a-f]{64}$/);
+      expect(metadataCommitmentSalts.coreModel).not.toEqual(metadataCommitmentSalts.systemPrompt);
+      expect(verifyMetadataCommitment(systemPromptHash, baseParams.systemPrompt, metadataCommitmentSalts.systemPrompt)).toBe(true);
+      expect(verifyMetadataCommitment(coreModelHash, baseParams.coreModel, metadataCommitmentSalts.coreModel)).toBe(true);
+      expect(JSON.stringify(document)).not.toContain(metadataCommitmentSalts.systemPrompt);
+    });
+
+    it('does not let a verifier confirm a guessed prompt without the salt', async () => {
+      const { document } = await identity.create(baseParams);
+      expect(verifyMetadataCommitment(document.agentMetadata.systemPromptHash, baseParams.systemPrompt)).toBe(false);
+      expect(document.agentMetadata.systemPromptHash).not.toContain(
+        ethers.sha256(ethers.toUtf8Bytes(baseParams.systemPrompt)).slice(2)
+      );
+    });
+
+    it('produces different commitments for the same prompt across agents', async () => {
+      const first = await identity.create(baseParams);
+      const second = await identity.create(baseParams);
+      expect(first.document.agentMetadata.systemPromptHash).not.toEqual(second.document.agentMetadata.systemPromptHash);
+    });
+
+    it('uses caller-supplied salts', async () => {
+      const systemPromptSalt = generateCommitmentSalt();
+      const coreModelSalt = generateCommitmentSalt();
+      const { document, metadataCommitmentSalts } = await identity.create({ ...baseParams, systemPromptSalt, coreModelSalt });
+      expect(metadataCommitmentSalts).toEqual({ coreModel: coreModelSalt, systemPrompt: systemPromptSalt });
+      expect(verifyMetadataCommitment(document.agentMetadata.systemPromptHash, baseParams.systemPrompt, systemPromptSalt)).toBe(true);
+    });
+
+    it('rejects malformed caller-supplied salts', async () => {
+      await expect(identity.create({ ...baseParams, systemPromptSalt: 'not-hex' })).rejects.toThrow('64 hex characters');
+    });
+
+    it('requires a salt when an update changes the prompt or model', async () => {
+      const { document } = await identity.create(baseParams);
+      await expect(AgentIdentity.updateDidDocument(document.id, { systemPrompt: 'new prompt' }))
+        .rejects.toThrow('systemPromptSalt is required');
+      await expect(AgentIdentity.updateDidDocument(document.id, { coreModel: 'gpt-4.1' }))
+        .rejects.toThrow('coreModelSalt is required');
+
+      const systemPromptSalt = generateCommitmentSalt();
+      const updated = await AgentIdentity.updateDidDocument(document.id, { systemPrompt: 'new prompt', systemPromptSalt });
+      expect(verifyMetadataCommitment(updated.agentMetadata.systemPromptHash, 'new prompt', systemPromptSalt)).toBe(true);
+      expect(updated.agentMetadata.coreModelHash).toEqual(document.agentMetadata.coreModelHash);
+    });
   });
 });

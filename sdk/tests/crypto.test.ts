@@ -5,7 +5,10 @@ import {
   formatHashUri,
   generateAgentMetadataHash,
   canonicalizeJson,
-  generateCanonicalDocumentHash
+  generateCanonicalDocumentHash,
+  generateCommitmentSalt,
+  createMetadataCommitment,
+  verifyMetadataCommitment
 } from '../src/crypto/hash';
 
 describe('Crypto Hash Module', () => {
@@ -113,5 +116,51 @@ describe('Crypto Hash Module', () => {
 
   it('should match the shared canonical document reference fixture', () => {
     expect(generateCanonicalDocumentHash(canonicalFixture.document)).toEqual(canonicalFixture.expectedDocumentRef);
+  });
+
+  describe('metadata commitments', () => {
+    const vectors = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'metadata-commitment-vectors.json'), 'utf8')
+    ) as {
+      hmacSha256: Array<{ name: string; value: string; salt: string; expected: string }>;
+      legacySha256: Array<{ name: string; value: string; expected: string }>;
+    };
+
+    it('matches the shared HMAC-SHA256 commitment vectors', () => {
+      for (const vector of vectors.hmacSha256) {
+        expect({ name: vector.name, out: createMetadataCommitment(vector.value, vector.salt) })
+          .toEqual({ name: vector.name, out: vector.expected });
+        expect(verifyMetadataCommitment(vector.expected, vector.value, vector.salt)).toBe(true);
+        expect(verifyMetadataCommitment(vector.expected, vector.value, vector.salt.toUpperCase())).toBe(true);
+      }
+    });
+
+    it('verifies legacy unsalted sha256 commitments without a salt', () => {
+      for (const vector of vectors.legacySha256) {
+        expect(verifyMetadataCommitment(vector.expected, vector.value)).toBe(true);
+        expect(verifyMetadataCommitment(vector.expected, `${vector.value}!`)).toBe(false);
+      }
+    });
+
+    it('rejects wrong values, wrong or missing salts, and unknown schemes', () => {
+      const [vector] = vectors.hmacSha256;
+      expect(verifyMetadataCommitment(vector.expected, `${vector.value} `, vector.salt)).toBe(false);
+      expect(verifyMetadataCommitment(vector.expected, vector.value, generateCommitmentSalt())).toBe(false);
+      expect(verifyMetadataCommitment(vector.expected, vector.value)).toBe(false);
+      expect(verifyMetadataCommitment(vector.expected, vector.value, 'abcd')).toBe(false);
+      expect(verifyMetadataCommitment(vector.expected.replace('hmac-sha256', 'sha512'), vector.value, vector.salt)).toBe(false);
+      expect(verifyMetadataCommitment(vector.expected, '', vector.salt)).toBe(false);
+    });
+
+    it('generates distinct 32-byte salts and validates salt format', () => {
+      const salts = new Set(Array.from({ length: 50 }, () => generateCommitmentSalt()));
+      expect(salts.size).toBe(50);
+      for (const salt of salts) {
+        expect(salt).toMatch(/^[0-9a-f]{64}$/);
+      }
+      expect(() => createMetadataCommitment('value', 'zz'.repeat(32))).toThrow('64 hex characters');
+      expect(() => createMetadataCommitment('value', 'ab'.repeat(16))).toThrow('64 hex characters');
+      expect(() => createMetadataCommitment('', generateCommitmentSalt())).toThrow('cannot be empty');
+    });
   });
 });

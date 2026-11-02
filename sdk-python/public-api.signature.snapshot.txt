@@ -148,24 +148,27 @@ class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_tok
   member http_security = None
 
 ## CreateAgentParams
-class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
   attr capabilities: list[str] | None
   attr core_model: str
+  attr core_model_salt: str | None
   attr description: str | None
   attr did_method: Literal['agent', 'webvh']
   attr member_of: str | None
   attr name: str
   attr signer: Any | None
   attr system_prompt: str
+  attr system_prompt_salt: str | None
   attr version: str | None
   attr webvh: CreateDidWebvhOptions | None
   member model_config = {'arbitrary_types_allowed': True}
 
 ## CreateAgentResult
-class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str, controllerPrivateKey: str | None = None) -> None
+class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str, controllerPrivateKey: str | None = None, metadataCommitmentSalts: agent_did_sdk.core.types.MetadataCommitmentSalts | None = None) -> None
   attr agent_private_key: str
   attr controller_private_key: str | None
   attr document: AgentDIDDocument
+  attr metadata_commitment_salts: MetadataCommitmentSalts | None
   member model_config = {'populate_by_name': True}
 
 ## CreateDidWebvhOptions
@@ -293,6 +296,12 @@ class LocalKeySigner(private_key_hex: 'str') -> 'None'
   staticmethod generate() -> 'tuple[LocalKeySigner, str]'
   def get_public_key(self) -> 'bytes'
   def sign(self, payload: 'bytes') -> 'str'
+
+## MetadataCommitmentSalts
+class MetadataCommitmentSalts(*, coreModel: str, systemPrompt: str) -> None
+  attr core_model: str
+  attr system_prompt: str
+  member model_config = {'populate_by_name': True}
 
 ## PresignedHttpDIDDocumentSource
 class PresignedHttpDIDDocumentSource(config: 'PresignedHttpDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -436,13 +445,15 @@ class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDo
   attr webvh_document_source: DIDDocumentSource | None
 
 ## UpdateAgentDocumentParams
-class UpdateAgentDocumentParams(*, description: str | None = None, version: str | None = None, core_model: str | None = None, system_prompt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, compliance_certifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None) -> None
+class UpdateAgentDocumentParams(*, description: str | None = None, version: str | None = None, core_model: str | None = None, core_model_salt: str | None = None, system_prompt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, compliance_certifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None) -> None
   attr capabilities: list[str] | None
   attr compliance_certifications: list[VerifiableCredentialLink] | None
   attr core_model: str | None
+  attr core_model_salt: str | None
   attr description: str | None
   attr member_of: str | None
   attr system_prompt: str | None
+  attr system_prompt_salt: str | None
   attr version: str | None
   member model_config = {}
 
@@ -506,6 +517,9 @@ def assert_signing_purpose(required_purpose: 'VerificationRelationship', did_doc
 ## canonicalize_json
 def canonicalize_json(value: 'object') -> 'str'
 
+## create_metadata_commitment
+def create_metadata_commitment(value: 'str', salt_hex: 'str') -> 'str'
+
 ## decode_public_key_multibase
 def decode_public_key_multibase(encoded: 'str') -> 'bytes'
 
@@ -520,6 +534,9 @@ def generate_agent_metadata_hash(payload: 'str') -> 'str'
 
 ## generate_canonical_document_hash
 def generate_canonical_document_hash(document: 'object') -> 'str'
+
+## generate_commitment_salt
+def generate_commitment_salt() -> 'str'
 
 ## get_key_relationships
 def get_key_relationships(key_id: 'str', did_doc: 'AgentDIDDocument') -> 'list[VerificationRelationship]'
@@ -544,3 +561,6 @@ def unix_string_to_iso(value: 'str') -> 'str'
 
 ## validate_http_target
 def validate_http_target(url: 'str', options: 'HttpTargetValidationOptions | None' = None) -> 'None'
+
+## verify_metadata_commitment
+def verify_metadata_commitment(commitment_uri: 'str', value: 'str', salt_hex: 'str | None' = None) -> 'bool'
