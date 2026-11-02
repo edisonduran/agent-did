@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-did-sdk
-Version: 1.0.0rc1
+Version: 1.0.0rc2
 Summary: Python SDK for the Agent-DID Specification (RFC-001) — create, sign, resolve, verify and revoke Agent-DIDs
 Author: Agent-DID contributors
 License-Expression: Apache-2.0
@@ -52,7 +52,7 @@ Pythonic surface conventions apply:
 ## Installation
 
 ```bash
-pip install agent-did-sdk==1.0.0rc1
+pip install agent-did-sdk==1.0.0rc2
 ```
 
 For development:

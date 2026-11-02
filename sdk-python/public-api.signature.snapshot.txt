@@ -162,8 +162,9 @@ class CreateAgentParams(*, name: str, description: str | None = None, version: s
   member model_config = {'arbitrary_types_allowed': True}
 
 ## CreateAgentResult
-class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str) -> None
+class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str, controllerPrivateKey: str | None = None) -> None
   attr agent_private_key: str
+  attr controller_private_key: str | None
   attr document: AgentDIDDocument
   member model_config = {'populate_by_name': True}
 

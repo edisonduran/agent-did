@@ -81,7 +81,11 @@ export interface CreateAgentParams {
   signer?: import('./signer').AgentSigner;
   /** DID emission profile. Defaults to the canonical `did:webvh` profile. */
   didMethod?: 'agent' | 'webvh';
-  /** Optional when `didMethod` is `webvh`; omitted values trigger local bootstrap defaults. */
+  /**
+   * Optional when `didMethod` is `webvh`. When omitted, the local `agents.local` profile is used and a
+   * bootstrap controller with a random key is registered (see `CreateAgentResult.controllerPrivateKey`).
+   * When provided, `controllerDid` must be published by its owner; the SDK does not fabricate it.
+   */
   webvh?: CreateDidWebvhOptions;
 }
 
@@ -92,6 +96,12 @@ export interface CreateAgentResult {
   document: AgentDIDDocument;
   /** The Ed25519 private key (hex) — present only in demo mode (no external signer). */
   agentPrivateKey: string;
+  /**
+   * Ed25519 private key (hex) of the local bootstrap controller. Present only when this call
+   * created the bootstrap controller document (implicit `did:webvh` profile, controller not yet
+   * registered). It is randomly generated and returned only once; store it securely or discard it.
+   */
+  controllerPrivateKey?: string;
 }
 
 /**

@@ -6,6 +6,9 @@ import { LocalKeySigner } from '../src/core/signer';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
 import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 import { DIDDocumentSource } from '../src/resolver/types';
+import { ed25519 } from '@noble/curves/ed25519';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { encodePublicKeyMultibase } from '../src/crypto/multibase';
 
 describe('AgentIdentity Core Module', () => {
   // Create a random wallet to act as the "Creator" (Controller)
@@ -1216,5 +1219,88 @@ describe('AgentIdentity Core Module', () => {
       headers
     });
     expect(valid).toBe(true);
+  });
+});
+
+describe('Bootstrap controller keys', () => {
+  const creatorWallet = ethers.Wallet.createRandom();
+  const identity = new AgentIdentity({ signer: creatorWallet, network: 'polygon' });
+  const minimalParams: CreateAgentParams = {
+    name: 'BootstrapBot',
+    coreModel: 'gpt-4.1-mini',
+    systemPrompt: 'You are a bootstrap test agent.'
+  };
+
+  beforeEach(() => {
+    AgentIdentity.setResolver(new InMemoryDIDResolver());
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+  });
+
+  it('returns a random controller key that controls the bootstrap controller document', async () => {
+    const result = await identity.create(minimalParams);
+    const controllerPrivateKey = result.controllerPrivateKey as string;
+
+    expect(controllerPrivateKey).toMatch(/^[0-9a-f]{64}$/);
+
+    const controllerDocument = await AgentIdentity.resolve(result.document.controller);
+    const expectedPublicKey = encodePublicKeyMultibase(ed25519.getPublicKey(hexToBytes(controllerPrivateKey)));
+    expect(controllerDocument.verificationMethod[0].publicKeyMultibase).toEqual(expectedPublicKey);
+
+    const signature = await identity.signMessage('controller-statement', controllerPrivateKey);
+    await expect(
+      AgentIdentity.verifySignature(result.document.controller, 'controller-statement', signature)
+    ).resolves.toBe(true);
+  });
+
+  it('never derives the controller key from public data', async () => {
+    const result = await identity.create(minimalParams);
+    const controllerDid = result.document.controller;
+    const publiclyDerivableSeed = ethers.keccak256(ethers.toUtf8Bytes(`${controllerDid}:bootstrap-key`)).slice(2);
+
+    expect(result.controllerPrivateKey).not.toEqual(publiclyDerivableSeed);
+
+    const forgedSignature = bytesToHex(
+      ed25519.sign(new TextEncoder().encode('forged-statement'), hexToBytes(publiclyDerivableSeed))
+    );
+    await expect(
+      AgentIdentity.verifySignature(controllerDid, 'forged-statement', forgedSignature)
+    ).resolves.toBe(false);
+  });
+
+  it('generates a fresh controller key for each new bootstrap', async () => {
+    const first = await identity.create(minimalParams);
+
+    AgentIdentity.setResolver(new InMemoryDIDResolver());
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+    const second = await identity.create(minimalParams);
+
+    expect(second.document.controller).toEqual(first.document.controller);
+    expect(second.controllerPrivateKey).toBeDefined();
+    expect(second.controllerPrivateKey).not.toEqual(first.controllerPrivateKey);
+  });
+
+  it('returns the controller key only when the controller document is created', async () => {
+    const first = await identity.create(minimalParams);
+    const controllerBefore = await AgentIdentity.resolve(first.document.controller);
+
+    const second = await identity.create({ ...minimalParams, name: 'BootstrapBot-2' });
+
+    expect(second.document.controller).toEqual(first.document.controller);
+    expect(second.controllerPrivateKey).toBeUndefined();
+    expect('controllerPrivateKey' in second).toBe(false);
+    await expect(AgentIdentity.resolve(first.document.controller)).resolves.toEqual(controllerBefore);
+  });
+
+  it('does not fabricate an explicitly supplied controller', async () => {
+    const controllerDid = 'did:webvh:QmControllerScid:agents.example:organizations:acme-support';
+    const result = await identity.create({
+      ...minimalParams,
+      webvh: { domain: 'agents.example', controllerDid, pathSegments: ['agents', 'bootstrap-bot'] }
+    });
+
+    expect(result.document.controller).toEqual(controllerDid);
+    expect(result.controllerPrivateKey).toBeUndefined();
+    await expect(AgentIdentity.resolve(controllerDid)).rejects.toThrow();
+    await expect(AgentIdentity.resolve(result.document.id)).resolves.toMatchObject({ id: result.document.id });
   });
 });

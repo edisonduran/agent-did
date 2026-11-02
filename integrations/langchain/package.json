@@ -1,6 +1,6 @@
 {
   "name": "@agentdid/langchain",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "LangChain integration for Agent-DID identities with middleware and tools for LangChain JS 1.x agents.",
   "main": "src/index.js",
   "files": [
@@ -37,7 +37,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@agentdid/sdk": "1.0.0-rc.1",
+    "@agentdid/sdk": "1.0.0-rc.2",
     "@langchain/core": "^1.1.34",
     "langchain": "^1.2.35",
     "langsmith": "^0.5.10"

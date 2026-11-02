@@ -106,9 +106,11 @@ export class AgentIdentity {
 
     // 1. Get the Controller's address (The Creator)
     const controllerDid = webvhOptions?.controllerDid || `did:ethr:${controllerAddress}`;
-    if (didMethod === 'webvh') {
-      await AgentIdentity.ensureBootstrapControllerDocument(controllerDid);
-    }
+    // Only the implicit local profile bootstraps a controller document. An explicitly
+    // supplied controller DID must be published by its owner; the SDK never fabricates it.
+    const controllerPrivateKey = didMethod === 'webvh' && !params.webvh?.domain?.trim()
+      ? await AgentIdentity.ensureBootstrapControllerDocument(controllerDid)
+      : undefined;
 
     // 2. Generate a unique Agent ID (Hash of controller + timestamp + random nonce)
     const timestamp = AgentIdentity.nowIsoTimestamp();
@@ -177,7 +179,8 @@ export class AgentIdentity {
 
     return {
       document,
-      agentPrivateKey: privateKeyHex
+      agentPrivateKey: privateKeyHex,
+      ...(controllerPrivateKey ? { controllerPrivateKey } : {})
     };
   }
 
@@ -238,16 +241,19 @@ export class AgentIdentity {
     return normalized || 'agent';
   }
 
-  private static async ensureBootstrapControllerDocument(controllerDid: string): Promise<void> {
+  /**
+   * Registers a local bootstrap controller document when none exists yet.
+   * The controller key is generated with a CSPRNG and returned to the caller exactly once;
+   * it is never derived from public data. Returns `undefined` when the controller already exists.
+   */
+  private static async ensureBootstrapControllerDocument(controllerDid: string): Promise<string | undefined> {
     const existing = await AgentIdentity.registry.getRecord(controllerDid);
     if (existing) {
-      return;
+      return undefined;
     }
 
-    const controllerKeySeed = ethers.keccak256(
-      ethers.toUtf8Bytes(`${controllerDid}:bootstrap-key`)
-    ).replace(/^0x/, '');
-    const controllerPublicKey = ed25519.getPublicKey(hexToBytes(controllerKeySeed));
+    const controllerPrivateKey = ed25519.utils.randomPrivateKey();
+    const controllerPublicKey = ed25519.getPublicKey(controllerPrivateKey);
     const controllerVerificationMethodId = `${controllerDid}#key-1`;
     const timestamp = AgentIdentity.nowIsoTimestamp();
     const controllerDocument: AgentDIDDocument = {
@@ -280,6 +286,7 @@ export class AgentIdentity {
       AgentIdentity.computeDocumentReference(controllerDocument)
     );
     AgentIdentity.appendHistory(controllerDocument, 'created');
+    return bytesToHex(controllerPrivateKey);
   }
 
   private static async resolveActiveVerificationChain(did: string): Promise<AgentDIDDocument[]> {

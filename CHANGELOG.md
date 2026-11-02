@@ -12,10 +12,29 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Planned (path to 1.0.0)
 
-See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.1`:
+See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.2`:
 
 - `agent-did-in-action` demo switched to the RC, plus a focused feedback window of at least one week.
 - Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
+
+---
+
+## [1.0.0-rc.2] - UNRELEASED
+
+Security release for the `1.0.0-rc.1` train. All eight co-versioned packages move to `1.0.0-rc.2` (npm, dist-tag `next`) / `1.0.0rc2` (PyPI). Every user of `1.0.0-rc.1` / `1.0.0rc1` should upgrade.
+
+### Security
+
+- Fixes [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf): bootstrap controller keys in `@agentdid/sdk@1.0.0-rc.1` and `agent-did-sdk==1.0.0rc1` were derived from public data. See the advisory for impact and remediation.
+
+### Added
+
+- `CreateAgentResult.controllerPrivateKey` (TS) / `CreateAgentResult.controller_private_key` (Python): when `create()` registers the local bootstrap controller for the implicit `did:webvh` profile, the controller's Ed25519 private key is returned once to the caller.
+
+### Changed
+
+- Bootstrap controller keys are now generated with a CSPRNG for each new bootstrap controller document; no key material is derived from DID strings.
+- `create()` no longer registers a bootstrap controller document when `webvh` options with an explicit `controllerDid` are supplied. That controller must be published and resolvable through the configured resolver for controller-chain verification to succeed.
 
 ---
 

@@ -101,6 +101,12 @@ class CreateAgentResult(BaseModel):
 
     document: AgentDIDDocument
     agent_private_key: str = Field(alias="agentPrivateKey")
+    controller_private_key: str | None = Field(default=None, alias="controllerPrivateKey")
+    """Ed25519 private key (hex) of the local bootstrap controller.
+
+    Present only when this call created the bootstrap controller document (implicit ``did:webvh``
+    profile, controller not yet registered). Randomly generated and returned only once.
+    """
 
 
 class UpdateAgentDocumentParams(BaseModel):

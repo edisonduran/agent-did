@@ -142,8 +142,11 @@ class AgentIdentity:
             if webvh_options is not None
             else f"did:ethr:{self._signer_address}"
         )
-        if did_method == "webvh":
-            await AgentIdentity._ensure_bootstrap_controller_document(controller_did)
+        # Only the implicit local profile bootstraps a controller document. An explicitly
+        # supplied controller DID must be published by its owner; the SDK never fabricates it.
+        controller_private_key: str | None = None
+        if did_method == "webvh" and (params.webvh is None or not params.webvh.domain.strip()):
+            controller_private_key = await AgentIdentity._ensure_bootstrap_controller_document(controller_did)
         timestamp = AgentIdentity._now_iso_timestamp()
         nonce = os.urandom(16).hex()
         identity_seed = webvh_options.controller_did if webvh_options is not None else self._signer_address
@@ -204,7 +207,11 @@ class AgentIdentity:
         )
         AgentIdentity._append_history(document, "created")
 
-        return CreateAgentResult(document=document, agent_private_key=private_key_hex)
+        return CreateAgentResult(
+            document=document,
+            agent_private_key=private_key_hex,
+            controller_private_key=controller_private_key,
+        )
 
     @staticmethod
     def _resolve_webvh_create_options(
@@ -256,13 +263,17 @@ class AgentIdentity:
         return normalized or "agent"
 
     @classmethod
-    async def _ensure_bootstrap_controller_document(cls, controller_did: str) -> None:
+    async def _ensure_bootstrap_controller_document(cls, controller_did: str) -> str | None:
+        """Register a local bootstrap controller document when none exists yet.
+
+        The controller key is generated with a CSPRNG and returned to the caller exactly once;
+        it is never derived from public data. Returns ``None`` when the controller already exists.
+        """
         existing = await cls._registry.get_record(controller_did)
         if existing is not None:
-            return
+            return None
 
-        controller_key_seed = keccak(text=f"{controller_did}:bootstrap-key").hex()
-        controller_signing_key = SigningKey(bytes.fromhex(controller_key_seed))
+        controller_signing_key = SigningKey.generate()
         controller_verification_method_id = f"{controller_did}#key-1"
         timestamp = cls._now_iso_timestamp()
         controller_document = AgentDIDDocument(
@@ -299,6 +310,7 @@ class AgentIdentity:
             cls._compute_document_reference(controller_document),
         )
         cls._append_history(controller_document, "created")
+        return bytes(controller_signing_key).hex()
 
     @classmethod
     async def _resolve_active_verification_chain(cls, did: str) -> list[AgentDIDDocument]:
