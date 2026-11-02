@@ -72,3 +72,32 @@ On failure it raises `DocumentIntegrityError` (a `ValueError` subclass) and does
 - Catch `DocumentIntegrityError` (exported from `agent_did_sdk`) where you want to treat tampering differently from unavailability.
 
 `canonicalize_json` and `generate_canonical_document_hash` are now exported from `agent_did_sdk`.
+
+## 3. `systemPromptHash` and `coreModelHash` are salted commitments
+
+### What changed
+
+`create()` now commits to `system_prompt` and `core_model` with `hash://hmac-sha256/<hex>`, an HMAC-SHA256 keyed with a random 32-byte salt per field, instead of an unsalted `hash://sha256/` digest. Unsalted digests of short or predictable prompts can be confirmed by anyone who guesses them.
+
+- `CreateAgentResult.metadata_commitment_salts` returns a `MetadataCommitmentSalts(core_model, system_prompt)` **once**. The SDK does not store it.
+- `CreateAgentParams.core_model_salt` / `system_prompt_salt` let you supply your own salts (64 hex characters).
+- `update_did_document` **requires** `core_model_salt` / `system_prompt_salt` when the patch changes `core_model` / `system_prompt`; it raises `ValueError` otherwise.
+
+### What to do
+
+```python
+from agent_did_sdk import generate_commitment_salt, verify_metadata_commitment
+
+result = await identity.create(CreateAgentParams(name=name, core_model=model, system_prompt=prompt))
+# Store result.metadata_commitment_salts with the agent's other secrets.
+
+await AgentIdentity.update_did_document(did, UpdateAgentDocumentParams(
+    system_prompt=new_prompt,
+    system_prompt_salt=generate_commitment_salt(),
+))
+
+# An auditor who receives (prompt, salt) out of band:
+verify_metadata_commitment(result.document.agent_metadata.system_prompt_hash, prompt, salt)  # True
+```
+
+Existing documents keep their `hash://sha256/` values; `verify_metadata_commitment` still verifies them without a salt. Code that recomputed `generate_agent_metadata_hash(prompt)` to compare against a new document must switch to `verify_metadata_commitment` with the salt.

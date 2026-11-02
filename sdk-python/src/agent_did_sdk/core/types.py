@@ -89,11 +89,24 @@ class CreateAgentParams(BaseModel):
     version: str | None = None
     core_model: str
     system_prompt: str
+    core_model_salt: str | None = None
+    """32-byte hex salt for the ``coreModelHash`` commitment. Generated randomly when omitted."""
+    system_prompt_salt: str | None = None
+    """32-byte hex salt for the ``systemPromptHash`` commitment. Generated randomly when omitted."""
     capabilities: list[str] | None = None
     member_of: str | None = None
     signer: Any | None = None  # AgentSigner — optional external signer for production mode
     did_method: Literal["agent", "webvh"] = "webvh"
     webvh: CreateDidWebvhOptions | None = None
+
+
+class MetadataCommitmentSalts(BaseModel):
+    """Salts (32-byte hex) of an agent's metadata commitments."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    core_model: str = Field(alias="coreModel")
+    system_prompt: str = Field(alias="systemPrompt")
 
 
 class CreateAgentResult(BaseModel):
@@ -107,13 +120,25 @@ class CreateAgentResult(BaseModel):
     Present only when this call created the bootstrap controller document (implicit ``did:webvh``
     profile, controller not yet registered). Randomly generated and returned only once.
     """
+    metadata_commitment_salts: MetadataCommitmentSalts | None = Field(default=None, alias="metadataCommitmentSalts")
+    """Salts of the ``coreModelHash`` and ``systemPromptHash`` commitments (``hash://hmac-sha256/``).
+
+    Always set by ``AgentIdentity.create()``; ``None`` only when a result is built by hand.
+
+    Keep them private; reveal a salt together with its value only to a party that should be able to
+    verify it (see ``verify_metadata_commitment``). They are not stored anywhere else.
+    """
 
 
 class UpdateAgentDocumentParams(BaseModel):
     description: str | None = None
     version: str | None = None
     core_model: str | None = None
+    core_model_salt: str | None = None
+    """Required when ``core_model`` is set: 32-byte hex salt for the new commitment."""
     system_prompt: str | None = None
+    system_prompt_salt: str | None = None
+    """Required when ``system_prompt`` is set: 32-byte hex salt for the new commitment."""
     capabilities: list[str] | None = None
     member_of: str | None = None
     compliance_certifications: list[VerifiableCredentialLink] | None = None

@@ -17,6 +17,7 @@ BearerTokenHttpDIDDocumentSourceConfig
 canonicalizeJson
 CreateAgentParams
 CreateAgentResult
+createMetadataCommitment
 decodePublicKeyMultibase
 DID_VERIFICATION_RELATIONSHIPS
 DIDDocumentSource
@@ -33,6 +34,7 @@ FilesystemDIDDocumentSourceConfig
 formatHashUri
 generateAgentMetadataHash
 generateCanonicalDocumentHash
+generateCommitmentSalt
 getKeyRelationships
 getRelationshipKeyIds
 hashPayload
@@ -49,6 +51,7 @@ isUnixTimestampString
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
 LocalKeySigner
+MetadataCommitmentSalts
 normalizeTimestampToIso
 PresignedHttpDIDDocumentSource
 PresignedHttpDIDDocumentSourceConfig
@@ -73,3 +76,4 @@ VerifiableCredentialLink
 VerificationMethod
 VerificationRelationship
 VerifyHttpRequestSignatureParams
+verifyMetadataCommitment

@@ -1,0 +1,36 @@
+{
+  "description": "Metadata commitment vectors shared by the TypeScript and Python SDKs. commitment = hash://hmac-sha256/<hex(HMAC-SHA256(key = salt bytes, message = UTF-8(value)))>; salts are 32 bytes as hex. Expected values computed with Python's hmac/hashlib (RFC 2104 / FIPS 180-4).",
+  "hmacSha256": [
+    {
+      "name": "system prompt",
+      "value": "You are a helpful assistant.",
+      "salt": "0000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "hash://hmac-sha256/6b2fbcb88fbe15cd34d89c0dd441dabb3e62187c539b160a9b4902e09084b37f"
+    },
+    {
+      "name": "model identifier",
+      "value": "gpt-4o-mini",
+      "salt": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "expected": "hash://hmac-sha256/8fcbb0380d2eea70c64359db1b2c656531053918685e3f37a9f65043d6ecdd39"
+    },
+    {
+      "name": "non-ASCII value",
+      "value": "Eres un agente preciso y trazable. ✓",
+      "salt": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "expected": "hash://hmac-sha256/69754766f64bc47454201cd0f53053f27fbe72f9a69bcd63ab23609e59c5c88c"
+    },
+    {
+      "name": "multi-line prompt",
+      "value": "line one\nline two\r\n\ttabbed",
+      "salt": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "expected": "hash://hmac-sha256/3d56bd211adf6ffb288075296a1ad9a643217239283dc990e54a4e03cf9fbd7a"
+    }
+  ],
+  "legacySha256": [
+    {
+      "name": "legacy unsalted (rc.2 and earlier)",
+      "value": "You are a helpful assistant.",
+      "expected": "hash://sha256/75357d685f238b6afd7738be9786fdafde641eb6ca9a3be7471939715a68a4de"
+    }
+  ]
+}

@@ -24,8 +24,12 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining afte
 - `agent-did-sdk` adds the `rfc8785` dependency (Trail of Bits, zero dependencies). `@agentdid/sdk` hashes with `@noble/hashes` instead of `ethers` in `crypto/hash`.
 - **`UniversalResolverClient` verifies documents resolved through a registry `documentRef`** (TS and Python). The fetched document must hash to the `hash://sha256/` reference and carry the requested `id`; otherwise resolution fails with `DocumentIntegrityError` and never falls back to another source. Fallback still applies to availability failures. References with any other scheme (for example `ipfs://`) are rejected unless listed in the new `unverifiedDocumentRefSchemes` / `unverified_document_ref_schemes` option, which also emits a `source-fetched` event marking the resolution as unverified. In TS, a document returned by the fallback resolver is no longer re-checked and re-cached as if it came from the primary source.
 
+- **`systemPromptHash` and `coreModelHash` are salted commitments**: `hash://hmac-sha256/<hex>` (HMAC-SHA256 keyed with a random 32-byte salt), replacing the unsalted `hash://sha256/` digests whose short or predictable inputs could be confirmed by guessing. `create()` generates one salt per field (or uses `coreModelSalt` / `systemPromptSalt`) and returns them once in `CreateAgentResult.metadataCommitmentSalts` / `metadata_commitment_salts`. `updateDidDocument` / `update_did_document` now **require** the matching salt when `coreModel` / `systemPrompt` changes, since the method returns only the document.
+
 ### Added
 
+- `generateCommitmentSalt`, `createMetadataCommitment`, `verifyMetadataCommitment` (TS) and `generate_commitment_salt`, `create_metadata_commitment`, `verify_metadata_commitment` (Python). Verification uses a constant-time comparison and also accepts legacy `hash://sha256/` commitments.
+- `fixtures/metadata-commitment-vectors.json`: shared commitment vectors (expected values computed with Python's `hmac`), checked by both SDKs in `interop:check`.
 - `fixtures/jcs-vectors.json`: RFC 8785 reference documents and Appendix B number vectors, verified by both SDKs in `interop:check`.
 - `DocumentIntegrityError` (TS: `Error` subclass; Python: `ValueError` subclass), exported from both packages.
 - Top-level exports of `canonicalizeJson` / `generateCanonicalDocumentHash` (TS) and `canonicalize_json` / `generate_canonical_document_hash` (Python), so verifiers and migrations can recompute a `documentRef`.

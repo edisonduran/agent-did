@@ -100,8 +100,8 @@ Agent-DID does not replace these standards and does not define a new DID method.
 | `id` | **REQUIRED** | Unique agent DID. `did:webvh:...` is the recommended/default identifier form; other DID methods MAY be used if they preserve the composition and verification semantics in this RFC. |
 | `controller` | **REQUIRED** | DID of the human, organizational, or higher-level agent controller. A resolvable `did:webvh` controller is RECOMMENDED for the canonical pattern. |
 | `created` / `updated` | **REQUIRED** | ISO-8601 timestamps of the document. |
-| `agentMetadata.coreModelHash` | **REQUIRED** | Immutable hash/URI of the base model. |
-| `agentMetadata.systemPromptHash` | **REQUIRED** | Immutable hash/URI of the base prompt. |
+| `agentMetadata.coreModelHash` | **REQUIRED** | Commitment to the base model identifier (see §4.3) or another immutable URI such as `ipfs://`. |
+| `agentMetadata.systemPromptHash` | **REQUIRED** | Commitment to the base prompt (see §4.3) or another immutable URI such as `ipfs://`. |
 | `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
 | `verificationMethod[].deactivated` | OPTIONAL | ISO-8601 timestamp marking when a key was deactivated via rotation. Deactivated keys remain in the document for historical signature verification. |
 | `assertionMethod` | **REQUIRED** for signing flows | References to keys authorized for payload and HTTP signature verification by default. |
@@ -111,6 +111,18 @@ Agent-DID does not replace these standards and does not define a new DID method.
 | `agentMetadata.memberOf` | OPTIONAL | Link to agent fleet/cohort. |
 
 ---
+
+### 4.3 Metadata Commitments
+
+`coreModelHash` and `systemPromptHash` let a verifier who is shown the value confirm it, without publishing the value itself. An unsalted digest does not achieve this for short or predictable values: anyone can hash candidate prompts or model names and compare.
+
+Implementations SHOULD produce salted commitments:
+
+- Format: `hash://hmac-sha256/<hex>`, where `<hex>` is the lowercase hexadecimal HMAC-SHA256 (RFC 2104) with the salt as key and the UTF-8 bytes of the value as message.
+- The salt MUST be at least 32 bytes from a cryptographically secure random source, MUST be distinct per commitment, and MUST NOT be published in the DID document or its history.
+- **Disclosure model:** the controller keeps each salt. To let an auditor or relying party verify a commitment, the controller discloses the value and its salt to that party out of band; the party recomputes the HMAC and compares it in constant time. Disclosing one salt reveals nothing about other commitments.
+
+Verifiers MAY continue to accept the unsalted `hash://sha256/<hex(SHA-256(UTF-8(value)))>` form produced by earlier implementations, but MUST treat it as offering no confidentiality for guessable values.
 
 ## 5. Reference Architecture
 
@@ -292,7 +304,7 @@ Recommended full validation command:
 
 ## 8. Security and Privacy
 
-1. **Do not publish prompts in plaintext:** use verifiable hashes.
+1. **Do not publish prompts in plaintext:** use salted commitments (§4.3); unsalted hashes of short or predictable prompts can be reversed by guessing.
 2. **Key rotation:** define rotation policy and `verificationMethod` update.
 3. **Immediate revocation:** critical requirement for key compromise.
 4. **Principle of least privilege:** explicit and bounded capabilities.

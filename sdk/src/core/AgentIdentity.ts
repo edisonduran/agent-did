@@ -14,7 +14,12 @@ import {
   VerificationRelationship,
   VerificationMethod
 } from './types';
-import { generateAgentMetadataHash, generateCanonicalDocumentHash } from '../crypto/hash';
+import {
+  createMetadataCommitment,
+  generateAgentMetadataHash,
+  generateCanonicalDocumentHash,
+  generateCommitmentSalt
+} from '../crypto/hash';
 import { encodePublicKeyMultibase, decodePublicKeyMultibase } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { validateHttpTarget } from './http-security';
@@ -135,9 +140,13 @@ export class AgentIdentity {
       ? AgentIdentity.buildDidWebvh(rawAgentId, webvhOptions as NonNullable<CreateAgentParams['webvh']>)
       : `did:agent:${this.network}:${rawAgentId}`;
 
-    // 3. Hash the sensitive Intellectual Property (IP)
-    const coreModelHashUri = generateAgentMetadataHash(params.coreModel);
-    const systemPromptHashUri = generateAgentMetadataHash(params.systemPrompt);
+    // 3. Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary
+    const metadataCommitmentSalts = {
+      coreModel: params.coreModelSalt ?? generateCommitmentSalt(),
+      systemPrompt: params.systemPromptSalt ?? generateCommitmentSalt()
+    };
+    const coreModelHashUri = createMetadataCommitment(params.coreModel, metadataCommitmentSalts.coreModel);
+    const systemPromptHashUri = createMetadataCommitment(params.systemPrompt, metadataCommitmentSalts.systemPrompt);
 
     // 4. Construct the Verification Method (The Agent's own keypair for signing actions)
     // We use Ed25519 for high-speed, deterministic agent signatures as per RFC-001
@@ -194,7 +203,8 @@ export class AgentIdentity {
     return {
       document,
       agentPrivateKey: privateKeyHex,
-      ...(controllerPrivateKey ? { controllerPrivateKey } : {})
+      ...(controllerPrivateKey ? { controllerPrivateKey } : {}),
+      metadataCommitmentSalts
     };
   }
 
@@ -644,6 +654,13 @@ export class AgentIdentity {
       throw new Error('DID is required');
     }
 
+    if (patch.coreModel && !patch.coreModelSalt) {
+      throw new Error('coreModelSalt is required when updating coreModel (use generateCommitmentSalt() and keep it private)');
+    }
+    if (patch.systemPrompt && !patch.systemPromptSalt) {
+      throw new Error('systemPromptSalt is required when updating systemPrompt (use generateCommitmentSalt() and keep it private)');
+    }
+
     const existing = await AgentIdentity.resolve(did);
     const now = AgentIdentity.nextDocumentTimestamp(existing.updated);
 
@@ -655,10 +672,10 @@ export class AgentIdentity {
         description: patch.description ?? existing.agentMetadata.description,
         version: patch.version ?? existing.agentMetadata.version,
         coreModelHash: patch.coreModel
-          ? generateAgentMetadataHash(patch.coreModel)
+          ? createMetadataCommitment(patch.coreModel, patch.coreModelSalt as string)
           : existing.agentMetadata.coreModelHash,
         systemPromptHash: patch.systemPrompt
-          ? generateAgentMetadataHash(patch.systemPrompt)
+          ? createMetadataCommitment(patch.systemPrompt, patch.systemPromptSalt as string)
           : existing.agentMetadata.systemPromptHash,
         capabilities: patch.capabilities ?? existing.agentMetadata.capabilities,
         memberOf: patch.memberOf ?? existing.agentMetadata.memberOf

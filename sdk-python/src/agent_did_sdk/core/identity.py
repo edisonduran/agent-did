@@ -21,8 +21,10 @@ from eth_utils.crypto import keccak
 from nacl.signing import SigningKey, VerifyKey
 
 from ..crypto.hash import (
+    create_metadata_commitment,
     generate_agent_metadata_hash,
     generate_canonical_document_hash,
+    generate_commitment_salt,
 )
 from ..crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
 from ..registry.in_memory import InMemoryAgentRegistry
@@ -49,6 +51,7 @@ from .types import (
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
+    MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     SignHttpRequestParams,
     UpdateAgentDocumentParams,
@@ -160,8 +163,15 @@ class AgentIdentity:
         else:
             agent_did = f"did:agent:{self._network}:{raw_id}"
 
-        core_model_hash_uri = generate_agent_metadata_hash(params.core_model)
-        system_prompt_hash_uri = generate_agent_metadata_hash(params.system_prompt)
+        # Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary
+        metadata_commitment_salts = MetadataCommitmentSalts(
+            core_model=params.core_model_salt or generate_commitment_salt(),
+            system_prompt=params.system_prompt_salt or generate_commitment_salt(),
+        )
+        core_model_hash_uri = create_metadata_commitment(params.core_model, metadata_commitment_salts.core_model)
+        system_prompt_hash_uri = create_metadata_commitment(
+            params.system_prompt, metadata_commitment_salts.system_prompt
+        )
 
         # Ed25519 keypair for agent signatures
         private_key_hex = ""
@@ -213,6 +223,7 @@ class AgentIdentity:
             document=document,
             agent_private_key=private_key_hex,
             controller_private_key=controller_private_key,
+            metadata_commitment_salts=metadata_commitment_salts,
         )
 
     @staticmethod
@@ -599,6 +610,17 @@ class AgentIdentity:
         if not did or not did.strip():
             raise ValueError("DID is required")
 
+        if patch.core_model and not patch.core_model_salt:
+            raise ValueError(
+                "core_model_salt is required when updating core_model "
+                "(use generate_commitment_salt() and keep it private)"
+            )
+        if patch.system_prompt and not patch.system_prompt_salt:
+            raise ValueError(
+                "system_prompt_salt is required when updating system_prompt "
+                "(use generate_commitment_salt() and keep it private)"
+            )
+
         existing = await cls.resolve(did)
         now = cls._next_document_timestamp(existing.updated)
 
@@ -620,11 +642,11 @@ class AgentIdentity:
                         else existing.agent_metadata.version
                     ),
                     "coreModelHash": (
-                        generate_agent_metadata_hash(patch.core_model)
+                        create_metadata_commitment(patch.core_model, patch.core_model_salt or "")
                         if patch.core_model else existing.agent_metadata.core_model_hash
                     ),
                     "systemPromptHash": (
-                        generate_agent_metadata_hash(patch.system_prompt)
+                        create_metadata_commitment(patch.system_prompt, patch.system_prompt_salt or "")
                         if patch.system_prompt else existing.agent_metadata.system_prompt_hash
                     ),
                     "capabilities": (

@@ -1,5 +1,6 @@
+import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from '@noble/hashes/utils';
 
 /**
  * Serializes one JSON value following RFC 8785 (JSON Canonicalization Scheme).
@@ -116,4 +117,83 @@ export function canonicalizeJson(value: unknown): string {
  */
 export function generateCanonicalDocumentHash(document: unknown): string {
   return generateAgentMetadataHash(canonicalizeJson(document));
+}
+
+const HMAC_SHA256_COMMITMENT_PREFIX = 'hash://hmac-sha256/';
+const SHA256_COMMITMENT_PREFIX = 'hash://sha256/';
+const COMMITMENT_SALT_BYTES = 32;
+
+function parseCommitmentSalt(saltHex: string): Uint8Array {
+  if (typeof saltHex !== 'string' || !/^[0-9a-fA-F]{64}$/.test(saltHex)) {
+    throw new Error(`Commitment salt must be ${COMMITMENT_SALT_BYTES} bytes encoded as 64 hex characters`);
+  }
+  return hexToBytes(saltHex.toLowerCase());
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return diff === 0;
+}
+
+/**
+ * Generates a random 32-byte salt (64 lowercase hex characters) for a metadata commitment.
+ * The controller keeps the salt private and reveals it only to parties allowed to verify
+ * the committed value.
+ */
+export function generateCommitmentSalt(): string {
+  return bytesToHex(randomBytes(COMMITMENT_SALT_BYTES));
+}
+
+/**
+ * Commits to a metadata value (system prompt, model identifier) without making it guessable:
+ * `hash://hmac-sha256/<hex(HMAC-SHA256(key = salt, message = UTF-8(value)))>`.
+ *
+ * @param value The raw value to commit to. Must not be empty.
+ * @param saltHex A 32-byte salt as 64 hex characters, e.g. from `generateCommitmentSalt()`.
+ */
+export function createMetadataCommitment(value: string, saltHex: string): string {
+  if (!value) {
+    throw new Error('Commitment value cannot be empty');
+  }
+  const digest = hmac(sha256, parseCommitmentSalt(saltHex), utf8ToBytes(value));
+  return `${HMAC_SHA256_COMMITMENT_PREFIX}${bytesToHex(digest)}`;
+}
+
+/**
+ * Checks a revealed value (and salt) against a metadata commitment URI.
+ *
+ * - `hash://hmac-sha256/...` requires the salt used at commitment time.
+ * - `hash://sha256/...` (unsalted, produced by `1.0.0-rc.2` and earlier) ignores the salt.
+ *
+ * Returns `false` for a mismatch, an unknown scheme, or a missing or malformed salt.
+ */
+export function verifyMetadataCommitment(commitmentUri: string, value: string, saltHex?: string): boolean {
+  if (!value || typeof commitmentUri !== 'string') {
+    return false;
+  }
+
+  const normalizedUri = commitmentUri.toLowerCase();
+  let expected: string;
+  if (normalizedUri.startsWith(HMAC_SHA256_COMMITMENT_PREFIX)) {
+    if (saltHex === undefined) {
+      return false;
+    }
+    try {
+      expected = createMetadataCommitment(value, saltHex);
+    } catch {
+      return false;
+    }
+  } else if (normalizedUri.startsWith(SHA256_COMMITMENT_PREFIX)) {
+    expected = generateAgentMetadataHash(value);
+  } else {
+    return false;
+  }
+
+  return constantTimeEqual(expected, normalizedUri);
 }

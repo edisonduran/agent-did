@@ -71,3 +71,32 @@ On failure it throws `DocumentIntegrityError` and does **not** consult the fallb
 - Catch `DocumentIntegrityError` (exported from `@agentdid/sdk`) where you want to treat tampering differently from unavailability.
 
 `canonicalizeJson` and `generateCanonicalDocumentHash` are now exported from the package root.
+
+## 3. `systemPromptHash` and `coreModelHash` are salted commitments
+
+### What changed
+
+`create()` now commits to `systemPrompt` and `coreModel` with `hash://hmac-sha256/<hex>`, an HMAC-SHA256 keyed with a random 32-byte salt per field, instead of an unsalted `hash://sha256/` digest. Unsalted digests of short or predictable prompts can be confirmed by anyone who guesses them.
+
+- `CreateAgentResult.metadataCommitmentSalts` returns `{ coreModel, systemPrompt }` salts **once**. The SDK does not store them.
+- `CreateAgentParams.coreModelSalt` / `systemPromptSalt` let you supply your own salts (64 hex characters).
+- `updateDidDocument` **requires** `coreModelSalt` / `systemPromptSalt` when the patch changes `coreModel` / `systemPrompt`; it throws otherwise.
+
+### What to do
+
+```ts
+import { generateCommitmentSalt, verifyMetadataCommitment } from '@agentdid/sdk';
+
+const { document, metadataCommitmentSalts } = await identity.create({ name, coreModel, systemPrompt });
+// Store metadataCommitmentSalts with the agent's other secrets.
+
+await AgentIdentity.updateDidDocument(did, {
+  systemPrompt: newPrompt,
+  systemPromptSalt: generateCommitmentSalt(),
+});
+
+// An auditor who receives (systemPrompt, salt) out of band:
+verifyMetadataCommitment(document.agentMetadata.systemPromptHash, systemPrompt, salt); // true
+```
+
+Existing documents keep their `hash://sha256/` values; `verifyMetadataCommitment` still verifies them without a salt. Code that recomputed `generateAgentMetadataHash(prompt)` to compare against a new document must switch to `verifyMetadataCommitment` with the salt.
