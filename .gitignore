@@ -18,6 +18,7 @@ __pycache__/
 # BMAD Method artifacts
 _bmad/
 _bmad-output/
+.agents/
 .github/*
 !.github/workflows/
 !.github/workflows/**
