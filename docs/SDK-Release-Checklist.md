@@ -68,6 +68,9 @@ Run from the repository root unless noted otherwise.
 - [ ] `sdk/package.json` versioning and publish metadata are correct for the release.
 - [ ] npm Trusted Publishing is configured for `.github/workflows/publish-sdk.yml`.
 - [ ] Published npm metadata is expected to show GitHub Actions provenance for `.github/workflows/publish-sdk.yml`.
+- [ ] **`1.0.0` release-candidate train only:** `publish-release-train.yml` publishes prereleases under the `next` dist-tag, and npm trusted publishing (OIDC) cannot change dist-tags. Until stable `1.0.0` ships, a maintainer moves `latest` by hand after each RC, because the `0.x` versions it would otherwise point to are deprecated. Run this from an interactive terminal, since npm 2FA confirms in the browser:
+  `npx -y npm@11 dist-tag add "@agentdid/sdk@<version>" latest` and `npx -y npm@11 dist-tag add "@agentdid/langchain@<version>" latest`.
+  Verify with `npm dist-tag ls @agentdid/sdk`.
 
 ---
 
