@@ -1,0 +1,141 @@
+name: Registry Install Smoke (C-QA-9)
+
+# Installs the published release-train packages from npm/PyPI on ephemeral runners.
+# The repository is intentionally not checked out, so nothing local can leak into the install.
+
+on:
+  workflow_dispatch:
+    inputs:
+      npm_version:
+        description: "npm version or dist-tag for @agentdid/* (e.g. next, 1.0.0-rc.1)"
+        required: true
+        default: "next"
+      pypi_version:
+        description: "PyPI version for agent-did-* packages (e.g. 1.0.0rc1)"
+        required: true
+        default: "1.0.0rc1"
+  pull_request:
+    paths:
+      - ".github/workflows/registry-install-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: registry-install-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NPM_VERSION: ${{ inputs.npm_version || 'next' }}
+  PYPI_VERSION: ${{ inputs.pypi_version || '1.0.0rc1' }}
+
+jobs:
+  npm:
+    name: npm — ${{ matrix.os }} / Node ${{ matrix.node-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+        node-version: [22, 24]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install packages from npm
+        run: |
+          mkdir smoke && cd smoke
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "@agentdid/sdk@${NPM_VERSION}" "@agentdid/langchain@${NPM_VERSION}" ethers
+          node -p "'@agentdid/sdk ' + require('@agentdid/sdk/package.json').version"
+          node -p "'@agentdid/langchain ' + require('@agentdid/langchain/package.json').version"
+
+      - name: Run QUICKSTART flow
+        working-directory: smoke
+        run: |
+          cat > quickstart.js <<'EOF'
+          const assert = require('node:assert');
+          const { AgentIdentity, InMemoryAgentRegistry } = require('@agentdid/sdk');
+          const { ethers } = require('ethers');
+
+          const main = async () => {
+            AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+            const identity = new AgentIdentity({ signer: ethers.Wallet.createRandom() });
+            const created = await identity.create({ name: 'quickstart-bot', coreModel: 'gpt-4.1-mini', systemPrompt: 'Sign outbound API requests.' });
+            const request = { method: 'POST', url: 'https://api.example.com/tasks', body: '{"taskId":7}' };
+            const headers = await identity.signHttpRequest({ ...request, agentPrivateKey: created.agentPrivateKey, agentDid: created.document.id });
+            const ok = await AgentIdentity.verifyHttpRequestSignature({ ...request, headers });
+            assert.ok(created.document.id.startsWith('did:webvh:'), created.document.id);
+            assert.strictEqual(ok, true);
+            const langchain = require('@agentdid/langchain');
+            assert.strictEqual(typeof langchain.createAgentDidIntegration, 'function');
+            console.log({ node: process.version, did: created.document.id, ok });
+          };
+          main().catch((error) => { console.error(error); process.exit(1); });
+          EOF
+          node quickstart.js
+
+  pypi:
+    name: PyPI — ${{ matrix.package }} / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+        package:
+          - agent-did-sdk
+          - agent-did-langchain
+          - agent-did-crewai
+          - agent-did-semantic-kernel
+          - agent-did-microsoft-agent-framework
+          - agent-did-a2a
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package from PyPI
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          start=$(date +%s)
+          .venv/bin/python -m pip install "${PACKAGE}==${PYPI_VERSION}"
+          echo "Resolved and installed in $(( $(date +%s) - start ))s"
+          .venv/bin/python -m pip show agent-did-sdk | grep -E '^Version: '"${PYPI_VERSION}"'$'
+
+      - name: Import package
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: .venv/bin/python -c "import importlib, os; m = importlib.import_module(os.environ['PACKAGE'].replace('-', '_')); print(m.__name__, len(getattr(m, '__all__', [])))"
+
+      - name: Run QUICKSTART flow
+        if: matrix.package == 'agent-did-sdk'
+        run: |
+          cat > quickstart.py <<'EOF'
+          import asyncio
+          from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, SignHttpRequestParams, VerifyHttpRequestSignatureParams
+
+          async def main() -> None:
+              AgentIdentity.set_registry(InMemoryAgentRegistry())
+              identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9292929292929292929292929292929292929292"))
+              created = await identity.create(CreateAgentParams(name="quickstart-bot", core_model="gpt-4.1-mini", system_prompt="Sign outbound API requests."))
+              request = {"method": "POST", "url": "https://api.example.com/tasks", "body": '{"taskId":7}'}
+              headers = await identity.sign_http_request(SignHttpRequestParams(**request, agent_private_key=created.agent_private_key, agent_did=created.document.id))
+              ok = await AgentIdentity.verify_http_request_signature(VerifyHttpRequestSignatureParams(**request, headers=headers))
+              assert created.document.id.startswith("did:webvh:"), created.document.id
+              assert ok is True
+              print({"did": created.document.id, "ok": ok})
+
+          asyncio.run(main())
+          EOF
+          .venv/bin/python quickstart.py
