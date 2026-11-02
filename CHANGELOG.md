@@ -14,7 +14,6 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.1`:
 
-- Clean-machine install smokes of the published RC packages from npm and PyPI.
 - `agent-did-in-action` demo switched to the RC, plus a focused feedback window of at least one week.
 - Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
 
