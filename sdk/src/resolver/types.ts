@@ -22,6 +22,13 @@ export interface UniversalResolverConfig {
   fallbackResolver?: DIDResolver;
   cacheTtlMs?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+  /**
+   * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
+   * without a content-hash check. Defaults to none: only `hash://sha256/` references,
+   * which the SDK always produces, are accepted and they are always verified.
+   * Each unverified resolution emits a `source-fetched` event saying so.
+   */
+  unverifiedDocumentRefSchemes?: string[];
 }
 
 export interface ResolverCacheStats {
@@ -45,4 +52,17 @@ export interface ResolverResolutionEvent {
   stage: ResolverResolutionStage;
   durationMs: number;
   message?: string;
+}
+
+/**
+ * Thrown when a resolved DID document cannot be trusted: its `id` differs from
+ * the requested DID, its content does not hash to the registry `documentRef`, or
+ * the `documentRef` uses a scheme that cannot be verified. Resolvers never fall
+ * back to another source on this error.
+ */
+export class DocumentIntegrityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DocumentIntegrityError';
+  }
 }

@@ -14,12 +14,14 @@ AwsSigV4S3DIDDocumentSource
 AwsSigV4S3DIDDocumentSourceConfig
 BearerTokenHttpDIDDocumentSource
 BearerTokenHttpDIDDocumentSourceConfig
+canonicalizeJson
 CreateAgentParams
 CreateAgentResult
 decodePublicKeyMultibase
 DID_VERIFICATION_RELATIONSHIPS
 DIDDocumentSource
 DIDResolver
+DocumentIntegrityError
 encodePublicKeyMultibase
 EthersAgentRegistryContractClient
 EvmAgentRegistry
@@ -30,6 +32,7 @@ FilesystemDIDDocumentSource
 FilesystemDIDDocumentSourceConfig
 formatHashUri
 generateAgentMetadataHash
+generateCanonicalDocumentHash
 getKeyRelationships
 getRelationshipKeyIds
 hashPayload

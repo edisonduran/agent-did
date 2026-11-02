@@ -103,6 +103,7 @@ They are consumed by:
 | EVM registry adapter | `EvmAgentRegistry` + ethers client | `EvmAgentRegistry` + web3 client | ✅ | Client library differs, capability family is equivalent. |
 | Time normalization | `normalizeTimestampToIso` | `normalize_timestamp_to_iso` | ✅ | Canonical UTC millisecond format now aligned. |
 | Canonical document hashing | `generateCanonicalDocumentHash` (internal helper path) | `generate_canonical_document_hash` (internal helper path) | ✅ | RFC 8785 (JCS) in both SDKs; `documentRef` agreement and RFC 8785 reference vectors enforced by shared fixtures (`canonical-document-reference.json`, `jcs-vectors.json`). |
+| Resolution integrity (`documentRef`) | `UniversalResolverClient` + `DocumentIntegrityError` | `UniversalResolverClient` + `DocumentIntegrityError` | ✅ | Both verify `id` and the `hash://sha256/` reference, never fall back on integrity failures, and reject other schemes unless `unverifiedDocumentRefSchemes` / `unverified_document_ref_schemes` opts in. |
 | Shared conformance suite | `scripts/conformance-rfc001.js` | `sdk-python/scripts/conformance_rfc001.py` | ✅ | Both report 11/11 MUST and 5/5 SHOULD. |
 | Shared interoperability fixtures | Root `fixtures/` | Root `fixtures/` | ✅ | Single source of truth for cross-language parity. |
 | CI protection | `.github/workflows/ci.yml` | `.github/workflows/ci-python.yml` | ✅ | Separate pipelines; equivalent intent. |

@@ -6,6 +6,18 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [errata-document-ref-verification] - Unreleased (1.0.0-rc.3 train)
+
+### Decision Trigger
+
+- §6.2 allowed fallback/failover during resolution without separating availability failures from integrity failures, and did not require resolvers to check a retrieved document against its registry `documentRef`.
+
+### Result
+
+- §6.2 step 2 now requires resolvers to verify the document `id` and the `hash://sha256/` content hash against the registry `documentRef`, to reject documents that fail, and never to fall back on an integrity failure. Unverifiable reference schemes are rejected unless a deployment opts in.
+
+---
+
 ## [errata-document-ref-jcs] - Unreleased (1.0.0-rc.3 train)
 
 ### Decision Trigger

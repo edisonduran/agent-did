@@ -18,6 +18,7 @@ CreateDidWebvhOptions
 DIDDocumentSource
 DIDResolver
 DID_VERIFICATION_RELATIONSHIPS
+DocumentIntegrityError
 EvmAgentRegistry
 EvmAgentRegistryAdapterConfig
 EvmAgentRegistryContract
@@ -60,10 +61,12 @@ WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig
 assert_key_purpose
 assert_signing_purpose
+canonicalize_json
 decode_public_key_multibase
 encode_public_key_multibase
 format_hash_uri
 generate_agent_metadata_hash
+generate_canonical_document_hash
 get_key_relationships
 get_relationship_key_ids
 hash_payload

@@ -79,6 +79,7 @@ class ProductionResolverProfileConfig:
     webvh_document_source: DIDDocumentSource | None = None
     cache_ttl_ms: int | None = None
     on_resolution_event: object | None = None
+    unverified_document_ref_schemes: list[str] | None = None
 
 
 @dataclass
@@ -91,6 +92,7 @@ class ProductionHttpResolverProfileConfig:
     ipfs_gateways: list[str] | None = None
     on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
     http_security: HttpTargetValidationOptions | None = None
+    unverified_document_ref_schemes: list[str] | None = None
 
 
 @dataclass
@@ -825,6 +827,7 @@ class AgentIdentity:
             fallback_resolver=cls._resolver,
             cache_ttl_ms=config.cache_ttl_ms or 60_000,
             on_resolution_event=config.on_resolution_event,  # type: ignore[arg-type]
+            unverified_document_ref_schemes=config.unverified_document_ref_schemes,
         ))
 
     @classmethod
@@ -849,6 +852,7 @@ class AgentIdentity:
             webvh_document_source=webvh_source,
             cache_ttl_ms=config.cache_ttl_ms,
             on_resolution_event=config.on_resolution_event,
+            unverified_document_ref_schemes=config.unverified_document_ref_schemes,
         ))
 
     @classmethod

@@ -49,7 +49,9 @@ export {
 export {
   hashPayload,
   formatHashUri,
-  generateAgentMetadataHash
+  generateAgentMetadataHash,
+  canonicalizeJson,
+  generateCanonicalDocumentHash
 } from './crypto/hash';
 
 export {
@@ -81,7 +83,8 @@ export {
   UniversalResolverConfig,
   ResolverCacheStats,
   ResolverResolutionEvent,
-  ResolverResolutionStage
+  ResolverResolutionStage,
+  DocumentIntegrityError
 } from './resolver/types';
 
 export {

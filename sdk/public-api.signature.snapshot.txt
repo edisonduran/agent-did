@@ -17,6 +17,13 @@ export interface ProductionResolverProfileConfig {
     webvhDocumentSource?: DIDDocumentSource;
     cacheTtlMs?: number;
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+    /**
+     * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
+     * without a content-hash check. Defaults to none: only `hash://sha256/` references,
+     * which the SDK always produces, are accepted and they are always verified.
+     * Each unverified resolution emits a `source-fetched` event saying so.
+     */
+    unverifiedDocumentRefSchemes?: string[];
 }
 export interface ProductionHttpResolverProfileConfig {
     registry: AgentRegistry;
@@ -31,6 +38,13 @@ export interface ProductionHttpResolverProfileConfig {
     }>;
     ipfsGateways?: string[];
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+    /**
+     * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
+     * without a content-hash check. Defaults to none: only `hash://sha256/` references,
+     * which the SDK always produces, are accepted and they are always verified.
+     * Each unverified resolution emits a `source-fetched` event saying so.
+     */
+    unverifiedDocumentRefSchemes?: string[];
     httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 export interface ProductionJsonRpcResolverProfileConfig {
@@ -416,12 +430,12 @@ export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
 export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
 export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
-export { hashPayload, formatHashUri, generateAgentMetadataHash } from './crypto/hash';
+export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash } from './crypto/hash';
 export { encodePublicKeyMultibase, decodePublicKeyMultibase } from './crypto/multibase';
 export { AgentSigner, LocalKeySigner } from './core/signer';
 export { validateHttpTarget, HttpTargetValidationOptions } from './core/http-security';
 export { isUnixTimestampString, unixStringToIso, isoToUnixString, normalizeTimestampToIso } from './core/time';
-export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage } from './resolver/types';
+export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
 export { InMemoryDIDResolver } from './resolver/InMemoryDIDResolver';
 export { UniversalResolverClient } from './resolver/UniversalResolverClient';
 export { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './resolver/HttpDIDDocumentSource';
@@ -788,6 +802,13 @@ export interface UniversalResolverConfig {
     fallbackResolver?: DIDResolver;
     cacheTtlMs?: number;
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+    /**
+     * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
+     * without a content-hash check. Defaults to none: only `hash://sha256/` references,
+     * which the SDK always produces, are accepted and they are always verified.
+     * Each unverified resolution emits a `source-fetched` event saying so.
+     */
+    unverifiedDocumentRefSchemes?: string[];
 }
 export interface ResolverCacheStats {
     hits: number;
@@ -800,6 +821,15 @@ export interface ResolverResolutionEvent {
     stage: ResolverResolutionStage;
     durationMs: number;
     message?: string;
+}
+/**
+ * Thrown when a resolved DID document cannot be trusted: its `id` differs from
+ * the requested DID, its content does not hash to the registry `documentRef`, or
+ * the `documentRef` uses a scheme that cannot be verified. Resolvers never fall
+ * back to another source on this error.
+ */
+export declare class DocumentIntegrityError extends Error {
+    constructor(message: string);
 }
 
 ## resolver/UniversalResolverClient.d.ts
@@ -814,6 +844,7 @@ export declare class UniversalResolverClient implements DIDResolver {
     private readonly fallbackResolver;
     private readonly cacheTtlMs;
     private readonly onResolutionEvent;
+    private readonly unverifiedDocumentRefSchemes;
     private readonly cache;
     private hits;
     private misses;
@@ -831,6 +862,8 @@ export declare class UniversalResolverClient implements DIDResolver {
     private deriveDidWbaDocumentUrl;
     private deriveDidWebvhDocumentUrl;
     private decodeDidWbaSegment;
+    private assertDocumentMatchesReference;
+    private integrityFailure;
     private computeDocumentReference;
     private clone;
 }

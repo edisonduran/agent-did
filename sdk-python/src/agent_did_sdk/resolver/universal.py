@@ -9,11 +9,14 @@ from ..core.types import AgentDIDDocument
 from ..crypto.hash import generate_canonical_document_hash
 from .http_source import HttpDIDDocumentSource
 from .types import (
+    DocumentIntegrityError,
     ResolverCacheStats,
     ResolverResolutionEvent,
     UniversalResolverConfig,
 )
 from .webvh_source import WebvhDIDDocumentSource
+
+_SHA256_DOCUMENT_REF_PREFIX = "hash://sha256/"
 
 
 class _CachedDocument:
@@ -35,6 +38,9 @@ class UniversalResolverClient:
         self._fallback = config.fallback_resolver
         self._cache_ttl_ms = config.cache_ttl_ms
         self._on_event = config.on_resolution_event
+        self._unverified_schemes = frozenset(
+            scheme.lower() for scheme in (config.unverified_document_ref_schemes or [])
+        )
         self._cache: dict[str, _CachedDocument] = {}
         self._hits = 0
         self._misses = 0
@@ -86,6 +92,8 @@ class UniversalResolverClient:
 
         self._emit(did, "source-fetch", started, message=f"documentRef={record.document_ref}")
 
+        # Only availability failures (source error, document missing) may fall back.
+        # Integrity failures below raise and never degrade to another source.
         try:
             resolved = await self._source.get_by_reference(record.document_ref)
         except Exception as exc:
@@ -99,7 +107,11 @@ class UniversalResolverClient:
             )
 
         if resolved.id != did:
-            raise ValueError(f"Resolved document DID mismatch. Expected {did}, got {resolved.id}")
+            raise self._integrity_failure(
+                did, f"Resolved document DID mismatch. Expected {did}, got {resolved.id}", started
+            )
+
+        self._assert_document_matches_reference(did, record.document_ref, resolved, started)
 
         self._emit(did, "source-fetched", started)
         self._cache[did] = _CachedDocument(resolved.model_copy(deep=True), now + self._cache_ttl_ms)
@@ -259,6 +271,39 @@ class UniversalResolverClient:
     @staticmethod
     def _now_ms() -> float:
         return time.time() * 1000
+
+    def _assert_document_matches_reference(
+        self, did: str, document_ref: str, document: AgentDIDDocument, started: float
+    ) -> None:
+        if not document_ref.startswith(_SHA256_DOCUMENT_REF_PREFIX):
+            scheme = document_ref.split("://", 1)[0].lower()
+            if "://" in document_ref and scheme in self._unverified_schemes:
+                self._emit(
+                    did,
+                    "source-fetched",
+                    started,
+                    message=f"integrity=unverified scheme={scheme} documentRef={document_ref}",
+                )
+                return
+            raise self._integrity_failure(
+                did,
+                f"Unsupported documentRef scheme for {did}: {document_ref}. "
+                f"Only {_SHA256_DOCUMENT_REF_PREFIX} references can be verified.",
+                started,
+            )
+
+        computed_ref = self._compute_ref(document)
+        if computed_ref != document_ref.lower():
+            raise self._integrity_failure(
+                did,
+                f"Document integrity check failed for {did}: registry documentRef={document_ref}, "
+                f"fetched document hashes to {computed_ref}",
+                started,
+            )
+
+    def _integrity_failure(self, did: str, message: str, started: float) -> DocumentIntegrityError:
+        self._emit(did, "error", started, message=message)
+        return DocumentIntegrityError(message)
 
     @staticmethod
     def _compute_ref(document: AgentDIDDocument) -> str:

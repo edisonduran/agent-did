@@ -60,3 +60,19 @@ class UniversalResolverConfig:
     fallback_resolver: DIDResolver | None = None
     cache_ttl_ms: int = 60_000
     on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
+    unverified_document_ref_schemes: list[str] | None = None
+    """documentRef schemes (without ``://``, e.g. ``"ipfs"``) accepted without a content-hash check.
+
+    Defaults to none: only ``hash://sha256/`` references, which the SDK always produces, are
+    accepted, and they are always verified. Each unverified resolution emits a
+    ``source-fetched`` event saying so.
+    """
+
+
+class DocumentIntegrityError(ValueError):
+    """A resolved DID document cannot be trusted.
+
+    Raised when the document ``id`` differs from the requested DID, its content does not
+    hash to the registry ``documentRef``, or the ``documentRef`` uses a scheme that cannot
+    be verified. Resolvers never fall back to another source on this error.
+    """

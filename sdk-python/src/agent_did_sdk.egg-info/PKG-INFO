@@ -42,7 +42,7 @@ Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.m
 
 > **Release-candidate note:** The repository is frozen for the `1.0.0-rc.2` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
-> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md).
+> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Breaking changes queued for `1.0.0rc3` are tracked in [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md).
 
 Pythonic surface conventions apply:
 
