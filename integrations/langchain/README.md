@@ -10,7 +10,7 @@ La matriz de parity entre ambas integraciones vive en `../../docs/F1-03-LangChai
 
 - `langchain` `^1.2.35`
 - `@langchain/core` `^1.1.34`
-- `@agentdid/sdk` `1.0.0-rc.1`
+- `@agentdid/sdk` `1.0.0-rc.2`
 - Node.js 22+
 
 ## Estado

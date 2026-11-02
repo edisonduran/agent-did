@@ -24,7 +24,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] The package status is still correct for the shipped state (`functional` while the current `Agent`/`Task`/`Crew` helper surface remains accurate).
 - [ ] README, design doc and package metadata describe the same current state.
 - [ ] No CrewAI document refers to the Python SDK as future work.
-- [ ] If release metadata changes, the README and package metadata still agree on the coordinated `1.0.0rc1` dependency on `agent-did-sdk`.
+- [ ] If release metadata changes, the README and package metadata still agree on the coordinated `1.0.0rc2` dependency on `agent-did-sdk`.
 
 ---
 
@@ -85,5 +85,6 @@ CrewAI review is complete when the current package state is accurately described
 
 | Date | Change |
 |------|--------|
+| 2026-11-02 | RC metadata moved to the `1.0.0rc2` security release train ([GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)); the package now pins `agent-did-sdk==1.0.0rc2`. No functional changes to the integration surface. |
 | 2026-05-08 | Added an explicit review gate for RC metadata alignment so README/package metadata stay synchronized during the `1.0.0rc1` freeze. |
 | 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |

@@ -13,7 +13,7 @@ Use this checklist when implementation work starts or when a PR changes the pack
 - [x] The package declares itself as `functional` and that status matches the shipped integration surface.
 - [x] `integrations/semantic-kernel/README.md` no longer describes the Python SDK as future work.
 - [x] `docs/F2-04-Semantic-Kernel-Integration-Design.md` still matches the intended runtime surface.
-- [x] RC metadata stays aligned with the coordinated `1.0.0rc1` release train and the package now carries the frozen `agent-did-sdk==1.0.0rc1` dependency floor expected for the core RC.
+- [x] RC metadata stays aligned with the coordinated `1.0.0rc2` release train and the package now carries the frozen `agent-did-sdk==1.0.0rc2` dependency floor expected for the core RC.
 
 ---
 
@@ -88,6 +88,7 @@ F2-04 is implementation-ready for release review when the package has a function
 
 | Date | Change |
 |------|--------|
+| 2026-11-02 | RC metadata moved to the `1.0.0rc2` security release train ([GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)); the package now pins `agent-did-sdk==1.0.0rc2`. No functional changes to the integration surface. |
 | 2026-05-08 | RC metadata refreshed for the coordinated `1.0.0rc1` release train and the checklist now records the frozen `agent-did-sdk==1.0.0rc1` dependency expectation. |
 | 2026-03-31 | Repository slug updated to `agent-did` and Semantic Kernel package metadata aligned to the new GitHub URL and `Agent-DID contributors` branding. No runtime, tool, middleware or API surface changes. |
 | 2026-03-22 | Repository license migrated from MIT to Apache-2.0. `pyproject.toml` updated accordingly. No functional changes to the integration surface. |

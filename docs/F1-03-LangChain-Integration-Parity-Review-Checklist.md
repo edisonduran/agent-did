@@ -55,7 +55,7 @@ Run this checklist when a change affects one or more of the following:
 ## Documentation And Examples
 
 - [ ] `integrations/langchain/README.md` and `integrations/langchain-python/README.md` still describe the same conceptual model.
-- [ ] If release-candidate metadata changes, both READMEs still document the coordinated prerelease install path (`@next` on npm, `1.0.0rc1` on Python) without implying divergent runtime behavior.
+- [ ] If release-candidate metadata changes, both READMEs still document the coordinated prerelease install path (`@next` on npm, `1.0.0rc2` on Python) without implying divergent runtime behavior.
 - [ ] If a local quickstart clarifies controller bootstrap or hosted `did:webvh` publication boundaries, both READMEs still describe that deployment split consistently.
 - [ ] Both packages still ship, at minimum, base, observability and production-style examples.
 - [ ] If one package ships an integrated `did:wba` demo, the other package ships an equivalent integrated `did:wba` demo or the divergence is explicit in docs.
@@ -97,6 +97,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-02 | Coordinated prerelease install path moved to `1.0.0-rc.2` / `1.0.0rc2` (security release, [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)). No functional changes to the integration surface. |
 | 2026-11-01 | LangChain JS README now states Node.js 22+, matching `engines.node`. Documentation only; no public surface change. |
 | 2026-11-01 | LangChain JS `package.json` now declares `repository` (with `directory`), `homepage` and `bugs`, required for npm provenance on trusted publishing. Python metadata unchanged; no public surface change. |
 | 2026-11-01 | LangChain JS now declares `engines.node >=22.0.0` (Node 18/20 are EOL and unpatched for the October 2026 Node.js security releases). Python packages are unaffected; no public surface change. |
