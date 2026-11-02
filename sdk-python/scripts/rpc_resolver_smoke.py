@@ -10,7 +10,7 @@ from smoke_utils import (
     reset_agent_identity_state,
 )
 
-from agent_did_sdk import AgentIdentity, ProductionJsonRpcResolverProfileConfig
+from agent_did_sdk import AgentIdentity, ProductionJsonRpcResolverProfileConfig, generate_canonical_document_hash
 from agent_did_sdk.core.http_security import HttpTargetValidationOptions
 from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
@@ -20,8 +20,8 @@ async def main() -> int:
     reset_agent_identity_state()
 
     did = "did:agent:polygon:0xrpcsmoke"
-    document_ref = "hash://sha256/rpc-smoke-doc"
     sample_document = build_sample_document(did)
+    document_ref = generate_canonical_document_hash(sample_document.model_dump_jsonld())
 
     failing_server = JsonRpcTestServer(
         lambda payload: JsonRpcResponse(
