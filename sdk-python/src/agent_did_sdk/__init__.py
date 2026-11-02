@@ -44,7 +44,13 @@ from .core.types import (
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
 )
-from .crypto.hash import format_hash_uri, generate_agent_metadata_hash, hash_payload
+from .crypto.hash import (
+    canonicalize_json,
+    format_hash_uri,
+    generate_agent_metadata_hash,
+    generate_canonical_document_hash,
+    hash_payload,
+)
 from .crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
 from .registry.evm_registry import EvmAgentRegistry
 from .registry.evm_types import EvmAgentRegistryAdapterConfig, EvmAgentRegistryContract, EvmTxResponse
@@ -62,6 +68,7 @@ from .resolver.s3_compatible_source import S3CompatibleDIDDocumentSource, S3Comp
 from .resolver.types import (
     DIDDocumentSource,
     DIDResolver,
+    DocumentIntegrityError,
     ResolverCacheStats,
     ResolverResolutionEvent,
     ResolverResolutionStage,
@@ -117,6 +124,8 @@ __all__ = [
     "hash_payload",
     "format_hash_uri",
     "generate_agent_metadata_hash",
+    "canonicalize_json",
+    "generate_canonical_document_hash",
     "encode_public_key_multibase",
     "decode_public_key_multibase",
     # Registry
@@ -135,6 +144,7 @@ __all__ = [
     "ResolverCacheStats",
     "ResolverResolutionEvent",
     "ResolverResolutionStage",
+    "DocumentIntegrityError",
     "InMemoryDIDResolver",
     "UniversalResolverClient",
     "HttpDIDDocumentSource",

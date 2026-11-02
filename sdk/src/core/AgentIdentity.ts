@@ -41,6 +41,13 @@ export interface ProductionResolverProfileConfig {
   webvhDocumentSource?: DIDDocumentSource;
   cacheTtlMs?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+  /**
+   * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
+   * without a content-hash check. Defaults to none: only `hash://sha256/` references,
+   * which the SDK always produces, are accepted and they are always verified.
+   * Each unverified resolution emits a `source-fetched` event saying so.
+   */
+  unverifiedDocumentRefSchemes?: string[];
 }
 
 export interface ProductionHttpResolverProfileConfig {
@@ -51,6 +58,13 @@ export interface ProductionHttpResolverProfileConfig {
   fetchFn?: (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text?: () => Promise<string> }>;
   ipfsGateways?: string[];
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
+  /**
+   * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
+   * without a content-hash check. Defaults to none: only `hash://sha256/` references,
+   * which the SDK always produces, are accepted and they are always verified.
+   * Each unverified resolution emits a `source-fetched` event saying so.
+   */
+  unverifiedDocumentRefSchemes?: string[];
   httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 
@@ -806,7 +820,8 @@ export class AgentIdentity {
       webvhDocumentSource: config.webvhDocumentSource,
       fallbackResolver: AgentIdentity.resolver,
       cacheTtlMs: config.cacheTtlMs,
-      onResolutionEvent: config.onResolutionEvent
+      onResolutionEvent: config.onResolutionEvent,
+      unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes
     });
   }
 
@@ -831,7 +846,8 @@ export class AgentIdentity {
       wbaDocumentSource: httpSource,
       webvhDocumentSource: webvhSource,
       cacheTtlMs: config.cacheTtlMs,
-      onResolutionEvent: config.onResolutionEvent
+      onResolutionEvent: config.onResolutionEvent,
+      unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes
     });
   }
 

@@ -12,11 +12,11 @@ async function main() {
   const {
     AgentIdentity,
     InMemoryAgentRegistry,
-    InMemoryDIDResolver
+    InMemoryDIDResolver,
+    generateCanonicalDocumentHash
   } = sdk;
 
   const did = 'did:agent:polygon:0xrpcsmoke';
-  const documentRef = 'hash://sha256/rpc-smoke-doc';
   const sampleDocument = {
     '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
     id: did,
@@ -39,6 +39,7 @@ async function main() {
     ],
     authentication: [`${did}#key-1`]
   };
+  const documentRef = generateCanonicalDocumentHash(sampleDocument);
 
   const failingServer = createJsonRpcServer(async (payload) => ({
     httpStatus: 503,

@@ -22,10 +22,13 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining afte
 - **`documentRef` canonicalization is now RFC 8785 (JCS)** in `@agentdid/sdk` and `agent-did-sdk`. `canonicalizeJson` / `canonicalize_json` and `generateCanonicalDocumentHash` / `generate_canonical_document_hash` sort members by UTF-16 code units, serialize numbers per ECMAScript, and no longer rewrite `created` / `updated` / `timestamp` values before hashing. Python keeps `None` members as `null` instead of dropping them. Document references computed by `1.0.0-rc.2` or earlier do not match the new ones; see `sdk/MIGRATION-1.0-rc.2-to-rc.3.md` and `sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md`.
 - `UniversalResolverClient` (TS and Python) now stores documents under the same canonical `documentRef` that `AgentIdentity` registers. Previously each resolver hashed a non-canonical serialization, so stored keys differed from registered references and between the two SDKs.
 - `agent-did-sdk` adds the `rfc8785` dependency (Trail of Bits, zero dependencies). `@agentdid/sdk` hashes with `@noble/hashes` instead of `ethers` in `crypto/hash`.
+- **`UniversalResolverClient` verifies documents resolved through a registry `documentRef`** (TS and Python). The fetched document must hash to the `hash://sha256/` reference and carry the requested `id`; otherwise resolution fails with `DocumentIntegrityError` and never falls back to another source. Fallback still applies to availability failures. References with any other scheme (for example `ipfs://`) are rejected unless listed in the new `unverifiedDocumentRefSchemes` / `unverified_document_ref_schemes` option, which also emits a `source-fetched` event marking the resolution as unverified. In TS, a document returned by the fallback resolver is no longer re-checked and re-cached as if it came from the primary source.
 
 ### Added
 
 - `fixtures/jcs-vectors.json`: RFC 8785 reference documents and Appendix B number vectors, verified by both SDKs in `interop:check`.
+- `DocumentIntegrityError` (TS: `Error` subclass; Python: `ValueError` subclass), exported from both packages.
+- Top-level exports of `canonicalizeJson` / `generateCanonicalDocumentHash` (TS) and `canonicalize_json` / `generate_canonical_document_hash` (Python), so verifiers and migrations can recompute a `documentRef`.
 
 ---
 

@@ -2,11 +2,14 @@ import { AgentDIDDocument } from '../core/types';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import {
+  DocumentIntegrityError,
   DIDResolver,
   ResolverResolutionEvent,
   ResolverCacheStats,
   UniversalResolverConfig
 } from './types';
+
+const SHA256_DOCUMENT_REF_PREFIX = 'hash://sha256/';
 
 interface CachedDocument {
   document: AgentDIDDocument;
@@ -21,6 +24,7 @@ export class UniversalResolverClient implements DIDResolver {
   private readonly fallbackResolver;
   private readonly cacheTtlMs: number;
   private readonly onResolutionEvent;
+  private readonly unverifiedDocumentRefSchemes: ReadonlySet<string>;
   private readonly cache = new Map<string, CachedDocument>();
   private hits = 0;
   private misses = 0;
@@ -33,6 +37,9 @@ export class UniversalResolverClient implements DIDResolver {
     this.fallbackResolver = config.fallbackResolver;
     this.cacheTtlMs = config.cacheTtlMs ?? 60_000;
     this.onResolutionEvent = config.onResolutionEvent;
+    this.unverifiedDocumentRefSchemes = new Set(
+      (config.unverifiedDocumentRefSchemes ?? []).map((scheme) => scheme.toLowerCase())
+    );
   }
 
   public registerDocument(document: AgentDIDDocument): void {
@@ -90,19 +97,30 @@ export class UniversalResolverClient implements DIDResolver {
       message: `documentRef=${record.documentRef}`
     });
 
-    const resolved = await this.documentSource.getByReference(record.documentRef).catch(async (error) => {
+    // Only availability failures (source error, document missing) may fall back.
+    // Integrity failures below throw and never degrade to another source.
+    let resolved: AgentDIDDocument | null;
+    try {
+      resolved = await this.documentSource.getByReference(record.documentRef);
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
       return this.resolveWithFallback(did, message, startedAt);
-    });
+    }
 
     if (!resolved) {
       return this.resolveWithFallback(did, `Document not found for reference: ${record.documentRef}`, startedAt);
     }
 
     if (resolved.id !== did) {
-      throw new Error(`Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`);
+      throw this.integrityFailure(
+        did,
+        `Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`,
+        startedAt
+      );
     }
+
+    this.assertDocumentMatchesReference(did, record.documentRef, resolved, startedAt);
 
     this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
 
@@ -301,6 +319,45 @@ export class UniversalResolverClient implements DIDResolver {
     } catch {
       throw new Error(`Invalid did:wba ${segmentType} segment: ${segment}`);
     }
+  }
+
+  private assertDocumentMatchesReference(
+    did: string,
+    documentRef: string,
+    document: AgentDIDDocument,
+    startedAt: number
+  ): void {
+    if (!documentRef.startsWith(SHA256_DOCUMENT_REF_PREFIX)) {
+      const scheme = documentRef.split('://', 1)[0].toLowerCase();
+      if (documentRef.includes('://') && this.unverifiedDocumentRefSchemes.has(scheme)) {
+        this.emitEvent({
+          did,
+          stage: 'source-fetched',
+          durationMs: Date.now() - startedAt,
+          message: `integrity=unverified scheme=${scheme} documentRef=${documentRef}`
+        });
+        return;
+      }
+      throw this.integrityFailure(
+        did,
+        `Unsupported documentRef scheme for ${did}: ${documentRef}. Only ${SHA256_DOCUMENT_REF_PREFIX} references can be verified.`,
+        startedAt
+      );
+    }
+
+    const computedRef = this.computeDocumentReference(document);
+    if (computedRef !== documentRef.toLowerCase()) {
+      throw this.integrityFailure(
+        did,
+        `Document integrity check failed for ${did}: registry documentRef=${documentRef}, fetched document hashes to ${computedRef}`,
+        startedAt
+      );
+    }
+  }
+
+  private integrityFailure(did: string, message: string, startedAt: number): DocumentIntegrityError {
+    this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+    return new DocumentIntegrityError(message);
   }
 
   private computeDocumentReference(document: AgentDIDDocument): string {

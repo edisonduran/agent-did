@@ -191,6 +191,9 @@ class DIDResolver(*args, **kwargs)
 ## DID_VERIFICATION_RELATIONSHIPS
 value DID_VERIFICATION_RELATIONSHIPS = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement')
 
+## DocumentIntegrityError
+class DocumentIntegrityError(...)
+
 ## EvmAgentRegistry
 class EvmAgentRegistry(config: 'EvmAgentRegistryAdapterConfig') -> 'None'
   def get_record(self, did: 'str') -> 'AgentRegistryRecord | None'
@@ -313,7 +316,7 @@ class PresignedHttpDIDDocumentSourceConfig(reference_to_read_url: 'Callable[[str
   attr store_method: str
 
 ## ProductionHttpResolverProfileConfig
-class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
   attr cache_ttl_ms: int | None
   attr http_client: httpx.AsyncClient | None
   attr http_security: HttpTargetValidationOptions | None
@@ -322,6 +325,7 @@ class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_m
   attr reference_to_url: Callable[[str], str] | None
   attr reference_to_urls: Callable[[str], list[str]] | None
   attr registry: AgentRegistry
+  attr unverified_document_ref_schemes: list[str] | None
 
 ## ProductionJsonRpcResolverProfileConfig
 class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str | None' = None, build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
@@ -337,11 +341,12 @@ class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_tt
   attr registry: AgentRegistry
 
 ## ProductionResolverProfileConfig
-class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, cache_ttl_ms: 'int | None' = None, on_resolution_event: 'object | None' = None) -> None
+class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, cache_ttl_ms: 'int | None' = None, on_resolution_event: 'object | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
   attr cache_ttl_ms: int | None
   attr document_source: DIDDocumentSource
   attr on_resolution_event: object | None
   attr registry: AgentRegistry
+  attr unverified_document_ref_schemes: list[str] | None
   attr wba_document_source: DIDDocumentSource | None
   attr webvh_document_source: DIDDocumentSource | None
 
@@ -420,12 +425,13 @@ class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
 
 ## UniversalResolverConfig
-class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, cache_ttl_ms: 'int' = 60000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None) -> None
+class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, cache_ttl_ms: 'int' = 60000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
   attr cache_ttl_ms: int
   attr document_source: DIDDocumentSource
   attr fallback_resolver: DIDResolver | None
   attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
   attr registry: AgentRegistry
+  attr unverified_document_ref_schemes: list[str] | None
   attr wba_document_source: DIDDocumentSource | None
   attr webvh_document_source: DIDDocumentSource | None
 
@@ -497,6 +503,9 @@ def assert_key_purpose(key_id: 'str', did_doc: 'AgentDIDDocument', required_purp
 ## assert_signing_purpose
 def assert_signing_purpose(required_purpose: 'VerificationRelationship', did_doc: 'AgentDIDDocument', key_id: 'str' = '') -> 'None'
 
+## canonicalize_json
+def canonicalize_json(value: 'object') -> 'str'
+
 ## decode_public_key_multibase
 def decode_public_key_multibase(encoded: 'str') -> 'bytes'
 
@@ -508,6 +517,9 @@ def format_hash_uri(hash_hex: 'str') -> 'str'
 
 ## generate_agent_metadata_hash
 def generate_agent_metadata_hash(payload: 'str') -> 'str'
+
+## generate_canonical_document_hash
+def generate_canonical_document_hash(document: 'object') -> 'str'
 
 ## get_key_relationships
 def get_key_relationships(key_id: 'str', did_doc: 'AgentDIDDocument') -> 'list[VerificationRelationship]'

@@ -158,7 +158,7 @@ graph TD
 ### 6.2 Resolution and Verification
 
 1. Consumer obtains `Signature-Agent` or the issuer's DID.
-2. Resolves DID via universal resolver (with fallback/failover in production profile).
+2. Resolves DID via universal resolver (with fallback/failover in production profile). When the document is located through a registry `documentRef`, the resolver MUST verify that the retrieved document's `id` equals the requested DID and, for `hash://sha256/` references, that the document hashes to the reference as defined in §6.1. A document that fails either check MUST be rejected, and the resolver MUST NOT fall back to another source; fallback and failover apply only to availability failures (source unreachable, document not found). References whose scheme cannot be verified MUST be rejected unless the deployment explicitly accepts that scheme as unverified.
 3. Verifies the signing key is authorized for the required DID verification relationship.
 4. Verifies signature with `verificationMethod`.
 5. Verifies the DID is currently active according to the underlying DID method or declared deployment profile.

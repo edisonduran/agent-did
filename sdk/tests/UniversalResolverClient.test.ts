@@ -3,6 +3,8 @@ import { DIDDocumentSource } from '../src/resolver/types';
 import { AgentRegistry } from '../src/registry/types';
 import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 import { AgentIdentity } from '../src/core/AgentIdentity';
+import { generateCanonicalDocumentHash } from '../src/crypto/hash';
+import { DocumentIntegrityError, ResolverResolutionEvent } from '../src/resolver/types';
 
 describe('UniversalResolverClient', () => {
   const sampleDocument = {
@@ -27,6 +29,7 @@ describe('UniversalResolverClient', () => {
     ],
     authentication: ['did:agent:polygon:0xabc#key-1']
   };
+  const sampleDocumentRef = generateCanonicalDocumentHash(sampleDocument);
 
   const createWbaDocument = (did: string) => ({
     ...sampleDocument,
@@ -64,7 +67,7 @@ describe('UniversalResolverClient', () => {
         did: sampleDocument.id,
         controller: sampleDocument.controller,
         createdAt: '1740566400',
-        documentRef: 'hash://sha256/doc-ref'
+        documentRef: sampleDocumentRef
       }),
       isRevoked: jest.fn().mockResolvedValue(false)
     };
@@ -317,7 +320,7 @@ describe('UniversalResolverClient', () => {
         did: sampleDocument.id,
         controller: sampleDocument.controller,
         createdAt: '1740566400',
-        documentRef: 'hash://sha256/http-ref'
+        documentRef: sampleDocumentRef
       }),
       isRevoked: jest.fn().mockResolvedValue(false)
     };
@@ -407,7 +410,7 @@ describe('UniversalResolverClient', () => {
         did: sampleDocument.id,
         controller: sampleDocument.controller,
         createdAt: '1740566400',
-        documentRef: 'hash://sha256/http-failover-ref'
+        documentRef: sampleDocumentRef
       }),
       isRevoked: jest.fn().mockResolvedValue(false)
     };
@@ -463,6 +466,7 @@ describe('UniversalResolverClient', () => {
       registry,
       cacheTtlMs: 10_000,
       ipfsGateways: ['https://gateway-a.example/ipfs', 'https://gateway-b.example/ipfs'],
+      unverifiedDocumentRefSchemes: ['ipfs'],
       fetchFn
     });
 
@@ -481,7 +485,7 @@ describe('UniversalResolverClient', () => {
         did: sampleDocument.id,
         controller: sampleDocument.controller,
         createdAt: '1740566400',
-        documentRef: 'hash://sha256/rpc-ref'
+        documentRef: sampleDocumentRef
       }),
       isRevoked: jest.fn().mockResolvedValue(false)
     };
@@ -509,5 +513,123 @@ describe('UniversalResolverClient', () => {
     const resolved = await AgentIdentity.resolve(sampleDocument.id);
     expect(resolved.id).toEqual(sampleDocument.id);
     expect(transport).toHaveBeenCalledTimes(2);
+  });
+
+  describe('documentRef integrity', () => {
+    const buildRegistry = (documentRef: string): AgentRegistry => ({
+      register: jest.fn(),
+      setDocumentReference: jest.fn(),
+      revoke: jest.fn(),
+      getRecord: jest.fn().mockResolvedValue({
+        did: sampleDocument.id,
+        controller: sampleDocument.controller,
+        createdAt: '1740566400',
+        documentRef
+      }),
+      isRevoked: jest.fn().mockResolvedValue(false)
+    });
+
+    const tamperedDocument = {
+      ...sampleDocument,
+      verificationMethod: [{ ...sampleDocument.verificationMethod[0], publicKeyMultibase: 'zattacker' }]
+    };
+
+    it('rejects a fetched document that does not hash to the registry documentRef', async () => {
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry(sampleDocumentRef),
+        documentSource: { getByReference: jest.fn().mockResolvedValue(tamperedDocument) }
+      });
+
+      await expect(resolver.resolve(sampleDocument.id)).rejects.toThrow(DocumentIntegrityError);
+      await expect(resolver.resolve(sampleDocument.id)).rejects.toThrow('Document integrity check failed');
+    });
+
+    it('never falls back to another source on an integrity failure', async () => {
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(sampleDocument);
+      const fallbackResolve = jest.spyOn(fallbackResolver, 'resolve');
+      const events: ResolverResolutionEvent[] = [];
+
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry(sampleDocumentRef),
+        documentSource: { getByReference: jest.fn().mockResolvedValue(tamperedDocument) },
+        fallbackResolver,
+        onResolutionEvent: (event) => events.push(event)
+      });
+
+      await expect(resolver.resolve(sampleDocument.id)).rejects.toThrow(DocumentIntegrityError);
+      expect(fallbackResolve).not.toHaveBeenCalled();
+      expect(events.map((event) => event.stage)).not.toContain('fallback');
+      expect(events.at(-1)).toMatchObject({ stage: 'error' });
+      expect(resolver.getCacheStats().size).toBe(0);
+    });
+
+    it('rejects a fetched document whose id differs from the requested DID without falling back', async () => {
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(sampleDocument);
+      const otherDocument = { ...sampleDocument, id: 'did:agent:polygon:0xother' };
+
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry(generateCanonicalDocumentHash(otherDocument)),
+        documentSource: { getByReference: jest.fn().mockResolvedValue(otherDocument) },
+        fallbackResolver
+      });
+
+      await expect(resolver.resolve(sampleDocument.id)).rejects.toThrow(DocumentIntegrityError);
+    });
+
+    it('rejects unverifiable documentRef schemes unless explicitly allowed', async () => {
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry('ipfs://bafybeigdyrztcid/example.json'),
+        documentSource: { getByReference: jest.fn().mockResolvedValue(sampleDocument) }
+      });
+
+      await expect(resolver.resolve(sampleDocument.id)).rejects.toThrow('Unsupported documentRef scheme');
+    });
+
+    it('accepts allowed unverifiable schemes and reports them as unverified', async () => {
+      const events: ResolverResolutionEvent[] = [];
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry('ipfs://bafybeigdyrztcid/example.json'),
+        documentSource: { getByReference: jest.fn().mockResolvedValue(sampleDocument) },
+        unverifiedDocumentRefSchemes: ['IPFS'],
+        onResolutionEvent: (event) => events.push(event)
+      });
+
+      await expect(resolver.resolve(sampleDocument.id)).resolves.toMatchObject({ id: sampleDocument.id });
+      expect(events.some((event) => event.message?.startsWith('integrity=unverified scheme=ipfs'))).toBe(true);
+    });
+
+    it('still falls back when the source is unavailable', async () => {
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(sampleDocument);
+
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry(sampleDocumentRef),
+        documentSource: { getByReference: jest.fn().mockRejectedValue(new Error('503 Service Unavailable')) },
+        fallbackResolver
+      });
+
+      await expect(resolver.resolve(sampleDocument.id)).resolves.toMatchObject({ id: sampleDocument.id });
+    });
+
+    it('resolves documents stored through registerDocument under their canonical reference', async () => {
+      const store = new Map<string, unknown>();
+      const resolver = new UniversalResolverClient({
+        registry: buildRegistry(sampleDocumentRef),
+        documentSource: {
+          getByReference: jest.fn(async (ref: string) => (store.get(ref) as typeof sampleDocument) ?? null),
+          storeByReference: jest.fn(async (ref: string, document) => {
+            store.set(ref, document);
+          })
+        },
+        cacheTtlMs: 0
+      });
+
+      resolver.registerDocument(sampleDocument);
+      await Promise.resolve();
+      expect([...store.keys()]).toEqual([sampleDocumentRef]);
+      await expect(resolver.resolve(sampleDocument.id)).resolves.toMatchObject({ id: sampleDocument.id });
+    });
   });
 });

@@ -31,7 +31,7 @@ This guide covers the breaking changes between `1.0.0rc2` and `1.0.0rc3`. It is 
 2. For each agent you manage, recompute the reference from the current document and update the registry record:
 
    ```python
-   from agent_did_sdk.crypto.hash import generate_canonical_document_hash
+   from agent_did_sdk import generate_canonical_document_hash
 
    document_ref = generate_canonical_document_hash(document.model_dump_jsonld())
    # Persist document_ref wherever your registry stores it, and re-store the
@@ -40,4 +40,35 @@ This guide covers the breaking changes between `1.0.0rc2` and `1.0.0rc3`. It is 
 
 3. If you call `canonicalize_json` yourself, pass JSON-compatible values only, keep integers within ±(2⁵³−1), and remove `None` members first if you want them omitted rather than serialized as `null`.
 
-No public function was renamed or removed, and their signatures did not change.
+No public function was renamed or removed by this change, and their signatures did not change.
+
+## 2. Resolution verifies `documentRef`
+
+### What changed
+
+When `UniversalResolverClient` resolves a DID through the registry (DIDs that are not `did:webvh` or `did:wba`), it now checks the fetched document before returning it:
+
+- its `id` must equal the requested DID, and
+- it must hash to the registry `documentRef` (section 1 above).
+
+On failure it raises `DocumentIntegrityError` (a `ValueError` subclass) and does **not** consult the fallback resolver. Fallback still happens when the source is unreachable or returns no document.
+
+`documentRef` values that are not `hash://sha256/...` cannot be verified and are now rejected by default.
+
+### What to do
+
+- Make sure registry records hold the canonical reference of the document your source serves (section 1, step 2).
+- If you serve documents through IPFS or another scheme you trust at the transport level, opt in explicitly:
+
+  ```python
+  AgentIdentity.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
+      registry=registry,
+      ipfs_gateways=["https://gateway.example/ipfs"],
+      unverified_document_ref_schemes=["ipfs"],
+  ))
+  ```
+
+  Each such resolution emits a `source-fetched` event whose `message` starts with `integrity=unverified`.
+- Catch `DocumentIntegrityError` (exported from `agent_did_sdk`) where you want to treat tampering differently from unavailability.
+
+`canonicalize_json` and `generate_canonical_document_hash` are now exported from `agent_did_sdk`.

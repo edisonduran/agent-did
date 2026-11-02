@@ -39,4 +39,35 @@ This guide covers the breaking changes between `1.0.0-rc.2` and `1.0.0-rc.3`. It
 
 3. If you call `canonicalizeJson` yourself, pass JSON-compatible values only (no `NaN`, `Infinity` or `bigint`), and normalize timestamps before building the document if you need equivalent instants to hash identically.
 
-No public function was renamed or removed, and their signatures did not change.
+No public function was renamed or removed by this change, and their signatures did not change.
+
+## 2. Resolution verifies `documentRef`
+
+### What changed
+
+When `UniversalResolverClient` resolves a DID through the registry (DIDs that are not `did:webvh` or `did:wba`), it now checks the fetched document before returning it:
+
+- its `id` must equal the requested DID, and
+- it must hash to the registry `documentRef` (section 1 above).
+
+On failure it throws `DocumentIntegrityError` and does **not** consult the fallback resolver. Fallback still happens when the source is unreachable or returns no document.
+
+`documentRef` values that are not `hash://sha256/...` cannot be verified and are now rejected by default.
+
+### What to do
+
+- Make sure registry records hold the canonical reference of the document your source serves (section 1, step 2).
+- If you serve documents through IPFS or another scheme you trust at the transport level, opt in explicitly:
+
+  ```ts
+  AgentIdentity.useProductionResolverFromHttp({
+    registry,
+    ipfsGateways: ['https://gateway.example/ipfs'],
+    unverifiedDocumentRefSchemes: ['ipfs'],
+  });
+  ```
+
+  Each such resolution emits a `source-fetched` event whose `message` starts with `integrity=unverified`.
+- Catch `DocumentIntegrityError` (exported from `@agentdid/sdk`) where you want to treat tampering differently from unavailability.
+
+`canonicalizeJson` and `generateCanonicalDocumentHash` are now exported from the package root.
