@@ -1,0 +1,423 @@
+"""did:webvh v1.0 adapter (ADR-002).
+
+This module is the only place in the SDK that imports the DIF reference
+implementation (``did-webvh``). It exposes Agent-DID operations over
+``did.jsonl`` text and never leaks library types to callers, so the backing
+implementation can be replaced without touching ``AgentIdentity`` or the
+resolvers.
+
+Transport stays with the SDK's own document sources (and their SSRF guards):
+this module only creates, appends to and verifies log text that the caller
+already holds.
+
+TypeScript parity: ``sdk/src/webvh/adapter.ts``.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Any, Literal
+
+import jsoncanon
+from did_webvh.core.file_utils import AsyncTextReader, AsyncTextReadError
+from did_webvh.core.proof import di_jcs_canonicalize_input
+from did_webvh.core.resolver import DidResolver, HistoryResolver, ResolutionError
+from did_webvh.core.state import DocumentState, InvalidDocumentState
+from did_webvh.history import did_base_url
+from did_webvh.resolver import extend_document_services
+from did_webvh.verify import WebvhVerifier
+
+from ..core.signer import AgentSigner
+from ..crypto.multibase import _base58_decode, _base58_encode, encode_public_key_multibase
+
+DID_WEBVH_PLACEHOLDER = "{DID}"
+"""Placeholder that :func:`create_did_webvh_log` replaces with the generated DID."""
+
+DidWebvhErrorCode = Literal["invalidDid", "notFound", "invalidOptions", "invalidInput", "unauthorized"]
+
+_SCID_PLACEHOLDER = "{SCID}"
+_METHOD = "did:webvh:1.0"
+_HOST_LABEL = re.compile(r"^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])$")
+_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._~-]+$")
+_PORT = re.compile(r"^[1-9][0-9]{0,4}$")
+_VERSION_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_MAX_FUTURE_SKEW = timedelta(minutes=5)
+_DEFAULT_TTL = "3600"
+
+
+class DidWebvhError(ValueError):
+    """A did:webvh operation or log verification failed."""
+
+    def __init__(self, code: DidWebvhErrorCode, message: str) -> None:
+        super().__init__(message)
+        self.code: DidWebvhErrorCode = code
+
+
+@dataclass
+class DidWebvhMetadata:
+    """Resolution metadata exposed by Agent-DID for a did:webvh log.
+
+    Witness and watcher configuration are deliberately not exposed until the
+    SDK supports them (ADR-002, condition 7).
+    """
+
+    version_id: str
+    version_number: int
+    version_time: str
+    created: str
+    updated: str
+    scid: str
+    update_keys: list[str] = field(default_factory=list)
+    deactivated: bool = False
+    ttl: str = _DEFAULT_TTL
+    """Cache TTL in seconds; the did:webvh default (3600) when the log does not set one."""
+
+
+@dataclass
+class DidWebvhLogResult:
+    did: str
+    document: dict[str, Any]
+    metadata: DidWebvhMetadata
+    log: str
+    """The full ``did.jsonl`` text, one entry per line, newline-terminated."""
+
+
+async def did_webvh_update_key_for(signer: AgentSigner) -> str:
+    """Return the did:webvh ``updateKeys`` entry (an Ed25519 multikey) for *signer*."""
+    return encode_public_key_multibase(await signer.get_public_key())
+
+
+async def create_did_webvh_log(
+    *,
+    domain: str,
+    document: dict[str, Any],
+    signer: AgentSigner,
+    path_segments: list[str] | None = None,
+    created: str | None = None,
+) -> DidWebvhLogResult:
+    """Create a v1.0 log whose only update key is *signer*'s key.
+
+    Every occurrence of ``{DID}`` in *document* is replaced with the generated DID.
+    *domain* is a lowercase ASCII fully qualified host name, optionally with ``:port``.
+    """
+    host, port = _validate_domain(domain)
+    segments = list(path_segments or [])
+    for segment in segments:
+        _validate_path_segment(segment)
+    if created is not None:
+        _validate_version_time(created, "created", timedelta(0))
+
+    update_key = await did_webvh_update_key_for(signer)
+    domain_component = f"{host}%3A{port}" if port else host
+    template_did = ":".join(["did:webvh", _SCID_PLACEHOLDER, domain_component, *segments])
+    if not isinstance(document, dict):
+        raise DidWebvhError("invalidInput", "did:webvh document must be an object")
+    document_text = json.dumps(document).replace(DID_WEBVH_PLACEHOLDER, template_did)
+
+    try:
+        genesis = DocumentState.initial(
+            params={
+                "method": _METHOD,
+                "scid": _SCID_PLACEHOLDER,
+                "updateKeys": [update_key],
+                "portable": False,
+                "nextKeyHashes": [],
+                "watchers": [],
+                "witness": {},
+                "deactivated": False,
+            },
+            document=document_text,
+            timestamp=created,
+        )
+    except ValueError as err:
+        raise DidWebvhError("invalidInput", f"did:webvh operation failed: {err}") from None
+    if genesis.document_id != template_did.replace(_SCID_PLACEHOLDER, genesis.scid):
+        raise DidWebvhError("invalidInput", "did:webvh document id must be the {DID} placeholder")
+
+    await _sign_state(genesis, signer, update_key)
+    return await resolve_did_webvh_log(_serialize([genesis.history_line()]))
+
+
+async def update_did_webvh_log(
+    *,
+    log: str,
+    signer: AgentSigner,
+    document: dict[str, Any] | None = None,
+    update_keys: list[str] | None = None,
+    updated: str | None = None,
+) -> DidWebvhLogResult:
+    """Append a controller-signed entry.
+
+    *document* is the complete next DID document; when omitted the current
+    document is carried over. *update_keys* replaces the active update keys.
+    """
+    entries = _parse_log(log)
+    current = await resolve_did_webvh_log(log)
+    signer_key = await _assert_authorized_signer(signer, current.metadata)
+    if update_keys is not None:
+        if not update_keys:
+            raise DidWebvhError("invalidInput", "update_keys must not be empty; use deactivate_did_webvh_log instead")
+        for key in update_keys:
+            _validate_update_key(key)
+    if updated is not None:
+        _validate_version_time(updated, "updated", _MAX_FUTURE_SKEW)
+    if document is not None and document.get("id") != current.did:
+        raise DidWebvhError(
+            "invalidInput",
+            f"did:webvh operation failed: Updated DID document id must match expected DID '{current.did}'",
+        )
+
+    last_state = await _load_last_state(log)
+    params_update: dict[str, Any] = {}
+    if update_keys is not None:
+        params_update["updateKeys"] = list(update_keys)
+    params_update["watchers"] = last_state.watchers or []
+
+    try:
+        state = last_state.create_next(document=document, params_update=params_update, timestamp=updated)
+    except ValueError as err:
+        raise DidWebvhError("invalidInput", f"did:webvh operation failed: {err}") from None
+    await _sign_state(state, signer, signer_key)
+    return await resolve_did_webvh_log(_serialize([*entries, state.history_line()]))
+
+
+async def deactivate_did_webvh_log(*, log: str, signer: AgentSigner) -> DidWebvhLogResult:
+    """Append a controller-signed deactivation entry (``deactivated: true``)."""
+    entries = _parse_log(log)
+    current = await resolve_did_webvh_log(log)
+    signer_key = await _assert_authorized_signer(signer, current.metadata)
+
+    last_state = await _load_last_state(log)
+    try:
+        state = last_state.create_next(
+            params_update={
+                "updateKeys": list(current.metadata.update_keys),
+                "nextKeyHashes": [],
+                "deactivated": True,
+            }
+        )
+    except ValueError as err:
+        raise DidWebvhError("invalidInput", f"did:webvh operation failed: {err}") from None
+    await _sign_state(state, signer, signer_key)
+    return await resolve_did_webvh_log(_serialize([*entries, state.history_line()]))
+
+
+async def resolve_did_webvh_log(
+    log: str,
+    *,
+    did: str | None = None,
+    version_id: str | None = None,
+    version_number: int | None = None,
+    version_time: str | None = None,
+) -> DidWebvhLogResult:
+    """Verify a ``did.jsonl`` log and return the resolved document.
+
+    Checks the SCID, entry hash chain, ``updateKeys`` proofs and version
+    times. Raises :class:`DidWebvhError` on any verification failure; it never
+    returns a partially verified result.
+    """
+    entries = _parse_log(log)
+    serialized = _serialize(entries)
+
+    if version_time is not None:
+        try:
+            datetime.fromisoformat(version_time.replace("Z", "+00:00"))
+        except ValueError:
+            raise DidWebvhError("invalidOptions", f"Invalid versionTime: {version_time}") from None
+
+    try:
+        state, meta = await DidResolver(WebvhVerifier()).resolve_state(
+            None,
+            _TextHistory(serialized),
+            version_id=version_id,
+            version_number=str(version_number) if version_number is not None else None,
+            version_time=version_time,
+        )
+    except ResolutionError as err:
+        raise DidWebvhError(_map_resolution_error(err.error), _resolution_message(err)) from None
+    except InvalidDocumentState as err:
+        raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {err}") from None
+    except AsyncTextReadError as err:
+        raise DidWebvhError("notFound", f"did:webvh log verification failed: {err}") from None
+
+    document = state.document_copy()
+    if not state.deactivated:
+        # Implicit #files and #whois services, as didwebvh-ts adds them. A
+        # deactivated DID resolves to the raw state of its last entry in both SDKs.
+        extend_document_services(document, did_base_url(state.document_id, files=True))
+    if did is not None and document.get("id") != did:
+        raise DidWebvhError("invalidDid", f"did:webvh log belongs to {document.get('id')}, not {did}")
+
+    serialized_meta = meta.serialize()
+    ttl = state.params.get("ttl")
+    metadata = DidWebvhMetadata(
+        version_id=state.version_id,
+        version_number=state.version_number,
+        version_time=state.timestamp_raw,
+        created=serialized_meta["created"],
+        # DID Core: the last update of the *resolved* version, not of the log.
+        updated=state.timestamp_raw,
+        scid=state.scid,
+        update_keys=list(state.update_keys),
+        deactivated=state.deactivated,
+        ttl=str(ttl) if ttl is not None else _DEFAULT_TTL,
+    )
+    return DidWebvhLogResult(did=str(document["id"]), document=document, metadata=metadata, log=serialized)
+
+
+class _TextHistory(HistoryResolver):  # type: ignore[misc]
+    """Feeds already-fetched log text to the reference resolver; never does I/O."""
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def resolve_entry_log(self, _document_id: str | None) -> Any:
+        return _read_text(self._text)
+
+    def resolve_witness_log(self, _document_id: str | None) -> Any:
+        return _no_witness_log()
+
+
+@asynccontextmanager
+async def _read_text(text: str) -> AsyncIterator[Any]:
+    yield AsyncTextReader(init=text)
+
+
+@asynccontextmanager
+async def _no_witness_log() -> AsyncIterator[Any]:
+    raise AsyncTextReadError("did:webvh witnesses are not supported by Agent-DID yet")
+    yield  # pragma: no cover
+
+
+async def _load_last_state(log: str) -> DocumentState:
+    state, _meta = await DidResolver(WebvhVerifier()).resolve_state(None, _TextHistory(_serialize(_parse_log(log))))
+    return state
+
+
+async def _sign_state(state: DocumentState, signer: AgentSigner, update_key: str) -> None:
+    """Append an ``eddsa-jcs-2022`` proof produced by an async :class:`AgentSigner`.
+
+    The reference library only signs with synchronous keys, so the proof is
+    assembled here exactly as ``di_jcs_sign`` does and checked against the
+    library verifier before it is used.
+    """
+    options = {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-jcs-2022",
+        "verificationMethod": f"did:key:{update_key}#{update_key}",
+        "created": state.timestamp_raw,
+        "proofPurpose": "assertionMethod",
+    }
+    data_hash = hashlib.sha256(di_jcs_canonicalize_input(state.history_line())).digest()
+    options_hash = hashlib.sha256(jsoncanon.canonicalize(options)).digest()
+    signature = bytes.fromhex(await signer.sign(options_hash + data_hash))
+    # Same member order as didwebvh-ts, so both SDKs emit identical log lines.
+    proof = {
+        "type": options["type"],
+        "cryptosuite": options["cryptosuite"],
+        "verificationMethod": options["verificationMethod"],
+        "created": options["created"],
+        "proofValue": "z" + _base58_encode(signature),
+        "proofPurpose": options["proofPurpose"],
+    }
+    try:
+        state.verify_proof(proof, {"type": "Multikey", "publicKeyMultibase": update_key})
+    except ValueError:
+        raise DidWebvhError("unauthorized", "Signer produced a signature that does not match its public key") from None
+    state.proofs.append(proof)
+
+
+async def _assert_authorized_signer(signer: AgentSigner, metadata: DidWebvhMetadata) -> str:
+    if metadata.deactivated:
+        raise DidWebvhError("invalidInput", "did:webvh DID is deactivated")
+    signer_key = await did_webvh_update_key_for(signer)
+    if signer_key not in metadata.update_keys:
+        raise DidWebvhError("unauthorized", "Signer key is not in the active did:webvh updateKeys")
+    return signer_key
+
+
+def _parse_log(log: str) -> list[dict[str, Any]]:
+    if not isinstance(log, str):
+        raise DidWebvhError("invalidInput", "did:webvh log must be a string")
+    lines = [line for line in re.split(r"\r?\n", log) if line.strip()]
+    if not lines:
+        raise DidWebvhError("notFound", "did:webvh log is empty")
+    entries: list[dict[str, Any]] = []
+    for index, line in enumerate(lines, start=1):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            raise DidWebvhError("invalidDid", f"did:webvh log line {index} is not valid JSON") from None
+        if not isinstance(entry, dict):
+            raise DidWebvhError("invalidDid", f"did:webvh log line {index} is not a JSON object")
+        entries.append(entry)
+    return entries
+
+
+def _serialize(entries: list[dict[str, Any]]) -> str:
+    return "".join(json.dumps(entry, separators=(",", ":"), ensure_ascii=False) + "\n" for entry in entries)
+
+
+def _map_resolution_error(code: str) -> DidWebvhErrorCode:
+    if code == "notFound":
+        return "notFound"
+    return "invalidDid"
+
+
+def _resolution_message(err: ResolutionError) -> str:
+    details = err.problem_details
+    if isinstance(details, list):
+        details = details[0] if details else None
+    if details is not None:
+        serialized = details.serialize()
+        detail = serialized.get("detail") or serialized.get("title")
+        if detail:
+            return f"did:webvh log verification failed: {detail}"
+    return f"did:webvh log verification failed: {err.error}"
+
+
+def _validate_domain(domain: str) -> tuple[str, str | None]:
+    if not isinstance(domain, str) or not domain:
+        raise DidWebvhError("invalidInput", "did:webvh domain is required")
+    host, separator, port = domain.rpartition(":")
+    if not separator:
+        host, port = domain, ""
+    labels = host.split(".")
+    if len(host) > 253 or len(labels) < 2 or not all(_HOST_LABEL.match(label) for label in labels):
+        raise DidWebvhError("invalidInput", f"Invalid did:webvh domain: {domain}")
+    if separator and (not _PORT.match(port) or int(port) > 65535):
+        raise DidWebvhError("invalidInput", f"Invalid did:webvh port: {domain}")
+    return host, port or None
+
+
+def _validate_path_segment(segment: str) -> None:
+    if not isinstance(segment, str) or not _PATH_SEGMENT.match(segment) or segment in (".", ".."):
+        raise DidWebvhError("invalidInput", f"Invalid did:webvh path segment: {segment}")
+
+
+def _validate_update_key(key: str) -> None:
+    decoded: bytes | None = None
+    if isinstance(key, str) and key.startswith("z"):
+        try:
+            decoded = _base58_decode(key[1:])
+        except ValueError:
+            decoded = None
+    if decoded is None or len(decoded) != 34 or decoded[:2] != b"\xed\x01":
+        raise DidWebvhError("invalidInput", f"updateKeys entries must be Ed25519 multikeys: {key}")
+
+
+def _validate_version_time(value: str, name: str, max_future_skew: timedelta) -> None:
+    if not isinstance(value, str) or not _VERSION_TIME.match(value):
+        raise DidWebvhError("invalidInput", f"{name} must be a UTC timestamp like 2026-01-01T00:00:00Z")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise DidWebvhError("invalidInput", f"{name} must be a valid UTC timestamp") from None
+    if parsed > datetime.now(timezone.utc) + max_future_skew:
+        raise DidWebvhError("invalidInput", f"{name} must not be in the future")

@@ -101,3 +101,17 @@ verify_metadata_commitment(result.document.agent_metadata.system_prompt_hash, pr
 ```
 
 Existing documents keep their `hash://sha256/` values; `verify_metadata_commitment` still verifies them without a salt. Code that recomputed `generate_agent_metadata_hash(prompt)` to compare against a new document must switch to `verify_metadata_commitment` with the salt.
+
+## 4. New `did-webvh` dependency and platform support
+
+### What changed
+
+`agent-did-sdk` depends on [`did-webvh`](https://pypi.org/project/did-webvh/) for `did:webvh` v1.0 support ([ADR-002](../docs/ADR-002-did-webvh-v1.0-Implementation.md)). It pulls `aries-askar`, a native library, and `aiohttp`.
+
+### Impact
+
+`aries-askar` publishes wheels for `manylinux2014` (x86_64, aarch64), macOS (universal2) and Windows x86_64 only. `pip install agent-did-sdk` fails on Alpine (musl) images and on Windows ARM64.
+
+### What to do
+
+Use a glibc-based image (for example `python:3.12-slim`) instead of Alpine. An upstream change to make these dependencies optional is tracked; this section will be updated when it lands.

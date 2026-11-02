@@ -1,6 +1,6 @@
 # ADR-002: did:webvh v1.0 Implementation Strategy
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-02)
 - **Date:** 2026-11-02
 - **Work item:** M-02 (`1.0.0-rc.3` train)
 - **Deciders:** Agent-DID maintainers
@@ -92,7 +92,7 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
 - **Pros:** avoids Askar and `aiohttp` in the Python SDK.
 - **Cons:** the Python verifier becomes our security-critical code, carrying the risks of option B for one SDK; it also creates permanent asymmetry between the SDKs.
 
-## Decision (proposed)
+## Decision
 
 **Option A**, with these conditions:
 
@@ -123,7 +123,7 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
   - the `@noble` v2 migration in TS;
   - registering Agent-DID as an implementation in `didwebvh-test-suite` once it is conformant.
 
-## Open questions for the decision
+## Resolved questions
 
 1. ~~Is the Python packaging limitation in condition 4 acceptable for `rc.3`?~~ **Resolved (2026-11-02):** the Alpine and Windows ARM64 limitation is **not** blocking for `rc.3`; it is documented and tracked through the upstream PR.
-2. Should `didDocumentMetadata` expose the full did:webvh parameters (`updateKeys`, `ttl`, `witness`) in Agent-DID resolution results, or only what RFC-001 needs?
+2. ~~Should `didDocumentMetadata` expose the full did:webvh parameters (`updateKeys`, `ttl`, `witness`) in Agent-DID resolution results, or only what RFC-001 needs?~~ **Resolved (2026-11-02):** the adapters expose `versionId`, `versionNumber`, `versionTime`, `created`, `updated`, `scid`, `updateKeys`, `deactivated` and `ttl` (the did:webvh default, `3600`, when the log does not set one). Witness and watcher configuration stay internal until the SDKs support them (condition 7).

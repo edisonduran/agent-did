@@ -100,3 +100,13 @@ verifyMetadataCommitment(document.agentMetadata.systemPromptHash, systemPrompt, 
 ```
 
 Existing documents keep their `hash://sha256/` values; `verifyMetadataCommitment` still verifies them without a salt. Code that recomputed `generateAgentMetadataHash(prompt)` to compare against a new document must switch to `verifyMetadataCommitment` with the salt.
+
+## 4. Node.js 22.12 or later
+
+### What changed
+
+`engines.node` is now `>=22.12.0` (was `>=22.0.0`). The SDK depends on `didwebvh-ts` for `did:webvh` v1.0 support ([ADR-002](../docs/ADR-002-did-webvh-v1.0-Implementation.md)), and that package needs `require(esm)`, which is unflagged from Node.js 22.12.
+
+### What to do
+
+Run on Node.js 22.12 or later. The October 2026 security releases (22.23.4+, 24.22.1+ or 26.12.1+) already meet the floor.
