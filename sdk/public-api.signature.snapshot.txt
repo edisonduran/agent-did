@@ -345,11 +345,11 @@ export interface VerifyHttpRequestSignatureParams {
 
 ## crypto/hash.d.ts
 /**
- * Generates a deterministic SHA-256 hash of a string payload.
- * Used to protect intellectual property (like system prompts) while allowing verification.
+ * Generates a deterministic SHA-256 hash of a string payload (UTF-8 encoded).
+ * Used to commit to metadata such as system prompts while allowing verification.
  *
  * @param payload The raw string to hash (e.g., "You are a helpful assistant...")
- * @returns A hex string representing the SHA-256 hash (e.g., "0x1234...")
+ * @returns A `0x`-prefixed lowercase hex SHA-256 digest
  */
 export declare function hashPayload(payload: string): string;
 /**
@@ -367,7 +367,18 @@ export declare function formatHashUri(hashHex: string): string;
  * @returns A formatted URI string
  */
 export declare function generateAgentMetadataHash(payload: string): string;
+/**
+ * Returns the RFC 8785 (JCS) canonical JSON serialization of `value`.
+ * Values are hashed exactly as given: no field (timestamps included) is
+ * rewritten before canonicalization.
+ *
+ * @throws TypeError for non-finite numbers, bigint, or a top-level value with no JSON representation
+ */
 export declare function canonicalizeJson(value: unknown): string;
+/**
+ * Returns the `hash://sha256/<hex>` reference of a DID document: SHA-256 over the
+ * UTF-8 bytes of its RFC 8785 (JCS) canonical form.
+ */
 export declare function generateCanonicalDocumentHash(document: unknown): string;
 
 ## crypto/multibase.d.ts

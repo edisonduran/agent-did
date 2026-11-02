@@ -153,6 +153,8 @@ graph TD
 2. A JSON-LD document is built with model/prompt hashes.
 3. The DID document and, where applicable, its method-specific history are published so a verifier can resolve the agent and its controller chain.
 
+**Document reference (`documentRef`).** When an implementation addresses a DID document by content hash, the reference MUST be computed as `hash://sha256/<hex>`, where `<hex>` is the lowercase hexadecimal SHA-256 digest of the UTF-8 bytes of the document's JSON Canonicalization Scheme (JCS, RFC 8785) serialization. Values, including timestamps, MUST be hashed exactly as they appear in the document; implementations MUST NOT normalize them before canonicalization.
+
 ### 6.2 Resolution and Verification
 
 1. Consumer obtains `Signature-Agent` or the issuer's DID.
@@ -234,8 +236,10 @@ To validate verification compatibility between implementations, maintain version
 
 Current fixture reference:
 
-- `sdk/tests/fixtures/interop-vectors.json`
-- `sdk/tests/InteropVectors.test.ts`
+- `fixtures/interop-vectors.json` (message and HTTP signatures)
+- `fixtures/canonical-document-reference.json` (`documentRef` computation)
+- `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)
+- `sdk/tests/InteropVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`
 
 ### 7.3 Quick Mapping: RFC → SDK
 

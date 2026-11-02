@@ -30,3 +30,9 @@ def interop_vectors() -> dict:
 def canonical_document_fixture() -> dict:
     path = pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "canonical-document-reference.json"
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture()
+def jcs_vectors() -> dict:
+    path = pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "jcs-vectors.json"
+    return json.loads(path.read_text(encoding="utf-8"))

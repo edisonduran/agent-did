@@ -6,7 +6,7 @@ import time
 from urllib.parse import quote, unquote, urlparse
 
 from ..core.types import AgentDIDDocument
-from ..crypto.hash import generate_agent_metadata_hash
+from ..crypto.hash import generate_canonical_document_hash
 from .http_source import HttpDIDDocumentSource
 from .types import (
     ResolverCacheStats,
@@ -262,5 +262,4 @@ class UniversalResolverClient:
 
     @staticmethod
     def _compute_ref(document: AgentDIDDocument) -> str:
-        import json
-        return generate_agent_metadata_hash(json.dumps(document.model_dump_jsonld(), sort_keys=True))
+        return generate_canonical_document_hash(document.model_dump_jsonld())

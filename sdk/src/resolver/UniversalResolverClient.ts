@@ -1,5 +1,5 @@
 import { AgentDIDDocument } from '../core/types';
-import { generateAgentMetadataHash } from '../crypto/hash';
+import { generateCanonicalDocumentHash } from '../crypto/hash';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import {
   DIDResolver,
@@ -304,7 +304,7 @@ export class UniversalResolverClient implements DIDResolver {
   }
 
   private computeDocumentReference(document: AgentDIDDocument): string {
-    return generateAgentMetadataHash(JSON.stringify(document));
+    return generateCanonicalDocumentHash(document);
   }
 
   private clone(document: AgentDIDDocument): AgentDIDDocument {

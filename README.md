@@ -117,6 +117,7 @@ The project is past the specification-only phase: it includes a functional imple
 - **Breaking wire change in the RC**: HTTP message signatures now sign the `"@signature-params"` line (RFC 9421 §2.5), so signatures from `@agentdid/sdk` ≤ 0.2.0 or `agent-did-sdk` ≤ 0.1.0 do not verify against the RC and vice versa; see [CHANGELOG.md](CHANGELOG.md)
 - **Runtime floor**: `@agentdid/sdk` and `@agentdid/langchain` require Node.js 22+
 - **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
+- **`rc.2 -> rc.3` breaking changes (in progress on `main`)**: [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md), [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
 - **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
 - **Current RC work**: validate public-registry clean-install smokes against the published `1.0.0-rc.2` packages, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
 - **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)

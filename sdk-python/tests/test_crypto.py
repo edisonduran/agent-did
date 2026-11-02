@@ -1,6 +1,7 @@
 """Tests for the crypto/hash module."""
 
 import pytest
+import rfc8785
 
 from agent_did_sdk.crypto.hash import (
     canonicalize_json,
@@ -46,27 +47,38 @@ class TestGenerateAgentMetadataHash:
 
 
 class TestCanonicalDocumentHash:
-    def test_canonicalizes_keys_and_timestamps(self) -> None:
+    def test_key_order_does_not_change_the_hash(self) -> None:
         left = {
-            "updated": "2024-01-01T00:00:00+00:00",
-            "agentMetadata": {
-                "systemPromptHash": "hash://sha256/prompt",
-                "coreModelHash": "hash://sha256/model",
-                "version": "1.0.0",
-                "name": "Fixture",
-            },
-            "created": "2024-01-01T00:00:00Z",
+            "updated": "2024-01-01T00:00:00.000Z",
+            "agentMetadata": {"systemPromptHash": "hash://sha256/prompt", "name": "Fixture"},
+            "created": "2024-01-01T00:00:00.000Z",
         }
         right = {
             "created": "2024-01-01T00:00:00.000Z",
-            "agentMetadata": {
-                "name": "Fixture",
-                "version": "1.0.0",
-                "coreModelHash": "hash://sha256/model",
-                "systemPromptHash": "hash://sha256/prompt",
-            },
+            "agentMetadata": {"name": "Fixture", "systemPromptHash": "hash://sha256/prompt"},
             "updated": "2024-01-01T00:00:00.000Z",
         }
 
         assert canonicalize_json(left) == canonicalize_json(right)
         assert generate_canonical_document_hash(left) == generate_canonical_document_hash(right)
+
+    def test_timestamps_are_hashed_as_given(self) -> None:
+        # JCS does not rewrite values: equivalent instants with different spellings differ.
+        assert canonicalize_json({"created": "2024-01-01T00:00:00Z"}) == '{"created":"2024-01-01T00:00:00Z"}'
+        assert generate_canonical_document_hash({"created": "2024-01-01T00:00:00Z"}) != (
+            generate_canonical_document_hash({"created": "2024-01-01T00:00:00.000Z"})
+        )
+
+    def test_sorts_by_utf16_code_units_not_locale(self) -> None:
+        assert canonicalize_json({"a": 1, "B": 2, "é": 3, "😂": 4, "דּ": 5}) == (
+            '{"B":2,"a":1,"é":3,"😂":4,"דּ":5}'
+        )
+
+    def test_null_members_are_kept(self) -> None:
+        assert canonicalize_json({"b": None, "a": [None]}) == '{"a":[null],"b":null}'
+
+    def test_rejects_values_outside_jcs(self) -> None:
+        with pytest.raises(rfc8785.CanonicalizationError):
+            canonicalize_json(float("nan"))
+        with pytest.raises(rfc8785.CanonicalizationError):
+            canonicalize_json(2**60)

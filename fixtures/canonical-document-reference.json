@@ -1,4 +1,5 @@
 {
+  "canonicalization": "RFC 8785 (JCS); documentRef = hash://sha256/ + hex(SHA-256(UTF-8(JCS(document)))). Timestamps are hashed as written.",
   "document": {
     "@context": [
       "https://www.w3.org/ns/did/v1",
@@ -31,5 +32,5 @@
       "did:agent:polygon:0xcanonicalfixture#key-1"
     ]
   },
-  "expectedDocumentRef": "hash://sha256/b866a80f6d27de0996b99cdc74dadb5df633b9b2eab30cd3195a6e9cc3333df9"
+  "expectedDocumentRef": "hash://sha256/9bb9d869ba8861acf18456dd051ad7a28bf23b0074c37c5a22e67901daa80d4b"
 }

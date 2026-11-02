@@ -6,6 +6,20 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [errata-document-ref-jcs] - Unreleased (1.0.0-rc.3 train)
+
+### Decision Trigger
+
+- RFC-001 did not define how `documentRef` content hashes are computed. Both SDKs sorted keys with language-specific rules and normalized timestamps before hashing, which is not a published canonicalization scheme and cannot be reproduced by third-party implementations.
+
+### Result
+
+- §6.1 now requires `documentRef = hash://sha256/<hex(SHA-256(UTF-8(JCS(document))))>` per RFC 8785, with values (including timestamps) hashed as written.
+- §7.2 lists the shared `documentRef` and RFC 8785 fixtures.
+- References computed under the previous scheme do not match references computed under the new one. See the `1.0.0-rc.2` → `1.0.0-rc.3` migration guides.
+
+---
+
 ## [errata-http-signature-params] - 2026-11-01
 
 ### Decision Trigger
