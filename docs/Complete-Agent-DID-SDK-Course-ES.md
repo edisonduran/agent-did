@@ -4667,7 +4667,7 @@ El estudiante tiene **base sólida para presentar** ante la comunidad. Las forta
 ## Prerequisitos y Recursos
 
 ### Para seguir este curso necesitas:
-- Node.js 18+ instalado
+- Node.js 22+ instalado
 - npm
 - El repositorio clonado y con dependencias instaladas:
   ```bash

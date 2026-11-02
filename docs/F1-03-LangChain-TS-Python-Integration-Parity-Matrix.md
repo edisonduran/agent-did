@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-01 | El README de LangChain JS indica Node.js 22+, en linea con `engines.node`. Solo documentacion; sin cambios en la API publica. |
 | 2026-11-01 | El `package.json` de LangChain JS declara `repository` (con `directory`), `homepage` y `bugs`, necesarios para la procedencia de npm con trusted publishing. Sin cambios en la API publica. |
 | 2026-11-01 | LangChain JS declara `engines.node >=22.0.0`: Node 18/20 estan en fin de vida y no recibieron los parches de seguridad de Node.js de octubre de 2026. Sin cambios en la API publica ni en la parity funcional con Python. |
 | 2026-11-01 | El adaptador LangSmith de LangChain Python ya no duplica child runs con `langsmith>=0.14`, que agrega el hijo dentro de `RunTree.create_child`. Queda alineado con el adaptador TS (un child run por evento). Sin cambios en la API publica. |

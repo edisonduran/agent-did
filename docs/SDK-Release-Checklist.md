@@ -8,6 +8,12 @@ Documentation status and canonical-source rules are defined in `docs/Documentati
 
 For the coordinated core `1.0.0` prerelease/stable train, the canonical publication entrypoint is `.github/workflows/publish-release-train.yml` driven by a monorepo tag such as `v1.0.0-rc.1`. The package-specific workflows `.github/workflows/publish-sdk.yml` and `.github/workflows/publish-python-sdk.yml` remain valid for SDK-only release paths.
 
+Release-train publication prerequisites:
+
+- npm Trusted Publishing for `@agentdid/sdk` and `@agentdid/langchain` points at `publish-release-train.yml`; the workflow runs on Node 24 and upgrades npm to `>=11.5.1`, which OIDC trusted publishing requires.
+- Each npm package declares `repository` metadata matching this GitHub repository, otherwise npm provenance is rejected.
+- Each PyPI package has its own GitHub environment (`pypi-agent-did-sdk`, `pypi-agent-did-langchain`, `pypi-agent-did-crewai`, `pypi-agent-did-semantic-kernel`, `pypi-agent-did-microsoft-agent-framework`, `pypi-agent-did-a2a`) and a matching PyPI trusted publisher. PyPI rejects a pending publisher whose owner/repo/workflow/environment is already registered for another project.
+
 This checklist is intended for:
 
 1. Release preparation.

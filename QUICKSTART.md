@@ -13,11 +13,13 @@ If you want a live browser walkthrough before wiring code, open [Agent-DID in Ac
 
 ## Node.js (TypeScript SDK, local signing flow)
 
-Install:
+Install (requires Node.js 22+):
 
 ```bash
-npm install @agentdid/sdk ethers
+npm install @agentdid/sdk@next ethers
 ```
+
+`@next` selects the `1.0.0-rc.1` release candidate; without it npm installs the pre-RC `0.2.0`, whose HTTP signatures do not verify against `1.0.0-rc.1`.
 
 Save this as `quickstart.js` and run `node quickstart.js`:
 
@@ -70,8 +72,10 @@ This snippet proves the current local SDK signing flow. The SDK auto-bootstraps 
 Install:
 
 ```bash
-pip install agent-did-sdk
+pip install agent-did-sdk==1.0.0rc1
 ```
+
+Pinning `1.0.0rc1` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose HTTP signatures do not verify against `1.0.0rc1`.
 
 Save this as `quickstart.py` and run `python quickstart.py`:
 

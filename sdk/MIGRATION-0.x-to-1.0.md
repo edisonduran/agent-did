@@ -8,6 +8,8 @@ This guide is for adopters moving from any pre-`1.0.0` release of `@agentdid/sdk
 - Local `did:webvh` bootstrap is the default developer path; hosted publication of `did.jsonl` remains a separate deployment step.
 - Signature and HTTP verification enforce `assertionMethod` by default.
 - Verification resolves the controller chain and rejects inactive or unresolvable states.
+- HTTP message signatures now cover `created`, `expires`, `keyid` and `alg` through an `"@signature-params"` line in the signature base (RFC 9421 §2.5). This is a wire-level break: requests signed by `0.x` do not verify with `1.0`, and requests signed by `1.0` do not verify with `0.x`.
+- The package requires Node.js 22+.
 - The EVM registry adapter remains available only as an explicit compatibility profile. It is outside the core `1.0.0` release promise.
 
 ## Before and After
@@ -78,6 +80,8 @@ const result = await identity.create({
 
 ## Upgrade Checklist
 
+- Upgrade signers and verifiers of HTTP requests together (TypeScript and Python peers included); mixed `0.x`/`1.0` deployments reject each other's HTTP signatures.
+- Run on Node.js 22 or later.
 - Remove any code, docs, or tests that assume chain-backed registration is the default.
 - Update snapshots and downstream assertions for `did:webvh` output.
 - Ensure your signing keys are published under `assertionMethod`.

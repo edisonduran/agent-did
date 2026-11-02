@@ -97,6 +97,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-01 | LangChain JS README now states Node.js 22+, matching `engines.node`. Documentation only; no public surface change. |
 | 2026-11-01 | LangChain JS `package.json` now declares `repository` (with `directory`), `homepage` and `bugs`, required for npm provenance on trusted publishing. Python metadata unchanged; no public surface change. |
 | 2026-11-01 | LangChain JS now declares `engines.node >=22.0.0` (Node 18/20 are EOL and unpatched for the October 2026 Node.js security releases). Python packages are unaffected; no public surface change. |
 | 2026-11-01 | LangChain Python LangSmith adapter no longer double-appends child runs when `langsmith>=0.14` already appends inside `RunTree.create_child`. Behavior now matches the TS adapter (one child run per event); no public surface change. |

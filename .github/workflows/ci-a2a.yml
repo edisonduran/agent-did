@@ -17,6 +17,9 @@ on:
       - "package.json"
       - ".github/workflows/ci-a2a.yml"
   workflow_dispatch:
+  # Daily run on main keeps the C-QA-8 green window evidence-based.
+  schedule:
+    - cron: '17 6 * * *'
 
 concurrency:
   group: ci-a2a-${{ github.ref }}
