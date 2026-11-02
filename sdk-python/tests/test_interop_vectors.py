@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import struct
+
+import pytest
+import rfc8785
 from nacl.signing import VerifyKey
 
 from agent_did_sdk.core.identity import AgentIdentity
@@ -9,7 +14,7 @@ from agent_did_sdk.core.types import (
     AgentDIDDocument,
     VerifyHttpRequestSignatureParams,
 )
-from agent_did_sdk.crypto.hash import generate_canonical_document_hash
+from agent_did_sdk.crypto.hash import canonicalize_json, generate_canonical_document_hash
 from agent_did_sdk.crypto.multibase import decode_public_key_multibase
 
 
@@ -102,3 +107,20 @@ class TestCanonicalDocumentReferenceVector:
         assert generate_canonical_document_hash(
             canonical_document_fixture["document"]
         ) == canonical_document_fixture["expectedDocumentRef"]
+
+
+class TestJcsConformanceVectors:
+    """RFC 8785 vectors shared with the TypeScript SDK (fixtures/jcs-vectors.json)."""
+
+    def test_reference_documents(self, jcs_vectors: dict) -> None:
+        for case in jcs_vectors["documents"]:
+            assert canonicalize_json(json.loads(case["input"])) == case["expected"], case["name"]
+
+    def test_appendix_b_numbers(self, jcs_vectors: dict) -> None:
+        for case in jcs_vectors["numbers"]:
+            value = struct.unpack(">d", bytes.fromhex(case["ieee754"]))[0]
+            if case.get("error"):
+                with pytest.raises(rfc8785.CanonicalizationError):
+                    canonicalize_json(value)
+            else:
+                assert canonicalize_json(value) == case["expected"], case["ieee754"]

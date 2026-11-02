@@ -1,0 +1,145 @@
+{
+  "description": "RFC 8785 (JCS) conformance vectors shared by the TypeScript and Python SDKs.",
+  "sources": {
+    "documents": "https://github.com/cyberphone/json-canonicalization/tree/master/testdata (reference test data by the RFC 8785 authors; input is raw JSON text, expected is the canonical UTF-8 output)",
+    "numbers": "RFC 8785 Appendix B (IEEE-754 binary64 big-endian hex -> canonical string; error=true means the value MUST be rejected)"
+  },
+  "documents": [
+    {
+      "name": "arrays",
+      "input": "[\n  56,\n  {\n    \"d\": true,\n    \"10\": null,\n    \"1\": [ ]\n  }\n]\n",
+      "expected": "[56,{\"1\":[],\"10\":null,\"d\":true}]"
+    },
+    {
+      "name": "french",
+      "input": "{\n  \"peach\": \"This sorting order\",\n  \"péché\": \"is wrong according to French\",\n  \"pêche\": \"but canonicalization MUST\",\n  \"sin\":   \"ignore locale\"\n}\n",
+      "expected": "{\"peach\":\"This sorting order\",\"péché\":\"is wrong according to French\",\"pêche\":\"but canonicalization MUST\",\"sin\":\"ignore locale\"}"
+    },
+    {
+      "name": "structures",
+      "input": "{\n  \"1\": {\"f\": {\"f\": \"hi\",\"F\": 5} ,\"\\n\": 56.0},\n  \"10\": { },\n  \"\": \"empty\",\n  \"a\": { },\n  \"111\": [ {\"e\": \"yes\",\"E\": \"no\" } ],\n  \"A\": { }\n}",
+      "expected": "{\"\":\"empty\",\"1\":{\"\\n\":56,\"f\":{\"F\":5,\"f\":\"hi\"}},\"10\":{},\"111\":[{\"E\":\"no\",\"e\":\"yes\"}],\"A\":{},\"a\":{}}"
+    },
+    {
+      "name": "unicode",
+      "input": "{\n  \"Unnormalized Unicode\":\"A\\u030a\"\n}\n",
+      "expected": "{\"Unnormalized Unicode\":\"Å\"}"
+    },
+    {
+      "name": "values",
+      "input": "{\n  \"numbers\": [333333333.33333329, 1E30, 4.50, 2e-3, 0.000000000000000000000000001],\n  \"string\": \"\\u20ac$\\u000F\\u000aA'\\u0042\\u0022\\u005c\\\\\\\"\\/\",\n  \"literals\": [null, true, false]\n}",
+      "expected": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}"
+    },
+    {
+      "name": "weird",
+      "input": "{\n  \"\\u20ac\": \"Euro Sign\",\n  \"\\r\": \"Carriage Return\",\n  \"\\u000a\": \"Newline\",\n  \"1\": \"One\",\n  \"\\u0080\": \"Control\\u007f\",\n  \"\\ud83d\\ude02\": \"Smiley\",\n  \"\\u00f6\": \"Latin Small Letter O With Diaeresis\",\n  \"\\ufb33\": \"Hebrew Letter Dalet With Dagesh\",\n  \"</script>\": \"Browser Challenge\"\n}\n",
+      "expected": "{\"\\n\":\"Newline\",\"\\r\":\"Carriage Return\",\"1\":\"One\",\"</script>\":\"Browser Challenge\",\"\":\"Control\",\"ö\":\"Latin Small Letter O With Diaeresis\",\"€\":\"Euro Sign\",\"😂\":\"Smiley\",\"דּ\":\"Hebrew Letter Dalet With Dagesh\"}"
+    }
+  ],
+  "numbers": [
+    {
+      "ieee754": "0000000000000000",
+      "expected": "0"
+    },
+    {
+      "ieee754": "8000000000000000",
+      "expected": "0"
+    },
+    {
+      "ieee754": "0000000000000001",
+      "expected": "5e-324"
+    },
+    {
+      "ieee754": "8000000000000001",
+      "expected": "-5e-324"
+    },
+    {
+      "ieee754": "7fefffffffffffff",
+      "expected": "1.7976931348623157e+308"
+    },
+    {
+      "ieee754": "ffefffffffffffff",
+      "expected": "-1.7976931348623157e+308"
+    },
+    {
+      "ieee754": "4340000000000000",
+      "expected": "9007199254740992"
+    },
+    {
+      "ieee754": "c340000000000000",
+      "expected": "-9007199254740992"
+    },
+    {
+      "ieee754": "4430000000000000",
+      "expected": "295147905179352830000"
+    },
+    {
+      "ieee754": "7fffffffffffffff",
+      "error": true
+    },
+    {
+      "ieee754": "7ff0000000000000",
+      "error": true
+    },
+    {
+      "ieee754": "44b52d02c7e14af5",
+      "expected": "9.999999999999997e+22"
+    },
+    {
+      "ieee754": "44b52d02c7e14af6",
+      "expected": "1e+23"
+    },
+    {
+      "ieee754": "44b52d02c7e14af7",
+      "expected": "1.0000000000000001e+23"
+    },
+    {
+      "ieee754": "444b1ae4d6e2ef4e",
+      "expected": "999999999999999700000"
+    },
+    {
+      "ieee754": "444b1ae4d6e2ef4f",
+      "expected": "999999999999999900000"
+    },
+    {
+      "ieee754": "444b1ae4d6e2ef50",
+      "expected": "1e+21"
+    },
+    {
+      "ieee754": "3eb0c6f7a0b5ed8c",
+      "expected": "9.999999999999997e-7"
+    },
+    {
+      "ieee754": "3eb0c6f7a0b5ed8d",
+      "expected": "0.000001"
+    },
+    {
+      "ieee754": "41b3de4355555553",
+      "expected": "333333333.3333332"
+    },
+    {
+      "ieee754": "41b3de4355555554",
+      "expected": "333333333.33333325"
+    },
+    {
+      "ieee754": "41b3de4355555555",
+      "expected": "333333333.3333333"
+    },
+    {
+      "ieee754": "41b3de4355555556",
+      "expected": "333333333.3333334"
+    },
+    {
+      "ieee754": "41b3de4355555557",
+      "expected": "333333333.33333343"
+    },
+    {
+      "ieee754": "becbf647612f3696",
+      "expected": "-0.0000033333333333333333"
+    },
+    {
+      "ieee754": "43143ff3c1cb0959",
+      "expected": "1424953923781206.2"
+    }
+  ]
+}

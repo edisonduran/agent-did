@@ -23,6 +23,7 @@ Requires-Dist: pydantic>=2.0
 Requires-Dist: pynacl>=1.5
 Requires-Dist: web3>=6.0
 Requires-Dist: httpx>=0.27
+Requires-Dist: rfc8785<0.2,>=0.1.4
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
@@ -39,7 +40,7 @@ Functional parity with the TypeScript SDK (`@agentdid/sdk`), with a dedicated Py
 
 Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.md`.
 
-> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.1` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.2` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
 > **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md).
 

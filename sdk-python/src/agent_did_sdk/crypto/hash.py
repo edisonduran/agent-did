@@ -3,35 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import json
+from typing import Any, cast
 
-
-def _is_timestamp_key(key: str | None) -> bool:
-    return key in {"created", "updated", "timestamp"}
-
-
-def _normalize_timestamp_value(value: str) -> str:
-    from agent_did_sdk.core.time_utils import normalize_timestamp_to_iso
-
-    normalized = normalize_timestamp_to_iso(value)
-    return normalized if normalized is not None else value
-
-
-def _canonicalize_json_value(value: object, key: str | None = None) -> object:
-    if isinstance(value, str) and _is_timestamp_key(key):
-        return _normalize_timestamp_value(value)
-
-    if isinstance(value, list):
-        return [_canonicalize_json_value(item) for item in value]
-
-    if isinstance(value, dict):
-        return {
-            entry_key: _canonicalize_json_value(entry_value, entry_key)
-            for entry_key, entry_value in sorted(value.items())
-            if entry_value is not None
-        }
-
-    return value
+import rfc8785
 
 
 def hash_payload(payload: str) -> str:
@@ -58,10 +32,23 @@ def generate_agent_metadata_hash(payload: str) -> str:
 
 
 def canonicalize_json(value: object) -> str:
-    """Return a deterministic JSON string with sorted keys and normalized timestamps."""
-    return json.dumps(_canonicalize_json_value(value), separators=(",", ":"), ensure_ascii=False)
+    """Return the RFC 8785 (JCS) canonical JSON serialization of *value*.
+
+    Values are hashed exactly as given: no field (timestamps included) is rewritten
+    before canonicalization, and ``None`` serializes as ``null``.
+
+    Raises:
+        rfc8785.CanonicalizationError: for values JCS cannot represent, such as
+            non-finite floats or integers outside the IEEE-754 safe integer range.
+    """
+    # rfc8785 validates the value tree itself and raises on unsupported types.
+    return rfc8785.dumps(cast(Any, value)).decode("utf-8")
 
 
 def generate_canonical_document_hash(document: object) -> str:
-    """Return the canonical ``hash://`` reference for a DID document-like payload."""
+    """Return the ``hash://sha256/<hex>`` reference of a DID document.
+
+    The digest is SHA-256 over the UTF-8 bytes of the document's RFC 8785 (JCS)
+    canonical form.
+    """
     return generate_agent_metadata_hash(canonicalize_json(document))

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Agent-DID: an identity layer for AI agents (W3C DID/VC, `did:webvh` as the canonical path, Ed25519, HTTP Message Signatures). The repo is a monorepo holding the spec, two SDKs that must stay in parity, six framework integrations and deferred EVM contracts. Current train: `1.0.0-rc.1` published, `rc.2` in preparation.
+Agent-DID: an identity layer for AI agents (W3C DID/VC, `did:webvh` as the canonical path, Ed25519, HTTP Message Signatures). The repo is a monorepo holding the spec, two SDKs that must stay in parity, six framework integrations and deferred EVM contracts. Current train: `1.0.0-rc.2` published (security release), `rc.3` in preparation.
 
 Maintainers may keep session-specific context in `CLAUDE.local.md`, which is gitignored. Read it when present.
 
@@ -50,10 +50,10 @@ Run a single test with `npm --prefix sdk test -- AgentIdentity.test.ts -t "name"
 
 - **TS/Python parity is mandatory.** Any change to SDK behavior, wire formats or hashing lands in both SDKs in the same PR, with updated interop vectors (`scripts/regenerate-interop-vectors.js`). Never close a work item in a single SDK.
 - **Public API is snapshotted.** If you change exports or signatures intentionally, regenerate them with `npm run api:snapshot` and explain why in the PR. Never regenerate a snapshot just to make a check pass.
-- **Wire/format changes are breaking.** This covers signature bases, the canonicalization behind document hashes, DID log formats and hash URIs. They go only into the planned `rc.2` train and need an entry in `CHANGELOG.md` and the migration guides (`sdk/MIGRATION-*.md`, `sdk-python/MIGRATION-*.md`).
+- **Wire/format changes are breaking.** This covers signature bases, the canonicalization behind document hashes, DID log formats and hash URIs. They go only into the planned `rc.3` train and need an entry in `CHANGELOG.md` and the migration guides (`sdk/MIGRATION-*.md`, `sdk-python/MIGRATION-*.md`).
 - **Crypto hygiene:**
   - Never derive private keys from public data.
-  - Use `@noble/*` in TS and `pynacl`/`hashlib`/`secrets` in Python.
+  - Use `@noble/*` in TS and `pynacl`/`hashlib`/`secrets` in Python. Canonical JSON for hashing is RFC 8785 (JCS) only: `canonicalizeJson` / `canonicalize_json` (the latter wraps `rfc8785`).
   - Do not add new uses of `ethers`/`web3` in the core; EVM is a deferred, optional profile.
   - Integrity failures must never fall back to another resolution source.
   - Do not claim conformance with an external spec (did:webvh, RFC 9421, RFC 8785…) in docs unless a CI job verifies it against that spec's official vectors or an independent implementation.

@@ -38,6 +38,7 @@ src/agent_did_sdk/resolver/universal.py
 src/agent_did_sdk/resolver/webvh_source.py
 tests/test_aws_sigv4_s3_source.py
 tests/test_bearer_http_source.py
+tests/test_bootstrap_controller.py
 tests/test_crypto.py
 tests/test_evm_registry.py
 tests/test_file_source.py
