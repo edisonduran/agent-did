@@ -10,12 +10,14 @@ on:
       - 'package.json'
       - 'sdk/**'
       - 'integrations/langchain/**'
+      - 'scripts/check-npm-package-manifest.js'
   pull_request:
     paths:
       - '.github/workflows/ci-langchain-js.yml'
       - 'package.json'
       - 'sdk/**'
       - 'integrations/langchain/**'
+      - 'scripts/check-npm-package-manifest.js'
   workflow_dispatch:
   # Daily run on main keeps the C-QA-8 green window evidence-based.
   schedule:
@@ -55,3 +57,6 @@ jobs:
 
       - name: Run LangChain integration tests
         run: npm run test:langchain
+
+      - name: Check packed npm manifest has registry-only runtime dependencies
+        run: node scripts/check-npm-package-manifest.js integrations/langchain

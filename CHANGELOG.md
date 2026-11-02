@@ -30,6 +30,14 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining afte
 - `DocumentIntegrityError` (TS: `Error` subclass; Python: `ValueError` subclass), exported from both packages.
 - Top-level exports of `canonicalizeJson` / `generateCanonicalDocumentHash` (TS) and `canonicalize_json` / `generate_canonical_document_hash` (Python), so verifiers and migrations can recompute a `documentRef`.
 
+### Fixed
+
+- `@agentdid/sdk` no longer declares the private monorepo root (`"agent-did": "file:.."`) as a runtime dependency. The SDK never imported it; the entry only made published manifests reference a local path.
+
+### Build
+
+- `scripts/check-npm-package-manifest.js` inspects the `package.json` inside the packed tarball and rejects runtime dependency specs that do not resolve from the registry (`file:`, `link:`, `workspace:`, paths, git or URL specs). It runs in the TypeScript SDK and LangChain JS CI and gates `publish-release-train.yml` and `publish-sdk.yml` before publication.
+
 ---
 
 ## [1.0.0-rc.2] - 2026-11-02

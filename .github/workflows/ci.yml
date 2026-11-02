@@ -72,5 +72,8 @@ jobs:
       - name: Build TypeScript SDK
         run: npm --prefix sdk run build
 
+      - name: Check packed npm manifest has registry-only runtime dependencies
+        run: node scripts/check-npm-package-manifest.js sdk
+
       - name: Run RFC-001 conformance suite
         run: npm run conformance:rfc001

@@ -59,6 +59,9 @@ jobs:
         working-directory: sdk
         run: npm pack
 
+      - name: Check packed manifest has registry-only runtime dependencies
+        run: node scripts/check-npm-package-manifest.js sdk/*.tgz
+
       - name: Upload TypeScript SDK tarball
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
