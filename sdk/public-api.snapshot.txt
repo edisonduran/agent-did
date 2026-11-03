@@ -17,11 +17,15 @@ BearerTokenHttpDIDDocumentSourceConfig
 canonicalizeJson
 CreateAgentParams
 CreateAgentResult
+CreateDidWebvhOptions
 createMetadataCommitment
 decodePublicKeyMultibase
 DID_VERIFICATION_RELATIONSHIPS
 DIDDocumentSource
 DIDResolver
+DidWebvhError
+DidWebvhErrorCode
+DidWebvhLifecycleOptions
 DocumentIntegrityError
 encodePublicKeyMultibase
 EthersAgentRegistryContractClient

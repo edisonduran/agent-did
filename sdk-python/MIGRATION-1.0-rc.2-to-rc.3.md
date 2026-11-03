@@ -115,3 +115,52 @@ Existing documents keep their `hash://sha256/` values; `verify_metadata_commitme
 ### What to do
 
 Use a glibc-based image (for example `python:3.12-slim`) instead of Alpine. An upstream change to make these dependencies optional is tracked; this section will be updated when it lands.
+
+## 5. `did:webvh` DIDs are did:webvh v1.0 DIDs
+
+### What changed
+
+[ADR-002](../docs/ADR-002-did-webvh-v1.0-Implementation.md) moves the canonical `did:webvh` path to the DIF did:webvh v1.0 specification, through the reference implementation `did-webvh`:
+
+| | `rc2` | `rc3` |
+|---|---|---|
+| SCID | Random (or `webvh.scid`) | Derived from the genesis log entry; `scid` is removed and rejected (`extra="forbid"`) |
+| `did.jsonl` | Agent-DID format: `versionId`, `versionTime`, `state` | v1.0: `parameters` (`updateKeys`, ...), hash-chained `versionId`, `eddsa-jcs-2022` proof per entry |
+| Who signs the log | Nobody | The controller key (`updateKeys`) |
+| Explicit profile (`webvh.domain`) | `domain`, `controller_did` | Also `controller_signer: AgentSigner` (required) |
+| Implicit `agents.local` profile | Controller DID derived from the wallet address | Controller DID is a v1.0 log; a new bootstrap is a new DID |
+| `revoke_did` | Registry only | Also appends `deactivated: true` to the log |
+| Resolution | — | `UniversalResolverClient` fetches `did.jsonl` and verifies it; failures raise `DocumentIntegrityError` without fallback; deactivated DIDs are refused |
+
+### Impact
+
+- `did:webvh` DIDs and `did.jsonl` files produced by `rc2` or earlier do not verify and cannot be upgraded in place: the SCID is bound to the genesis entry.
+- `update_did_document`, `rotate_verification_method` and `revoke_did` need the controller signer. In the process that created the DID it is retained automatically. After `import_did_webvh_history` (or the file/source restore helpers) pass it explicitly; otherwise they raise `ValueError`.
+- A `webvh_document_source` must implement `get_did_log_by_reference`. Sources that only return parsed documents are refused for `did:webvh` (`TypeError`).
+- `did:webvh` DIDs must use a lowercase ASCII host name (no IP literals), an optional port encoded as `%3A`, and unencoded path segments.
+
+### What to do
+
+1. Re-issue each `did:webvh` agent with `rc3` and publish the new `did.jsonl` (`export_did_webvh_history(did)`) at the URL the DID maps to: `https://<host>/<path...>/did.jsonl`, or `https://<host>/.well-known/did.jsonl` without a path.
+2. Explicit profile: pass the controller's key, ideally KMS/HSM-backed:
+
+   ```python
+   await identity.create(CreateAgentParams(
+       name="support-bot", core_model=core_model, system_prompt=system_prompt,
+       webvh=CreateDidWebvhOptions(
+           domain="agents.example.com", path_segments=["support-bot"],
+           controller_did=controller_did, controller_signer=controller_signer,
+       ),
+   ))
+   ```
+
+3. Lifecycle operations on an imported DID:
+
+   ```python
+   await AgentIdentity.import_did_webvh_history(log)
+   await AgentIdentity.update_did_document(
+       did, UpdateAgentDocumentParams(version="1.1.0"), controller_signer=controller_signer
+   )
+   ```
+
+4. Catch `DidWebvhError` (exported; `code` is `invalidDid`, `unauthorized`, ...) where you import logs or change DIDs.

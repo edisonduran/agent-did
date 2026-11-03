@@ -16,6 +16,7 @@ from agent_did_sdk.webvh.adapter import (
     DidWebvhError,
     create_did_webvh_log,
     deactivate_did_webvh_log,
+    derive_did_webvh_log_url,
     did_webvh_update_key_for,
     resolve_did_webvh_log,
     update_did_webvh_log,
@@ -407,3 +408,58 @@ class TestDidWebvhCrossSdkVectors:
     async def test_rejects(self, vector: dict[str, Any]) -> None:
         with pytest.raises(DidWebvhError):
             await resolve_did_webvh_log(vector["log"])
+
+
+class TestDeriveDidWebvhLogUrl:
+    """Parity: the deriveDidWebvhLogUrl block in sdk/tests/WebvhAdapter.test.ts."""
+
+    SCID = "QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ"
+
+    async def test_state_is_the_signed_document_without_implicit_services(self) -> None:
+        created = await create_log()
+        assert "service" not in created.state
+        assert isinstance(created.document["service"], list)
+        assert {k: v for k, v in created.document.items() if k != "service"} == created.state
+
+    @pytest.mark.parametrize(
+        ("suffix", "url"),
+        [
+            ("example.com", "https://example.com/.well-known/did.jsonl"),
+            ("example.com:fleet:agent-1", "https://example.com/fleet/agent-1/did.jsonl"),
+            ("agents.example.com%3A8443", "https://agents.example.com:8443/.well-known/did.jsonl"),
+            ("agents.example.com%3A8443:a:b", "https://agents.example.com:8443/a/b/did.jsonl"),
+        ],
+    )
+    def test_maps(self, suffix: str, url: str) -> None:
+        assert derive_did_webvh_log_url(f"did:webvh:{self.SCID}:{suffix}") == url
+
+    async def test_maps_dids_created_by_the_adapter(self) -> None:
+        created = await create_log()
+        assert derive_did_webvh_log_url(created.did) == "https://agents.example.com/fleet/agent-1/did.jsonl"
+
+    @pytest.mark.parametrize(
+        "did",
+        [
+            "did:web:example.com",
+            "did:webvh::example.com",
+            "did:webvh:Qm0000:example.com",
+            f"did:webvh:{SCID}",
+            f"did:webvh:{SCID}:127.0.0.1",
+            f"did:webvh:{SCID}:127%2E0%2E0%2E1",
+            f"did:webvh:{SCID}:example.com%3a8443",
+            f"did:webvh:{SCID}:example.com%3A0",
+            f"did:webvh:{SCID}:Example.com",
+            f"did:webvh:{SCID}:localhost",
+            f"did:webvh:{SCID}:example.com:..:admin",
+            f"did:webvh:{SCID}:example.com:%2E%2E:admin",
+            f"did:webvh:{SCID}:example.com:a%2Fb",
+            f"did:webvh:{SCID}:example.com::a",
+            f"did:webvh:{SCID}:example.com#key-1",
+            f"did:webvh:{SCID}:example.com?versionId=1",
+            f"did:webvh:{SCID}:example.com/whois",
+        ],
+    )
+    def test_rejects(self, did: str) -> None:
+        with pytest.raises(DidWebvhError) as excinfo:
+            derive_did_webvh_log_url(did)
+        assert excinfo.value.code == "invalidDid"

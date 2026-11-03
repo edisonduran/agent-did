@@ -8,6 +8,7 @@ from nacl.signing import SigningKey
 
 from agent_did_sdk import InMemoryAgentRegistry
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
+from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams, CreateDidWebvhOptions
 from agent_did_sdk.crypto.multibase import encode_public_key_multibase
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
@@ -69,7 +70,8 @@ class TestBootstrapControllerKeys:
         _reset_state()
         second = await identity.create(_params())
 
-        assert second.document.controller == first.document.controller
+        # did:webvh v1.0 derives the SCID from the genesis entry, so a new bootstrap is a new controller DID.
+        assert second.document.controller != first.document.controller
         assert second.controller_private_key is not None
         assert second.controller_private_key != first.controller_private_key
 
@@ -93,6 +95,7 @@ class TestBootstrapControllerKeys:
                 webvh=CreateDidWebvhOptions(
                     domain="agents.example",
                     controller_did=controller_did,
+                    controller_signer=LocalKeySigner("7c" * 32),
                     path_segments=["agents", "bootstrap-bot"],
                 )
             )

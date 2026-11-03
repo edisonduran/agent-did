@@ -18,6 +18,8 @@ CreateDidWebvhOptions
 DIDDocumentSource
 DIDResolver
 DID_VERIFICATION_RELATIONSHIPS
+DidWebvhError
+DidWebvhErrorCode
 DocumentIntegrityError
 EvmAgentRegistry
 EvmAgentRegistryAdapterConfig

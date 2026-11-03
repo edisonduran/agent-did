@@ -10,12 +10,12 @@
     "witness-threshold": "Witnesses are deferred past 1.0 (ADR-002, condition 7). The adapters must reject these logs instead of resolving them without witness checks.",
     "witness-update": "Witnesses are deferred past 1.0 (ADR-002, condition 7). The adapters must reject these logs instead of resolving them without witness checks."
   },
-  "deferredNegative": {
-    "negative-fragment-leaks-into-domain": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
-    "negative-lowercase-pct-port-ip": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
-    "negative-path-traversal-did": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
-    "negative-pct-encoded-ip-host": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
-    "negative-pct-encoded-traversal": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3)."
+  "didUrlNegative": {
+    "negative-fragment-leaks-into-domain": "DID-to-URL derivation vector (no log). Every `did:` in the script must be rejected by deriveDidWebvhLogUrl / derive_did_webvh_log_url, both as written and with its SCID replaced by a valid base58btc SCID, so the host and path rules are what rejects it.",
+    "negative-lowercase-pct-port-ip": "DID-to-URL derivation vector (no log). Every `did:` in the script must be rejected by deriveDidWebvhLogUrl / derive_did_webvh_log_url, both as written and with its SCID replaced by a valid base58btc SCID, so the host and path rules are what rejects it.",
+    "negative-path-traversal-did": "DID-to-URL derivation vector (no log). Every `did:` in the script must be rejected by deriveDidWebvhLogUrl / derive_did_webvh_log_url, both as written and with its SCID replaced by a valid base58btc SCID, so the host and path rules are what rejects it.",
+    "negative-pct-encoded-ip-host": "DID-to-URL derivation vector (no log). Every `did:` in the script must be rejected by deriveDidWebvhLogUrl / derive_did_webvh_log_url, both as written and with its SCID replaced by a valid base58btc SCID, so the host and path rules are what rejects it.",
+    "negative-pct-encoded-traversal": "DID-to-URL derivation vector (no log). Every `did:` in the script must be rejected by deriveDidWebvhLogUrl / derive_did_webvh_log_url, both as written and with its SCID replaced by a valid base58btc SCID, so the host and path rules are what rejects it."
   },
   "vectorDefects": {
     "multi-update/python/resolutionResult.1.json": "Committed expectation is the HEAD resolution (versionId 3-...): the generating resolver ignored the version selector. The document comparison is skipped; metadata is still checked against the log, and the test fails once the vector is corrected upstream so this entry can be removed.",

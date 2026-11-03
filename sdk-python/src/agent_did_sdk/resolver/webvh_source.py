@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -10,6 +9,8 @@ import httpx
 
 from ..core.http_security import HttpTargetValidationOptions, validate_http_target
 from ..core.types import AgentDIDDocument
+from ..webvh.adapter import DidWebvhError, resolve_did_webvh_log
+from .types import DocumentIntegrityError
 
 
 @dataclass
@@ -21,7 +22,7 @@ class WebvhDIDDocumentSourceConfig:
 
 
 class WebvhDIDDocumentSource:
-    """Fetches and parses did:webvh DID logs over HTTP(S)."""
+    """Fetches did:webvh DID logs over HTTP(S) and verifies them before use."""
 
     def __init__(self, config: WebvhDIDDocumentSourceConfig | None = None) -> None:
         cfg = config or WebvhDIDDocumentSourceConfig()
@@ -31,6 +32,22 @@ class WebvhDIDDocumentSource:
         self._http_security = cfg.http_security or HttpTargetValidationOptions()
 
     async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None:
+        """Fetch the did:webvh log and return the latest state after verifying the whole log.
+
+        Raises :class:`DocumentIntegrityError` when verification fails (or the state is not an
+        Agent-DID document); returns ``None`` when no endpoint has the log.
+        """
+        log_text = await self.get_did_log_by_reference(document_ref)
+        if log_text is None:
+            return None
+        try:
+            resolved = await resolve_did_webvh_log(log_text)
+        except DidWebvhError as exc:
+            raise DocumentIntegrityError(str(exc)) from None
+        return _to_agent_document(resolved.state)
+
+    async def get_did_log_by_reference(self, document_ref: str) -> str | None:
+        """Fetch the raw ``did.jsonl`` text. The caller must verify it before trusting it."""
         urls = self._resolve_candidate_urls(document_ref)
         errors: list[str] = []
         all_not_found = True
@@ -61,32 +78,12 @@ class WebvhDIDDocumentSource:
                 errors.append(f"{url}: HTTP {response.status_code}")
                 continue
 
-            return self._extract_latest_state(response.text)
+            return response.text
 
         if all_not_found:
             return None
 
         raise RuntimeError(f"Failed to fetch did:webvh DID log from all endpoints. {' | '.join(errors)}")
-
-    async def get_did_log_by_reference(self, document_ref: str) -> str | None:
-        urls = self._resolve_candidate_urls(document_ref)
-
-        for url in urls:
-            validate_http_target(url, self._http_security)
-            client = self._client or httpx.AsyncClient()
-            try:
-                response = await client.get(url)
-            finally:
-                if self._client is None:
-                    await client.aclose()
-
-            if response.status_code == 404:
-                continue
-            if 200 <= response.status_code < 300:
-                return response.text
-            raise RuntimeError(f"Failed to fetch did:webvh DID log. {url}: HTTP {response.status_code}")
-
-        return None
 
     async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None:
         raise NotImplementedError("WebvhDIDDocumentSource is read-only")
@@ -97,24 +94,9 @@ class WebvhDIDDocumentSource:
 
         return [self._reference_to_url(document_ref)]
 
-    @staticmethod
-    def _extract_latest_state(log_text: str) -> AgentDIDDocument:
-        lines = [line.strip() for line in log_text.splitlines() if line.strip()]
-        if not lines:
-            raise RuntimeError("did:webvh DID log is empty")
 
-        latest_state: dict[str, object] | None = None
-        for line in lines:
-            try:
-                parsed = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise RuntimeError("did:webvh DID log contains invalid JSON Lines content") from exc
-
-            state = parsed.get("state") if isinstance(parsed, dict) else None
-            if isinstance(state, dict):
-                latest_state = state
-
-        if latest_state is None:
-            raise RuntimeError("did:webvh DID log does not contain a resolvable state entry")
-
-        return AgentDIDDocument.model_validate(latest_state)
+def _to_agent_document(state: dict[str, object]) -> AgentDIDDocument:
+    try:
+        return AgentDIDDocument.model_validate(state)
+    except ValueError as exc:
+        raise DocumentIntegrityError(f"did:webvh state is not an Agent-DID document: {exc}") from None

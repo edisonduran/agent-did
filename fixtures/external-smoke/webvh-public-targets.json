@@ -2,7 +2,7 @@
   "defaultTarget": "repo-main-support-bot",
   "targets": {
     "repo-main-support-bot": {
-      "did": "did:webvh:QmY2v1VzkeMxF7MSfrLfZswQ74Y6FfrMR1LmuvPJQJwhi6:raw.githubusercontent.com:edisonduran:agent-did:main:fixtures:external-smoke:webvh-public-targets:support-bot",
+      "did": "did:webvh:QmNw5kHWoQwnoii7HG2y9ehLnQG9exEPMrE9HwmfbYYGMM:raw.githubusercontent.com:edisonduran:agent-did:main:fixtures:external-smoke:webvh-public-targets:support-bot",
       "candidateUrls": [
         "https://raw.githubusercontent.com/edisonduran/agent-did/main/fixtures/external-smoke/webvh-public-targets/support-bot/did.jsonl",
         "https://cdn.jsdelivr.net/gh/edisonduran/agent-did@main/fixtures/external-smoke/webvh-public-targets/support-bot/did.jsonl"

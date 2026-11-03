@@ -19,6 +19,8 @@ export {
   IdentityCompositionErrorReason,
   CreateAgentParams,
   CreateAgentResult,
+  CreateDidWebvhOptions,
+  DidWebvhLifecycleOptions,
   MetadataCommitmentSalts,
   SignHttpRequestParams,
   UpdateAgentDocumentParams,
@@ -157,3 +159,6 @@ export {
   EvmAgentRegistryContract,
   EvmAgentRegistryAdapterConfig
 } from './registry/evm-types';
+
+// did:webvh v1.0 errors (log verification, unauthorized controller signer)
+export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';

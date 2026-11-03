@@ -5,6 +5,9 @@ import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 import { AgentIdentity } from '../src/core/AgentIdentity';
 import { generateCanonicalDocumentHash } from '../src/crypto/hash';
 import { DocumentIntegrityError, ResolverResolutionEvent } from '../src/resolver/types';
+import { LocalKeySigner } from '../src/core/signer';
+import { deactivateDidWebvhLog } from '../src/webvh/adapter';
+import { createAgentWebvhLog, tamperLastState, TEST_CONTROLLER_KEY, textResponse } from './helpers/webvhAgentLog';
 
 describe('UniversalResolverClient', () => {
   const sampleDocument = {
@@ -41,21 +44,6 @@ describe('UniversalResolverClient', () => {
       }
     ],
     authentication: [`${did}#key-1`]
-  });
-
-  const createWebvhDocument = (did: string) => ({
-    ...sampleDocument,
-    id: did,
-    controller: 'did:webvh:QmExampleScid:example.com:organizations:acme-support',
-    verificationMethod: [
-      {
-        ...sampleDocument.verificationMethod[0],
-        id: `${did}#key-1`,
-        controller: 'did:webvh:QmExampleScid:example.com:organizations:acme-support'
-      }
-    ],
-    authentication: [`${did}#key-1`],
-    assertionMethod: [`${did}#key-1`]
   });
 
   it('should resolve via registry + source and use cache on repeated calls', async () => {
@@ -216,70 +204,6 @@ describe('UniversalResolverClient', () => {
     expect(wbaDocumentSource.getByReference).toHaveBeenCalledWith('https://agents.example:8443/profiles/alice/did.json');
   });
 
-  it('should resolve did:webvh using .well-known did.jsonl without registry lookup', async () => {
-    const did = 'did:webvh:QmExampleScid:agents.example';
-    const webvhDocument = createWebvhDocument(did);
-
-    const registry: AgentRegistry = {
-      register: jest.fn(),
-      setDocumentReference: jest.fn(),
-      revoke: jest.fn(),
-      getRecord: jest.fn(),
-      isRevoked: jest.fn().mockResolvedValue(false)
-    };
-
-    const source: DIDDocumentSource = {
-      getByReference: jest.fn().mockResolvedValue(sampleDocument)
-    };
-
-    const webvhDocumentSource: DIDDocumentSource = {
-      getByReference: jest.fn().mockResolvedValue(webvhDocument)
-    };
-
-    const resolver = new UniversalResolverClient({
-      registry,
-      documentSource: source,
-      webvhDocumentSource
-    });
-
-    const resolved = await resolver.resolve(did);
-
-    expect(resolved.id).toEqual(did);
-    expect(registry.getRecord).not.toHaveBeenCalled();
-    expect(source.getByReference).not.toHaveBeenCalled();
-    expect(webvhDocumentSource.getByReference).toHaveBeenCalledWith('https://agents.example/.well-known/did.jsonl');
-  });
-
-  it('should resolve did:webvh path segments to nested did.jsonl URL', async () => {
-    const did = 'did:webvh:QmExampleScid:agents.example%3A8443:profiles:alice';
-    const webvhDocument = createWebvhDocument(did);
-    const webvhDocumentSource: DIDDocumentSource = {
-      getByReference: jest.fn().mockResolvedValue(webvhDocument)
-    };
-
-    const registry: AgentRegistry = {
-      register: jest.fn(),
-      setDocumentReference: jest.fn(),
-      revoke: jest.fn(),
-      getRecord: jest.fn(),
-      isRevoked: jest.fn().mockResolvedValue(false)
-    };
-
-    const resolver = new UniversalResolverClient({
-      registry,
-      documentSource: {
-        getByReference: jest.fn().mockResolvedValue(null)
-      },
-      webvhDocumentSource
-    });
-
-    const resolved = await resolver.resolve(did);
-
-    expect(resolved.id).toEqual(did);
-    expect(registry.getRecord).not.toHaveBeenCalled();
-    expect(webvhDocumentSource.getByReference).toHaveBeenCalledWith('https://agents.example:8443/profiles/alice/did.jsonl');
-  });
-
   it('should allow AgentIdentity to use production resolver profile', async () => {
     const fallbackResolver = new InMemoryDIDResolver();
     fallbackResolver.registerDocument(sampleDocument);
@@ -368,35 +292,6 @@ describe('UniversalResolverClient', () => {
 
     expect(resolved.id).toEqual(did);
     expect(fetchFn).toHaveBeenCalledWith('https://agents.example/profiles/weather-bot/did.json');
-  });
-
-  it('should resolve did:webvh using HTTP production resolver bootstrap fetch configuration', async () => {
-    const did = 'did:webvh:QmExampleScid:agents.example:profiles:weather-bot';
-    const webvhDocument = createWebvhDocument(did);
-    const didLog = JSON.stringify({ versionId: '1-QmExampleScid', state: webvhDocument });
-
-    const fetchFn = jest.fn().mockImplementation(async (url: string) => ({
-      ok: url === 'https://agents.example/profiles/weather-bot/did.jsonl',
-      status: url === 'https://agents.example/profiles/weather-bot/did.jsonl' ? 200 : 404,
-      text: async () => (url === 'https://agents.example/profiles/weather-bot/did.jsonl' ? didLog : ''),
-      json: async () => ({})
-    }));
-
-    AgentIdentity.useProductionResolverFromHttp({
-      registry: {
-        register: jest.fn(),
-        setDocumentReference: jest.fn(),
-        revoke: jest.fn(),
-        getRecord: jest.fn(),
-        isRevoked: jest.fn().mockResolvedValue(false)
-      },
-      fetchFn
-    });
-
-    const resolved = await AgentIdentity.resolve(did);
-
-    expect(resolved.id).toEqual(did);
-    expect(fetchFn).toHaveBeenCalledWith('https://agents.example/profiles/weather-bot/did.jsonl');
   });
 
   it('should emit resolver events and support HTTP endpoint failover', async () => {
@@ -630,6 +525,152 @@ describe('UniversalResolverClient', () => {
       await Promise.resolve();
       expect([...store.keys()]).toEqual([sampleDocumentRef]);
       await expect(resolver.resolve(sampleDocument.id)).resolves.toMatchObject({ id: sampleDocument.id });
+    });
+  });
+
+  describe('did:webvh', () => {
+    const registry = (): AgentRegistry => ({
+      register: jest.fn(),
+      setDocumentReference: jest.fn(),
+      revoke: jest.fn(),
+      getRecord: jest.fn(),
+      isRevoked: jest.fn().mockResolvedValue(false)
+    });
+    const logSource = (log: string | null) => ({
+      getByReference: jest.fn(),
+      getDidLogByReference: jest.fn().mockResolvedValue(log)
+    });
+
+    it('should fetch .well-known/did.jsonl, verify it and return the signed state', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const webvhDocumentSource = logSource(created.log);
+      const documentSource = { getByReference: jest.fn() };
+      const reg = registry();
+      const resolver = new UniversalResolverClient({ registry: reg, documentSource, webvhDocumentSource });
+
+      const resolved = await resolver.resolve(created.did);
+
+      expect(resolved).toEqual(created.state);
+      expect(reg.getRecord).not.toHaveBeenCalled();
+      expect(documentSource.getByReference).not.toHaveBeenCalled();
+      expect(webvhDocumentSource.getByReference).not.toHaveBeenCalled();
+      expect(webvhDocumentSource.getDidLogByReference).toHaveBeenCalledWith('https://agents.example/.well-known/did.jsonl');
+    });
+
+    it('should map a port and path segments to the nested did.jsonl URL', async () => {
+      const created = await createAgentWebvhLog('agents.example:8443', ['profiles', 'alice']);
+      const webvhDocumentSource = logSource(created.log);
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource
+      });
+
+      await expect(resolver.resolve(created.did)).resolves.toMatchObject({ id: created.did });
+      expect(webvhDocumentSource.getDidLogByReference).toHaveBeenCalledWith(
+        'https://agents.example:8443/profiles/alice/did.jsonl'
+      );
+    });
+
+    it('should never fall back when the log fails verification', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const tampered = tamperLastState(created.log, (state) => {
+        state.controller = 'did:webvh:QmAttacker:attacker.example';
+      });
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(created.state as any);
+      const fallbackSpy = jest.spyOn(fallbackResolver, 'resolve');
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource: logSource(tampered),
+        fallbackResolver
+      });
+
+      await expect(resolver.resolve(created.did)).rejects.toBeInstanceOf(DocumentIntegrityError);
+      expect(fallbackSpy).not.toHaveBeenCalled();
+    });
+
+    it('should reject a valid log that belongs to another DID', async () => {
+      const other = await createAgentWebvhLog('agents.example');
+      const created = await createAgentWebvhLog('agents.example', ['agents', 'bot']);
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource: logSource(other.log)
+      });
+
+      await expect(resolver.resolve(created.did)).rejects.toBeInstanceOf(DocumentIntegrityError);
+    });
+
+    it('should refuse a deactivated DID without falling back', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const deactivated = await deactivateDidWebvhLog({ log: created.log, signer: new LocalKeySigner(TEST_CONTROLLER_KEY) });
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(created.state as any);
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource: logSource(deactivated.log),
+        fallbackResolver
+      });
+
+      await expect(resolver.resolve(created.did)).rejects.toThrow(/deactivated/u);
+    });
+
+    it('should fall back only when the log is unavailable', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(created.state as any);
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource: logSource(null),
+        fallbackResolver
+      });
+
+      await expect(resolver.resolve(created.did)).resolves.toMatchObject({ id: created.did });
+    });
+
+    it.each([
+      ['IPv4 host', 'did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:127.0.0.1'],
+      ['percent-encoded IPv4 host', 'did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:127%2E0%2E0%2E1'],
+      ['path traversal', 'did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com:..:admin'],
+      ['encoded traversal', 'did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com:%2E%2E:admin'],
+      ['fragment', 'did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com#x']
+    ])('should reject a DID with %s before any fetch', async (_label, did) => {
+      const webvhDocumentSource = logSource(null);
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource,
+        fallbackResolver: new InMemoryDIDResolver()
+      });
+
+      await expect(resolver.resolve(did)).rejects.toThrow(/Invalid did:webvh DID/u);
+      expect(webvhDocumentSource.getDidLogByReference).not.toHaveBeenCalled();
+    });
+
+    it('should refuse a webvh source that cannot return the raw log', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource: { getByReference: jest.fn().mockResolvedValue(created.state) }
+      });
+
+      await expect(resolver.resolve(created.did)).rejects.toThrow(/getDidLogByReference/u);
+    });
+
+    it('should resolve through the HTTP production profile', async () => {
+      const created = await createAgentWebvhLog('agents.example', ['profiles', 'weather-bot']);
+      const logUrl = 'https://agents.example/profiles/weather-bot/did.jsonl';
+      const fetchFn = jest.fn(async (url: string) => (url === logUrl ? textResponse(created.log) : textResponse('', 404)));
+
+      AgentIdentity.useProductionResolverFromHttp({ registry: registry(), fetchFn });
+
+      await expect(AgentIdentity.resolve(created.did)).resolves.toMatchObject({ id: created.did });
+      expect(fetchFn).toHaveBeenCalledWith(logUrl);
     });
   });
 });

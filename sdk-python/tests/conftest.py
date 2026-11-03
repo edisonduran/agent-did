@@ -18,6 +18,9 @@ def _reset_agent_identity() -> None:
     AgentIdentity._resolver = InMemoryDIDResolver()
     AgentIdentity._registry = InMemoryAgentRegistry()
     AgentIdentity._history_store = {}
+    AgentIdentity._did_webvh_log_store = {}
+    AgentIdentity._did_webvh_signer_store = {}
+    AgentIdentity._bootstrap_controllers = {}
 
 
 @pytest.fixture()

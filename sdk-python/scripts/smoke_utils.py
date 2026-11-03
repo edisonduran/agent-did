@@ -104,6 +104,9 @@ def reset_agent_identity_state() -> None:
     AgentIdentity.set_resolver(InMemoryDIDResolver())
     AgentIdentity.set_registry(InMemoryAgentRegistry())
     AgentIdentity._history_store = {}
+    AgentIdentity._did_webvh_log_store = {}
+    AgentIdentity._did_webvh_signer_store = {}
+    AgentIdentity._bootstrap_controllers = {}
 
 
 def load_contract_artifact() -> dict[str, Any]:

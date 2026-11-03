@@ -1,6 +1,7 @@
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
-import { DIDDocumentSource } from './types';
+import { DIDDocumentSource, DocumentIntegrityError } from './types';
+import { DidWebvhError, resolveDidWebvhLog } from '../webvh/adapter';
 
 type FetchLikeResponse = {
   ok: boolean;
@@ -18,10 +19,6 @@ export interface WebvhDIDDocumentSourceConfig {
   httpSecurity?: HttpTargetValidationOptions;
 }
 
-interface DidLogEntry {
-  state?: AgentDIDDocument;
-}
-
 export class WebvhDIDDocumentSource implements DIDDocumentSource {
   private readonly referenceToUrl: (documentRef: string) => string;
   private readonly referenceToUrls: ((documentRef: string) => string[]) | undefined;
@@ -35,7 +32,31 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
     this.httpSecurity = config.httpSecurity || {};
   }
 
+  /**
+   * Fetches the did:webvh log and returns the latest state after verifying the
+   * whole log (SCID, hash chain, controller-signed proofs). Throws
+   * `DocumentIntegrityError` when verification fails; returns `null` when no
+   * endpoint has the log.
+   */
   public async getByReference(documentRef: string): Promise<AgentDIDDocument | null> {
+    const logText = await this.getDidLogByReference(documentRef);
+    if (logText === null) {
+      return null;
+    }
+
+    try {
+      const resolved = await resolveDidWebvhLog(logText);
+      return resolved.state as unknown as AgentDIDDocument;
+    } catch (error) {
+      if (error instanceof DidWebvhError) {
+        throw new DocumentIntegrityError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /** Fetches the raw `did.jsonl` text. The caller must verify it before trusting it. */
+  public async getDidLogByReference(documentRef: string): Promise<string | null> {
     if (!this.fetchFn) {
       throw new Error('No fetch implementation available for WebvhDIDDocumentSource');
     }
@@ -56,8 +77,7 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
         const response = await this.fetchFn(url);
 
         if (response.ok) {
-          const logText = await this.readResponseText(response);
-          return this.extractLatestState(logText);
+          return await this.readResponseText(response);
         }
 
         if (response.status !== 404) {
@@ -99,38 +119,5 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
     }
 
     throw new Error('did:webvh response does not expose a readable text body');
-  }
-
-  private extractLatestState(logText: string): AgentDIDDocument {
-    const lines = logText
-      .split(/\r?\n/u)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    if (lines.length === 0) {
-      throw new Error('did:webvh DID log is empty');
-    }
-
-    let latestState: AgentDIDDocument | undefined;
-
-    for (const line of lines) {
-      let parsed: DidLogEntry;
-
-      try {
-        parsed = JSON.parse(line) as DidLogEntry;
-      } catch {
-        throw new Error('did:webvh DID log contains invalid JSON Lines content');
-      }
-
-      if (parsed.state) {
-        latestState = parsed.state;
-      }
-    }
-
-    if (!latestState) {
-      throw new Error('did:webvh DID log does not contain a resolvable state entry');
-    }
-
-    return latestState;
   }
 }

@@ -3,6 +3,7 @@ pynacl>=1.5
 web3>=6.0
 httpx>=0.27
 rfc8785<0.2,>=0.1.4
+did-webvh<1.1,>=1.0.1
 
 [dev]
 pytest>=8.0

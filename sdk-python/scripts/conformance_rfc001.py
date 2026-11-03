@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
+from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.time_utils import iso_to_unix_string, normalize_timestamp_to_iso
 from agent_did_sdk.core.types import (
     AgentDIDDocument,
@@ -20,6 +21,7 @@ from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 from agent_did_sdk.resolver.types import UniversalResolverConfig
 from agent_did_sdk.resolver.universal import UniversalResolverClient
+from agent_did_sdk.webvh.adapter import DID_WEBVH_PLACEHOLDER, create_did_webvh_log, derive_did_webvh_log_url
 
 
 @dataclass
@@ -46,6 +48,9 @@ def build_identity() -> tuple[AgentIdentity, InMemoryAgentRegistry]:
     registry = InMemoryAgentRegistry()
     AgentIdentity.set_registry(registry)
     AgentIdentity._history_store = {}
+    AgentIdentity._did_webvh_log_store = {}
+    AgentIdentity._did_webvh_signer_store = {}
+    AgentIdentity._bootstrap_controllers = {}
 
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1234567890abcdef1234567890abcdef12345678"))
     return identity, registry
@@ -279,18 +284,21 @@ def build_interop_controller_document(interop_vector: dict[str, object]) -> Agen
     )
 
 
-def derive_did_webvh_document_url(did: str) -> str:
-    suffix = did[len("did:webvh:"):]
-    scid_segment, *rest = suffix.split(":")
-    if not scid_segment or not rest:
-        raise ValueError(f"Invalid did:webvh DID: {did}")
-    domain_segment, *path_segments = rest
-    if path_segments:
-        return f"https://{domain_segment}/{'/'.join(path_segments)}/did.jsonl"
-    return f"https://{domain_segment}/.well-known/did.jsonl"
-
-
-async def evaluate_universal_resolver_should(document) -> CheckResult:
+async def evaluate_universal_resolver_should(revoked_document) -> CheckResult:
+    # The agent created above is revoked (its did:webvh log is deactivated) by now; SHOULD-01
+    # exercises cache and fallback, so it resolves an active copy published as its own log.
+    template = json.loads(
+        json.dumps(revoked_document.model_dump(by_alias=True, exclude_none=True)).replace(
+            revoked_document.id, DID_WEBVH_PLACEHOLDER
+        )
+    )
+    active = await create_did_webvh_log(
+        domain="agents.local",
+        path_segments=["agents", "conformance-should-01"],
+        document=template,
+        signer=LocalKeySigner("6b" * 32),
+    )
+    document = AgentDIDDocument.model_validate(active.state)
     class FakeSource:
         def __init__(self) -> None:
             self._documents: dict[str, object] = {}
@@ -303,6 +311,10 @@ async def evaluate_universal_resolver_should(document) -> CheckResult:
             await asyncio.sleep(0)
             self._documents[document_ref] = stored_document.model_copy(deep=True)
 
+        async def get_did_log_by_reference(self, document_ref: str):
+            await asyncio.sleep(0)
+            return self._documents.get(document_ref)
+
     registry = InMemoryAgentRegistry()
     source = FakeSource()
     webvh_source = FakeSource()
@@ -312,7 +324,8 @@ async def evaluate_universal_resolver_should(document) -> CheckResult:
     document_ref = AgentIdentity._compute_document_reference(document)
     await registry.register(document.id, document.controller, document_ref)
     await source.store_by_reference(document_ref, document)
-    await webvh_source.store_by_reference(derive_did_webvh_document_url(document.id), document)
+    # did:webvh: the resolver fetches and verifies the controller-signed did.jsonl log.
+    webvh_source._documents[derive_did_webvh_log_url(document.id)] = active.log
 
     fallback_document = document.model_copy(update={"id": "did:agent:polygon:fallback-only"}, deep=True)
     fallback.register_document(fallback_document)

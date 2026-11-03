@@ -36,6 +36,8 @@ src/agent_did_sdk/resolver/s3_compatible_source.py
 src/agent_did_sdk/resolver/types.py
 src/agent_did_sdk/resolver/universal.py
 src/agent_did_sdk/resolver/webvh_source.py
+src/agent_did_sdk/webvh/__init__.py
+src/agent_did_sdk/webvh/adapter.py
 tests/test_aws_sigv4_s3_source.py
 tests/test_bearer_http_source.py
 tests/test_bootstrap_controller.py
@@ -49,10 +51,14 @@ tests/test_in_memory_registry.py
 tests/test_in_memory_resolver.py
 tests/test_interop_vectors.py
 tests/test_jsonrpc_source.py
+tests/test_metadata_commitments.py
 tests/test_presigned_http_source.py
 tests/test_s3_compatible_source.py
 tests/test_security_edge_cases.py
 tests/test_time.py
 tests/test_universal_resolver.py
 tests/test_web3_client.py
+tests/test_webvh_adapter.py
+tests/test_webvh_lifecycle.py
 tests/test_webvh_source.py
+tests/test_webvh_test_suite.py

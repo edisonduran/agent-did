@@ -1,103 +1,86 @@
 import { WebvhDIDDocumentSource } from '../src/resolver/WebvhDIDDocumentSource';
+import { DocumentIntegrityError } from '../src/resolver/types';
+import { LocalKeySigner } from '../src/core/signer';
+import { updateDidWebvhLog } from '../src/webvh/adapter';
+import { createAgentWebvhLog, tamperLastState, TEST_CONTROLLER_KEY, textResponse } from './helpers/webvhAgentLog';
 
 describe('WebvhDIDDocumentSource', () => {
-  const sampleDocument = {
-    '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
-    id: 'did:webvh:QmExampleScid:example.com:agents:webvh-bot',
-    controller: 'did:webvh:QmExampleScid:example.com:organizations:acme-support',
-    created: '2026-05-06T00:00:00.000Z',
-    updated: '2026-05-06T00:00:00.000Z',
-    agentMetadata: {
-      name: 'WebvhResolverBot',
-      version: '1.0.0',
-      coreModelHash: 'hash://sha256/model',
-      systemPromptHash: 'hash://sha256/prompt'
-    },
-    verificationMethod: [
-      {
-        id: 'did:webvh:QmExampleScid:example.com:agents:webvh-bot#key-1',
-        type: 'Ed25519VerificationKey2020',
-        controller: 'did:webvh:QmExampleScid:example.com:organizations:acme-support',
-        publicKeyMultibase: 'zabc'
-      }
-    ],
-    authentication: ['did:webvh:QmExampleScid:example.com:agents:webvh-bot#key-1'],
-    assertionMethod: ['did:webvh:QmExampleScid:example.com:agents:webvh-bot#key-1']
-  };
+  const url = 'https://example.com/agents/webvh-bot/did.jsonl';
 
-  it('should parse the latest state from a did:webvh DID log', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-      text: async () => [
-        JSON.stringify({ versionId: '1-QmExampleScid', state: { ...sampleDocument, updated: '2026-05-05T00:00:00.000Z' } }),
-        JSON.stringify({ versionId: '2-QmExampleScid', state: sampleDocument })
-      ].join('\n')
+  it('should verify the log and return the latest state', async () => {
+    const created = await createAgentWebvhLog('example.com', ['agents', 'webvh-bot']);
+    const updated = await updateDidWebvhLog({
+      log: created.log,
+      signer: new LocalKeySigner(TEST_CONTROLLER_KEY),
+      document: { ...created.state, updated: '2026-01-02T00:00:00Z' },
+      updated: '2026-01-02T00:00:00Z'
     });
+    const fetchFn = jest.fn().mockResolvedValue(textResponse(updated.log));
 
     const source = new WebvhDIDDocumentSource({ fetchFn });
-    const result = await source.getByReference('https://example.com/agents/webvh-bot/did.jsonl');
+    const result = await source.getByReference(url);
 
-    expect(result?.id).toEqual(sampleDocument.id);
-    expect(result?.updated).toEqual(sampleDocument.updated);
+    expect(result?.id).toEqual(created.did);
+    expect(result?.updated).toEqual('2026-01-02T00:00:00Z');
+    // The signed state is returned, without the resolver's implicit services.
+    expect((result as unknown as { service?: unknown }).service).toBeUndefined();
+  });
+
+  it('should reject a log that fails verification instead of returning its state', async () => {
+    const created = await createAgentWebvhLog('example.com', ['agents', 'webvh-bot']);
+    const tampered = tamperLastState(created.log, (state) => {
+      state.controller = 'did:webvh:QmAttacker:attacker.example';
+    });
+    const source = new WebvhDIDDocumentSource({ fetchFn: jest.fn().mockResolvedValue(textResponse(tampered)) });
+
+    await expect(source.getByReference(url)).rejects.toBeInstanceOf(DocumentIntegrityError);
+  });
+
+  it('should reject a log in the pre-v1.0 Agent-DID format', async () => {
+    const created = await createAgentWebvhLog('example.com', ['agents', 'webvh-bot']);
+    const legacyLog = JSON.stringify({ versionId: `1-${created.metadata.scid}`, state: created.state });
+    const source = new WebvhDIDDocumentSource({ fetchFn: jest.fn().mockResolvedValue(textResponse(legacyLog)) });
+
+    await expect(source.getByReference(url)).rejects.toBeInstanceOf(DocumentIntegrityError);
+  });
+
+  it('should return the raw log text from getDidLogByReference', async () => {
+    const created = await createAgentWebvhLog('example.com', ['agents', 'webvh-bot']);
+    const source = new WebvhDIDDocumentSource({ fetchFn: jest.fn().mockResolvedValue(textResponse(created.log)) });
+
+    await expect(source.getDidLogByReference(url)).resolves.toEqual(created.log);
   });
 
   it('should return null on 404', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({}),
-      text: async () => ''
-    });
+    const source = new WebvhDIDDocumentSource({ fetchFn: jest.fn().mockResolvedValue(textResponse('', 404)) });
 
-    const source = new WebvhDIDDocumentSource({ fetchFn });
-    const result = await source.getByReference('https://example.com/.well-known/did.jsonl');
-
-    expect(result).toBeNull();
+    await expect(source.getByReference('https://example.com/.well-known/did.jsonl')).resolves.toBeNull();
+    await expect(source.getDidLogByReference('https://example.com/.well-known/did.jsonl')).resolves.toBeNull();
   });
 
   it('should try candidate did:webvh URLs until one succeeds', async () => {
+    const created = await createAgentWebvhLog('example.com', ['agents', 'webvh-bot']);
     const candidateUrls = [
       'https://primary.example/agents/webvh-bot/did.jsonl',
       'https://secondary.example/agents/webvh-bot/did.jsonl',
       'https://tertiary.example/agents/webvh-bot/did.jsonl'
     ];
-    const fetchFn = jest.fn(async (url: string) => {
-      if (url === candidateUrls[0]) {
-        return {
-          ok: false,
-          status: 503,
-          json: async () => ({}),
-          text: async () => ''
-        };
-      }
-
-      if (url === candidateUrls[1]) {
-        return {
-          ok: false,
-          status: 404,
-          json: async () => ({}),
-          text: async () => ''
-        };
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-        text: async () => JSON.stringify({ versionId: '2-QmExampleScid', state: sampleDocument })
-      };
+    const fetchFn = jest.fn(async (candidate: string) => {
+      if (candidate === candidateUrls[0]) return textResponse('', 503);
+      if (candidate === candidateUrls[1]) return textResponse('', 404);
+      return textResponse(created.log);
     });
 
-    const source = new WebvhDIDDocumentSource({
-      fetchFn,
-      referenceToUrls: () => candidateUrls
-    });
-    const result = await source.getByReference('https://example.com/agents/webvh-bot/did.jsonl');
+    const source = new WebvhDIDDocumentSource({ fetchFn, referenceToUrls: () => candidateUrls });
+    const result = await source.getByReference(url);
 
-    expect(result?.id).toEqual(sampleDocument.id);
-    expect(fetchFn).toHaveBeenCalledTimes(3);
-    expect(fetchFn.mock.calls.map(([url]) => url)).toEqual(candidateUrls);
+    expect(result?.id).toEqual(created.did);
+    expect(fetchFn.mock.calls.map(([candidate]) => candidate)).toEqual(candidateUrls);
+  });
+
+  it('should throw when every endpoint fails with a non-404 error', async () => {
+    const source = new WebvhDIDDocumentSource({ fetchFn: jest.fn().mockResolvedValue(textResponse('', 503)) });
+
+    await expect(source.getDidLogByReference(url)).rejects.toThrow(/HTTP 503/u);
   });
 });

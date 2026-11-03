@@ -80,6 +80,7 @@ from .resolver.types import (
 )
 from .resolver.universal import UniversalResolverClient
 from .resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
+from .webvh.adapter import DidWebvhError, DidWebvhErrorCode
 
 __all__ = [
     # Core types
@@ -100,6 +101,9 @@ __all__ = [
     "VerifyHttpRequestSignatureParams",
     "AgentDocumentHistoryAction",
     "AgentDocumentHistoryEntry",
+    # did:webvh v1.0 errors (log verification, unauthorized controller signer)
+    "DidWebvhError",
+    "DidWebvhErrorCode",
     # Identity composition
     "IdentityCompositionError",
     "DID_VERIFICATION_RELATIONSHIPS",

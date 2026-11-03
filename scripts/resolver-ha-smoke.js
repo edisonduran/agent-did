@@ -9,36 +9,45 @@ async function main() {
     throw new Error('SDK dist no encontrado. Ejecuta `npm --prefix sdk run build`.');
   }
 
-  const { AgentIdentity, InMemoryAgentRegistry, InMemoryDIDResolver } = sdk;
+  const { AgentIdentity, InMemoryAgentRegistry, InMemoryDIDResolver, LocalKeySigner } = sdk;
+  const { createDidWebvhLog, updateDidWebvhLog } = require(path.join(SDK_DIST, 'webvh', 'adapter.js'));
 
-  const did = 'did:webvh:QmHaDrillScid:agents.example:profiles:ha-bot';
-  const document = {
-    '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
-    id: did,
-    controller: 'did:webvh:QmHaControllerScid:agents.example:organizations:ops-root',
-    created: '2026-01-01T00:00:00.000Z',
-    updated: '2026-01-01T00:00:00.000Z',
-    agentMetadata: {
-      name: 'HaDrillBot',
-      version: '1.0.0',
-      coreModelHash: 'hash://sha256/model',
-      systemPromptHash: 'hash://sha256/prompt'
-    },
-    verificationMethod: [
-      {
-        id: `${did}#key-1`,
+  // A controller-signed did:webvh v1.0 log with two versions, served by the third endpoint.
+  const controllerSigner = new LocalKeySigner('4d'.repeat(32));
+  const created = await createDidWebvhLog({
+    domain: 'agents.example',
+    pathSegments: ['profiles', 'ha-bot'],
+    signer: controllerSigner,
+    created: '2026-01-01T00:00:00Z',
+    document: {
+      '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
+      id: '{DID}',
+      controller: '{DID}',
+      created: '2026-01-01T00:00:00Z',
+      updated: '2026-01-01T00:00:00Z',
+      agentMetadata: {
+        name: 'HaDrillBot',
+        version: '1.0.0',
+        coreModelHash: 'hash://hmac-sha256/model',
+        systemPromptHash: 'hash://hmac-sha256/prompt'
+      },
+      verificationMethod: [{
+        id: '{DID}#key-1',
         type: 'Ed25519VerificationKey2020',
-        controller: did,
-        publicKeyMultibase: 'zabc'
-      }
-    ],
-    authentication: [`${did}#key-1`],
-    assertionMethod: [`${did}#key-1`]
-  };
-  const didLog = [
-    JSON.stringify({ versionId: '1-QmHaDrillScid', state: { ...document, updated: '2025-12-31T00:00:00.000Z' } }),
-    JSON.stringify({ versionId: '2-QmHaDrillScid', state: document })
-  ].join('\n');
+        controller: '{DID}',
+        publicKeyMultibase: 'z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK'
+      }],
+      authentication: ['{DID}#key-1'],
+      assertionMethod: ['{DID}#key-1']
+    }
+  });
+  const { log: didLog } = await updateDidWebvhLog({
+    log: created.log,
+    signer: controllerSigner,
+    document: { ...created.state, updated: '2026-01-02T00:00:00Z' },
+    updated: '2026-01-02T00:00:00Z'
+  });
+  const did = created.did;
   const attemptedUrls = [];
   const candidateUrls = [
     'https://resolver-primary.example/profiles/ha-bot/did.jsonl',

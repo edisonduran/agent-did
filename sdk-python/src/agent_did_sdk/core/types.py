@@ -43,10 +43,20 @@ class VerificationMethod(BaseModel):
 
 
 class CreateDidWebvhOptions(BaseModel):
+    """Explicit did:webvh profile.
+
+    ``controller_signer`` is the controller's key: the did:webvh log's only ``updateKeys``
+    entry, which signs every log entry (create, update, rotate, revoke). Use a KMS/HSM-backed
+    ``AgentSigner`` in production. ``controller_did="{DID}"`` makes the DID self-controlled.
+    did:webvh v1.0 derives the SCID from the genesis entry, so it cannot be chosen.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
     domain: str
     controller_did: str
+    controller_signer: Any  # AgentSigner (controller key, did:webvh updateKeys)
     path_segments: list[str] | None = None
-    scid: str | None = None
 
 
 # ---------------------------------------------------------------------------

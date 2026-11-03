@@ -83,6 +83,9 @@ class DidWebvhMetadata:
 class DidWebvhLogResult:
     did: str
     document: dict[str, Any]
+    """Resolved DID document, including the implicit ``#files`` / ``#whois`` services."""
+    state: dict[str, Any]
+    """The resolved version's ``state`` exactly as signed in the log (no implicit services)."""
     metadata: DidWebvhMetadata
     log: str
     """The full ``did.jsonl`` text, one entry per line, newline-terminated."""
@@ -249,6 +252,7 @@ async def resolve_did_webvh_log(
         raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {type(err).__name__}") from None
 
     document = state.document_copy()
+    signed_state = state.document_copy()
     if not state.deactivated:
         # Implicit #files and #whois services, as didwebvh-ts adds them. A
         # deactivated DID resolves to the raw state of its last entry in both SDKs.
@@ -270,7 +274,9 @@ async def resolve_did_webvh_log(
         deactivated=state.deactivated,
         ttl=str(ttl) if ttl is not None else _DEFAULT_TTL,
     )
-    return DidWebvhLogResult(did=str(document["id"]), document=document, metadata=metadata, log=serialized)
+    return DidWebvhLogResult(
+        did=str(document["id"]), document=document, state=signed_state, metadata=metadata, log=serialized
+    )
 
 
 class _TextHistory(HistoryResolver):  # type: ignore[misc]
@@ -382,6 +388,51 @@ def _resolution_message(err: ResolutionError) -> str:
         if detail:
             return f"did:webvh log verification failed: {detail}"
     return f"did:webvh log verification failed: {err.error}"
+
+
+_SCID = re.compile(r"^[1-9A-HJ-NP-Za-km-z]+$")
+_HOST_SEGMENT = re.compile(r"^([^%]+)(?:%3A([0-9]+))?$")
+_DID_URL_PARTS = re.compile(r"[/?#\s]")
+
+
+def derive_did_webvh_log_url(did: str) -> str:
+    """Derive the HTTPS URL of a did:webvh DID's ``did.jsonl`` (did:webvh v1.0).
+
+    Applies the same host and path rules as :func:`create_did_webvh_log`:
+    lowercase ASCII FQDN (no IP literals), optional port encoded as ``%3A``,
+    unencoded path segments without ``.``/``..``, and no path, query or
+    fragment in the DID. Raises ``DidWebvhError("invalidDid")`` otherwise.
+    """
+
+    def fail(reason: str) -> DidWebvhError:
+        return DidWebvhError("invalidDid", f"Invalid did:webvh DID ({reason}): {did}")
+
+    if not isinstance(did, str) or not did.startswith("did:webvh:"):
+        raise fail("not a did:webvh DID")
+    if _DID_URL_PARTS.search(did):
+        raise fail("DID URLs with a path, query or fragment are not resolvable")
+
+    scid, *rest = did[len("did:webvh:"):].split(":")
+    if not scid or not _SCID.match(scid):
+        raise fail("SCID must be base58btc")
+    if not rest:
+        raise fail("host")
+    host_match = _HOST_SEGMENT.match(rest[0])
+    if host_match is None:
+        raise fail("host")
+    host, port = host_match.group(1), host_match.group(2)
+    domain = host if port is None else f"{host}:{port}"
+    path_segments = rest[1:]
+    try:
+        _validate_domain(domain)
+        for segment in path_segments:
+            _validate_path_segment(segment)
+    except DidWebvhError as err:
+        raise fail(str(err)) from None
+
+    if path_segments:
+        return f"https://{domain}/{'/'.join(path_segments)}/did.jsonl"
+    return f"https://{domain}/.well-known/did.jsonl"
 
 
 def _validate_domain(domain: str) -> tuple[str, str | None]:
