@@ -15,13 +15,13 @@ from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 @pytest.fixture(autouse=True)
 def _reset_agent_identity() -> None:
     """Reset AgentIdentity class-level state before each test."""
-    AgentIdentity._resolver = InMemoryDIDResolver()
-    AgentIdentity._registry = InMemoryAgentRegistry()
-    AgentIdentity._history_store = {}
-    AgentIdentity._did_webvh_log_store = {}
-    AgentIdentity._did_webvh_state_cache = {}
-    AgentIdentity._did_webvh_signer_store = {}
-    AgentIdentity._bootstrap_controllers = {}
+    AgentIdentity.get_default_client()._resolver = InMemoryDIDResolver()
+    AgentIdentity.get_default_client()._registry = InMemoryAgentRegistry()
+    AgentIdentity.get_default_client()._history_store = {}
+    AgentIdentity.get_default_client()._did_webvh_log_store = {}
+    AgentIdentity.get_default_client()._did_webvh_state_cache = {}
+    AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+    AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
 
 @pytest.fixture()

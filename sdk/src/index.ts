@@ -47,6 +47,7 @@ export {
   ProductionHttpResolverProfileConfig,
   ProductionJsonRpcResolverProfileConfig
 } from './core/AgentIdentity';
+export { AgentDidClient, AgentDidClientOptions } from './core/AgentDidClient';
 
 // Export Cryptographic Utilities
 export {

@@ -24,6 +24,38 @@ class AgentDIDDocument(*, context: list[str], id: str, controller: str, created:
   member model_config = {'populate_by_name': True}
   def model_dump_jsonld(self) -> 'dict[str, object]'
 
+## AgentDidClient
+class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
+  def create_agent(self, signer_address: 'str', network: 'str', params: 'CreateAgentParams') -> 'CreateAgentResult'
+  def export_did_webvh_history(self, did: 'str') -> 'str'
+  def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
+  def import_did_webvh_history(self, did_log: 'str') -> 'AgentDIDDocument'
+  def load_did_webvh_history_from_file(self, file_path: 'str | Path') -> 'AgentDIDDocument'
+  def persist_did_webvh_history_to_source(self, did: 'str', document_ref: 'str', source: 'DIDDocumentSource') -> 'None'
+  def resolve(self, did: 'str') -> 'AgentDIDDocument'
+  def resolve_controller_chain(self, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
+  def restore_did_webvh_history_from_source(self, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
+  def revoke_did(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
+  def rotate_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'RotateVerificationMethodResult'
+  def save_did_webvh_history_to_file(self, did: 'str', file_path: 'str | Path') -> 'Path'
+  def set_registry(self, registry: 'AgentRegistry') -> 'None'
+  def set_resolver(self, resolver: 'DIDResolver') -> 'None'
+  def update_did_document(self, did: 'str', patch: 'UpdateAgentDocumentParams', *, controller_signer: 'AgentSigner | None' = None) -> 'AgentDIDDocument'
+  def use_production_resolver(self, config: 'ProductionResolverProfileConfig') -> 'None'
+  def use_production_resolver_from_http(self, config: 'ProductionHttpResolverProfileConfig') -> 'None'
+  def use_production_resolver_from_json_rpc(self, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
+  def verify_historical_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
+  def verify_http_request_signature(self, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
+  def verify_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
+
+## AgentDidClientOptions
+class AgentDidClientOptions(resolver: 'DIDResolver | None' = None, registry: 'AgentRegistry | None' = None, nonce_store: 'NonceStore | None' = None, clock: 'Callable[[], datetime] | None' = None, webvh_domain: 'str' = 'agents.local') -> None
+  attr clock: Callable[[], datetime] | None
+  attr nonce_store: NonceStore | None
+  attr registry: AgentRegistry | None
+  attr resolver: DIDResolver | None
+  attr webvh_domain: str
+
 ## AgentDocumentHistoryAction
 value AgentDocumentHistoryAction = typing.Literal['created', 'updated', 'rotated-key', 'revoked']
 
@@ -39,8 +71,10 @@ class AgentDocumentHistoryEntry(*, did: str, revision: int, action: Literal['cre
 
 ## AgentIdentity
 class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
+  property client
   def create(self, params: 'CreateAgentParams') -> 'CreateAgentResult'
   classmethod export_did_webvh_history(cls, did: 'str') -> 'str'
+  classmethod get_default_client(cls) -> 'AgentDidClient'
   classmethod get_document_history(cls, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
   classmethod import_did_webvh_history(cls, did_log: 'str') -> 'AgentDIDDocument'
   classmethod load_did_webvh_history_from_file(cls, file_path: 'str | Path') -> 'AgentDIDDocument'
@@ -51,6 +85,7 @@ class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
   classmethod revoke_did(cls, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
   classmethod rotate_verification_method(cls, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'RotateVerificationMethodResult'
   classmethod save_did_webvh_history_to_file(cls, did: 'str', file_path: 'str | Path') -> 'Path'
+  classmethod set_default_client(cls, client: 'AgentDidClient') -> 'None'
   classmethod set_registry(cls, registry: 'AgentRegistry') -> 'None'
   classmethod set_resolver(cls, resolver: 'DIDResolver') -> 'None'
   def sign_http_request(self, params: 'SignHttpRequestParams') -> 'dict[str, str]'
@@ -64,7 +99,8 @@ class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
   classmethod verify_signature(cls, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
 
 ## AgentIdentityConfig
-class AgentIdentityConfig(signer_address: 'str', network: 'str' = 'polygon') -> None
+class AgentIdentityConfig(signer_address: 'str', network: 'str' = 'polygon', client: 'AgentDidClient | None' = None) -> None
+  attr client: AgentDidClient | None
   attr network: str
   attr signer_address: str
 

@@ -20,6 +20,7 @@ from agent_did_sdk import (
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
 )
+from agent_did_sdk.core.http_profile import compute_content_digest
 from agent_did_sdk.core.http_signatures import (
     HttpRequestLike,
     HttpSignatureError,
@@ -310,4 +311,4 @@ class TestAgentDidHttpSignatureProfile:
 
     def test_content_digest_is_rfc9530_sha256(self) -> None:
         digest = base64.b64encode(hashlib.sha256(b"{}").digest()).decode()
-        assert AgentIdentity._compute_content_digest("{}") == f"sha-256=:{digest}:"
+        assert compute_content_digest("{}") == f"sha-256=:{digest}:"

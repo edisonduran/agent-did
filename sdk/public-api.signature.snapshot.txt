@@ -1,15 +1,10 @@
 # Public API signature snapshot for @agentdid/sdk
 
-## core/AgentIdentity.d.ts
-import { ethers } from 'ethers';
-import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
-import { AgentSigner } from './signer';
+## core/AgentDidClient.d.ts
+import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
-export interface AgentIdentityConfig {
-    signer: ethers.Signer;
-    network?: string;
-}
 export interface ProductionResolverProfileConfig {
     registry: AgentRegistry;
     documentSource: DIDDocumentSource;
@@ -63,32 +58,173 @@ export interface ProductionJsonRpcResolverProfileConfig {
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
     httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
-/** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
-export declare const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[];
-/** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
-export declare const AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did";
-export declare class AgentIdentity {
-    /** Default replay store for `verifyHttpRequestSignature` (process-local). */
-    private static readonly defaultNonceStore;
-    private static readonly defaultWebvhDomain;
-    private static resolver;
-    private static registry;
-    private static readonly documentHistoryStore;
+export interface AgentDidClientOptions {
+    /** DID resolver. Defaults to a fresh in-memory resolver. */
+    resolver?: DIDResolver;
+    /** Agent registry. Defaults to a fresh in-memory registry. */
+    registry?: AgentRegistry;
+    /** Replay store for `verifyHttpRequestSignature`. Defaults to a fresh in-memory store. */
+    nonceStore?: NonceStore;
+    /** Time source for document timestamps and signature validity checks. Defaults to `new Date()`. */
+    clock?: () => Date;
+    /** Domain of the implicit local did:webvh profile. Defaults to `agents.local`. */
+    webvhDomain?: string;
+}
+/**
+ * Owns all mutable identity state (resolver, registry, replay store, document history,
+ * did:webvh logs and controller signers). Each client is an isolated instance: two clients
+ * never share state. `AgentIdentity`'s static API is a facade over a default client.
+ */
+export declare class AgentDidClient {
+    private readonly nonceStore;
+    private readonly defaultWebvhDomain;
+    private readonly clock;
+    private resolver;
+    private registry;
+    private readonly documentHistoryStore;
     /** did:webvh v1.0 logs (`did.jsonl`) of the DIDs created or imported in this process. */
-    private static readonly didWebvhLogStore;
+    private readonly didWebvhLogStore;
     /**
      * Deactivation state derived from the verified log, keyed by DID and tied to the exact
      * log text it was computed from. It is recomputed whenever the stored log changes.
      */
-    private static readonly didWebvhStateCache;
+    private readonly didWebvhStateCache;
     /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
-    private static readonly didWebvhSignerStore;
+    private readonly didWebvhSignerStore;
     /** Local bootstrap controllers, keyed by lowercase controller wallet address. */
-    private static readonly bootstrapControllers;
+    private readonly bootstrapControllers;
+    constructor(options?: AgentDidClientOptions);
+    private nowIsoTimestamp;
+    /**
+     * Creates a new Agent-DID Document (Passport) from raw parameters.
+     * Automatically hashes sensitive IP (coreModel, systemPrompt) and generates the DID.
+     *
+     * @param params The raw agent configuration (name, prompt, capabilities, etc.)
+     * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
+     */
+    createAgent(controllerAddress: string, network: string, params: CreateAgentParams): Promise<CreateAgentResult>;
+    /**
+     * Canonical did:webvh v1.0 profile: the agent document is the genesis entry of a
+     * `did.jsonl` log signed by the controller key (the log's only `updateKeys` entry).
+     */
+    private createDidWebvhAgent;
+    private requireWebvhCreateOptions;
+    private normalizeDidPathSegment;
+    /**
+     * Returns the local bootstrap controller for a wallet address, creating it on first use.
+     * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
+     * returned to the caller exactly once (`privateKey`) and never derived from public data.
+     */
+    private ensureBootstrapController;
+    /**
+     * Appends a controller-signed entry with `document` to the DID's did:webvh log and
+     * returns the state as signed. The signer is `controllerSigner` when given, otherwise
+     * the controller signer retained when the DID was created in this process.
+     */
+    private appendDidWebvhEntry;
+    private requireDidWebvhLifecycle;
+    private resolveActiveVerificationChain;
+    private hasActiveVerificationMethod;
+    /**
+     * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
+     *
+     * Requires the Agent-DID profile (covered components, `tag="agent-did"`, `alg="ed25519"`,
+     * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
+     * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
+     * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
+     * request is rejected. Returns `false` on any failure.
+     */
+    verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean>;
+    /**
+     * Verifies that a signature was produced by a specific Agent-DID.
+     * Uses the configured resolver and registry to validate against active verification methods.
+     */
+    verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
+    /**
+     * Verifies a historical signature against deactivated (rotated-out) keys.
+     * Unlike verifySignature(), this searches ALL verification methods including
+     * those with a `deactivated` timestamp, enabling audit trail verification
+     * for signatures created before a key rotation.
+     */
+    verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
+    /**
+     * Resolves a DID into its corresponding Agent-DID Document.
+     * Uses the configured resolver (in-memory or production) to retrieve the document.
+     */
+    resolve(did: string): Promise<AgentDIDDocument>;
+    /**
+     * Whether the locally stored did:webvh log ends in a deactivation entry. The log is
+     * verified (SCID, hash chain, controller proofs) before its state is trusted; a log that
+     * fails verification is an error, never "not revoked". Returns false when no log is
+     * stored for the DID.
+     */
+    private isDidWebvhDeactivated;
+    resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
+    /**
+     * Revokes a DID. For did:webvh DIDs this appends a controller-signed deactivation entry
+     * (`deactivated: true`) to the DID's log, which is what makes the DID revoked; the
+     * registry record is then updated as a derived index. Other DID methods are revoked in
+     * the registry.
+     */
+    revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
+    updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
+    rotateVerificationMethod(did: string, options?: DidWebvhLifecycleOptions): Promise<RotateVerificationMethodResult>;
+    getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
+    /** Returns the DID's did:webvh v1.0 log (`did.jsonl`) as created or imported in this process. */
+    exportDidWebvhHistory(did: string): string;
+    /**
+     * Verifies a did:webvh v1.0 log (SCID, hash chain, controller-signed proofs) and loads it
+     * into this process: latest document, registry record and document history. Changing the
+     * DID afterwards requires its controller signer (`options.controllerSigner`).
+     */
+    importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
+    saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void>;
+    loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument>;
+    persistDidWebvhHistoryToSource(did: string, documentRef: string, source: DIDDocumentSource): Promise<void>;
+    restoreDidWebvhHistoryFromSource(documentRef: string, source: DIDDocumentSource): Promise<AgentDIDDocument>;
+    setResolver(resolver: DIDResolver): void;
+    setRegistry(registry: AgentRegistry): void;
+    useProductionResolver(config: ProductionResolverProfileConfig): void;
+    useProductionResolverFromHttp(config: ProductionHttpResolverProfileConfig): void;
+    useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
+    private computeDocumentReference;
+    /** History entries for a verified did:webvh log, one per log entry. */
+    private historyFromDidWebvhLog;
+    private cloneDocument;
+    private nextDocumentTimestamp;
+    private appendHistory;
+}
+
+## core/AgentIdentity.d.ts
+import { ethers } from 'ethers';
+import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { AgentSigner } from './signer';
+import { DIDDocumentSource, DIDResolver } from '../resolver/types';
+import { AgentRegistry } from '../registry/types';
+import { AgentDidClient, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig, ProductionResolverProfileConfig } from './AgentDidClient';
+export type { ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig, ProductionResolverProfileConfig } from './AgentDidClient';
+export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './http-profile';
+export interface AgentIdentityConfig {
+    signer: ethers.Signer;
+    network?: string;
+    /**
+     * Client that owns the identity state (resolver, registry, did:webvh logs...) this
+     * identity creates documents in. Defaults to the process-wide default client.
+     */
+    client?: AgentDidClient;
+}
+export declare class AgentIdentity {
+    private static defaultClient;
     private readonly signer;
     private readonly network;
+    private readonly explicitClient?;
     constructor(config: AgentIdentityConfig);
-    private static nowIsoTimestamp;
+    /** The client this identity creates documents in. */
+    get client(): AgentDidClient;
+    /** The client behind the deprecated static API. */
+    static getDefaultClient(): AgentDidClient;
+    /** Replaces the client behind the deprecated static API (and identities without an explicit client). */
+    static setDefaultClient(client: AgentDidClient): void;
     /**
      * Creates a new Agent-DID Document (Passport) from raw parameters.
      * Automatically hashes sensitive IP (coreModel, systemPrompt) and generates the DID.
@@ -97,28 +233,6 @@ export declare class AgentIdentity {
      * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
      */
     create(params: CreateAgentParams): Promise<CreateAgentResult>;
-    /**
-     * Canonical did:webvh v1.0 profile: the agent document is the genesis entry of a
-     * `did.jsonl` log signed by the controller key (the log's only `updateKeys` entry).
-     */
-    private createDidWebvhAgent;
-    private static requireWebvhCreateOptions;
-    private static normalizeDidPathSegment;
-    /**
-     * Returns the local bootstrap controller for a wallet address, creating it on first use.
-     * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
-     * returned to the caller exactly once (`privateKey`) and never derived from public data.
-     */
-    private static ensureBootstrapController;
-    /**
-     * Appends a controller-signed entry with `document` to the DID's did:webvh log and
-     * returns the state as signed. The signer is `controllerSigner` when given, otherwise
-     * the controller signer retained when the DID was created in this process.
-     */
-    private static appendDidWebvhEntry;
-    private static requireDidWebvhLifecycle;
-    private static resolveActiveVerificationChain;
-    private static hasActiveVerificationMethod;
     /**
      * Signs a payload using an Ed25519 private key or an AgentSigner.
      */
@@ -135,78 +249,57 @@ export declare class AgentIdentity {
      * and `tag="agent-did"`. Returns the header fields to add to the request.
      */
     signHttpRequest(params: SignHttpRequestParams): Promise<Record<string, string>>;
-    /**
-     * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
-     *
-     * Requires the Agent-DID profile (covered components, `tag="agent-did"`, `alg="ed25519"`,
-     * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
-     * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
-     * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
-     * request is rejected. Returns `false` on any failure.
-     */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean>;
-    /**
-     * Verifies that a signature was produced by a specific Agent-DID.
-     * Uses the configured resolver and registry to validate against active verification methods.
-     */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
-    /**
-     * Verifies a historical signature against deactivated (rotated-out) keys.
-     * Unlike verifySignature(), this searches ALL verification methods including
-     * those with a `deactivated` timestamp, enabling audit trail verification
-     * for signatures created before a key rotation.
-     */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
-    /**
-     * Resolves a DID into its corresponding Agent-DID Document.
-     * Uses the configured resolver (in-memory or production) to retrieve the document.
-     */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static resolve(did: string): Promise<AgentDIDDocument>;
-    /**
-     * Whether the locally stored did:webvh log ends in a deactivation entry. The log is
-     * verified (SCID, hash chain, controller proofs) before its state is trusted; a log that
-     * fails verification is an error, never "not revoked". Returns false when no log is
-     * stored for the DID.
-     */
-    private static isDidWebvhDeactivated;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
-    /**
-     * Revokes a DID. For did:webvh DIDs this appends a controller-signed deactivation entry
-     * (`deactivated: true`) to the DID's log, which is what makes the DID revoked; the
-     * registry record is then updated as a derived index. Other DID methods are revoked in
-     * the registry.
-     */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static rotateVerificationMethod(did: string, options?: DidWebvhLifecycleOptions): Promise<RotateVerificationMethodResult>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
-    /** Returns the DID's did:webvh v1.0 log (`did.jsonl`) as created or imported in this process. */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static exportDidWebvhHistory(did: string): string;
-    /**
-     * Verifies a did:webvh v1.0 log (SCID, hash chain, controller-signed proofs) and loads it
-     * into this process: latest document, registry record and document history. Changing the
-     * DID afterwards requires its controller signer (`options.controllerSigner`).
-     */
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static persistDidWebvhHistoryToSource(did: string, documentRef: string, source: DIDDocumentSource): Promise<void>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static restoreDidWebvhHistoryFromSource(documentRef: string, source: DIDDocumentSource): Promise<AgentDIDDocument>;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static setResolver(resolver: DIDResolver): void;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static setRegistry(registry: AgentRegistry): void;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static useProductionResolver(config: ProductionResolverProfileConfig): void;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static useProductionResolverFromHttp(config: ProductionHttpResolverProfileConfig): void;
+    /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
-    private static computeDocumentReference;
-    /** RFC 9530 `Content-Digest` with SHA-256. */
-    private static computeContentDigest;
-    private static generateNonce;
-    /** History entries for a verified did:webvh log, one per log entry. */
-    private static historyFromDidWebvhLog;
-    private static cloneDocument;
-    private static nextDocumentTimestamp;
-    private static appendHistory;
 }
+
+## core/http-profile.d.ts
+/** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
+export declare const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[];
+/** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
+export declare const AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did";
+/** RFC 9530 `Content-Digest` with SHA-256. */
+export declare function computeContentDigest(body?: string): string;
+/** 128-bit random nonce, hex encoded. */
+export declare function generateNonce(): string;
 
 ## core/http-security.d.ts
 /**
@@ -630,6 +723,7 @@ export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
 export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
 export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
+export { AgentDidClient, AgentDidClientOptions } from './core/AgentDidClient';
 export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash, generateCommitmentSalt, createMetadataCommitment, verifyMetadataCommitment } from './crypto/hash';
 export { encodePublicKeyMultibase, decodePublicKeyMultibase } from './crypto/multibase';
 export { AgentSigner, LocalKeySigner } from './core/signer';

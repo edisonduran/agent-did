@@ -2,6 +2,8 @@
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
 AgentDIDDocument
+AgentDidClient
+AgentDidClientOptions
 AgentDocumentHistoryAction
 AgentDocumentHistoryEntry
 AgentIdentity
