@@ -4,8 +4,10 @@ This guide gets you from install to a signed outbound HTTP request in a couple o
 
 The canonical RFC-001 v0.3 deployment pattern starts from a `did:webvh` identity chain, for example:
 
-- controller/root: `did:webvh:example.com:organizations:acme-support`
-- agent: `did:webvh:example.com:agents:quickstart-bot`
+- controller/root: `did:webvh:{SCID}:example.com:organizations:acme-support`
+- agent: `did:webvh:{SCID}:example.com:agents:quickstart-bot`
+
+`{SCID}` is the self-certifying identifier that did:webvh v1.0 derives from each DID's genesis log entry; the SDK computes it when it creates the DID.
 
 The examples below are intentionally local and self-contained. They use an in-memory registry so you can prove the end-to-end signing flow before wiring a hosted `did:webvh` publication and resolver path. For this local flow, the SDK bootstraps the controller side for you instead of asking you to stand up hosted DID history first.
 
@@ -13,13 +15,13 @@ If you want a live browser walkthrough before wiring code, open [Agent-DID in Ac
 
 ## Node.js (TypeScript SDK, local signing flow)
 
-Install (requires Node.js 22+):
+Install (requires Node.js 22.12+):
 
 ```bash
 npm install @agentdid/sdk@next ethers
 ```
 
-`@next` selects the `1.0.0-rc.2` release candidate; without it npm installs the pre-RC `0.2.0`, whose HTTP signatures do not verify against `1.0.0-rc.2`.
+`@next` selects the `1.0.0-rc.3` release candidate; without it npm may install an older release whose DIDs and HTTP signatures do not interoperate with `1.0.0-rc.3`.
 
 Save this as `quickstart.js` and run `node quickstart.js`:
 
@@ -72,10 +74,10 @@ This snippet proves the current local SDK signing flow. The SDK auto-bootstraps 
 Install:
 
 ```bash
-pip install agent-did-sdk==1.0.0rc2
+pip install agent-did-sdk==1.0.0rc3
 ```
 
-Pinning `1.0.0rc2` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose HTTP signatures do not verify against `1.0.0rc2`.
+Pinning `1.0.0rc3` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc3`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)).
 
 Save this as `quickstart.py` and run `python quickstart.py`:
 

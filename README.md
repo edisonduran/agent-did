@@ -16,7 +16,7 @@
 [![CI — Microsoft Agent Framework](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml)
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
 [![Contract Audit](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml)
-[![Release Candidate](https://img.shields.io/badge/status-1.0.0--rc.2-yellow)](docs/RELEASE-1.0-CRITERIA.md)
+[![Release Candidate](https://img.shields.io/badge/status-1.0.0--rc.3-yellow)](docs/RELEASE-1.0-CRITERIA.md)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Feedback Wanted](https://img.shields.io/badge/feedback-wanted-lightgrey)](https://github.com/edisonduran/agent-did/discussions)
 
@@ -108,26 +108,27 @@ Documentation governance for live project status and canonical sources of truth 
 
 The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
 
-- **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.2` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.3` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
-- **Published prerelease (2026-11-02, tag `v1.0.0-rc.2`)**: `@agentdid/sdk` and `@agentdid/langchain` `1.0.0-rc.2` on npm under dist-tag `next`; `agent-did-sdk`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework` and `agent-did-a2a` `1.0.0rc2` on PyPI
+- **Published prerelease (2026-11-03, tag `v1.0.0-rc.3`)**: `@agentdid/sdk` and `@agentdid/langchain` `1.0.0-rc.3` on npm under dist-tag `next`; `agent-did-sdk`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework` and `agent-did-a2a` `1.0.0rc3` on PyPI
 - **Security release**: `1.0.0-rc.2` fixes [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf). `1.0.0-rc.1` / `1.0.0rc1` are deprecated; upgrade and recreate any bootstrap controller created with them (see the advisory)
-- **Install the RC explicitly**: `npm install @agentdid/sdk@next` / `pip install agent-did-sdk==1.0.0rc2`; a plain `npm install @agentdid/sdk` or `pip install agent-did-sdk` still resolves the pre-RC `0.2.0` / `0.1.0` releases
+- **Breaking release candidate**: `1.0.0-rc.3` issues did:webvh v1.0 DIDs (self-certifying SCID, controller-signed `did.jsonl` log verified on resolution), signs HTTP requests as RFC 9421 HTTP Message Signatures, canonicalizes `documentRef` with RFC 8785 (JCS) and salts the model and prompt commitments. rc.2 and rc.3 do not interoperate; see [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md) and [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
+- **Install the RC explicitly**: `npm install @agentdid/sdk@next` / `pip install agent-did-sdk==1.0.0rc3`; a plain `npm install @agentdid/sdk` or `pip install agent-did-sdk` still resolves the pre-RC `0.2.0` / `0.1.0` releases
 - **Breaking wire change in the RC**: HTTP message signatures now sign the `"@signature-params"` line (RFC 9421 §2.5), so signatures from `@agentdid/sdk` ≤ 0.2.0 or `agent-did-sdk` ≤ 0.1.0 do not verify against the RC and vice versa; see [CHANGELOG.md](CHANGELOG.md)
-- **Runtime floor**: `@agentdid/sdk` and `@agentdid/langchain` require Node.js 22+; `@agentdid/sdk` on `main` (`rc.3` train) requires 22.12+. `agent-did-sdk` on `main` does not install on Alpine (musl) or Windows ARM64 (see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md))
+- **Runtime floor**: `@agentdid/sdk` requires Node.js 22.12+ and `@agentdid/langchain` 22+. `agent-did-sdk` does not install on Alpine (musl) or Windows ARM64 (see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md))
 - **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
-- **`rc.2 -> rc.3` breaking changes (in progress on `main`)**: [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md), [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
+- **`rc.2 -> rc.3` migration**: [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md), [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
 - **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
-- **Current RC work**: validate public-registry clean-install smokes against the published `1.0.0-rc.2` packages, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
+- **Current RC work**: validate public-registry clean-install smokes against the published `1.0.0-rc.3` packages, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
 - **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 ## Build In Public
 
-Agent-DID is an open project being finalized in public for the `1.0.0-rc.2` release train.
+Agent-DID is an open project being finalized in public for the `1.0.0-rc.3` release train.
 
 - The core RFC lifecycle is implemented, covered by conformance checks, and frozen in-repo as the current Stable release contract.
-- The co-versioned `1.0.0-rc.2` prerelease is published on npm and PyPI across the shipped SDK and integration packages.
+- The co-versioned `1.0.0-rc.3` prerelease is published on npm and PyPI across the shipped SDK and integration packages.
 - The `did:webvh` runtime path, validation drills, and framework integrations are functional, and the release path now explicitly follows `did:webvh` as the canonical deployment story.
 - Community feedback is explicitly welcome during the RC window before the final `v1.0.0` tag.
 - RC and post-`1.0` compatibility expectations are documented in [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
@@ -135,7 +136,7 @@ Agent-DID is an open project being finalized in public for the `1.0.0-rc.2` rele
 
 If you want to help shape the next stage, the highest-leverage open areas today are:
 
-- **v1.0 RC validation and stable hardening**: validate the published `1.0.0-rc.2`, then continue accumulating the 30-day green evidence required for final `v1.0.0`
+- **v1.0 RC validation and stable hardening**: validate the published `1.0.0-rc.3`, then continue accumulating the 30-day green evidence required for final `v1.0.0`
 - **F2-03** production resolver hardening beyond the shipped source-adapter baseline
 - **F2-07** formal whitepaper publication
 - **F2-08** Azure AI Agent Service integration
