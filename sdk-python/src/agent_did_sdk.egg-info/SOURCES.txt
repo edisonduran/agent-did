@@ -9,6 +9,8 @@ src/agent_did_sdk.egg-info/dependency_links.txt
 src/agent_did_sdk.egg-info/requires.txt
 src/agent_did_sdk.egg-info/top_level.txt
 src/agent_did_sdk/core/__init__.py
+src/agent_did_sdk/core/client.py
+src/agent_did_sdk/core/http_profile.py
 src/agent_did_sdk/core/http_security.py
 src/agent_did_sdk/core/http_signatures.py
 src/agent_did_sdk/core/identity.py
@@ -43,6 +45,7 @@ src/agent_did_sdk/webvh/adapter.py
 tests/test_aws_sigv4_s3_source.py
 tests/test_bearer_http_source.py
 tests/test_bootstrap_controller.py
+tests/test_client.py
 tests/test_crypto.py
 tests/test_evm_registry.py
 tests/test_file_source.py

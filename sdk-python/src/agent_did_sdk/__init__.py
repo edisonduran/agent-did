@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .core.client import AgentDidClient, AgentDidClientOptions
 from .core.http_security import HttpTargetValidationOptions, validate_http_target
 from .core.http_signatures import (
     HttpRequestLike,
@@ -145,6 +146,8 @@ __all__ = [
     "HttpTargetValidationOptions",
     "validate_http_target",
     # Core identity
+    "AgentDidClient",
+    "AgentDidClientOptions",
     "AgentIdentity",
     "AgentIdentityConfig",
     "ProductionResolverProfileConfig",

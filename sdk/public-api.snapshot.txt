@@ -1,6 +1,8 @@
 # Public API snapshot for @agentdid/sdk
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
+AgentDidClient
+AgentDidClientOptions
 AgentDIDDocument
 AgentDocumentHistoryAction
 AgentDocumentHistoryEntry

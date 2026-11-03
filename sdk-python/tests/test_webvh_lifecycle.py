@@ -24,11 +24,11 @@ CONTROLLER_SIGNER = LocalKeySigner("7c" * 32)
 def _reset_process() -> None:
     AgentIdentity.set_resolver(InMemoryDIDResolver())
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    AgentIdentity._history_store = {}
-    AgentIdentity._did_webvh_log_store = {}
-    AgentIdentity._did_webvh_state_cache = {}
-    AgentIdentity._did_webvh_signer_store = {}
-    AgentIdentity._bootstrap_controllers = {}
+    AgentIdentity.get_default_client()._history_store = {}
+    AgentIdentity.get_default_client()._did_webvh_log_store = {}
+    AgentIdentity.get_default_client()._did_webvh_state_cache = {}
+    AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+    AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
 
 def _params(**webvh_overrides: object) -> CreateAgentParams:
@@ -160,9 +160,9 @@ class TestDidWebvhLifecycleAuthorization:
     async def test_fails_closed_when_the_stored_log_no_longer_verifies(self, identity: AgentIdentity) -> None:
         did = (await identity.create(_params())).document.id
         await AgentIdentity.resolve(did)
-        entry = json.loads(AgentIdentity._did_webvh_log_store[did].splitlines()[0])
+        entry = json.loads(AgentIdentity.get_default_client()._did_webvh_log_store[did].splitlines()[0])
         entry["state"]["controller"] = "did:webvh:QmAttacker:attacker.example"
-        AgentIdentity._did_webvh_log_store[did] = json.dumps(entry) + "\n"
+        AgentIdentity.get_default_client()._did_webvh_log_store[did] = json.dumps(entry) + "\n"
 
         with pytest.raises(DidWebvhError):
             await AgentIdentity.resolve(did)

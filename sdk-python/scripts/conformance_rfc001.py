@@ -47,10 +47,10 @@ def build_identity() -> tuple[AgentIdentity, InMemoryAgentRegistry]:
     AgentIdentity.set_resolver(InMemoryDIDResolver())
     registry = InMemoryAgentRegistry()
     AgentIdentity.set_registry(registry)
-    AgentIdentity._history_store = {}
-    AgentIdentity._did_webvh_log_store = {}
-    AgentIdentity._did_webvh_signer_store = {}
-    AgentIdentity._bootstrap_controllers = {}
+    AgentIdentity.get_default_client()._history_store = {}
+    AgentIdentity.get_default_client()._did_webvh_log_store = {}
+    AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+    AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
     identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1234567890abcdef1234567890abcdef12345678"))
     return identity, registry
@@ -321,7 +321,7 @@ async def evaluate_universal_resolver_should(revoked_document) -> CheckResult:
     fallback = InMemoryDIDResolver()
     events = []
 
-    document_ref = AgentIdentity._compute_document_reference(document)
+    document_ref = AgentIdentity.get_default_client()._compute_document_reference(document)
     await registry.register(document.id, document.controller, document_ref)
     await source.store_by_reference(document_ref, document)
     # did:webvh: the resolver fetches and verifies the controller-signed did.jsonl log.
@@ -369,8 +369,8 @@ async def evaluate_interop_should() -> CheckResult:
     for interop_vector in interop_fixture_set["vectors"].values():
         interop_document = build_interop_document(interop_vector)
         controller_document = build_interop_controller_document(interop_vector)
-        AgentIdentity._resolver.register_document(interop_document)
-        AgentIdentity._resolver.register_document(controller_document)
+        AgentIdentity.get_default_client()._resolver.register_document(interop_document)
+        AgentIdentity.get_default_client()._resolver.register_document(controller_document)
 
         message_vector = interop_vector["messageVector"]
         http_vector = interop_vector["httpVector"]

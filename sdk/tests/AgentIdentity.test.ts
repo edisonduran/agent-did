@@ -17,7 +17,7 @@ import { generateCommitmentSalt, verifyMetadataCommitment } from '../src/crypto/
 
 /** Simulates a fresh process: drops the in-process did:webvh logs, controller signers and bootstrap controllers. */
 function resetDidWebvhState(): void {
-  const stores = AgentIdentity as unknown as Record<
+  const stores = AgentIdentity.getDefaultClient() as unknown as Record<
     'didWebvhLogStore' | 'didWebvhStateCache' | 'didWebvhSignerStore' | 'bootstrapControllers',
     Map<string, unknown>
   >;
@@ -44,7 +44,7 @@ describe('AgentIdentity Core Module', () => {
   beforeEach(() => {
     AgentIdentity.setResolver(new InMemoryDIDResolver());
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+    (AgentIdentity.getDefaultClient() as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
     resetDidWebvhState();
   });
 
@@ -1126,7 +1126,7 @@ describe('AgentIdentity Core Module', () => {
 
     AgentIdentity.setResolver(new InMemoryDIDResolver());
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+    (AgentIdentity.getDefaultClient() as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
     resetDidWebvhState();
 
     const restored = await AgentIdentity.importDidWebvhHistory(didLog);
@@ -1164,7 +1164,7 @@ describe('AgentIdentity Core Module', () => {
 
       AgentIdentity.setResolver(new InMemoryDIDResolver());
       AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-      (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+      (AgentIdentity.getDefaultClient() as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
       resetDidWebvhState();
 
       const restored = await AgentIdentity.loadDidWebvhHistoryFromFile(didLogPath);
@@ -1204,7 +1204,7 @@ describe('AgentIdentity Core Module', () => {
 
     AgentIdentity.setResolver(new InMemoryDIDResolver());
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+    (AgentIdentity.getDefaultClient() as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
     resetDidWebvhState();
 
     const restored = await AgentIdentity.restoreDidWebvhHistoryFromSource(documentRef, source);
@@ -1583,7 +1583,7 @@ describe('did:webvh v1.0 lifecycle authorization', () => {
   it('fails closed when the stored did:webvh log no longer verifies', async () => {
     const { document } = await identity.create(params);
     await AgentIdentity.resolve(document.id);
-    const stores = AgentIdentity as unknown as Record<'didWebvhLogStore', Map<string, string>>;
+    const stores = AgentIdentity.getDefaultClient() as unknown as Record<'didWebvhLogStore', Map<string, string>>;
     const entry = JSON.parse(stores.didWebvhLogStore.get(document.id)!.trimEnd().split('\n')[0]);
     entry.state.controller = 'did:webvh:QmAttacker:attacker.example';
     stores.didWebvhLogStore.set(document.id, JSON.stringify(entry) + '\n');

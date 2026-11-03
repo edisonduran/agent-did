@@ -35,10 +35,10 @@ from .webvh_helpers import create_agent_webvh_log
 def identity() -> AgentIdentity:
     AgentIdentity.set_resolver(InMemoryDIDResolver())
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    AgentIdentity._history_store = {}
-    AgentIdentity._did_webvh_log_store = {}
-    AgentIdentity._did_webvh_signer_store = {}
-    AgentIdentity._bootstrap_controllers = {}
+    AgentIdentity.get_default_client()._history_store = {}
+    AgentIdentity.get_default_client()._did_webvh_log_store = {}
+    AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+    AgentIdentity.get_default_client()._bootstrap_controllers = {}
     return AgentIdentity(AgentIdentityConfig(signer_address="0xTestController1234567890"))
 
 
@@ -823,10 +823,10 @@ class TestAgentIdentityHistory:
 
         AgentIdentity.set_resolver(InMemoryDIDResolver())
         AgentIdentity.set_registry(InMemoryAgentRegistry())
-        AgentIdentity._history_store = {}
-        AgentIdentity._did_webvh_log_store = {}
-        AgentIdentity._did_webvh_signer_store = {}
-        AgentIdentity._bootstrap_controllers = {}
+        AgentIdentity.get_default_client()._history_store = {}
+        AgentIdentity.get_default_client()._did_webvh_log_store = {}
+        AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+        AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
         restored = await AgentIdentity.import_did_webvh_history(did_log)
         resolved = await AgentIdentity.resolve(did)
@@ -855,10 +855,10 @@ class TestAgentIdentityHistory:
 
         AgentIdentity.set_resolver(InMemoryDIDResolver())
         AgentIdentity.set_registry(InMemoryAgentRegistry())
-        AgentIdentity._history_store = {}
-        AgentIdentity._did_webvh_log_store = {}
-        AgentIdentity._did_webvh_signer_store = {}
-        AgentIdentity._bootstrap_controllers = {}
+        AgentIdentity.get_default_client()._history_store = {}
+        AgentIdentity.get_default_client()._did_webvh_log_store = {}
+        AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+        AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
         restored = await AgentIdentity.load_did_webvh_history_from_file(did_log_path)
 
@@ -905,10 +905,10 @@ class TestAgentIdentityHistory:
 
         AgentIdentity.set_resolver(InMemoryDIDResolver())
         AgentIdentity.set_registry(InMemoryAgentRegistry())
-        AgentIdentity._history_store = {}
-        AgentIdentity._did_webvh_log_store = {}
-        AgentIdentity._did_webvh_signer_store = {}
-        AgentIdentity._bootstrap_controllers = {}
+        AgentIdentity.get_default_client()._history_store = {}
+        AgentIdentity.get_default_client()._did_webvh_log_store = {}
+        AgentIdentity.get_default_client()._did_webvh_signer_store = {}
+        AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
         restored = await AgentIdentity.restore_did_webvh_history_from_source(document_ref, source)
 

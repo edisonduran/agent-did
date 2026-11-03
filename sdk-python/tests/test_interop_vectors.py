@@ -89,8 +89,8 @@ class TestInteropHttpVector:
             http = vector["httpVector"]
 
             # Register the fixture DID document so verify can resolve it
-            AgentIdentity._resolver.register_document(_build_interop_document(vector))
-            AgentIdentity._resolver.register_document(_build_interop_controller_document(vector))
+            AgentIdentity.get_default_client()._resolver.register_document(_build_interop_document(vector))
+            AgentIdentity.get_default_client()._resolver.register_document(_build_interop_controller_document(vector))
 
             is_valid = await AgentIdentity.verify_http_request_signature(
                 VerifyHttpRequestSignatureParams(
