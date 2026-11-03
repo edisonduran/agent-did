@@ -19,9 +19,9 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining afte
 
 ---
 
-## [1.0.0-rc.3] - Unreleased
+## [1.0.0-rc.3] - 2026-11-03
 
-Breaking release candidate. All eight co-versioned packages move to `1.0.0-rc.3` (npm, dist-tag `next`) / `1.0.0rc3` (PyPI). Every user of `1.0.0-rc.2` / `1.0.0rc2` should upgrade: `did:webvh` DIDs, document references, metadata commitments and HTTP signatures change format, so rc.2 and rc.3 do not interoperate. Follow [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md) or [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md).
+Breaking release candidate, tagged `v1.0.0-rc.3`. All eight co-versioned packages move to `1.0.0-rc.3` (npm, dist-tag `next`) / `1.0.0rc3` (PyPI). Every user of `1.0.0-rc.2` / `1.0.0rc2` should upgrade: `did:webvh` DIDs, document references, metadata commitments and HTTP signatures change format, so rc.2 and rc.3 do not interoperate. Follow [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md) or [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md).
 
 ### Changed (breaking)
 
