@@ -1,0 +1,24 @@
+{
+  "description": "Pinned DIF didwebvh-test-suite revision and the expectations both SDK adapters are checked against (ADR-002, condition 6). CI checks out the suite at `commit` and runs sdk/tests/WebvhTestSuite.test.ts and sdk-python/tests/test_webvh_test_suite.py with DIDWEBVH_TEST_SUITE_DIR pointing at it.",
+  "repository": "https://github.com/decentralized-identity/didwebvh-test-suite",
+  "commit": "703f97fae37cc394ce10340d8d0815dab63573f6",
+  "comparison": {
+    "document": "The resolved DID document must equal each implementation's committed resolutionResult didDocument, ignoring the implicit #files and #whois services (their serialization differs between resolvers). A null expected document (deactivated DID) is not compared.",
+    "metadata": "versionId and versionTime/updated must match the selected log entry, created the genesis entry, scid the genesis SCID, and deactivated the committed result. Metadata is checked against the log rather than against other resolvers' output."
+  },
+  "unsupported": {
+    "witness-threshold": "Witnesses are deferred past 1.0 (ADR-002, condition 7). The adapters must reject these logs instead of resolving them without witness checks.",
+    "witness-update": "Witnesses are deferred past 1.0 (ADR-002, condition 7). The adapters must reject these logs instead of resolving them without witness checks."
+  },
+  "deferredNegative": {
+    "negative-fragment-leaks-into-domain": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
+    "negative-lowercase-pct-port-ip": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
+    "negative-path-traversal-did": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
+    "negative-pct-encoded-ip-host": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3).",
+    "negative-pct-encoded-traversal": "DID-to-URL derivation vector (no log). Exercised when the resolvers move to the adapters (ADR-002, step 3)."
+  },
+  "vectorDefects": {
+    "multi-update/python/resolutionResult.1.json": "Committed expectation is the HEAD resolution (versionId 3-...): the generating resolver ignored the version selector. The document comparison is skipped; metadata is still checked against the log, and the test fails once the vector is corrected upstream so this entry can be removed.",
+    "multi-update/python/resolutionResult.2.json": "Committed expectation is the HEAD resolution (versionId 3-...): the generating resolver ignored the version selector. The document comparison is skipped; metadata is still checked against the log, and the test fails once the vector is corrected upstream so this entry can be removed."
+  }
+}

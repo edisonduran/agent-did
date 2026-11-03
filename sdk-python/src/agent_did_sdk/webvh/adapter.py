@@ -245,6 +245,8 @@ async def resolve_did_webvh_log(
         raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {err}") from None
     except AsyncTextReadError as err:
         raise DidWebvhError("notFound", f"did:webvh log verification failed: {err}") from None
+    except Exception as err:  # noqa: BLE001 - fail closed on any library defect
+        raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {type(err).__name__}") from None
 
     document = state.document_copy()
     if not state.deactivated:
