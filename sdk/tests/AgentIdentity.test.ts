@@ -1,5 +1,7 @@
 import { ethers } from 'ethers';
-import { AgentIdentity } from '../src/core/AgentIdentity';
+import { AgentIdentity, AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from '../src/core/AgentIdentity';
+import { buildSignatureBase, parseSignatureInputHeader, serializeSignatureInput } from '../src/core/http-signatures';
+import { InMemoryNonceStore } from '../src/core/nonce-store';
 import { CreateAgentParams } from '../src/core/types';
 import { assertKeyPurpose, assertSigningPurpose, IdentityCompositionError } from '../src/core/identity-composition';
 import { LocalKeySigner } from '../src/core/signer';
@@ -288,29 +290,39 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
 
-    const requestParams = {
-      method: 'POST',
-      url: 'https://api.example.com/v1/interop',
-      body: '{"interop": true}',
-      agentPrivateKey,
-      agentDid: document.id
+    const url = 'https://api.example.com/v1/interop?view=full';
+    const body = '{"interop": true}';
+    const signed = await agentIdentity.signHttpRequest({ method: 'POST', url, body, agentPrivateKey, agentDid: document.id });
+    const created = Math.floor(Date.now() / 1000);
+    const headers: Record<string, string> = {
+      'Signature-Agent': document.id,
+      'Date': signed['Date'],
+      'Content-Digest': signed['Content-Digest'],
+      'X-Extra': 'covered too'
     };
+    // An extra covered component must really be signed: build the base with it.
+    const input = {
+      components: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS, 'x-extra'],
+      params: [
+        ['created', created],
+        ['expires', created + 30],
+        ['nonce', 'f'.repeat(32)],
+        ['keyid', `${document.id}#key-1`],
+        ['alg', 'ed25519'],
+        ['tag', AGENT_DID_HTTP_SIGNATURE_TAG]
+      ] as Array<[string, string | number]>
+    };
+    const base = buildSignatureBase({ method: 'POST', url, headers }, input);
+    const signatureHex = await agentIdentity.signMessage(base, agentPrivateKey);
+    headers['Signature-Input'] = `sig-a=${serializeSignatureInput(input)}`;
+    headers['Signature'] = `sig-a=:${Buffer.from(hexToBytes(signatureHex)).toString('base64')}:`;
 
-    const headers = await agentIdentity.signHttpRequest(requestParams);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ method: 'POST', url, body, headers })).resolves.toBe(true);
 
-    headers['Signature'] = headers['Signature'].replace(/^sig1/, 'sigA');
-    headers['Signature-Input'] = headers['Signature-Input']
-      .replace(/^sig1/, 'sigA')
-      .replace('("@request-target" "host" "date" "content-digest")', '("@request-target" "host" "date" "content-digest" "x-extra")');
-
-    const valid = await AgentIdentity.verifyHttpRequestSignature({
-      method: requestParams.method,
-      url: requestParams.url,
-      body: requestParams.body,
-      headers
-    });
-
-    expect(valid).toBe(true);
+    // Changing the extra covered header breaks the signature.
+    const tampered: Record<string, string> = { ...headers, 'X-Extra': 'changed' };
+    tampered['Signature-Input'] = tampered['Signature-Input'].replace('f'.repeat(32), 'e'.repeat(32));
+    await expect(AgentIdentity.verifyHttpRequestSignature({ method: 'POST', url, body, headers: tampered })).resolves.toBe(false);
   });
 
   it('should verify HTTP signatures when signature dictionaries contain multiple labels', async () => {
@@ -331,7 +343,7 @@ describe('AgentIdentity Core Module', () => {
     const headers = await agentIdentity.signHttpRequest(requestParams);
 
     headers['Signature'] = `other=:ZmFrZVNpZw==:, ${headers['Signature']}`;
-    headers['Signature-Input'] = `other=("@request-target");created=1;keyid="${document.id}#key-1";alg="ed25519", ${headers['Signature-Input']}`;
+    headers['Signature-Input'] = `other=("@method");created=1;keyid="${document.id}#key-1";alg="ed25519", ${headers['Signature-Input']}`;
 
     const valid = await AgentIdentity.verifyHttpRequestSignature({
       method: requestParams.method,
@@ -343,7 +355,7 @@ describe('AgentIdentity Core Module', () => {
     expect(valid).toBe(true);
   });
 
-  it('should include anti-replay headers (nonce + expires) in signed HTTP requests', async () => {
+  it('should sign the RFC 9421 Agent-DID profile with nonce, expires and tag parameters', async () => {
     const { document, agentPrivateKey } = await agentIdentity.create({
       name: 'AntiReplayBot',
       coreModel: 'test',
@@ -351,22 +363,28 @@ describe('AgentIdentity Core Module', () => {
     });
 
     const headers = await agentIdentity.signHttpRequest({
-      method: 'POST',
-      url: 'https://api.example.com/v1/data',
+      method: 'post',
+      url: 'https://api.example.com/v1/data?x=1',
       body: '{"nonce": true}',
       agentPrivateKey,
       agentDid: document.id,
       expiresInSeconds: 60
     });
 
-    expect(headers['X-Request-Nonce']).toBeDefined();
-    expect(headers['X-Request-Nonce'].length).toBeGreaterThan(0);
-    expect(headers['Signature-Input']).toContain('"x-request-nonce"');
-    expect(headers['Signature-Input']).toContain('expires=');
+    expect(headers['X-Request-Nonce']).toBeUndefined();
+    const input = parseSignatureInputHeader(headers['Signature-Input']).get('sig1')!;
+    expect(input.components).toEqual([...AGENT_DID_HTTP_SIGNATURE_COMPONENTS]);
+    expect(input.params.map(([name]) => name)).toEqual(['created', 'expires', 'nonce', 'keyid', 'alg', 'tag']);
+    const params = Object.fromEntries(input.params);
+    expect(params.expires).toEqual((params.created as number) + 60);
+    expect(params.nonce).toMatch(/^[0-9a-f]{32}$/u);
+    expect(params.keyid).toEqual(`${document.id}#key-1`);
+    expect(params.alg).toEqual('ed25519');
+    expect(params.tag).toEqual('agent-did');
 
     const valid = await AgentIdentity.verifyHttpRequestSignature({
       method: 'POST',
-      url: 'https://api.example.com/v1/data',
+      url: 'https://api.example.com/v1/data?x=1',
       body: '{"nonce": true}',
       headers
     });
@@ -475,74 +493,96 @@ describe('AgentIdentity Core Module', () => {
     })).resolves.toBe(false);
   });
 
-  it('should support verifier-side nonce cache rejection for duplicate requests', async () => {
+  it('should reject a replayed request through the built-in nonce store', async () => {
     const { document, agentPrivateKey } = await agentIdentity.create({
       name: 'NonceCacheBot',
       coreModel: 'test',
       systemPrompt: 'test'
     });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"nonce-cache": true}' };
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, expiresInSeconds: 120 });
 
-    const headers = await agentIdentity.signHttpRequest({
-      method: 'POST',
-      url: 'https://api.example.com/v1/data',
-      body: '{"nonce-cache": true}',
-      agentPrivateKey,
-      agentDid: document.id,
-      expiresInSeconds: 120
-    });
-    const nonceCache = new Map<string, number>();
-    const verifyWithNonceCache = async (): Promise<boolean> => {
-      const nonce = headers['X-Request-Nonce'];
-      const expiresMatch = /expires=(\d+)/.exec(headers['Signature-Input']);
-      const expires = Number(expiresMatch?.[1] ?? 0);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(true);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(false);
 
-      if (nonceCache.has(nonce)) {
-        return false;
-      }
-
-      const valid = await AgentIdentity.verifyHttpRequestSignature({
-        method: 'POST',
-        url: 'https://api.example.com/v1/data',
-        body: '{"nonce-cache": true}',
-        headers
-      });
-
-      if (valid) {
-        nonceCache.set(nonce, expires);
-      }
-
-      return valid;
-    };
-
-    await expect(verifyWithNonceCache()).resolves.toBe(true);
-    await expect(verifyWithNonceCache()).resolves.toBe(false);
+    // A caller-supplied store is used instead of the default one.
+    const nonceStore = new InMemoryNonceStore();
+    const second = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: second, nonceStore })).resolves.toBe(true);
+    expect(nonceStore.size).toBe(1);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: second, nonceStore })).resolves.toBe(false);
   });
 
-  it('should reject HTTP signatures missing x-request-nonce header', async () => {
+  it('should not record nonces of requests whose signature is invalid', async () => {
     const { document, agentPrivateKey } = await agentIdentity.create({
-      name: 'NoNonceBot',
+      name: 'NonceBurnBot',
       coreModel: 'test',
       systemPrompt: 'test'
     });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"amount":1}' };
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const nonceStore = new InMemoryNonceStore();
 
+    await expect(
+      AgentIdentity.verifyHttpRequestSignature({ ...request, body: '{"amount":2}', headers, nonceStore })
+    ).resolves.toBe(false);
+    const forged = { ...headers, 'Signature': `sig1=:${Buffer.alloc(64).toString('base64')}:` };
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: forged, nonceStore })).resolves.toBe(false);
+    expect(nonceStore.size).toBe(0);
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers, nonceStore })).resolves.toBe(true);
+  });
+
+  it.each([
+    ['missing nonce', (input: string) => input.replace(/;nonce="[^"]*"/u, '')],
+    ['missing tag', (input: string) => input.replace(';tag="agent-did"', '')],
+    ['foreign tag', (input: string) => input.replace('tag="agent-did"', 'tag="web-bot-auth"')],
+    ['missing alg', (input: string) => input.replace(';alg="ed25519"', '')],
+    ['missing expires', (input: string) => input.replace(/;expires=\d+/u, '')],
+    ['dropped signature-agent component', (input: string) => input.replace(' "signature-agent"', '')],
+    ['dropped @query component', (input: string) => input.replace(' "@query"', '')],
+    ['malformed dictionary', (input: string) => input.replace('sig1=(', 'sig1=[')]
+  ])('should reject Agent-DID signatures with %s', async (_label, mutate) => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'ProfileBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"profile": true}' };
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    headers['Signature-Input'] = mutate(headers['Signature-Input']);
+
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(false);
+  });
+
+  it.each([
+    ['method', { method: 'PUT' }],
+    ['host', { url: 'https://evil.example.com/v1/data?x=1' }],
+    ['path', { url: 'https://api.example.com/v1/admin?x=1' }],
+    ['query', { url: 'https://api.example.com/v1/data?x=2' }]
+  ])('should reject a request whose %s differs from the signed one', async (_label, change) => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'BindingBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data?x=1', body: '{}' };
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, ...change, headers })).resolves.toBe(false);
+  });
+
+  it('should reject a Signature-Agent swapped to another DID', async () => {
+    const victim = await agentIdentity.create({ name: 'VictimBot', coreModel: 'test', systemPrompt: 'test' });
+    const attacker = await agentIdentity.create({ name: 'AttackerBot', coreModel: 'test', systemPrompt: 'test' });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{}' };
     const headers = await agentIdentity.signHttpRequest({
-      method: 'POST',
-      url: 'https://api.example.com/v1/data',
-      body: '{"no-nonce": true}',
-      agentPrivateKey,
-      agentDid: document.id
+      ...request,
+      agentPrivateKey: attacker.agentPrivateKey,
+      agentDid: attacker.document.id
     });
 
-    // Remove the nonce header
-    delete headers['X-Request-Nonce'];
-
-    const valid = await AgentIdentity.verifyHttpRequestSignature({
-      method: 'POST',
-      url: 'https://api.example.com/v1/data',
-      body: '{"no-nonce": true}',
-      headers
-    });
-    expect(valid).toBe(false);
+    const swapped = { ...headers, 'Signature-Agent': victim.document.id };
+    await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: swapped })).resolves.toBe(false);
   });
 
   it('should resolve a created DID document', async () => {
@@ -1239,7 +1279,7 @@ describe('AgentIdentity Core Module', () => {
     });
 
     expect(headers['Signature']).toBeDefined();
-    expect(headers['X-Request-Nonce']).toBeDefined();
+    expect(headers['X-Request-Nonce']).toBeUndefined();
 
     const valid = await AgentIdentity.verifyHttpRequestSignature({
       method: 'POST',

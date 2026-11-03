@@ -3,7 +3,19 @@
 from __future__ import annotations
 
 from .core.http_security import HttpTargetValidationOptions, validate_http_target
+from .core.http_signatures import (
+    HttpRequestLike,
+    HttpSignatureError,
+    SignatureInput,
+    Token,
+    build_signature_base,
+    parse_signature_header,
+    parse_signature_input_header,
+    serialize_signature_input,
+)
 from .core.identity import (
+    AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
+    AGENT_DID_HTTP_SIGNATURE_TAG,
     AgentIdentity,
     AgentIdentityConfig,
     ProductionHttpResolverProfileConfig,
@@ -19,6 +31,7 @@ from .core.identity_composition import (
     get_key_relationships,
     get_relationship_key_ids,
 )
+from .core.nonce_store import InMemoryNonceStore, NonceStore
 from .core.signer import AgentSigner, LocalKeySigner
 from .core.time_utils import (
     is_unix_timestamp_string,
@@ -114,6 +127,19 @@ __all__ = [
     "get_relationship_key_ids",
     # Core signer
     "AgentSigner",
+    # HTTP Message Signatures (RFC 9421) and replay protection
+    "AGENT_DID_HTTP_SIGNATURE_COMPONENTS",
+    "AGENT_DID_HTTP_SIGNATURE_TAG",
+    "NonceStore",
+    "InMemoryNonceStore",
+    "HttpSignatureError",
+    "HttpRequestLike",
+    "SignatureInput",
+    "Token",
+    "build_signature_base",
+    "parse_signature_header",
+    "parse_signature_input_header",
+    "serialize_signature_input",
     "LocalKeySigner",
     # Core HTTP security
     "HttpTargetValidationOptions",
