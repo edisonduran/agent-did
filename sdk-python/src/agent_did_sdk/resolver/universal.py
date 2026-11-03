@@ -7,6 +7,7 @@ from urllib.parse import quote, unquote, urlparse
 
 from ..core.types import AgentDIDDocument
 from ..crypto.hash import generate_canonical_document_hash
+from ..webvh.adapter import DidWebvhError, derive_did_webvh_log_url, resolve_did_webvh_log
 from .http_source import HttpDIDDocumentSource
 from .types import (
     DocumentIntegrityError,
@@ -164,28 +165,58 @@ class UniversalResolverClient:
         return resolved.model_copy(deep=True)
 
     async def _resolve_did_webvh(self, did: str, started: float, now: float) -> AgentDIDDocument:
-        document_url = self._derive_did_webvh_document_url(did)
-        self._emit(did, "source-fetch", started, message=f"url={document_url}")
+        """Fetch ``did.jsonl`` from the URL derived from the DID, verify it, return the latest state.
 
+        Only availability failures (fetch error, log not found) may fall back; an invalid DID, a log
+        that fails verification or a deactivated DID never does.
+        """
         try:
-            resolved = await self._webvh_source.get_by_reference(document_url)
-        except Exception as exc:
+            log_url = derive_did_webvh_log_url(did)
+        except DidWebvhError as exc:
+            self._emit(did, "error", started, message=str(exc))
+            raise
+
+        get_log = getattr(self._webvh_source, "get_did_log_by_reference", None)
+        if not callable(get_log):
+            msg = (
+                "webvh_document_source must implement get_did_log_by_reference: "
+                "did:webvh logs are verified, never trusted as plain documents"
+            )
+            self._emit(did, "error", started, message=msg)
+            raise TypeError(msg)
+
+        self._emit(did, "source-fetch", started, message=f"url={log_url}")
+        try:
+            log_text = await get_log(log_url)
+        except Exception as exc:  # noqa: BLE001 - availability failure, may fall back
             msg = str(exc)
             self._emit(did, "error", started, message=msg)
             return await self._fallback_resolve(did, msg, started)
 
-        if resolved is None:
-            return await self._fallback_resolve(
-                did, f"Document not found for did:webvh URL: {document_url}", started
-            )
+        if log_text is None:
+            return await self._fallback_resolve(did, f"DID log not found for did:webvh URL: {log_url}", started)
 
-        if resolved.id != did:
-            raise ValueError(f"Resolved document DID mismatch. Expected {did}, got {resolved.id}")
+        try:
+            resolved = await resolve_did_webvh_log(log_text, did=did)
+        except DidWebvhError as exc:
+            raise self._integrity_failure(did, f"did:webvh log verification failed for {did}: {exc}", started) from None
 
-        self._emit(did, "source-fetched", started)
-        self._cache[did] = _CachedDocument(resolved.model_copy(deep=True), now + self._cache_ttl_ms)
+        if resolved.metadata.deactivated:
+            msg = f"DID is deactivated: {did}"
+            self._emit(did, "error", started, message=msg)
+            raise ValueError(msg)
+
+        try:
+            document = AgentDIDDocument.model_validate(resolved.state)
+        except ValueError as exc:
+            raise self._integrity_failure(
+                did, f"did:webvh state for {did} is not an Agent-DID document: {exc}", started
+            ) from None
+
+        self._emit(did, "source-fetched", started, message=f"versionId={resolved.metadata.version_id}")
+        self._cache[did] = _CachedDocument(document.model_copy(deep=True), now + self._cache_ttl_ms)
         self._emit(did, "resolved", started)
-        return resolved.model_copy(deep=True)
+        return document.model_copy(deep=True)
 
     def _emit(self, did: str, stage: str, started: float, *, message: str | None = None) -> None:
         if self._on_event:
@@ -225,39 +256,6 @@ class UniversalResolverClient:
         parsed = urlparse(url)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError(f"Invalid did:wba DID: {did}")
-
-        return url
-
-    def _derive_did_webvh_document_url(self, did: str) -> str:
-        suffix = did[len("did:webvh:"):]
-        if not suffix:
-            raise ValueError(f"Invalid did:webvh DID: {did}")
-
-        scid_segment, *rest = suffix.split(":")
-        if not scid_segment:
-            raise ValueError(f"Invalid did:webvh DID: missing SCID in {did}")
-        if not rest:
-            raise ValueError(f"Invalid did:webvh DID: missing domain in {did}")
-
-        domain_segment, *path_segments = rest
-        domain = self._decode_did_wba_segment(domain_segment, "domain")
-        if not domain:
-            raise ValueError(f"Invalid did:webvh DID: missing domain in {did}")
-
-        safe_segments = [
-            quote(self._decode_did_wba_segment(segment, "path"), safe="")
-            for segment in path_segments
-            if segment
-        ]
-        if safe_segments:
-            pathname = f"/{'/'.join(safe_segments)}/did.jsonl"
-        else:
-            pathname = "/.well-known/did.jsonl"
-
-        url = f"https://{domain}{pathname}"
-        parsed = urlparse(url)
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise ValueError(f"Invalid did:webvh DID: {did}")
 
         return url
 

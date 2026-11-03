@@ -1,6 +1,8 @@
 import { AgentDIDDocument } from '../core/types';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
+import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
+import { deriveDidWebvhLogUrl, resolveDidWebvhLog } from '../webvh/adapter';
 import {
   DocumentIntegrityError,
   DIDResolver,
@@ -33,7 +35,7 @@ export class UniversalResolverClient implements DIDResolver {
     this.registry = config.registry;
     this.documentSource = config.documentSource;
     this.wbaDocumentSource = config.wbaDocumentSource ?? new HttpDIDDocumentSource();
-    this.webvhDocumentSource = config.webvhDocumentSource ?? new HttpDIDDocumentSource();
+    this.webvhDocumentSource = config.webvhDocumentSource ?? new WebvhDIDDocumentSource();
     this.fallbackResolver = config.fallbackResolver;
     this.cacheTtlMs = config.cacheTtlMs ?? 60_000;
     this.onResolutionEvent = config.onResolutionEvent;
@@ -202,40 +204,75 @@ export class UniversalResolverClient implements DIDResolver {
     return this.clone(resolved);
   }
 
+  /**
+   * did:webvh resolution: fetch `did.jsonl` from the URL derived from the DID,
+   * verify the whole log with the did:webvh adapter, and return the latest
+   * state. Only availability failures (fetch error, log not found) may fall
+   * back; an invalid DID, a log that fails verification or a deactivated DID
+   * never does.
+   */
   private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<AgentDIDDocument> {
-    const documentUrl = this.deriveDidWebvhDocumentUrl(did);
+    let logUrl: string;
+    try {
+      logUrl = deriveDidWebvhLogUrl(did);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw error;
+    }
 
-    this.emitEvent({
-      did,
-      stage: 'source-fetch',
-      durationMs: Date.now() - startedAt,
-      message: `url=${documentUrl}`
-    });
+    const source = this.webvhDocumentSource;
+    if (!source.getDidLogByReference) {
+      const message = 'webvhDocumentSource must implement getDidLogByReference: did:webvh logs are verified, never trusted as plain documents';
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(message);
+    }
 
-    const resolved = await this.webvhDocumentSource.getByReference(documentUrl).catch(async (error) => {
+    this.emitEvent({ did, stage: 'source-fetch', durationMs: Date.now() - startedAt, message: `url=${logUrl}` });
+
+    let logText: string | null;
+    try {
+      logText = await source.getDidLogByReference(logUrl);
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
       return this.resolveWithFallback(did, message, startedAt);
+    }
+
+    if (logText === null) {
+      return this.resolveWithFallback(did, `DID log not found for did:webvh URL: ${logUrl}`, startedAt);
+    }
+
+    let resolved;
+    try {
+      resolved = await resolveDidWebvhLog(logText, { did });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw this.integrityFailure(did, `did:webvh log verification failed for ${did}: ${message}`, startedAt);
+    }
+
+    if (resolved.metadata.deactivated) {
+      const message = `DID is deactivated: ${did}`;
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(message);
+    }
+
+    const document = resolved.state as unknown as AgentDIDDocument;
+    this.emitEvent({
+      did,
+      stage: 'source-fetched',
+      durationMs: Date.now() - startedAt,
+      message: `versionId=${resolved.metadata.versionId}`
     });
 
-    if (!resolved) {
-      return this.resolveWithFallback(did, `Document not found for did:webvh URL: ${documentUrl}`, startedAt);
-    }
-
-    if (resolved.id !== did) {
-      throw new Error(`Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`);
-    }
-
-    this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
-
     this.cache.set(did, {
-      document: this.clone(resolved),
+      document: this.clone(document),
       expiresAt: now + this.cacheTtlMs
     });
 
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
 
-    return this.clone(resolved);
+    return this.clone(document);
   }
 
   private emitEvent(event: ResolverResolutionEvent): void {
@@ -276,40 +313,6 @@ export class UniversalResolverClient implements DIDResolver {
       return new URL(pathname, `https://${domain}`).toString();
     } catch {
       throw new Error(`Invalid did:wba DID: ${did}`);
-    }
-  }
-
-  private deriveDidWebvhDocumentUrl(did: string): string {
-    const suffix = did.slice('did:webvh:'.length);
-
-    if (!suffix) {
-      throw new Error(`Invalid did:webvh DID: ${did}`);
-    }
-
-    const [scidSegment, domainSegment, ...pathSegments] = suffix.split(':');
-
-    if (!scidSegment) {
-      throw new Error(`Invalid did:webvh DID: missing SCID in ${did}`);
-    }
-
-    const domain = this.decodeDidWbaSegment(domainSegment || '', 'domain');
-
-    if (!domain) {
-      throw new Error(`Invalid did:webvh DID: missing domain in ${did}`);
-    }
-
-    const normalizedPathSegments = pathSegments
-      .filter((segment) => segment.length > 0)
-      .map((segment) => encodeURIComponent(this.decodeDidWbaSegment(segment, 'path')));
-
-    const pathname = normalizedPathSegments.length === 0
-      ? '/.well-known/did.jsonl'
-      : `/${normalizedPathSegments.join('/')}/did.jsonl`;
-
-    try {
-      return new URL(pathname, `https://${domain}`).toString();
-    } catch {
-      throw new Error(`Invalid did:webvh DID: ${did}`);
     }
   }
 

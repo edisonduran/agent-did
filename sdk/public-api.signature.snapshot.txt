@@ -2,7 +2,7 @@
 
 ## core/AgentIdentity.d.ts
 import { ethers } from 'ethers';
-import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
@@ -68,7 +68,12 @@ export declare class AgentIdentity {
     private static resolver;
     private static registry;
     private static readonly documentHistoryStore;
-    private static readonly documentRevisionStore;
+    /** did:webvh v1.0 logs (`did.jsonl`) of the DIDs created or imported in this process. */
+    private static readonly didWebvhLogStore;
+    /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
+    private static readonly didWebvhSignerStore;
+    /** Local bootstrap controllers, keyed by lowercase controller wallet address. */
+    private static readonly bootstrapControllers;
     private readonly signer;
     private readonly network;
     constructor(config: AgentIdentityConfig);
@@ -81,17 +86,26 @@ export declare class AgentIdentity {
      * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
      */
     create(params: CreateAgentParams): Promise<CreateAgentResult>;
-    private static resolveWebvhCreateOptions;
+    /**
+     * Canonical did:webvh v1.0 profile: the agent document is the genesis entry of a
+     * `did.jsonl` log signed by the controller key (the log's only `updateKeys` entry).
+     */
+    private createDidWebvhAgent;
     private static requireWebvhCreateOptions;
-    private static buildDidWebvh;
-    private static composeDidWebvh;
     private static normalizeDidPathSegment;
     /**
-     * Registers a local bootstrap controller document when none exists yet.
-     * The controller key is generated with a CSPRNG and returned to the caller exactly once;
-     * it is never derived from public data. Returns `undefined` when the controller already exists.
+     * Returns the local bootstrap controller for a wallet address, creating it on first use.
+     * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
+     * returned to the caller exactly once (`privateKey`) and never derived from public data.
      */
-    private static ensureBootstrapControllerDocument;
+    private static ensureBootstrapController;
+    /**
+     * Appends a controller-signed entry with `document` to the DID's did:webvh log and
+     * returns the state as signed. The signer is `controllerSigner` when given, otherwise
+     * the controller signer retained when the DID was created in this process.
+     */
+    private static appendDidWebvhEntry;
+    private static requireDidWebvhLifecycle;
     private static resolveActiveVerificationChain;
     private static hasActiveVerificationMethod;
     /**
@@ -122,11 +136,21 @@ export declare class AgentIdentity {
      */
     static resolve(did: string): Promise<AgentDIDDocument>;
     static resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
-    static revokeDid(did: string): Promise<void>;
-    static updateDidDocument(did: string, patch: UpdateAgentDocumentParams): Promise<AgentDIDDocument>;
-    static rotateVerificationMethod(did: string): Promise<RotateVerificationMethodResult>;
+    /**
+     * Revokes a DID in the registry. For did:webvh DIDs it first appends a controller-signed
+     * deactivation entry (`deactivated: true`) to the DID's log.
+     */
+    static revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
+    static updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
+    static rotateVerificationMethod(did: string, options?: DidWebvhLifecycleOptions): Promise<RotateVerificationMethodResult>;
     static getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
+    /** Returns the DID's did:webvh v1.0 log (`did.jsonl`) as created or imported in this process. */
     static exportDidWebvhHistory(did: string): string;
+    /**
+     * Verifies a did:webvh v1.0 log (SCID, hash chain, controller-signed proofs) and loads it
+     * into this process: latest document, registry record and document history. Changing the
+     * DID afterwards requires its controller signer (`options.controllerSigner`).
+     */
     static importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
     static saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void>;
     static loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument>;
@@ -143,9 +167,8 @@ export declare class AgentIdentity {
     private static generateNonce;
     private static parseHttpSignatureInputDictionary;
     private static parseHttpSignatureDictionary;
-    private static extractDidWebvhScid;
-    private static parseDidWebvhHistory;
-    private static inferImportedHistoryAction;
+    /** History entries for a verified did:webvh log, one per log entry. */
+    private static historyFromDidWebvhLog;
     private static cloneDocument;
     private static nextDocumentTimestamp;
     private static appendHistory;
@@ -246,10 +269,24 @@ export interface VerificationMethod {
     deactivated?: string;
 }
 export interface CreateDidWebvhOptions {
+    /** Lowercase ASCII fully qualified host name, optionally with `:port`. */
     domain: string;
+    /** The controller's DID, published by its owner. `'{DID}'` makes the new DID self-controlled. */
     controllerDid: string;
+    /**
+     * The controller's key. It is the did:webvh log's only `updateKeys` entry and signs every
+     * log entry (create, update, rotate, revoke). Use a KMS/HSM-backed `AgentSigner` in production.
+     */
+    controllerSigner: import('./signer').AgentSigner;
     pathSegments?: string[];
-    scid?: string;
+}
+/** Options for lifecycle operations that append to a did:webvh log. */
+export interface DidWebvhLifecycleOptions {
+    /**
+     * The controller signer for the DID's `updateKeys`. Required for DIDs imported into this
+     * process; defaults to the signer retained when the DID was created in this process.
+     */
+    controllerSigner?: import('./signer').AgentSigner;
 }
 export type VerificationRelationship = 'authentication' | 'assertionMethod' | 'capabilityDelegation' | 'capabilityInvocation' | 'keyAgreement';
 export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
@@ -470,7 +507,7 @@ export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams } from './core/types';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
 export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
 export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash, generateCommitmentSalt, createMetadataCommitment, verifyMetadataCommitment } from './crypto/hash';
@@ -493,6 +530,7 @@ export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
 export { EvmAgentRegistry } from './registry/EvmAgentRegistry';
 export { EthersAgentRegistryContractClient } from './registry/EthersAgentRegistryContractClient';
 export { EvmTxResponse, EvmAgentRegistryContract, EvmAgentRegistryAdapterConfig } from './registry/evm-types';
+export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 
 ## registry/EthersAgentRegistryContractClient.d.ts
 import { AgentRegistryRecord } from './types';
@@ -898,12 +936,18 @@ export declare class UniversalResolverClient implements DIDResolver {
     getCacheStats(): ResolverCacheStats;
     private resolveWithFallback;
     private resolveDidWba;
+    /**
+     * did:webvh resolution: fetch `did.jsonl` from the URL derived from the DID,
+     * verify the whole log with the did:webvh adapter, and return the latest
+     * state. Only availability failures (fetch error, log not found) may fall
+     * back; an invalid DID, a log that fails verification or a deactivated DID
+     * never does.
+     */
     private resolveDidWebvh;
     private emitEvent;
     private isDidWba;
     private isDidWebvh;
     private deriveDidWbaDocumentUrl;
-    private deriveDidWebvhDocumentUrl;
     private decodeDidWbaSegment;
     private assertDocumentMatchesReference;
     private integrityFailure;
@@ -934,10 +978,17 @@ export declare class WebvhDIDDocumentSource implements DIDDocumentSource {
     private readonly fetchFn;
     private readonly httpSecurity;
     constructor(config?: WebvhDIDDocumentSourceConfig);
+    /**
+     * Fetches the did:webvh log and returns the latest state after verifying the
+     * whole log (SCID, hash chain, controller-signed proofs). Throws
+     * `DocumentIntegrityError` when verification fails; returns `null` when no
+     * endpoint has the log.
+     */
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
+    /** Fetches the raw `did.jsonl` text. The caller must verify it before trusting it. */
+    getDidLogByReference(documentRef: string): Promise<string | null>;
     private resolveCandidateUrls;
     private readResponseText;
-    private extractLatestState;
 }
 export {};
 
@@ -973,7 +1024,10 @@ export interface DidWebvhMetadata {
 }
 export interface DidWebvhLogResult {
     did: string;
+    /** Resolved DID document, including the implicit `#files` / `#whois` services. */
     document: DidWebvhDocument;
+    /** The resolved version's `state` exactly as signed in the log (no implicit services). */
+    state: DidWebvhDocument;
     metadata: DidWebvhMetadata;
     /** The full `did.jsonl` text, one entry per line, newline-terminated. */
     log: string;
@@ -1021,3 +1075,11 @@ export declare function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParam
  * any verification failure; it never returns a partially verified result.
  */
 export declare function resolveDidWebvhLog(logText: string, options?: ResolveDidWebvhLogOptions): Promise<DidWebvhLogResult>;
+/**
+ * Derives the HTTPS URL of a did:webvh DID's `did.jsonl` (did:webvh v1.0,
+ * "The DID to HTTPS Transformation"). Applies the same host and path rules as
+ * `createDidWebvhLog`: lowercase ASCII FQDN (no IP literals), optional port
+ * encoded as `%3A`, unencoded path segments without `.`/`..`, and no path,
+ * query or fragment in the DID. Throws `DidWebvhError('invalidDid')` otherwise.
+ */
+export declare function deriveDidWebvhLogUrl(did: string): string;

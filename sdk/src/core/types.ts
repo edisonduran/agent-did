@@ -29,10 +29,25 @@ export interface VerificationMethod {
 }
 
 export interface CreateDidWebvhOptions {
+  /** Lowercase ASCII fully qualified host name, optionally with `:port`. */
   domain: string;
+  /** The controller's DID, published by its owner. `'{DID}'` makes the new DID self-controlled. */
   controllerDid: string;
+  /**
+   * The controller's key. It is the did:webvh log's only `updateKeys` entry and signs every
+   * log entry (create, update, rotate, revoke). Use a KMS/HSM-backed `AgentSigner` in production.
+   */
+  controllerSigner: import('./signer').AgentSigner;
   pathSegments?: string[];
-  scid?: string;
+}
+
+/** Options for lifecycle operations that append to a did:webvh log. */
+export interface DidWebvhLifecycleOptions {
+  /**
+   * The controller signer for the DID's `updateKeys`. Required for DIDs imported into this
+   * process; defaults to the signer retained when the DID was created in this process.
+   */
+  controllerSigner?: import('./signer').AgentSigner;
 }
 
 export type VerificationRelationship =

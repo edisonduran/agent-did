@@ -113,6 +113,13 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
    README conformance claims are made only after this job is green.
 7. **Scope for `1.0.0-rc.3`.** v1.0 create, update, deactivate and resolve, plus `updateKeys` rotation. Pre-rotation, witnesses, watchers and portability are deferred to after 1.0, but the adapter must not prevent them.
 
+## Implementation status
+
+- Step 1, adapters over the reference libraries: done (#119).
+- Step 2, CI against `didwebvh-test-suite`, pinned in `fixtures/didwebvh-test-suite.json`: done (#120).
+- Step 3, `AgentIdentity` and the resolvers on the adapters, DID-to-URL derivation, migration guides: done in the `rc.3` train.
+- Follow-ups: the upstream PR making `aries-askar` and `aiohttp` optional in `did-webvh`; the `@noble` v2 migration in TS; registering Agent-DID in `didwebvh-test-suite`; witnesses, watchers and pre-rotation after 1.0.
+
 ## Consequences
 
 - **Breaking:** new `did:webvh` identifiers carry a spec-derived SCID, and existing Agent-DID `did.jsonl` histories cannot be upgraded in place. The `rc.2 → rc.3` migration guides must explain re-issuance. Integrations that only call `AgentIdentity` are unaffected at the API level.

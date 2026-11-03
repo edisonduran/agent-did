@@ -6,12 +6,16 @@ import asyncio
 
 import pytest
 
+from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.types import AgentDIDDocument
 from agent_did_sdk.crypto.hash import generate_canonical_document_hash
 from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 from agent_did_sdk.resolver.types import DocumentIntegrityError, ResolverResolutionEvent, UniversalResolverConfig
 from agent_did_sdk.resolver.universal import UniversalResolverClient
+from agent_did_sdk.webvh.adapter import DidWebvhError, deactivate_did_webvh_log
+
+from .webvh_helpers import TEST_CONTROLLER_KEY, create_agent_webvh_log, tamper_last_state
 
 
 def _make_doc(did: str = "did:agent:polygon:0xtest") -> AgentDIDDocument:
@@ -172,42 +176,6 @@ class TestUniversalResolverClient:
         assert wba_source.calls == ["https://agents.example:8443/profiles/alice/did.json"]
         assert resolver.get_cache_stats().misses == 1
 
-    async def test_resolve_did_webvh_from_well_known_without_registry_lookup(self) -> None:
-        did = "did:webvh:QmExampleScid:agents.example"
-        registry = SpyRegistry()
-        source = FakeSource(_make_doc())
-        webvh_source = FakeSource(_make_webvh_doc(did))
-        resolver = UniversalResolverClient(UniversalResolverConfig(
-            registry=registry,
-            document_source=source,
-            webvh_document_source=webvh_source,
-            cache_ttl_ms=60_000,
-        ))
-
-        resolved = await resolver.resolve(did)
-
-        assert resolved.id == did
-        assert registry.get_record_calls == 0
-        assert source.calls == []
-        assert webvh_source.calls == ["https://agents.example/.well-known/did.jsonl"]
-
-    async def test_resolve_did_webvh_nested_path(self) -> None:
-        did = "did:webvh:QmExampleScid:agents.example%3A8443:profiles:alice"
-        registry = SpyRegistry()
-        webvh_source = FakeSource(_make_webvh_doc(did))
-        resolver = UniversalResolverClient(UniversalResolverConfig(
-            registry=registry,
-            document_source=FakeSource(None),
-            webvh_document_source=webvh_source,
-            cache_ttl_ms=60_000,
-        ))
-
-        resolved = await resolver.resolve(did)
-
-        assert resolved.id == did
-        assert registry.get_record_calls == 0
-        assert webvh_source.calls == ["https://agents.example:8443/profiles/alice/did.jsonl"]
-        assert resolver.get_cache_stats().misses == 1
 
 
 class _RaisingSource:
@@ -332,3 +300,122 @@ class TestDocumentRefIntegrity:
         assert generate_canonical_document_hash(document.model_dump_jsonld()) == (
             canonical_document_fixture["expectedDocumentRef"]
         )
+
+
+class LogSource:
+    """did:webvh source double that returns raw log text."""
+
+    def __init__(self, log: str | None) -> None:
+        self._log = log
+        self.log_calls: list[str] = []
+        self.document_calls: list[str] = []
+
+    async def get_by_reference(self, ref: str) -> AgentDIDDocument | None:
+        self.document_calls.append(ref)
+        return None
+
+    async def get_did_log_by_reference(self, ref: str) -> str | None:
+        self.log_calls.append(ref)
+        return self._log
+
+
+def _webvh_resolver(source: object, fallback: InMemoryDIDResolver | None = None) -> UniversalResolverClient:
+    return UniversalResolverClient(UniversalResolverConfig(
+        registry=SpyRegistry(),
+        document_source=FakeSource(None),
+        webvh_document_source=source,  # type: ignore[arg-type]
+        fallback_resolver=fallback,
+        cache_ttl_ms=60_000,
+    ))
+
+
+class TestUniversalResolverDidWebvh:
+    """Parity: the did:webvh block in sdk/tests/UniversalResolverClient.test.ts."""
+
+    async def test_fetches_well_known_log_verifies_it_and_returns_the_signed_state(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        source = LogSource(created.log)
+        registry = SpyRegistry()
+        resolver = UniversalResolverClient(UniversalResolverConfig(
+            registry=registry,
+            document_source=FakeSource(None),
+            webvh_document_source=source,  # type: ignore[arg-type]
+            cache_ttl_ms=60_000,
+        ))
+
+        resolved = await resolver.resolve(created.did)
+
+        assert resolved.model_dump_jsonld() == AgentDIDDocument.model_validate(created.state).model_dump_jsonld()
+        assert registry.get_record_calls == 0
+        assert source.document_calls == []
+        assert source.log_calls == ["https://agents.example/.well-known/did.jsonl"]
+
+    async def test_maps_port_and_path_segments(self) -> None:
+        created = await create_agent_webvh_log("agents.example:8443", ["profiles", "alice"])
+        source = LogSource(created.log)
+
+        resolved = await _webvh_resolver(source).resolve(created.did)
+
+        assert resolved.id == created.did
+        assert source.log_calls == ["https://agents.example:8443/profiles/alice/did.jsonl"]
+
+    async def test_never_falls_back_when_the_log_fails_verification(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        tampered = tamper_last_state(
+            created.log, lambda state: state.__setitem__("controller", "did:webvh:QmAttacker:attacker.example")
+        )
+        fallback = InMemoryDIDResolver()
+        fallback.register_document(AgentDIDDocument.model_validate(created.state))
+
+        with pytest.raises(DocumentIntegrityError):
+            await _webvh_resolver(LogSource(tampered), fallback).resolve(created.did)
+
+    async def test_rejects_a_valid_log_that_belongs_to_another_did(self) -> None:
+        other = await create_agent_webvh_log("agents.example")
+        created = await create_agent_webvh_log("agents.example", ["agents", "bot"])
+
+        with pytest.raises(DocumentIntegrityError):
+            await _webvh_resolver(LogSource(other.log)).resolve(created.did)
+
+    async def test_refuses_a_deactivated_did_without_falling_back(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        deactivated = await deactivate_did_webvh_log(log=created.log, signer=LocalKeySigner(TEST_CONTROLLER_KEY))
+        fallback = InMemoryDIDResolver()
+        fallback.register_document(AgentDIDDocument.model_validate(created.state))
+
+        with pytest.raises(ValueError, match="deactivated"):
+            await _webvh_resolver(LogSource(deactivated.log), fallback).resolve(created.did)
+
+    async def test_falls_back_only_when_the_log_is_unavailable(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        fallback = InMemoryDIDResolver()
+        fallback.register_document(AgentDIDDocument.model_validate(created.state))
+
+        resolved = await _webvh_resolver(LogSource(None), fallback).resolve(created.did)
+
+        assert resolved.id == created.did
+
+    @pytest.mark.parametrize(
+        "did",
+        [
+            "did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:127.0.0.1",
+            "did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:127%2E0%2E0%2E1",
+            "did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com:..:admin",
+            "did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com:%2E%2E:admin",
+            "did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com#x",
+        ],
+        ids=["ipv4", "encoded-ipv4", "traversal", "encoded-traversal", "fragment"],
+    )
+    async def test_rejects_invalid_dids_before_any_fetch(self, did: str) -> None:
+        source = LogSource(None)
+
+        with pytest.raises(DidWebvhError, match="Invalid did:webvh DID"):
+            await _webvh_resolver(source, InMemoryDIDResolver()).resolve(did)
+        assert source.log_calls == []
+
+    async def test_refuses_a_source_that_cannot_return_the_raw_log(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+
+        with pytest.raises(TypeError, match="get_did_log_by_reference"):
+            await _webvh_resolver(FakeSource(AgentDIDDocument.model_validate(created.state))).resolve(created.did)
+

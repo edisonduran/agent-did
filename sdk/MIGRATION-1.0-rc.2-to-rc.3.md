@@ -110,3 +110,47 @@ Existing documents keep their `hash://sha256/` values; `verifyMetadataCommitment
 ### What to do
 
 Run on Node.js 22.12 or later. The October 2026 security releases (22.23.4+, 24.22.1+ or 26.12.1+) already meet the floor.
+
+## 5. `did:webvh` DIDs are did:webvh v1.0 DIDs
+
+### What changed
+
+[ADR-002](../docs/ADR-002-did-webvh-v1.0-Implementation.md) moves the canonical `did:webvh` path to the DIF did:webvh v1.0 specification, through the reference implementation `didwebvh-ts`:
+
+| | `rc.2` | `rc.3` |
+|---|---|---|
+| SCID | Random (or `webvh.scid`) | Derived from the genesis log entry; `webvh.scid` is removed and rejected |
+| `did.jsonl` | Agent-DID format: `versionId`, `versionTime`, `state` | v1.0: `parameters` (`updateKeys`, ...), hash-chained `versionId`, `eddsa-jcs-2022` proof per entry |
+| Who signs the log | Nobody | The controller key (`updateKeys`) |
+| Explicit profile (`webvh.domain`) | `domain`, `controllerDid` | Also `controllerSigner: AgentSigner` (required) |
+| Implicit `agents.local` profile | Controller DID derived from the wallet address | Controller DID is a v1.0 log; a new bootstrap is a new DID |
+| `revokeDid` | Registry only | Also appends `deactivated: true` to the log |
+| Resolution | — | `UniversalResolverClient` fetches `did.jsonl` and verifies it; failures raise `DocumentIntegrityError` without fallback; deactivated DIDs are refused |
+
+### Impact
+
+- `did:webvh` DIDs and `did.jsonl` files produced by `rc.2` or earlier do not verify and cannot be upgraded in place: the SCID is bound to the genesis entry.
+- `updateDidDocument`, `rotateVerificationMethod` and `revokeDid` need the controller signer. In the process that created the DID it is retained automatically. After `importDidWebvhHistory` (or the file/source restore helpers) pass it explicitly; otherwise they throw.
+- A `webvhDocumentSource` passed to `useProductionResolver` must implement `getDidLogByReference`. Sources that only return parsed documents are refused for `did:webvh`.
+- `did:webvh` DIDs must use a lowercase ASCII host name (no IP literals), an optional port encoded as `%3A`, and unencoded path segments.
+
+### What to do
+
+1. Re-issue each `did:webvh` agent with `rc.3` and publish the new `did.jsonl` (`exportDidWebvhHistory(did)`) at the URL the DID maps to: `https://<host>/<path...>/did.jsonl`, or `https://<host>/.well-known/did.jsonl` without a path.
+2. Explicit profile: pass the controller's key, ideally KMS/HSM-backed:
+
+   ```ts
+   await identity.create({
+     name: 'support-bot', coreModel, systemPrompt,
+     webvh: { domain: 'agents.example.com', pathSegments: ['support-bot'], controllerDid, controllerSigner }
+   });
+   ```
+
+3. Lifecycle operations on an imported DID:
+
+   ```ts
+   await AgentIdentity.importDidWebvhHistory(log);
+   await AgentIdentity.updateDidDocument(did, { version: '1.1.0' }, { controllerSigner });
+   ```
+
+4. Catch `DidWebvhError` (exported; `code` is `invalidDid`, `unauthorized`, ...) where you import logs or change DIDs.

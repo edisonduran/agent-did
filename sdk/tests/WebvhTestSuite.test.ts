@@ -8,12 +8,12 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { DidWebvhError, resolveDidWebvhLog } from '../src/webvh/adapter';
+import { deriveDidWebvhLogUrl, DidWebvhError, resolveDidWebvhLog } from '../src/webvh/adapter';
 
 interface SuiteExpectations {
   commit: string;
   unsupported: Record<string, string>;
-  deferredNegative: Record<string, string>;
+  didUrlNegative: Record<string, string>;
   vectorDefects: Record<string, string>;
 }
 
@@ -25,6 +25,9 @@ const VECTORS = SUITE_DIR ? path.join(SUITE_DIR, 'vectors') : '';
 
 type PositiveCase = [string, { log: string; expected: any; versionNumber?: number }];
 type RejectCase = [string, string];
+
+/** A valid base58btc SCID, substituted to show the host/path rules (not the SCID) reject the DID. */
+const VALID_SCID = 'QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ';
 
 function listDirs(dir: string): string[] {
   return fs
@@ -44,10 +47,17 @@ function collect() {
   const positive: PositiveCase[] = [];
   const unsupported: RejectCase[] = [];
   const negative: RejectCase[] = [];
+  const didUrlNegative: RejectCase[] = [];
   const scenarios = SUITE_DIR ? listDirs(VECTORS) : [];
 
   for (const scenario of scenarios) {
-    if (scenario in EXPECTATIONS.deferredNegative) continue;
+    if (scenario in EXPECTATIONS.didUrlNegative) {
+      const script = fs.readFileSync(path.join(VECTORS, scenario, 'script.yaml'), 'utf8');
+      for (const match of script.matchAll(/^\s+did:\s*"([^"]+)"/gmu)) {
+        didUrlNegative.push([`${scenario} ${match[1]}`, match[1]]);
+      }
+      continue;
+    }
     const isNegative = scenario.startsWith('negative-');
     for (const impl of listDirs(path.join(VECTORS, scenario))) {
       const dir = path.join(VECTORS, scenario, impl);
@@ -72,7 +82,7 @@ function collect() {
       }
     }
   }
-  return { scenarios, positive, unsupported, negative };
+  return { scenarios, positive, unsupported, negative, didUrlNegative };
 }
 
 const IMPLICIT_SERVICE = /#(files|whois)$/u;
@@ -97,7 +107,7 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
       : EXPECTATIONS.commit;
     expect(head).toBe(EXPECTATIONS.commit);
 
-    for (const listed of [...Object.keys(EXPECTATIONS.unsupported), ...Object.keys(EXPECTATIONS.deferredNegative)]) {
+    for (const listed of [...Object.keys(EXPECTATIONS.unsupported), ...Object.keys(EXPECTATIONS.didUrlNegative)]) {
       expect(CASES.scenarios).toContain(listed);
     }
     const positiveNames = CASES.positive.map(([name]) => name);
@@ -105,11 +115,11 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
       expect(positiveNames).toContain(listed);
     }
     const covered = new Set(
-      [...CASES.positive, ...CASES.unsupported, ...CASES.negative].map(([name]) => name.split('/')[0])
+      [...CASES.positive, ...CASES.unsupported, ...CASES.negative, ...CASES.didUrlNegative].map(
+        ([name]) => name.split(/[/ ]/u)[0]
+      )
     );
-    const unclassified = CASES.scenarios.filter(
-      (scenario) => !covered.has(scenario) && !(scenario in EXPECTATIONS.deferredNegative)
-    );
+    const unclassified = CASES.scenarios.filter((scenario) => !covered.has(scenario));
     expect(unclassified).toEqual([]);
   });
 
@@ -121,6 +131,8 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
       .map((line) => JSON.parse(line));
     const selected = entries[(versionNumber ?? entries.length) - 1];
 
+    // Valid DIDs from every implementation must map to a log URL.
+    expect(deriveDidWebvhLogUrl(resolved.did)).toMatch(/^https:\/\/[a-z0-9.-]+(:\d+)?\/.*did\.jsonl$/u);
     expect(resolved.metadata.versionId).toBe(selected.versionId);
     expect(resolved.metadata.versionTime).toBe(selected.versionTime);
     expect(resolved.metadata.updated).toBe(selected.versionTime);
@@ -149,6 +161,13 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
   it.each(CASES.negative)('rejects %s', async (_name, log) => {
     await expect(resolveDidWebvhLog(log)).rejects.toBeInstanceOf(DidWebvhError);
   });
+
+  it.each(CASES.didUrlNegative)('rejects DID URL %s', (_name, did) => {
+    const withValidScid = did.replace(/^did:webvh:[^:]+:/u, `did:webvh:${VALID_SCID}:`);
+    for (const candidate of [did, withValidScid]) {
+      expect(() => deriveDidWebvhLogUrl(candidate)).toThrow(DidWebvhError);
+    }
+  });
 });
 
 describe('didwebvh-test-suite expectations fixture', () => {
@@ -156,7 +175,7 @@ describe('didwebvh-test-suite expectations fixture', () => {
     expect(EXPECTATIONS.commit).toMatch(/^[0-9a-f]{40}$/u);
     for (const reason of [
       ...Object.values(EXPECTATIONS.unsupported),
-      ...Object.values(EXPECTATIONS.deferredNegative),
+      ...Object.values(EXPECTATIONS.didUrlNegative),
       ...Object.values(EXPECTATIONS.vectorDefects),
     ]) {
       expect(reason.length).toBeGreaterThan(0);

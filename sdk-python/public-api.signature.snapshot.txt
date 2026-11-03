@@ -42,14 +42,14 @@ class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
   classmethod resolve(cls, did: 'str') -> 'AgentDIDDocument'
   classmethod resolve_controller_chain(cls, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
   classmethod restore_did_webvh_history_from_source(cls, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
-  classmethod revoke_did(cls, did: 'str') -> 'None'
-  classmethod rotate_verification_method(cls, did: 'str') -> 'RotateVerificationMethodResult'
+  classmethod revoke_did(cls, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
+  classmethod rotate_verification_method(cls, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'RotateVerificationMethodResult'
   classmethod save_did_webvh_history_to_file(cls, did: 'str', file_path: 'str | Path') -> 'Path'
   classmethod set_registry(cls, registry: 'AgentRegistry') -> 'None'
   classmethod set_resolver(cls, resolver: 'DIDResolver') -> 'None'
   def sign_http_request(self, params: 'SignHttpRequestParams') -> 'dict[str, str]'
   def sign_message(self, payload: 'str', key_or_signer: 'str | AgentSigner') -> 'str'
-  classmethod update_did_document(cls, did: 'str', patch: 'UpdateAgentDocumentParams') -> 'AgentDIDDocument'
+  classmethod update_did_document(cls, did: 'str', patch: 'UpdateAgentDocumentParams', *, controller_signer: 'AgentSigner | None' = None) -> 'AgentDIDDocument'
   classmethod use_production_resolver(cls, config: 'ProductionResolverProfileConfig') -> 'None'
   classmethod use_production_resolver_from_http(cls, config: 'ProductionHttpResolverProfileConfig') -> 'None'
   classmethod use_production_resolver_from_json_rpc(cls, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
@@ -172,12 +172,12 @@ class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, 
   member model_config = {'populate_by_name': True}
 
 ## CreateDidWebvhOptions
-class CreateDidWebvhOptions(*, domain: str, controller_did: str, path_segments: list[str] | None = None, scid: str | None = None) -> None
+class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_signer: Any, path_segments: list[str] | None = None) -> None
   attr controller_did: str
+  attr controller_signer: Any
   attr domain: str
   attr path_segments: list[str] | None
-  attr scid: str | None
-  member model_config = {}
+  member model_config = {'arbitrary_types_allowed': True, 'extra': 'forbid'}
 
 ## DIDDocumentSource
 class DIDDocumentSource(*args, **kwargs)
@@ -193,6 +193,12 @@ class DIDResolver(*args, **kwargs)
 
 ## DID_VERIFICATION_RELATIONSHIPS
 value DID_VERIFICATION_RELATIONSHIPS = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement')
+
+## DidWebvhError
+class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
+
+## DidWebvhErrorCode
+value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptions', 'invalidInput', 'unauthorized']
 
 ## DocumentIntegrityError
 class DocumentIntegrityError(...)

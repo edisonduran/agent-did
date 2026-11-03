@@ -66,6 +66,8 @@ await AgentIdentity.revokeDid(document.id);
 
 This quickstart validates the local signing lifecycle first. By default the SDK follows the canonical `did:webvh` path and bootstraps the local controller side for you; hosted publication of `did.jsonl` is a separate deployment concern.
 
+On `main` (the `1.0.0-rc.3` train) `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `didwebvh-ts`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controllerSigner` and for re-issuing older DIDs.
+
 ## Features
 
 | Feature | API | Status |

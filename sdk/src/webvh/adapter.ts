@@ -65,7 +65,10 @@ export interface DidWebvhMetadata {
 
 export interface DidWebvhLogResult {
   did: string;
+  /** Resolved DID document, including the implicit `#files` / `#whois` services. */
   document: DidWebvhDocument;
+  /** The resolved version's `state` exactly as signed in the log (no implicit services). */
+  state: DidWebvhDocument;
   metadata: DidWebvhMetadata;
   /** The full `did.jsonl` text, one entry per line, newline-terminated. */
   log: string;
@@ -257,6 +260,10 @@ export async function resolveDidWebvhLog(
   }
 
   const versionId = requireString(meta.versionId, 'versionId');
+  const selectedEntry = log.find((entry) => entry.versionId === versionId);
+  if (!selectedEntry) {
+    throw new DidWebvhError('invalidDid', `did:webvh log has no entry for resolved version ${versionId}`);
+  }
   const metadata: DidWebvhMetadata = {
     versionId,
     versionNumber: Number.parseInt(versionId.split('-', 1)[0], 10),
@@ -269,7 +276,13 @@ export async function resolveDidWebvhLog(
     ttl: meta.ttl !== undefined && meta.ttl !== null ? String(meta.ttl) : DEFAULT_TTL,
   };
 
-  return { did: document.id, document, metadata, log: serializeLog(log) };
+  return {
+    did: document.id,
+    document,
+    state: JSON.parse(JSON.stringify(selectedEntry.state)) as DidWebvhDocument,
+    metadata,
+    log: serializeLog(log),
+  };
 }
 
 function toLibrarySigner(signer: AgentSigner, updateKey: string): Signer {
@@ -344,6 +357,40 @@ function requireString(value: unknown, field: string): string {
     throw new DidWebvhError('invalidDid', `did:webvh resolution metadata is missing ${field}`);
   }
   return value;
+}
+
+const SCID = /^[1-9A-HJ-NP-Za-km-z]+$/u;
+const HOST_SEGMENT = /^([^%]+)(?:%3A([0-9]+))?$/u;
+
+/**
+ * Derives the HTTPS URL of a did:webvh DID's `did.jsonl` (did:webvh v1.0,
+ * "The DID to HTTPS Transformation"). Applies the same host and path rules as
+ * `createDidWebvhLog`: lowercase ASCII FQDN (no IP literals), optional port
+ * encoded as `%3A`, unencoded path segments without `.`/`..`, and no path,
+ * query or fragment in the DID. Throws `DidWebvhError('invalidDid')` otherwise.
+ */
+export function deriveDidWebvhLogUrl(did: string): string {
+  const fail = (reason: string): never => {
+    throw new DidWebvhError('invalidDid', `Invalid did:webvh DID (${reason}): ${String(did)}`);
+  };
+  if (typeof did !== 'string' || !did.startsWith('did:webvh:')) fail('not a did:webvh DID');
+  if (/[/?#\s]/u.test(did)) fail('DID URLs with a path, query or fragment are not resolvable');
+
+  const [scid, hostSegment, ...pathSegments] = did.slice('did:webvh:'.length).split(':');
+  if (!scid || !SCID.test(scid)) fail('SCID must be base58btc');
+  const hostMatch = HOST_SEGMENT.exec(hostSegment ?? '') ?? fail('host');
+  const [, host, port] = hostMatch;
+  const domain = port === undefined ? host : `${host}:${port}`;
+  try {
+    validateDomain(domain);
+    pathSegments.forEach(validatePathSegment);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
+
+  return pathSegments.length > 0
+    ? `https://${domain}/${pathSegments.join('/')}/did.jsonl`
+    : `https://${domain}/.well-known/did.jsonl`;
 }
 
 function validateDomain(domain: string): void {

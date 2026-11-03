@@ -3,6 +3,7 @@ import { AgentIdentity } from '../src/core/AgentIdentity';
 import { CreateAgentParams } from '../src/core/types';
 import { assertKeyPurpose, assertSigningPurpose, IdentityCompositionError } from '../src/core/identity-composition';
 import { LocalKeySigner } from '../src/core/signer';
+import { DidWebvhError, didWebvhUpdateKeyFor, resolveDidWebvhLog } from '../src/webvh/adapter';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
 import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 import { DIDDocumentSource } from '../src/resolver/types';
@@ -10,6 +11,15 @@ import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { encodePublicKeyMultibase } from '../src/crypto/multibase';
 import { generateCommitmentSalt, verifyMetadataCommitment } from '../src/crypto/hash';
+
+
+/** Simulates a fresh process: drops the in-process did:webvh logs, controller signers and bootstrap controllers. */
+function resetDidWebvhState(): void {
+  const stores = AgentIdentity as unknown as Record<'didWebvhLogStore' | 'didWebvhSignerStore' | 'bootstrapControllers', Map<string, unknown>>;
+  stores.didWebvhLogStore.clear();
+  stores.didWebvhSignerStore.clear();
+  stores.bootstrapControllers.clear();
+}
 
 describe('AgentIdentity Core Module', () => {
   // Create a random wallet to act as the "Creator" (Controller)
@@ -28,8 +38,8 @@ describe('AgentIdentity Core Module', () => {
   beforeEach(() => {
     AgentIdentity.setResolver(new InMemoryDIDResolver());
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentHistoryStore.clear();
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentRevisionStore.clear();
+    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+    resetDidWebvhState();
   });
 
   it('should successfully create a valid Agent-DID Document (RFC-001 Compliant)', async () => {
@@ -130,14 +140,15 @@ describe('AgentIdentity Core Module', () => {
         domain: 'agents.example',
         pathSegments: ['agents', 'webvh-bot'],
         controllerDid: 'did:webvh:QmControllerScid:agents.example:organizations:acme-support',
-        scid: 'QmAgentScid'
+        controllerSigner: new LocalKeySigner('7c'.repeat(32))
       }
     });
 
     const document = result.document;
-    const expectedDid = 'did:webvh:QmAgentScid:agents.example:agents:webvh-bot';
+    const expectedDid = document.id;
 
-    expect(document.id).toEqual(expectedDid);
+    // did:webvh v1.0: the SCID is derived from the genesis log entry.
+    expect(expectedDid).toMatch(/^did:webvh:Qm[1-9A-HJ-NP-Za-km-z]{44}:agents\.example:agents:webvh-bot$/u);
     expect(document.controller).toEqual('did:webvh:QmControllerScid:agents.example:organizations:acme-support');
     expect(document.verificationMethod[0].id).toEqual(`${expectedDid}#key-1`);
     expect(document.verificationMethod[0].controller).toEqual(document.controller);
@@ -548,7 +559,7 @@ describe('AgentIdentity Core Module', () => {
   });
 
   it('should resolve a did:webvh controller chain for the canonical web-native profile', async () => {
-    const controllerDid = 'did:webvh:QmControllerScid:agents.example:organizations:acme-support';
+    const rootSigner = new LocalKeySigner('3d'.repeat(32));
     const { document: controllerDocument } = await agentIdentity.create({
       name: 'ControllerRoot',
       coreModel: 'controller-model',
@@ -557,8 +568,9 @@ describe('AgentIdentity Core Module', () => {
       webvh: {
         domain: 'agents.example',
         pathSegments: ['organizations', 'acme-support'],
-        controllerDid,
-        scid: 'QmControllerScid'
+        // `{DID}` is replaced with the generated DID: a self-controlled root.
+        controllerDid: '{DID}',
+        controllerSigner: rootSigner
       }
     });
     const { document: agentDocument } = await agentIdentity.create({
@@ -569,13 +581,14 @@ describe('AgentIdentity Core Module', () => {
       webvh: {
         domain: 'agents.example',
         pathSegments: ['agents', 'supportbot-x'],
-        controllerDid,
-        scid: 'QmAgentScid'
+        controllerDid: controllerDocument.id,
+        controllerSigner: rootSigner
       }
     });
 
     const chain = await AgentIdentity.resolveControllerChain(agentDocument.id);
 
+    expect(controllerDocument.controller).toEqual(controllerDocument.id);
     expect(chain.map((doc) => doc.id)).toEqual([agentDocument.id, controllerDocument.id]);
   });
 
@@ -1025,21 +1038,31 @@ describe('AgentIdentity Core Module', () => {
     await AgentIdentity.rotateVerificationMethod(document.id);
     await AgentIdentity.revokeDid(document.id);
 
-    const scid = document.id.split(':')[2];
-    const lines = AgentIdentity.exportDidWebvhHistory(document.id)
+    const exported = AgentIdentity.exportDidWebvhHistory(document.id);
+    const lines = exported
+      .trimEnd()
       .split('\n')
-      .map((line) => JSON.parse(line) as { versionId: string; versionTime: string; state: typeof document });
+      .map((line) => JSON.parse(line) as {
+        versionId: string;
+        versionTime: string;
+        parameters: { method?: string; updateKeys?: string[]; deactivated?: boolean };
+        state: typeof document;
+        proof: Array<{ cryptosuite: string }>;
+      });
 
-    expect(lines).toHaveLength(3);
-    expect(lines.map((line) => line.versionId)).toEqual([
-      `1-${scid}`,
-      `2-${scid}`,
-      `3-${scid}`
-    ]);
+    // create, update, rotate-key, revoke (deactivation): one controller-signed entry each
+    expect(lines).toHaveLength(4);
+    expect(lines.map((line) => line.versionId.split('-')[0])).toEqual(['1', '2', '3', '4']);
+    lines.forEach((line) => expect(line.proof[0].cryptosuite).toEqual('eddsa-jcs-2022'));
+    expect(lines[0].parameters.method).toEqual('did:webvh:1.0');
     expect(lines[0].state.id).toEqual(document.id);
     expect(lines[1].state.agentMetadata.version).toEqual('1.0.1');
     expect(lines[2].state.authentication).toEqual([`${document.id}#key-2`]);
     expect(lines[2].state.verificationMethod.some((method) => method.id === `${document.id}#key-2`)).toBe(true);
+    expect(lines[3].parameters.deactivated).toBe(true);
+
+    const verified = await resolveDidWebvhLog(exported, { did: document.id });
+    expect(verified.metadata.deactivated).toBe(true);
   });
 
   it('should restore did:webvh runtime state from an exported did.jsonl history', async () => {
@@ -1059,8 +1082,8 @@ describe('AgentIdentity Core Module', () => {
 
     AgentIdentity.setResolver(new InMemoryDIDResolver());
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentHistoryStore.clear();
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentRevisionStore.clear();
+    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+    resetDidWebvhState();
 
     const restored = await AgentIdentity.importDidWebvhHistory(didLog);
     const resolved = await AgentIdentity.resolve(document.id);
@@ -1097,8 +1120,8 @@ describe('AgentIdentity Core Module', () => {
 
       AgentIdentity.setResolver(new InMemoryDIDResolver());
       AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-      (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentHistoryStore.clear();
-      (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentRevisionStore.clear();
+      (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+      resetDidWebvhState();
 
       const restored = await AgentIdentity.loadDidWebvhHistoryFromFile(didLogPath);
 
@@ -1137,8 +1160,8 @@ describe('AgentIdentity Core Module', () => {
 
     AgentIdentity.setResolver(new InMemoryDIDResolver());
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentHistoryStore.clear();
-    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown>; documentRevisionStore: Map<string, unknown> }).documentRevisionStore.clear();
+    (AgentIdentity as unknown as { documentHistoryStore: Map<string, unknown> }).documentHistoryStore.clear();
+    resetDidWebvhState();
 
     const restored = await AgentIdentity.restoreDidWebvhHistoryFromSource(documentRef, source);
 
@@ -1280,7 +1303,8 @@ describe('Bootstrap controller keys', () => {
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());
     const second = await identity.create(minimalParams);
 
-    expect(second.document.controller).toEqual(first.document.controller);
+    // did:webvh v1.0 derives the SCID from the genesis entry, so a new bootstrap is a new controller DID.
+    expect(second.document.controller).not.toEqual(first.document.controller);
     expect(second.controllerPrivateKey).toBeDefined();
     expect(second.controllerPrivateKey).not.toEqual(first.controllerPrivateKey);
   });
@@ -1301,7 +1325,12 @@ describe('Bootstrap controller keys', () => {
     const controllerDid = 'did:webvh:QmControllerScid:agents.example:organizations:acme-support';
     const result = await identity.create({
       ...minimalParams,
-      webvh: { domain: 'agents.example', controllerDid, pathSegments: ['agents', 'bootstrap-bot'] }
+      webvh: {
+        domain: 'agents.example',
+        controllerDid,
+        controllerSigner: new LocalKeySigner('7c'.repeat(32)),
+        pathSegments: ['agents', 'bootstrap-bot']
+      }
     });
 
     expect(result.document.controller).toEqual(controllerDid);
@@ -1368,5 +1397,123 @@ describe('Bootstrap controller keys', () => {
       expect(verifyMetadataCommitment(updated.agentMetadata.systemPromptHash, 'new prompt', systemPromptSalt)).toBe(true);
       expect(updated.agentMetadata.coreModelHash).toEqual(document.agentMetadata.coreModelHash);
     });
+  });
+});
+
+describe('did:webvh v1.0 lifecycle authorization', () => {
+  const creatorWallet = ethers.Wallet.createRandom();
+  const identity = new AgentIdentity({ signer: creatorWallet, network: 'polygon' });
+  const controllerSigner = new LocalKeySigner('7c'.repeat(32));
+  const params = {
+    name: 'LifecycleBot',
+    coreModel: 'gpt-4o-mini',
+    systemPrompt: 'lifecycle prompt',
+    webvh: {
+      domain: 'agents.example',
+      controllerDid: 'did:webvh:QmControllerScid:agents.example:organizations:acme-support',
+      controllerSigner,
+      pathSegments: ['agents', 'lifecycle-bot']
+    }
+  };
+
+  beforeEach(() => {
+    AgentIdentity.setResolver(new InMemoryDIDResolver());
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+    resetDidWebvhState();
+  });
+
+  /** Simulates another process: the log is known (imported), the controller signer is not. */
+  async function importIntoFreshProcess(did: string): Promise<void> {
+    const log = AgentIdentity.exportDidWebvhHistory(did);
+    AgentIdentity.setResolver(new InMemoryDIDResolver());
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+    resetDidWebvhState();
+    await AgentIdentity.importDidWebvhHistory(log);
+  }
+
+  it('makes the controller key, not the agent key, the only update key', async () => {
+    const { document } = await identity.create(params);
+    const resolved = await resolveDidWebvhLog(AgentIdentity.exportDidWebvhHistory(document.id));
+
+    expect(resolved.metadata.updateKeys).toEqual([await didWebvhUpdateKeyFor(controllerSigner)]);
+    expect(resolved.metadata.updateKeys).not.toContain(document.verificationMethod[0].publicKeyMultibase);
+  });
+
+  it('requires webvh.controllerSigner for the explicit profile', async () => {
+    const { controllerSigner: _omitted, ...withoutSigner } = params.webvh;
+    await expect(
+      identity.create({ ...params, webvh: withoutSigner as unknown as typeof params.webvh })
+    ).rejects.toThrow(/controllerSigner is required/u);
+  });
+
+  it('rejects webvh.scid, which v1.0 derives from the genesis entry', async () => {
+    await expect(
+      identity.create({ ...params, webvh: { ...params.webvh, scid: 'QmChosen' } as unknown as typeof params.webvh })
+    ).rejects.toThrow(/webvh\.scid is no longer supported/u);
+  });
+
+  it('requires the controller signer to change an imported DID', async () => {
+    const { document } = await identity.create(params);
+    await importIntoFreshProcess(document.id);
+
+    await expect(AgentIdentity.updateDidDocument(document.id, { version: '2.0.0' })).rejects.toThrow(
+      /controller signer is required/u
+    );
+    await expect(AgentIdentity.rotateVerificationMethod(document.id)).rejects.toThrow(/controller signer is required/u);
+    await expect(AgentIdentity.revokeDid(document.id)).rejects.toThrow(/controller signer is required/u);
+    await expect(AgentIdentity.resolve(document.id)).resolves.toMatchObject({ id: document.id });
+  });
+
+  it('rejects a signer that is not the controller', async () => {
+    const { document } = await identity.create(params);
+    await importIntoFreshProcess(document.id);
+
+    const notTheController = new LocalKeySigner('9e'.repeat(32));
+    await expect(
+      AgentIdentity.updateDidDocument(document.id, { version: '2.0.0' }, { controllerSigner: notTheController })
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    await expect(
+      AgentIdentity.revokeDid(document.id, { controllerSigner: notTheController })
+    ).rejects.toBeInstanceOf(DidWebvhError);
+    await expect(AgentIdentity.resolve(document.id)).resolves.toMatchObject({ id: document.id });
+  });
+
+  it('accepts the controller signer for an imported DID', async () => {
+    const { document } = await identity.create(params);
+    await importIntoFreshProcess(document.id);
+
+    const updated = await AgentIdentity.updateDidDocument(document.id, { version: '2.0.0' }, { controllerSigner });
+    const rotated = await AgentIdentity.rotateVerificationMethod(document.id, { controllerSigner });
+    await AgentIdentity.revokeDid(document.id, { controllerSigner });
+
+    expect(updated.agentMetadata.version).toEqual('2.0.0');
+    expect(rotated.verificationMethodId).toEqual(`${document.id}#key-2`);
+    await expect(AgentIdentity.resolve(document.id)).rejects.toThrow(/revoked/u);
+    const log = await resolveDidWebvhLog(AgentIdentity.exportDidWebvhHistory(document.id));
+    expect(log.metadata.versionNumber).toEqual(4);
+    expect(log.metadata.deactivated).toBe(true);
+  });
+
+  it('refuses to import a log that fails verification and registers nothing', async () => {
+    const { document } = await identity.create(params);
+    const lines = AgentIdentity.exportDidWebvhHistory(document.id).trimEnd().split('\n');
+    const entry = JSON.parse(lines[0]);
+    entry.state.controller = 'did:webvh:QmAttacker:attacker.example';
+    const tampered = JSON.stringify(entry) + '\n';
+    AgentIdentity.setResolver(new InMemoryDIDResolver());
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+    resetDidWebvhState();
+
+    await expect(AgentIdentity.importDidWebvhHistory(tampered)).rejects.toBeInstanceOf(DidWebvhError);
+    await expect(AgentIdentity.resolve(document.id)).rejects.toThrow();
+  });
+
+  it('imports a deactivated log as revoked', async () => {
+    const { document } = await identity.create(params);
+    await AgentIdentity.revokeDid(document.id);
+    await importIntoFreshProcess(document.id);
+
+    await expect(AgentIdentity.resolve(document.id)).rejects.toThrow(/revoked/u);
+    expect(AgentIdentity.getDocumentHistory(document.id).map((entry) => entry.action)).toEqual(['created', 'revoked']);
   });
 });

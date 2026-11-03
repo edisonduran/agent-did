@@ -8,6 +8,7 @@ import {
   DID_WEBVH_PLACEHOLDER,
   didWebvhUpdateKeyFor,
   DidWebvhError,
+  deriveDidWebvhLogUrl,
   resolveDidWebvhLog,
   updateDidWebvhLog,
 } from '../src/webvh/adapter';
@@ -290,5 +291,52 @@ describe('did:webvh adapter', () => {
         signer: new LocalKeySigner(CONTROLLER_KEY),
       })
     ).rejects.toMatchObject({ code: 'invalidInput' });
+  });
+
+  it('returns the signed state separately from the resolved document', async () => {
+    const created = await createLog();
+    expect(created.state.service).toBeUndefined();
+    expect(Array.isArray(created.document.service)).toBe(true);
+    expect({ ...created.document, service: undefined }).toEqual({ ...created.state, service: undefined });
+  });
+
+  describe('deriveDidWebvhLogUrl', () => {
+    const scid = 'QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ';
+
+    it.each([
+      [`did:webvh:${scid}:example.com`, 'https://example.com/.well-known/did.jsonl'],
+      [`did:webvh:${scid}:example.com:fleet:agent-1`, 'https://example.com/fleet/agent-1/did.jsonl'],
+      [`did:webvh:${scid}:agents.example.com%3A8443`, 'https://agents.example.com:8443/.well-known/did.jsonl'],
+      [`did:webvh:${scid}:agents.example.com%3A8443:a:b`, 'https://agents.example.com:8443/a/b/did.jsonl'],
+    ])('maps %s', (did, url) => {
+      expect(deriveDidWebvhLogUrl(did)).toBe(url);
+    });
+
+    it('maps DIDs created by the adapter', async () => {
+      const created = await createLog();
+      expect(deriveDidWebvhLogUrl(created.did)).toBe('https://agents.example.com/fleet/agent-1/did.jsonl');
+    });
+
+    it.each([
+      ['not webvh', `did:web:example.com`],
+      ['empty SCID', 'did:webvh::example.com'],
+      ['non-base58 SCID', 'did:webvh:Qm0000:example.com'],
+      ['missing host', `did:webvh:${scid}`],
+      ['IPv4 host', `did:webvh:${scid}:127.0.0.1`],
+      ['encoded IPv4 host', `did:webvh:${scid}:127%2E0%2E0%2E1`],
+      ['lowercase port escape', `did:webvh:${scid}:example.com%3a8443`],
+      ['port zero', `did:webvh:${scid}:example.com%3A0`],
+      ['uppercase host', `did:webvh:${scid}:Example.com`],
+      ['single-label host', `did:webvh:${scid}:localhost`],
+      ['dot-dot segment', `did:webvh:${scid}:example.com:..:admin`],
+      ['encoded dot-dot segment', `did:webvh:${scid}:example.com:%2E%2E:admin`],
+      ['encoded slash', `did:webvh:${scid}:example.com:a%2Fb`],
+      ['empty segment', `did:webvh:${scid}:example.com::a`],
+      ['fragment', `did:webvh:${scid}:example.com#key-1`],
+      ['query', `did:webvh:${scid}:example.com?versionId=1`],
+      ['path', `did:webvh:${scid}:example.com/whois`],
+    ])('rejects a DID with %s', (_label, did) => {
+      expect(() => deriveDidWebvhLogUrl(did)).toThrow(DidWebvhError);
+    });
   });
 });
