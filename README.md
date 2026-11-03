@@ -115,7 +115,7 @@ The project is past the specification-only phase: it includes a functional imple
 - **Security release**: `1.0.0-rc.2` fixes [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf). `1.0.0-rc.2` / `1.0.0rc2` are deprecated; upgrade and recreate any bootstrap controller created with them (see the advisory)
 - **Install the RC explicitly**: `npm install @agentdid/sdk@next` / `pip install agent-did-sdk==1.0.0rc2`; a plain `npm install @agentdid/sdk` or `pip install agent-did-sdk` still resolves the pre-RC `0.2.0` / `0.1.0` releases
 - **Breaking wire change in the RC**: HTTP message signatures now sign the `"@signature-params"` line (RFC 9421 §2.5), so signatures from `@agentdid/sdk` ≤ 0.2.0 or `agent-did-sdk` ≤ 0.1.0 do not verify against the RC and vice versa; see [CHANGELOG.md](CHANGELOG.md)
-- **Runtime floor**: `@agentdid/sdk` and `@agentdid/langchain` require Node.js 22+
+- **Runtime floor**: `@agentdid/sdk` and `@agentdid/langchain` require Node.js 22+; `@agentdid/sdk` on `main` (`rc.3` train) requires 22.12+. `agent-did-sdk` on `main` does not install on Alpine (musl) or Windows ARM64 (see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md))
 - **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
 - **`rc.2 -> rc.3` breaking changes (in progress on `main`)**: [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md), [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
 - **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
@@ -209,7 +209,7 @@ When these LangChain integrations change, the repository also expects the paired
 
 ### Requirements
 
-- Node.js 22+ (22.23.4+ or 24.22.1+ recommended for the October 2026 Node.js security fixes)
+- Node.js 22.12+ (22.23.4+ or 24.22.1+ recommended for the October 2026 Node.js security fixes)
 - npm
 
 ### Installation

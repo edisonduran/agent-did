@@ -28,6 +28,10 @@ For development:
 pip install -e ".[dev]"
 ```
 
+### Platform support
+
+On `main` (the `1.0.0rc3` train) the SDK depends on [`did-webvh`](https://pypi.org/project/did-webvh/), which pulls the native `aries-askar` library. `aries-askar` ships wheels for Linux glibc (x86_64, aarch64), macOS and Windows x86_64 only, so the SDK does not install on Alpine (musl) images or Windows ARM64. Use a glibc-based image such as `python:3.12-slim`. The published `1.0.0rc2` is not affected.
+
 ## Quick Start
 
 ```python

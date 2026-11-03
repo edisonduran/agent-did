@@ -1,7 +1,7 @@
 # @agentdid/sdk
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22.12-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4+-blue)](https://www.typescriptlang.org/)
 
 Verifiable decentralized identity for autonomous AI agents. Create, sign, resolve, and verify Agent-DIDs based on [RFC-001](https://github.com/edisonduran/agent-did/blob/main/docs/RFC-001-Agent-DID-Specification.md).
@@ -33,7 +33,7 @@ Agent-DID solves this with:
 npm install @agentdid/sdk@next ethers
 ```
 
-Requires **Node.js 22+** (22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes).
+Requires **Node.js 22.12+** on `main` (the published `1.0.0-rc.2` needs 22+; 22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes).
 
 ## Quick Start
 
