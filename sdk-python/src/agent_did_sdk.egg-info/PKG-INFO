@@ -31,6 +31,8 @@ Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
 Requires-Dist: pytest-cov>=5.0; extra == "dev"
 Requires-Dist: ruff>=0.4; extra == "dev"
 Requires-Dist: mypy>=1.10; extra == "dev"
+Requires-Dist: http-message-signatures==3.0.0; extra == "dev"
+Requires-Dist: requests>=2.31; extra == "dev"
 Dynamic: license-file
 
 # agent-did-sdk (Python)
@@ -105,6 +107,8 @@ asyncio.run(main())
 ```
 
 This quickstart validates the local signing lifecycle first. By default the SDK follows the canonical `did:webvh` path and bootstraps the local controller side for you; hosted publication of `did.jsonl` is a separate deployment concern.
+
+On `main` (the `1.0.0rc3` train) `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `did-webvh`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controller_signer` and for re-issuing older DIDs.
 
 ## Features
 

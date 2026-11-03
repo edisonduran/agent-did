@@ -162,3 +162,20 @@ export {
 
 // did:webvh v1.0 errors (log verification, unauthorized controller signer)
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
+
+// HTTP Message Signatures (RFC 9421) and replay protection
+export {
+  AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
+  AGENT_DID_HTTP_SIGNATURE_TAG
+} from './core/AgentIdentity';
+export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
+export {
+  HttpSignatureError,
+  HttpRequestLike,
+  SignatureInput,
+  SignatureParamValue,
+  buildSignatureBase,
+  parseSignatureHeader,
+  parseSignatureInputHeader,
+  serializeSignatureInput
+} from './core/http-signatures';

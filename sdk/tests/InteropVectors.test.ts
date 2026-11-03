@@ -1,3 +1,5 @@
+import { InMemoryNonceStore } from '../src/core/nonce-store';
+import { buildSignatureBase, parseSignatureInputHeader } from '../src/core/http-signatures';
 import fs from 'fs';
 import path from 'path';
 import { AgentIdentity } from '../src/core/AgentIdentity';
@@ -28,6 +30,7 @@ describe('Interoperability Vectors', () => {
         body: string;
         headers: Record<string, string>;
         maxCreatedSkewSeconds: number;
+      signatureBase: string;
       };
     }>;
   };
@@ -104,10 +107,20 @@ describe('Interoperability Vectors', () => {
         url: fixture.httpVector.url,
         body: fixture.httpVector.body,
         headers: fixture.httpVector.headers,
-        maxCreatedSkewSeconds: fixture.httpVector.maxCreatedSkewSeconds
+        maxCreatedSkewSeconds: fixture.httpVector.maxCreatedSkewSeconds,
+        nonceStore: new InMemoryNonceStore()
       });
 
       expect(valid).toBe(true);
+    });
+
+    it('should build the same RFC 9421 signature base as the independent generator', () => {
+      const input = parseSignatureInputHeader(fixture.httpVector.headers['Signature-Input']).get('sig1')!;
+      const base = buildSignatureBase(
+        { method: fixture.httpVector.method, url: fixture.httpVector.url, headers: fixture.httpVector.headers },
+        input
+      );
+      expect(base).toBe(fixture.httpVector.signatureBase);
     });
   });
 });

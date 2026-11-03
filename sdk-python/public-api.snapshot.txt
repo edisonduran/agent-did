@@ -1,4 +1,6 @@
 # Public API snapshot for agent-did-sdk
+AGENT_DID_HTTP_SIGNATURE_COMPONENTS
+AGENT_DID_HTTP_SIGNATURE_TAG
 AgentDIDDocument
 AgentDocumentHistoryAction
 AgentDocumentHistoryEntry
@@ -29,15 +31,19 @@ FilesystemDIDDocumentSource
 FilesystemDIDDocumentSourceConfig
 HttpDIDDocumentSource
 HttpDIDDocumentSourceConfig
+HttpRequestLike
+HttpSignatureError
 HttpTargetValidationOptions
 IdentityCompositionError
 IdentityCompositionErrorReason
 InMemoryAgentRegistry
 InMemoryDIDResolver
+InMemoryNonceStore
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
 LocalKeySigner
 MetadataCommitmentSalts
+NonceStore
 PresignedHttpDIDDocumentSource
 PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
@@ -51,7 +57,9 @@ S3CompatibleDIDDocumentSource
 S3CompatibleDIDDocumentSourceConfig
 SIGNING_VERIFICATION_PURPOSES
 SignHttpRequestParams
+SignatureInput
 SigningVerificationPurpose
+Token
 UniversalResolverClient
 UniversalResolverConfig
 UpdateAgentDocumentParams
@@ -64,6 +72,7 @@ WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig
 assert_key_purpose
 assert_signing_purpose
+build_signature_base
 canonicalize_json
 create_metadata_commitment
 decode_public_key_multibase
@@ -78,6 +87,9 @@ hash_payload
 is_unix_timestamp_string
 iso_to_unix_string
 normalize_timestamp_to_iso
+parse_signature_header
+parse_signature_input_header
+serialize_signature_input
 unix_string_to_iso
 validate_http_target
 verify_metadata_commitment

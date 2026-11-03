@@ -63,7 +63,13 @@ export interface ProductionJsonRpcResolverProfileConfig {
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
     httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
+/** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
+export declare const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[];
+/** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
+export declare const AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did";
 export declare class AgentIdentity {
+    /** Default replay store for `verifyHttpRequestSignature` (process-local). */
+    private static readonly defaultNonceStore;
     private static readonly defaultWebvhDomain;
     private static resolver;
     private static registry;
@@ -116,7 +122,23 @@ export declare class AgentIdentity {
      * Signs an HTTP request (Web Bot Auth) for secure API consumption.
      * Implements a simplified version of IETF HTTP Message Signatures.
      */
+    /**
+     * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
+     *
+     * Covered components: `"@method" "@authority" "@path" "@query" "content-digest" "date"
+     * "signature-agent"`; parameters: `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"`
+     * and `tag="agent-did"`. Returns the header fields to add to the request.
+     */
     signHttpRequest(params: SignHttpRequestParams): Promise<Record<string, string>>;
+    /**
+     * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
+     *
+     * Requires the Agent-DID profile (covered components, `tag="agent-did"`, `alg="ed25519"`,
+     * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
+     * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
+     * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
+     * request is rejected. Returns `false` on any failure.
+     */
     static verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean>;
     /**
      * Verifies that a signature was produced by a specific Agent-DID.
@@ -162,11 +184,9 @@ export declare class AgentIdentity {
     static useProductionResolverFromHttp(config: ProductionHttpResolverProfileConfig): void;
     static useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
     private static computeDocumentReference;
+    /** RFC 9530 `Content-Digest` with SHA-256. */
     private static computeContentDigest;
-    private static buildHttpSignatureBase;
     private static generateNonce;
-    private static parseHttpSignatureInputDictionary;
-    private static parseHttpSignatureDictionary;
     /** History entries for a verified did:webvh log, one per log entry. */
     private static historyFromDidWebvhLog;
     private static cloneDocument;
@@ -187,6 +207,45 @@ export interface HttpTargetValidationOptions {
  * Throws if the URL is unsafe (loopback, private, metadata, embedded credentials).
  */
 export declare function validateHttpTarget(url: string, options?: HttpTargetValidationOptions): void;
+
+## core/http-signatures.d.ts
+/**
+ * HTTP Message Signatures (RFC 9421) primitives: strict Structured Field
+ * (RFC 8941) handling for `Signature-Input` / `Signature`, and the signature
+ * base of RFC 9421 §2.5. Agent-DID's request profile is built on top of this
+ * in `AgentIdentity`.
+ *
+ * Python parity: `agent_did_sdk.core.http_signatures`.
+ */
+/** An RFC 8941 bare item as used by signature parameters. */
+export type SignatureParamValue = string | number | boolean | {
+    token: string;
+};
+export interface SignatureInput {
+    /** Covered component identifiers, in order (names only; component parameters are not supported). */
+    components: string[];
+    /** Signature parameters, in order. */
+    params: Array<[string, SignatureParamValue]>;
+}
+export interface HttpRequestLike {
+    method: string;
+    url: string;
+    /** Header fields; names are matched case-insensitively. */
+    headers: Record<string, string | string[] | undefined>;
+}
+export declare class HttpSignatureError extends Error {
+    constructor(message: string);
+}
+/** Serializes a signature's inner list (the `@signature-params` value and the `Signature-Input` member). */
+export declare function serializeSignatureInput(input: SignatureInput): string;
+export declare function serializeSignature(label: string, signature: Uint8Array): string;
+/** Parses a `Signature-Input` field value into its members (label → inner list). */
+export declare function parseSignatureInputHeader(value: string): Map<string, SignatureInput>;
+/** Parses a `Signature` field value into its members (label → signature bytes). */
+export declare function parseSignatureHeader(value: string): Map<string, Uint8Array>;
+export declare function getSignatureParam(input: SignatureInput, name: string): SignatureParamValue | undefined;
+/** Builds the RFC 9421 signature base for `input` over `request`. */
+export declare function buildSignatureBase(request: HttpRequestLike, input: SignatureInput): string;
 
 ## core/identity-composition.d.ts
 import { AgentDIDDocument, IdentityCompositionErrorReason, SigningVerificationPurpose, VerificationRelationship } from './types';
@@ -210,6 +269,47 @@ export declare function getRelationshipKeyIds(didDoc: AgentDIDDocument, relation
 export declare function getKeyRelationships(keyId: string, didDoc: AgentDIDDocument): VerificationRelationship[];
 export declare function assertKeyPurpose(keyId: string, didDoc: AgentDIDDocument, requiredPurpose: VerificationRelationship): void;
 export declare function assertSigningPurpose(requiredPurpose: VerificationRelationship, didDoc: AgentDIDDocument, keyId?: string): asserts requiredPurpose is SigningVerificationPurpose;
+
+## core/nonce-store.d.ts
+/**
+ * Replay protection for verified HTTP message signatures.
+ *
+ * `AgentIdentity.verifyHttpRequestSignature` records each accepted signature's
+ * `nonce` (scoped to its `keyid`) until the signature's `expires` time and
+ * rejects a second request carrying the same pair. Use a shared store (for
+ * example Redis `SET key 1 NX EXAT expiresAt`) when several verifier instances
+ * serve the same agents.
+ *
+ * Python parity: `agent_did_sdk.core.nonce_store`.
+ */
+export interface NonceStore {
+    /**
+     * Records `key` until `expiresAt` (Unix seconds). Resolves `true` when the key
+     * was not recorded yet, `false` when it was (a replay). Must be atomic.
+     */
+    checkAndStore(key: string, expiresAt: number): Promise<boolean>;
+}
+export interface InMemoryNonceStoreOptions {
+    /**
+     * Upper bound on live entries. When the store is full after purging expired
+     * entries, new nonces are refused (fail closed) instead of evicting live ones,
+     * which would reopen a replay window. Default: 100 000.
+     */
+    maxEntries?: number;
+    /** Clock in Unix seconds; injectable for tests. */
+    now?: () => number;
+}
+/** Process-local `NonceStore`. Suitable for a single verifier instance. */
+export declare class InMemoryNonceStore implements NonceStore {
+    private readonly entries;
+    private readonly maxEntries;
+    private readonly now;
+    constructor(options?: InMemoryNonceStoreOptions);
+    checkAndStore(key: string, expiresAt: number): Promise<boolean>;
+    /** Number of live entries (expired ones may linger until the next purge). */
+    get size(): number;
+    private purge;
+}
 
 ## core/signer.d.ts
 /**
@@ -411,7 +511,13 @@ export interface VerifyHttpRequestSignatureParams {
     url: string;
     body?: string;
     headers: Record<string, string>;
+    /** Maximum distance between `created` and now, in seconds (default: 300). */
     maxCreatedSkewSeconds?: number;
+    /**
+     * Replay store for the signature's `nonce`. Defaults to a process-wide `InMemoryNonceStore`;
+     * use a shared store when several verifier instances serve the same agents.
+     */
+    nonceStore?: import('./nonce-store').NonceStore;
 }
 
 ## crypto/hash.d.ts
@@ -531,6 +637,9 @@ export { EvmAgentRegistry } from './registry/EvmAgentRegistry';
 export { EthersAgentRegistryContractClient } from './registry/EthersAgentRegistryContractClient';
 export { EvmTxResponse, EvmAgentRegistryContract, EvmAgentRegistryAdapterConfig } from './registry/evm-types';
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
+export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
+export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
+export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, serializeSignatureInput } from './core/http-signatures';
 
 ## registry/EthersAgentRegistryContractClient.d.ts
 import { AgentRegistryRecord } from './types';

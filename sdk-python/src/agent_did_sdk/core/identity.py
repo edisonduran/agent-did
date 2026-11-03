@@ -12,8 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, ClassVar, TypedDict
-from urllib.parse import urlparse
+from typing import Any, ClassVar
 
 import httpx
 from eth_utils.address import to_checksum_address
@@ -48,7 +47,18 @@ from ..webvh.adapter import (
     update_did_webvh_log,
 )
 from .http_security import HttpTargetValidationOptions, validate_http_target
+from .http_signatures import (
+    HttpRequestLike,
+    HttpSignatureError,
+    SignatureInput,
+    build_signature_base,
+    parse_signature_header,
+    parse_signature_input_header,
+    serialize_signature,
+    serialize_signature_input,
+)
 from .identity_composition import assert_key_purpose, assert_signing_purpose, get_relationship_key_ids
+from .nonce_store import InMemoryNonceStore, NonceStore
 from .signer import AgentSigner, LocalKeySigner
 from .time_utils import normalize_timestamp_to_iso
 from .types import (
@@ -66,13 +76,6 @@ from .types import (
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
 )
-
-
-class _ParsedSigInputEntry(TypedDict):
-    label: str
-    components: list[str]
-    params: dict[str, str]
-    raw_value: str
 
 
 @dataclass
@@ -119,8 +122,26 @@ class ProductionJsonRpcResolverProfileConfig:
     http_security: HttpTargetValidationOptions | None = None
 
 
+AGENT_DID_HTTP_SIGNATURE_COMPONENTS: tuple[str, ...] = (
+    "@method",
+    "@authority",
+    "@path",
+    "@query",
+    "content-digest",
+    "date",
+    "signature-agent",
+)
+"""Components every Agent-DID HTTP Message Signature covers (RFC 9421)."""
+
+AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did"
+"""RFC 9421 ``tag`` parameter of Agent-DID HTTP Message Signatures."""
+
+
 class AgentIdentity:
     """Full-lifecycle Agent-DID management: create, sign, verify, resolve, revoke."""
+
+    # Default replay store for verify_http_request_signature (process-local).
+    _default_nonce_store: ClassVar[NonceStore] = InMemoryNonceStore()
 
     _DEFAULT_WEBVH_DOMAIN: ClassVar[str] = "agents.local"
     _resolver: ClassVar[DIDResolver] = InMemoryDIDResolver()
@@ -413,7 +434,12 @@ class AgentIdentity:
         return await key_or_signer.sign(message_bytes)
 
     async def sign_http_request(self, params: SignHttpRequestParams) -> dict[str, str]:
-        """Sign an HTTP request (Web Bot Auth) and return the headers to inject."""
+        """Sign an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
+
+        Covered components: ``"@method" "@authority" "@path" "@query" "content-digest" "date"
+        "signature-agent"``; parameters: ``created``, ``expires``, ``nonce``, ``keyid``,
+        ``alg="ed25519"`` and ``tag="agent-did"``. Returns the header fields to add to the request.
+        """
         if not (params.method and params.method.strip()):
             raise ValueError("HTTP method is required")
         if not (params.url and params.url.strip()):
@@ -424,38 +450,37 @@ class AgentIdentity:
         if not (params.agent_did and params.agent_did.strip()):
             raise ValueError("Agent DID is required")
 
-        timestamp = int(time.time())
-        expires_at = timestamp + (params.expires_in_seconds if params.expires_in_seconds is not None else 30)
-        nonce = os.urandom(16).hex()
-        date_header = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
-        vm_id = params.verification_method_id or f"{params.agent_did}#key-1"
-        content_digest = AgentIdentity._compute_content_digest(params.body)
-        signature_params = (
-            f'("@request-target" "host" "date" "content-digest" "x-request-nonce");'
-            f'created={timestamp};expires={expires_at};keyid="{vm_id}";alg="ed25519"'
-        )
-        string_to_sign = AgentIdentity._build_http_signature_base(
-            method=params.method,
-            url=params.url,
-            date_header=date_header,
-            content_digest=content_digest,
-            nonce=nonce,
-            signature_params=signature_params,
-        )
-
         key_or_signer = params.signer or params.agent_private_key
         if key_or_signer is None:
             raise ValueError("Either signer or agent_private_key must be provided")
-        signature_hex = await self.sign_message(string_to_sign, key_or_signer)
-        signature_b64 = base64.b64encode(bytes.fromhex(signature_hex)).decode("ascii")
 
-        return {
-            "Signature": f"sig1=:{signature_b64}:",
-            "Signature-Input": f"sig1={signature_params}",
+        created = int(time.time())
+        expires_in = params.expires_in_seconds if params.expires_in_seconds is not None else 30
+        headers = {
             "Signature-Agent": params.agent_did,
-            "Date": date_header,
-            "Content-Digest": content_digest,
-            "X-Request-Nonce": nonce,
+            "Date": datetime.fromtimestamp(created, timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT"),
+            "Content-Digest": AgentIdentity._compute_content_digest(params.body),
+        }
+        signature_input = SignatureInput(
+            components=list(AGENT_DID_HTTP_SIGNATURE_COMPONENTS),
+            params=[
+                ("created", created),
+                ("expires", created + expires_in),
+                ("nonce", os.urandom(16).hex()),
+                ("keyid", params.verification_method_id or f"{params.agent_did}#key-1"),
+                ("alg", "ed25519"),
+                ("tag", AGENT_DID_HTTP_SIGNATURE_TAG),
+            ],
+        )
+        signature_base = build_signature_base(
+            HttpRequestLike(method=params.method.upper(), url=params.url, headers=headers), signature_input
+        )
+
+        signature_hex = await self.sign_message(signature_base, key_or_signer)
+        return {
+            **headers,
+            "Signature-Input": f"sig1={serialize_signature_input(signature_input)}",
+            "Signature": serialize_signature("sig1", bytes.fromhex(signature_hex)),
         }
 
     # ------------------------------------------------------------------
@@ -464,90 +489,69 @@ class AgentIdentity:
 
     @classmethod
     async def verify_http_request_signature(cls, params: VerifyHttpRequestSignatureParams) -> bool:
-        norm = {k.lower(): v for k, v in params.headers.items()}
-        sig_header = norm.get("signature")
-        sig_input_header = norm.get("signature-input")
-        sig_agent = norm.get("signature-agent")
-        date_header = norm.get("date")
-        digest_header = norm.get("content-digest")
-        nonce_header = norm.get("x-request-nonce")
+        """Verify an Agent-DID RFC 9421 HTTP Message Signature.
 
-        if not all([sig_header, sig_input_header, sig_agent, date_header, digest_header]):
+        Requires the Agent-DID profile (covered components, ``tag="agent-did"``, ``alg="ed25519"``,
+        ``created``, ``expires``, ``nonce``, a ``keyid`` under the ``Signature-Agent`` DID), a matching
+        ``Content-Digest``, and a signature by an active ``assertionMethod`` key. The nonce is then
+        recorded in ``nonce_store`` (default: a process-wide :class:`InMemoryNonceStore`), so a
+        replayed request is rejected. Returns ``False`` on any failure.
+        """
+        headers = {key.lower(): value for key, value in params.headers.items()}
+        signature_agent = headers.get("signature-agent")
+        if not headers.get("signature") or not headers.get("signature-input") or not signature_agent:
             return False
-        assert sig_header is not None
-        assert sig_input_header is not None
-        assert sig_agent is not None
-        assert date_header is not None
-        assert digest_header is not None
-
-        expected_digest = cls._compute_content_digest(params.body)
-        if expected_digest != digest_header:
+        if headers.get("content-digest") != cls._compute_content_digest(params.body):
             return False
 
-        parsed_inputs = cls._parse_http_signature_input_dictionary(sig_input_header)
-        parsed_sigs = cls._parse_http_signature_dictionary(sig_header)
+        try:
+            inputs = parse_signature_input_header(headers["signature-input"])
+            signatures = parse_signature_header(headers["signature"])
+        except HttpSignatureError:
+            return False
 
         now = int(time.time())
         max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
+        nonce_store = params.nonce_store if params.nonce_store is not None else cls._default_nonce_store
+        request = HttpRequestLike(method=params.method.upper(), url=params.url, headers=headers)
 
-        for entry in parsed_inputs:
-            if not entry["params"].get("keyid") or not entry["params"].get("created"):
-                continue
-            sig_b64 = parsed_sigs.get(entry["label"])
-            if not sig_b64:
-                continue
-
-            covered = {c.lower() for c in entry["components"]}
-            required = {"@request-target", "host", "date", "content-digest", "x-request-nonce"}
-            if not required.issubset(covered):
+        for label, signature_input in inputs.items():
+            signature = signatures.get(label)
+            if signature is None:
                 continue
 
-            # Nonce header must be present when x-request-nonce is a covered component
-            if not nonce_header:
-                continue
-
-            key_id: str = entry["params"]["keyid"]
-            created_raw: str = entry["params"]["created"]
-            algorithm = entry["params"].get("alg")
-            if algorithm and algorithm.lower() != "ed25519":
+            created = signature_input.get("created")
+            expires = signature_input.get("expires")
+            nonce = signature_input.get("nonce")
+            key_id = signature_input.get("keyid")
+            if (
+                signature_input.get("tag") != AGENT_DID_HTTP_SIGNATURE_TAG
+                or signature_input.get("alg") != "ed25519"
+                or not isinstance(created, int) or isinstance(created, bool)
+                or not isinstance(expires, int) or isinstance(expires, bool)
+                or not isinstance(nonce, str) or not nonce
+                or not isinstance(key_id, str)
+                or not key_id.startswith(f"{signature_agent}#")
+                or not all(c in signature_input.components for c in AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
+                or abs(now - created) > max_skew
+                or expires < created
+                or now > expires
+            ):
                 continue
 
             try:
-                created = int(created_raw)
-            except ValueError:
-                continue
-            if abs(now - created) > max_skew:
+                signature_base = build_signature_base(request, signature_input)
+            except HttpSignatureError:
                 continue
 
-            # Check expiration if present
-            expires_raw = entry["params"].get("expires")
-            if expires_raw:
-                try:
-                    expires = int(expires_raw)
-                except ValueError:
-                    continue
-                if now > expires:
-                    continue
-
-            if not key_id.startswith(f"{sig_agent}#"):
-                continue
-
-            sig_base = cls._build_http_signature_base(
-                method=params.method, url=params.url, date_header=date_header,
-                content_digest=digest_header, nonce=nonce_header,
-                signature_params=entry["raw_value"],
-            )
-
-            sig_hex = bytes(base64.b64decode(sig_b64)).hex()
             is_valid = await cls.verify_signature(
-                sig_agent,
-                sig_base,
-                sig_hex,
-                key_id,
-                required_purpose="assertionMethod",
+                signature_agent, signature_base, signature.hex(), key_id, required_purpose="assertionMethod"
             )
-            if is_valid:
-                return True
+            if not is_valid:
+                continue
+
+            # Record the nonce only for a valid signature, so forged requests cannot burn nonces.
+            return await nonce_store.check_and_store(f"{key_id} {nonce}", expires)
 
         return False
 
@@ -993,73 +997,6 @@ class AgentIdentity:
         digest = hashlib.sha256(raw).digest()
         b64 = base64.b64encode(digest).decode("ascii")
         return f"sha-256=:{b64}:"
-
-    @staticmethod
-    def _build_http_signature_base(
-        *,
-        method: str,
-        url: str,
-        date_header: str,
-        content_digest: str,
-        signature_params: str,
-        nonce: str | None = None,
-    ) -> str:
-        parsed = urlparse(url)
-        path_query = parsed.path + (f"?{parsed.query}" if parsed.query else "")
-        lines = [
-            f"(request-target): {method.lower()} {path_query}",
-            f"host: {parsed.netloc}",
-            f"date: {date_header}",
-            f"content-digest: {content_digest}",
-        ]
-        if nonce:
-            lines.append(f"x-request-nonce: {nonce}")
-        # RFC 9421 §2.5: binds created, expires, keyid and alg to the signature.
-        lines.append(f'"@signature-params": {signature_params}')
-        return "\n".join(lines)
-
-    @staticmethod
-    def _parse_http_signature_input_dictionary(value: str) -> list[_ParsedSigInputEntry]:
-        results: list[_ParsedSigInputEntry] = []
-        for entry in value.split(","):
-            entry = entry.strip()
-            if not entry:
-                continue
-            m = re.match(r"^([a-zA-Z0-9_-]+)=\(([^)]*)\)(.*)$", entry)
-            if not m:
-                continue
-            label, comp_section, params_section = m.group(1), m.group(2), m.group(3)
-            components = re.findall(r'"([^"]+)"', comp_section)
-            params: dict[str, str] = {}
-            for seg in params_section.split(";"):
-                seg = seg.strip()
-                if not seg:
-                    continue
-                eq = seg.find("=")
-                if eq == -1:
-                    continue
-                key = seg[:eq].strip().lower()
-                raw_val = seg[eq + 1:].strip()
-                if raw_val.startswith('"') and raw_val.endswith('"'):
-                    raw_val = raw_val[1:-1]
-                params[key] = raw_val
-            results.append({
-                "label": label,
-                "components": components,
-                "params": params,
-                "raw_value": f"({comp_section}){params_section}",
-            })
-        return results
-
-    @staticmethod
-    def _parse_http_signature_dictionary(value: str) -> dict[str, str]:
-        result: dict[str, str] = {}
-        for entry in value.split(","):
-            entry = entry.strip()
-            m = re.match(r"^([a-zA-Z0-9_-]+)=:([A-Za-z0-9+/=]+):$", entry)
-            if m:
-                result[m.group(1)] = m.group(2)
-        return result
 
     @classmethod
     def _history_from_did_webvh_log(cls, log: str) -> list[AgentDocumentHistoryEntry]:

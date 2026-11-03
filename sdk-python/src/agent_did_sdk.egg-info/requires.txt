@@ -11,3 +11,5 @@ pytest-asyncio>=0.23
 pytest-cov>=5.0
 ruff>=0.4
 mypy>=1.10
+http-message-signatures==3.0.0
+requests>=2.31
