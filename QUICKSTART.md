@@ -21,7 +21,7 @@ Install (requires Node.js 22.12+):
 npm install @agentdid/sdk@next ethers
 ```
 
-`@next` selects the `1.0.0-rc.3` release candidate; without it npm may install an older release whose DIDs and HTTP signatures do not interoperate with `1.0.0-rc.3`.
+`@next` and `latest` both point to the `1.0.0-rc.3` release candidate.
 
 Save this as `quickstart.js` and run `node quickstart.js`:
 
@@ -77,7 +77,7 @@ Install:
 pip install agent-did-sdk==1.0.0rc3
 ```
 
-Pinning `1.0.0rc3` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc3`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)).
+Every installable `agent-did-sdk` release is a prerelease, so pip needs the exact pin (or `--pre`); a plain `pip install agent-did-sdk` finds no matching version. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)).
 
 Save this as `quickstart.py` and run `python quickstart.py`:
 
