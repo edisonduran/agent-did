@@ -207,7 +207,7 @@ def create_agent_framework_tools(
             _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs={"did": did})
             try:
                 target_did = did.strip() if did and did.strip() else runtime_identity.document.id
-                document = await AgentIdentity.resolve(target_did)
+                document = await agent_identity.client.resolve(target_did)
                 result = _serialize_document(document)
                 _emit_tool_succeeded(
                     observer, tool_name=tool_name, did=current_did, outputs={"resolved_did": result.get("id")}
@@ -231,7 +231,7 @@ def create_agent_framework_tools(
             _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs=inputs)
             try:
                 target_did = did.strip() if did and did.strip() else runtime_identity.document.id
-                is_valid = await AgentIdentity.verify_signature(target_did, payload, signature, key_id)
+                is_valid = await agent_identity.client.verify_signature(target_did, payload, signature, key_id)
                 result: dict[str, Any] = {"did": target_did, "is_valid": is_valid}
                 if key_id:
                     result["key_id"] = key_id
@@ -320,7 +320,7 @@ def create_agent_framework_tools(
             _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs={"did": did})
             try:
                 target_did = did.strip() if did and did.strip() else runtime_identity.document.id
-                history = AgentIdentity.get_document_history(target_did)
+                history = agent_identity.client.get_document_history(target_did)
                 result = [item.model_dump(by_alias=True, exclude_none=True) for item in history]
                 _emit_tool_succeeded(
                     observer,

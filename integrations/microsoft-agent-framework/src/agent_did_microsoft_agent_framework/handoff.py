@@ -20,8 +20,8 @@ Design contract (locked):
   current key set.
 
 This module deliberately delegates ALL key-lifecycle logic to the central SDK
-primitives (``AgentIdentity.verify_signature`` and
-``AgentIdentity.verify_historical_signature``). It must not re-implement the
+primitives (``AgentDidClient.verify_signature`` and
+``AgentDidClient.verify_historical_signature``). It must not re-implement the
 key rotation state machine — when the spec converges with `aeoess/agent-passport-system`
 the SDK is the single source of truth and this helper inherits any change for free.
 """
@@ -33,7 +33,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from agent_did_sdk import AgentIdentity, IdentityCompositionError
+from agent_did_sdk import AgentDidClient, AgentIdentity, IdentityCompositionError
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
@@ -355,6 +355,7 @@ def build_handoff_verifier_executor(
     cross_domain: bool | None,
     on_verification_blocked: VerificationBlockedCallback | None,
     observer: AgentDidObserver,
+    client: AgentDidClient | None = None,
     executor_id: str | None = None,
     output_type: Any = object,
 ) -> FunctionExecutor:
@@ -369,6 +370,14 @@ def build_handoff_verifier_executor(
 
     effective_ttl = _resolve_effective_ttl(action_class, ttl_seconds, cross_domain)
 
+    client_verifiers: dict[str, Callable[..., Any]] = (
+        {
+            "verify_signature": client.verify_signature,
+            "verify_historical_signature": client.verify_historical_signature,
+        }
+        if client is not None
+        else {}
+    )
     ctx = _VerifierContext(
         from_executor_id=from_id,
         to_executor_id=to_id,
@@ -379,6 +388,7 @@ def build_handoff_verifier_executor(
         cross_domain=cross_domain,
         on_verification_blocked=on_verification_blocked,
         observer=observer,
+        **client_verifiers,
     )
 
     verifier_func = build_handoff_verifier_function(ctx)

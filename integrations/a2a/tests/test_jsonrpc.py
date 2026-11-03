@@ -114,3 +114,24 @@ async def test_sign_a2a_request_produces_signed_headers() -> None:
     # Body should be valid JSON-RPC
     body_data = json.loads(signed.body)
     assert body_data["method"] == "tasks/send"
+
+
+@pytest.mark.asyncio
+async def test_verify_a2a_request_uses_the_identity_client() -> None:
+    """Verification goes through the identity's own client, not the process-wide default."""
+    from unittest.mock import AsyncMock
+
+    from agent_did_sdk import AgentDidClient
+
+    from agent_did_a2a.jsonrpc import verify_a2a_request
+
+    client = AgentDidClient()
+    client.verify_http_request_signature = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    identity = AgentIdentity(
+        AgentIdentityConfig(signer_address="0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", client=client)
+    )
+
+    assert await verify_a2a_request(
+        agent_identity=identity, method="POST", url="https://example.com/a2a", headers={}, body="{}"
+    )
+    client.verify_http_request_signature.assert_awaited_once()

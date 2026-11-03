@@ -14,6 +14,7 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 - **`AgentDidClient`** (`@agentdid/sdk`, `agent-did-sdk`): an instance that owns all identity state that used to be process-global static state of `AgentIdentity` (resolver, registry, HTTP-signature replay store, document history, did:webvh logs and controller signers). Options: `resolver`, `registry`, `nonceStore` / `nonce_store`, `clock`, `webvhDomain` / `webvh_domain`. Two clients never share state, so tests and multi-tenant hosts no longer need to reset or poke private statics. `AgentIdentity` takes an optional `client` in its config and exposes `getDefaultClient()` / `setDefaultClient()` (`get_default_client()` / `set_default_client()`).
 - The static `AgentIdentity` API (`resolve`, `verifySignature`, lifecycle operations, history import/export, `setResolver`, `useProductionResolver*`...) keeps working unchanged as a facade over the default client and is now documented as deprecated, with removal planned for 2.0. This is additive: no behavior or wire format changes.
+- The LangChain (JS and Python), CrewAI, Semantic Kernel, Microsoft Agent Framework and A2A integrations now resolve, verify and rotate through `agentIdentity.client` instead of the static `AgentIdentity` API, so an integration built around an identity with its own `AgentDidClient` no longer touches the process-wide default state. Identities without an explicit client behave as before.
 
 ### Planned (path to 1.0.0)
 
