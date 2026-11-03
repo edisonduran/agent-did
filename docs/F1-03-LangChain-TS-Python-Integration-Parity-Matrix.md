@@ -63,7 +63,7 @@ La parity de integracion se define en cinco dimensiones:
 | Receta tipo produccion | `agentDidLangChain.productionRecipe.example.js` | `agent_did_langchain_production_recipe_example.py` | ✅ | Ambos usan guardas de entorno. |
 | Demo integrado `did:wba` | `agentDidLangChain.didWbaDemo.example.js` | `agent_did_langchain_did_wba_demo.py` | ✅ | Ambos muestran runtime `did:wba`, partner remoto `did:wba`, `createAgent`/`create_agent` local y firma HTTP verificable sin credenciales externas. Los DID documents de demo declaran las claves de firma en `assertionMethod` para cumplir el binding de relaciones de verificacion del SDK. |
 | Smoke cross-package `did:wba` | `npm run smoke:langchain-didwba` ejecuta el demo JavaScript publicado y valida su contrato JSON. | El mismo comando ejecuta el demo Python publicado y valida su contrato JSON en la misma corrida. | ✅ | Este smoke es gate de parity operativa entre ambos demos, no solo una conveniencia local. |
-| Metadata de release candidate | `@agentdid/langchain@1.0.0-rc.2` y peer `@agentdid/sdk@1.0.0-rc.2` | `agent-did-langchain==1.0.0rc2` y `agent-did-sdk==1.0.0rc2` | ✅ | La parity de publicacion usa normalizacion nativa por ecosistema sin cambiar el contrato funcional entre TS y Python. |
+| Metadata de release candidate | `@agentdid/langchain@1.0.0-rc.3` y peer `@agentdid/sdk@1.0.0-rc.3` | `agent-did-langchain==1.0.0rc3` y `agent-did-sdk==1.0.0rc3` | ✅ | La parity de publicacion usa normalizacion nativa por ecosistema sin cambiar el contrato funcional entre TS y Python. |
 | Integracion LangSmith dedicada | `createLangSmithRunTree(...)` + `createLangSmithEventHandler(...)` | Adapter dedicado disponible | ✅ | Ambos paquetes exponen adaptador dedicado sin cambiar la factory principal. |
 | Profundidad de suite automatizada | tests funcionales, seguridad y observabilidad | tests funcionales, seguridad, observabilidad y modulos internos | ⚠️ | Python sigue mas granular. |
 
@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-03 | Metadata de release candidate movida al tren `1.0.0-rc.3` / `1.0.0rc3`: LangChain JS queda en `1.0.0-rc.3` con peer `@agentdid/sdk@1.0.0-rc.3` y LangChain Python en `1.0.0rc3` con `agent-did-sdk==1.0.0rc3`. Los tests de ambas integraciones pasan sin cambios contra el SDK rc.3. Sin cambios funcionales en la integracion. |
 | 2026-11-02 | Metadata de release candidate movida al tren de seguridad `1.0.0-rc.2` / `1.0.0rc2` ([GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)): LangChain JS queda en `1.0.0-rc.2` con peer `@agentdid/sdk@1.0.0-rc.2` y LangChain Python en `1.0.0rc2` con `agent-did-sdk==1.0.0rc2`. Sin cambios funcionales en la integracion. |
 | 2026-11-01 | El README de LangChain JS indica Node.js 22+, en linea con `engines.node`. Solo documentacion; sin cambios en la API publica. |
 | 2026-11-01 | El `package.json` de LangChain JS declara `repository` (con `directory`), `homepage` y `bugs`, necesarios para la procedencia de npm con trusted publishing. Sin cambios en la API publica. |
