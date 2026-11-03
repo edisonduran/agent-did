@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import bs58 from 'bs58';
 import { hexToBytes } from '@noble/hashes/utils';
-import { prepareDataForSigning } from 'didwebvh-ts';
+import { createDID, defaultVerifier, prepareDataForSigning } from 'didwebvh-ts';
 import { LocalKeySigner } from '../src/core/signer';
 import {
   createDidWebvhLog,
@@ -164,6 +164,30 @@ async function generateDeterministic(inputs: WebvhVectors['inputs']) {
   return { created, updated, rotated, rotatedController };
 }
 
+/** A genesis entry that declares a witness. Agent-DID does not support witnesses yet, so both SDKs must reject it. */
+async function witnessDeclaredLog(inputs: WebvhVectors['inputs']): Promise<string> {
+  const signer = new LocalKeySigner(inputs.controllerPrivateKeyHex);
+  const updateKey = await didWebvhUpdateKeyFor(signer);
+  const witnessKey = await didWebvhUpdateKeyFor(new LocalKeySigner(inputs.unauthorizedPrivateKeyHex));
+  const result = await createDID({
+    address: inputs.domain,
+    paths: inputs.pathSegments,
+    didDocument: inputs.document as any,
+    updateKeys: [updateKey],
+    witness: { threshold: 1, witnesses: [{ id: `did:key:${witnessKey}` }] },
+    created: inputs.created,
+    verifier: defaultVerifier,
+    signer: {
+      getVerificationMethodId: () => `did:key:${updateKey}#${updateKey}`,
+      async sign(input) {
+        const signature = hexToBytes(await signer.sign(await prepareDataForSigning(input.document, input.proof)));
+        return { proofValue: `z${bs58.encode(signature)}` };
+      },
+    },
+  });
+  return join(result.log.map((entry) => JSON.stringify(entry)));
+}
+
 async function generateVectors(): Promise<WebvhVectors> {
   const { created, updated, rotated, rotatedController } = await generateDeterministic(INPUTS);
   const deactivated = await deactivateDidWebvhLog({ log: rotated.log, signer: rotatedController });
@@ -225,6 +249,11 @@ async function generateVectors(): Promise<WebvhVectors> {
         }),
       },
       {
+        name: 'witness-declared',
+        reason: 'log declares witnesses, which Agent-DID does not support yet; must be rejected without network access',
+        log: await witnessDeclaredLog(INPUTS),
+      },
+      {
         name: 'missing-proof',
         reason: 'entry without a Data Integrity proof',
         log: mutateLine(created.log, 0, (entry) => {
@@ -276,6 +305,12 @@ describe('did:webvh cross-SDK log vectors', () => {
   });
 
   it.each(NEGATIVE)('rejects %s', async (_name, log) => {
-    await expect(resolveDidWebvhLog(log)).rejects.toBeInstanceOf(DidWebvhError);
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    try {
+      await expect(resolveDidWebvhLog(log)).rejects.toBeInstanceOf(DidWebvhError);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

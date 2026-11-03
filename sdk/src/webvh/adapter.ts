@@ -117,6 +117,17 @@ const VERSION_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_TTL = '3600';
 
+/**
+ * Passed as `fetch` to every library call. The adapter never does network
+ * I/O: logs are fetched by the SDK's document sources (with their SSRF
+ * guards), and witness proofs are not supported yet (ADR-002, condition 7).
+ * Without this, the library would fetch `did-witness.json` with the global
+ * `fetch` for logs that declare witnesses.
+ */
+const noNetworkFetch = async (): Promise<Response> => {
+  throw new DidWebvhError('invalidDid', 'did:webvh witnesses are not supported by Agent-DID yet');
+};
+
 /** Returns the did:webvh `updateKeys` entry (an Ed25519 multikey) for a signer. */
 export async function didWebvhUpdateKeyFor(signer: AgentSigner): Promise<string> {
   return encodePublicKeyMultibase(await signer.getPublicKey());
@@ -168,6 +179,7 @@ export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promis
       updateKeys: params.updateKeys,
       updated: params.updated,
       verifier: defaultVerifier,
+      fetch: noNetworkFetch,
     })
   );
 
@@ -180,7 +192,12 @@ export async function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams)
   const signerKey = await assertAuthorizedSigner(params.signer, current.metadata);
 
   const result = await runLibraryOperation(() =>
-    deactivateDID({ log, signer: toLibrarySigner(params.signer, signerKey), verifier: defaultVerifier })
+    deactivateDID({
+      log,
+      signer: toLibrarySigner(params.signer, signerKey),
+      verifier: defaultVerifier,
+      fetch: noNetworkFetch,
+    })
   );
 
   return resolveDidWebvhLog(serializeLog(result.log));
@@ -205,11 +222,19 @@ export async function resolveDidWebvhLog(
     }
   }
 
-  const result = await resolveDIDFromLog(log, {
-    versionId: options.versionId,
-    versionNumber: options.versionNumber,
-    versionTime,
-  });
+  let result: Awaited<ReturnType<typeof resolveDIDFromLog>>;
+  try {
+    result = await resolveDIDFromLog(log, {
+      versionId: options.versionId,
+      versionNumber: options.versionNumber,
+      versionTime,
+      fetch: noNetworkFetch,
+    });
+  } catch (error) {
+    // Fail closed: any unexpected library failure rejects the log.
+    const message = error instanceof Error ? error.message : String(error);
+    throw new DidWebvhError('invalidDid', `did:webvh log verification failed: ${message}`);
+  }
 
   const resolutionError = result.didResolutionMetadata?.error;
   const meta = result.didDocumentMetadata as Record<string, unknown>;
