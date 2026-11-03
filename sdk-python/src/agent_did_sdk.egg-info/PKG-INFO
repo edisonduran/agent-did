@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-did-sdk
-Version: 1.0.0rc2
+Version: 1.0.0rc3
 Summary: Python SDK for the Agent-DID Specification (RFC-001) — create, sign, resolve, verify and revoke Agent-DIDs
 Author: Agent-DID contributors
 License-Expression: Apache-2.0
@@ -43,9 +43,9 @@ Functional parity with the TypeScript SDK (`@agentdid/sdk`), with a dedicated Py
 
 Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.md`.
 
-> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.2` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.3` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
-> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Breaking changes queued for `1.0.0rc3` are tracked in [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md).
+> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Coming from `1.0.0rc2`? The breaking changes in `1.0.0rc3` are listed in [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md).
 
 Pythonic surface conventions apply:
 
@@ -56,7 +56,7 @@ Pythonic surface conventions apply:
 ## Installation
 
 ```bash
-pip install agent-did-sdk==1.0.0rc2
+pip install agent-did-sdk==1.0.0rc3
 ```
 
 For development:
@@ -67,7 +67,7 @@ pip install -e ".[dev]"
 
 ### Platform support
 
-On `main` (the `1.0.0rc3` train) the SDK depends on [`did-webvh`](https://pypi.org/project/did-webvh/), which pulls the native `aries-askar` library. `aries-askar` ships wheels for Linux glibc (x86_64, aarch64), macOS and Windows x86_64 only, so the SDK does not install on Alpine (musl) images or Windows ARM64. Use a glibc-based image such as `python:3.12-slim`. The published `1.0.0rc2` is not affected.
+Since `1.0.0rc3` the SDK depends on [`did-webvh`](https://pypi.org/project/did-webvh/), which pulls the native `aries-askar` library. `aries-askar` ships wheels for Linux glibc (x86_64, aarch64), macOS and Windows x86_64 only, so the SDK does not install on Alpine (musl) images or Windows ARM64. Use a glibc-based image such as `python:3.12-slim`.
 
 ## Quick Start
 
@@ -108,7 +108,7 @@ asyncio.run(main())
 
 This quickstart validates the local signing lifecycle first. By default the SDK follows the canonical `did:webvh` path and bootstraps the local controller side for you; hosted publication of `did.jsonl` is a separate deployment concern.
 
-On `main` (the `1.0.0rc3` train) `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `did-webvh`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controller_signer` and for re-issuing older DIDs.
+Since `1.0.0rc3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `did-webvh`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controller_signer` and for re-issuing older DIDs.
 
 ## Features
 
@@ -119,7 +119,7 @@ On `main` (the `1.0.0rc3` train) `did:webvh` DIDs are did:webvh v1.0 DIDs: the `
 | Sign HTTP requests (Bot Auth) | `identity.sign_http_request(params)` | ✅ |
 | Verify message signatures | `AgentIdentity.verify_signature(did, payload, sig)` | ✅ |
 | Enforce key purpose binding | `assert_key_purpose(key_id, did_doc, purpose)` | ✅ |
-| Verify HTTP signatures | `AgentIdentity.verify_http_request_signature(params)` | ✅ |
+| Verify HTTP signatures (RFC 9421, replay protection via `NonceStore`) | `AgentIdentity.verify_http_request_signature(params)` | ✅ |
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
 | Revoke DID | `AgentIdentity.revoke_did(did)` | ✅ |
 | Update document | `AgentIdentity.update_did_document(did, patch)` | ✅ |

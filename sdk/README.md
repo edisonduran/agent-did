@@ -8,9 +8,9 @@ Verifiable decentralized identity for autonomous AI agents. Create, sign, resolv
 
 > **SDK en TypeScript para identidad descentralizada verificable de agentes de IA autónomos.**
 >
-> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.2` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.3` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
-> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Breaking changes queued for `1.0.0-rc.3` are tracked in [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md).
+> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Coming from `1.0.0-rc.2`? The breaking changes in `1.0.0-rc.3` are listed in [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md).
 
 ---
 
@@ -33,7 +33,7 @@ Agent-DID solves this with:
 npm install @agentdid/sdk@next ethers
 ```
 
-Requires **Node.js 22.12+** on `main` (the published `1.0.0-rc.2` needs 22+; 22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes).
+Requires **Node.js 22.12+** (22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes).
 
 ## Quick Start
 
@@ -66,7 +66,7 @@ await AgentIdentity.revokeDid(document.id);
 
 This quickstart validates the local signing lifecycle first. By default the SDK follows the canonical `did:webvh` path and bootstraps the local controller side for you; hosted publication of `did.jsonl` is a separate deployment concern.
 
-On `main` (the `1.0.0-rc.3` train) `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `didwebvh-ts`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controllerSigner` and for re-issuing older DIDs.
+Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `didwebvh-ts`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controllerSigner` and for re-issuing older DIDs.
 
 ## Features
 
@@ -171,7 +171,7 @@ const valid = await AgentIdentity.verifyHistoricalSignature(
 
 ## Anti-Replay (HTTP Signatures)
 
-On `main` (`rc.3` train) HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: they cover `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `Signature-Agent`, and carry `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
+Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: they cover `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `Signature-Agent`, and carry `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
 
 ## Specification
 

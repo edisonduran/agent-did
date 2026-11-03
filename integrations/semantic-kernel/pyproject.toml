@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-did-semantic-kernel"
-version = "1.0.0rc2"
+version = "1.0.0rc3"
 description = "Semantic Kernel Python integration for Agent-DID identities, tools, context injection and secure opt-in operations."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,7 +24,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "agent-did-sdk==1.0.0rc2",
+  "agent-did-sdk==1.0.0rc3",
   "pydantic>=2.0",
 ]
 

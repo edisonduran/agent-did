@@ -1,6 +1,6 @@
 # agent-did-sdk Migration Guide: 1.0.0rc2 -> 1.0.0rc3
 
-This guide covers the breaking changes between `1.0.0rc2` and `1.0.0rc3`. It is updated as each change lands on `main`; `rc3` is not published yet.
+This guide covers the breaking changes between `1.0.0rc2` and `1.0.0rc3`. Read it before upgrading; rc2 and rc3 do not interoperate.
 
 ## 1. `documentRef` canonicalization is RFC 8785 (JCS)
 
