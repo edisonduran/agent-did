@@ -217,12 +217,18 @@ Raw chain-of-thought capture is out of scope for RFC-001. Implementations that n
 2. All subsequent verifications must fail for active authentication.
 3. In the optional EVM deployment profile, the contract policy MAY additionally allow revocation by `owner` or DID-authorized delegate, with explicit ownership transfer.
 
-### 6.5 HTTP Signing (Web Bot Auth)
+### 6.5 HTTP Signing (RFC 9421)
 
-- The agent signs HTTP components (`@request-target`, `host`, `date`, `content-digest`, `x-request-nonce`).
-- The signature base MUST end with an `"@signature-params"` line whose value is the exact inner list and parameters sent in `Signature-Input` (RFC 9421 §2.5), so `created`, `expires`, `keyid`, and `alg` are covered by the signature. Verifiers MUST rebuild that line from the received `Signature-Input` value and MUST reject a signature whose parameters do not match.
-- Must include an agent identity header (`Signature-Agent` or equivalent).
-- The server validates signature + key purpose + DID resolution + active state before authorizing.
+Agents sign HTTP requests with RFC 9421 HTTP Message Signatures using the following profile:
+
+1. The request MUST carry `Signature-Agent` (the agent's DID), `Date`, and `Content-Digest` (RFC 9530, `sha-256`).
+2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`. Additional components MAY follow.
+3. The signature parameters MUST include `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `keyid` MUST be a verification method of the `Signature-Agent` DID.
+4. The signature base MUST be built as defined in RFC 9421 §2.5. Verifiers MUST rebuild it from the received request, with the `"@signature-params"` line re-serialized from the parsed `Signature-Input`.
+5. Verifiers MUST reject the signature unless: the profile in items 2 and 3 is present; `created` is within the allowed clock skew; `now <= expires`; `Content-Digest` matches the body; and the signature verifies with an active key listed under `assertionMethod` in the resolved DID document.
+6. Verifiers MUST record each accepted `(keyid, nonce)` pair until `expires` and reject a request that repeats one. The pair MUST be recorded only after the signature has verified.
+
+The `tag` separates Agent-DID signatures from other RFC 9421 profiles such as the IETF *web-bot-auth* drafts. See [Anti-Replay-HTTP-Signatures.md](Anti-Replay-HTTP-Signatures.md) for guidance and a shared-store example.
 
 ---
 

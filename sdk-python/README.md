@@ -82,7 +82,7 @@ On `main` (the `1.0.0rc3` train) `did:webvh` DIDs are did:webvh v1.0 DIDs: the `
 | Sign HTTP requests (Bot Auth) | `identity.sign_http_request(params)` | ✅ |
 | Verify message signatures | `AgentIdentity.verify_signature(did, payload, sig)` | ✅ |
 | Enforce key purpose binding | `assert_key_purpose(key_id, did_doc, purpose)` | ✅ |
-| Verify HTTP signatures | `AgentIdentity.verify_http_request_signature(params)` | ✅ |
+| Verify HTTP signatures (RFC 9421, replay protection via `NonceStore`) | `AgentIdentity.verify_http_request_signature(params)` | ✅ |
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
 | Revoke DID | `AgentIdentity.revoke_did(did)` | ✅ |
 | Update document | `AgentIdentity.update_did_document(did, patch)` | ✅ |

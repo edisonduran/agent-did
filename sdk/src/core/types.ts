@@ -194,5 +194,11 @@ export interface VerifyHttpRequestSignatureParams {
   url: string;
   body?: string;
   headers: Record<string, string>;
+  /** Maximum distance between `created` and now, in seconds (default: 300). */
   maxCreatedSkewSeconds?: number;
+  /**
+   * Replay store for the signature's `nonce`. Defaults to a process-wide `InMemoryNonceStore`;
+   * use a shared store when several verifier instances serve the same agents.
+   */
+  nonceStore?: import('./nonce-store').NonceStore;
 }

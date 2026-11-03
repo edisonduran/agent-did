@@ -6,6 +6,19 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [http-signatures-rfc9421] - Unreleased (1.0.0-rc.3 train)
+
+### Decision Trigger
+
+- §6.5 required RFC 9421 `@signature-params` binding but described a signature base with non-RFC 9421 lines and a custom `x-request-nonce` header, so other RFC 9421 implementations could not produce or verify Agent-DID signatures.
+
+### Result
+
+- §6.5 now defines an RFC 9421 profile: covered components `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`, parameters `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"`, `tag="agent-did"`, the §2.5 signature base, and verifier-side replay protection keyed by `(keyid, nonce)`.
+- Breaking for HTTP signatures: rc.2 signatures do not verify under rc.3 and vice versa.
+
+---
+
 ## [metadata-commitments-hmac] - Unreleased (1.0.0-rc.3 train)
 
 ### Decision Trigger

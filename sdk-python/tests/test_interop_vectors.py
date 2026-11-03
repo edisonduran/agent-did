@@ -9,7 +9,9 @@ import pytest
 import rfc8785
 from nacl.signing import VerifyKey
 
+from agent_did_sdk.core.http_signatures import HttpRequestLike, build_signature_base, parse_signature_input_header
 from agent_did_sdk.core.identity import AgentIdentity
+from agent_did_sdk.core.nonce_store import InMemoryNonceStore
 from agent_did_sdk.core.types import (
     AgentDIDDocument,
     VerifyHttpRequestSignatureParams,
@@ -97,9 +99,17 @@ class TestInteropHttpVector:
                     body=http["body"],
                     headers=http["headers"],
                     max_created_skew_seconds=http.get("maxCreatedSkewSeconds", 999999999),
+                    nonce_store=InMemoryNonceStore(),
                 )
             )
             assert is_valid is True
+
+    def test_signature_base_matches_the_independent_generator(self, interop_vectors: dict) -> None:
+        for vector in interop_vectors["vectors"].values():
+            http = vector["httpVector"]
+            signature_input = parse_signature_input_header(http["headers"]["Signature-Input"])["sig1"]
+            request = HttpRequestLike(method=http["method"], url=http["url"], headers=http["headers"])
+            assert build_signature_base(request, signature_input) == http["signatureBase"]
 
 
 class TestCanonicalDocumentReferenceVector:

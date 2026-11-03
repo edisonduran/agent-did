@@ -23,6 +23,17 @@ import {
 } from '../crypto/hash';
 import { encodePublicKeyMultibase, decodePublicKeyMultibase } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
+import { sha256 } from '@noble/hashes/sha256';
+import {
+  buildSignatureBase,
+  getSignatureParam,
+  parseSignatureHeader,
+  parseSignatureInputHeader,
+  serializeSignature,
+  serializeSignatureInput,
+  SignatureInput
+} from './http-signatures';
+import { InMemoryNonceStore, NonceStore } from './nonce-store';
 import { validateHttpTarget } from './http-security';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
@@ -94,7 +105,23 @@ export interface ProductionJsonRpcResolverProfileConfig {
   httpSecurity?: import('./http-security').HttpTargetValidationOptions;
 }
 
+/** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
+export const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[] = [
+  '@method',
+  '@authority',
+  '@path',
+  '@query',
+  'content-digest',
+  'date',
+  'signature-agent'
+];
+
+/** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
+export const AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did';
+
 export class AgentIdentity {
+  /** Default replay store for `verifyHttpRequestSignature` (process-local). */
+  private static readonly defaultNonceStore: NonceStore = new InMemoryNonceStore();
   private static readonly defaultWebvhDomain = 'agents.local';
   private static resolver: DIDResolver = new InMemoryDIDResolver();
   private static registry: AgentRegistry = new InMemoryAgentRegistry();
@@ -409,6 +436,13 @@ export class AgentIdentity {
    * Signs an HTTP request (Web Bot Auth) for secure API consumption.
    * Implements a simplified version of IETF HTTP Message Signatures.
    */
+  /**
+   * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
+   *
+   * Covered components: `"@method" "@authority" "@path" "@query" "content-digest" "date"
+   * "signature-agent"`; parameters: `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"`
+   * and `tag="agent-did"`. Returns the header fields to add to the request.
+   */
   public async signHttpRequest(params: SignHttpRequestParams): Promise<Record<string, string>> {
     if (!params.method?.trim()) {
       throw new Error("HTTP method is required");
@@ -424,136 +458,122 @@ export class AgentIdentity {
       throw new Error("Agent DID is required");
     }
 
-    const timestamp = Math.floor(Date.now() / 1000);
-    const expiresAt = timestamp + (params.expiresInSeconds ?? 30);
-    const nonce = AgentIdentity.generateNonce();
-    const dateHeader = new Date().toUTCString();
-    const verificationMethodId = params.verificationMethodId || `${params.agentDid}#key-1`;
-    const contentDigest = AgentIdentity.computeContentDigest(params.body);
-    const signatureParams = `("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${timestamp};expires=${expiresAt};keyid="${verificationMethodId}";alg="ed25519"`;
-    const stringToSign = AgentIdentity.buildHttpSignatureBase({
-      method: params.method,
-      url: params.url,
-      dateHeader,
-      contentDigest,
-      nonce,
-      signatureParams
-    });
-
-    // 2. Sign the string with Ed25519
     const keyOrSigner = params.signer || params.agentPrivateKey;
     if (!keyOrSigner) {
       throw new Error("Either agentPrivateKey or signer must be provided");
     }
-    const signatureHex = await this.signMessage(stringToSign, keyOrSigner);
-    const signatureBase64 = Buffer.from(hexToBytes(signatureHex)).toString('base64');
 
-    // 3. Return the headers to be injected into the HTTP request
-    return {
-      'Signature': `sig1=:${signatureBase64}:`,
-      'Signature-Input': `sig1=${signatureParams}`,
+    const created = Math.floor(Date.now() / 1000);
+    const headers: Record<string, string> = {
       'Signature-Agent': params.agentDid,
-      'Date': dateHeader,
-      'Content-Digest': contentDigest,
-      'X-Request-Nonce': nonce
+      'Date': new Date(created * 1000).toUTCString(),
+      'Content-Digest': AgentIdentity.computeContentDigest(params.body)
+    };
+    const input: SignatureInput = {
+      components: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS],
+      params: [
+        ['created', created],
+        ['expires', created + (params.expiresInSeconds ?? 30)],
+        ['nonce', AgentIdentity.generateNonce()],
+        ['keyid', params.verificationMethodId || `${params.agentDid}#key-1`],
+        ['alg', 'ed25519'],
+        ['tag', AGENT_DID_HTTP_SIGNATURE_TAG]
+      ]
+    };
+    const signatureBase = buildSignatureBase(
+      { method: params.method.toUpperCase(), url: params.url, headers },
+      input
+    );
+
+    const signatureHex = await this.signMessage(signatureBase, keyOrSigner);
+    return {
+      ...headers,
+      'Signature-Input': `sig1=${serializeSignatureInput(input)}`,
+      'Signature': serializeSignature('sig1', hexToBytes(signatureHex))
     };
   }
 
+  /**
+   * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
+   *
+   * Requires the Agent-DID profile (covered components, `tag="agent-did"`, `alg="ed25519"`,
+   * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
+   * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
+   * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
+   * request is rejected. Returns `false` on any failure.
+   */
   public static async verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean> {
-    const normalizedHeaders = Object.fromEntries(
+    const headers = Object.fromEntries(
       Object.entries(params.headers).map(([key, value]) => [key.toLowerCase(), value])
     );
-
-    const signatureHeader = normalizedHeaders['signature'];
-    const signatureInputHeader = normalizedHeaders['signature-input'];
-    const signatureAgent = normalizedHeaders['signature-agent'];
-    const dateHeader = normalizedHeaders['date'];
-    const contentDigestHeader = normalizedHeaders['content-digest'];
-    const nonceHeader = normalizedHeaders['x-request-nonce'];
-
-    if (!signatureHeader || !signatureInputHeader || !signatureAgent || !dateHeader || !contentDigestHeader) {
+    const signatureAgent = headers['signature-agent'];
+    if (!headers['signature'] || !headers['signature-input'] || !signatureAgent) {
+      return false;
+    }
+    if (headers['content-digest'] !== AgentIdentity.computeContentDigest(params.body)) {
       return false;
     }
 
-    const expectedDigest = AgentIdentity.computeContentDigest(params.body);
-    if (expectedDigest !== contentDigestHeader) {
+    let inputs: Map<string, SignatureInput>;
+    let signatures: Map<string, Uint8Array>;
+    try {
+      inputs = parseSignatureInputHeader(headers['signature-input']);
+      signatures = parseSignatureHeader(headers['signature']);
+    } catch {
       return false;
     }
 
-    const parsedSignatureInputs = AgentIdentity.parseHttpSignatureInputDictionary(signatureInputHeader);
-    const parsedSignatures = AgentIdentity.parseHttpSignatureDictionary(signatureHeader);
-
-    const requiredComponents = new Set(['@request-target', 'host', 'date', 'content-digest', 'x-request-nonce']);
     const now = Math.floor(Date.now() / 1000);
     const maxSkew = params.maxCreatedSkewSeconds ?? 300;
+    const nonceStore = params.nonceStore ?? AgentIdentity.defaultNonceStore;
+    const request = { method: params.method.toUpperCase(), url: params.url, headers };
 
-    for (const parsedSignatureInput of parsedSignatureInputs) {
-      if (!parsedSignatureInput.params.keyid || !parsedSignatureInput.params.created) {
+    for (const [label, input] of inputs) {
+      const signature = signatures.get(label);
+      if (!signature) {
         continue;
       }
 
-      const signatureBase64 = parsedSignatures.get(parsedSignatureInput.label);
-      if (!signatureBase64) {
+      const created = getSignatureParam(input, 'created');
+      const expires = getSignatureParam(input, 'expires');
+      const nonce = getSignatureParam(input, 'nonce');
+      const keyId = getSignatureParam(input, 'keyid');
+      if (
+        getSignatureParam(input, 'tag') !== AGENT_DID_HTTP_SIGNATURE_TAG ||
+        getSignatureParam(input, 'alg') !== 'ed25519' ||
+        typeof created !== 'number' ||
+        typeof expires !== 'number' ||
+        typeof nonce !== 'string' || nonce.length === 0 ||
+        typeof keyId !== 'string' ||
+        !keyId.startsWith(`${signatureAgent}#`) ||
+        !AGENT_DID_HTTP_SIGNATURE_COMPONENTS.every((component) => input.components.includes(component)) ||
+        Math.abs(now - created) > maxSkew ||
+        expires < created ||
+        now > expires
+      ) {
         continue;
       }
 
-      const coveredComponents = new Set(parsedSignatureInput.components.map((component) => component.toLowerCase()));
-      const hasRequiredComponents = Array.from(requiredComponents).every((component) => coveredComponents.has(component));
-      if (!hasRequiredComponents) {
+      let signatureBase: string;
+      try {
+        signatureBase = buildSignatureBase(request, input);
+      } catch {
         continue;
       }
 
-      // Nonce header must be present when x-request-nonce is a covered component
-      if (!nonceHeader) {
-        continue;
-      }
-
-      const keyId = parsedSignatureInput.params.keyid;
-      const createdRaw = parsedSignatureInput.params.created;
-      const algorithm = parsedSignatureInput.params.alg;
-
-      if (algorithm && algorithm.toLowerCase() !== 'ed25519') {
-        continue;
-      }
-
-      const created = Number(createdRaw);
-      if (Number.isNaN(created) || Math.abs(now - created) > maxSkew) {
-        continue;
-      }
-
-      // Check expiration if present
-      const expiresRaw = parsedSignatureInput.params.expires;
-      if (expiresRaw) {
-        const expires = Number(expiresRaw);
-        if (Number.isNaN(expires) || now > expires) {
-          continue;
-        }
-      }
-
-      if (!keyId.startsWith(`${signatureAgent}#`)) {
-        continue;
-      }
-
-      const signatureBase = AgentIdentity.buildHttpSignatureBase({
-        method: params.method,
-        url: params.url,
-        dateHeader,
-        contentDigest: contentDigestHeader,
-        nonce: nonceHeader,
-        signatureParams: parsedSignatureInput.rawValue
-      });
-
-      const signatureHex = Buffer.from(signatureBase64, 'base64').toString('hex');
       const isValid = await AgentIdentity.verifySignature(
         signatureAgent,
         signatureBase,
-        signatureHex,
+        bytesToHex(signature),
         keyId,
         'assertionMethod'
       );
-      if (isValid) {
-        return true;
+      if (!isValid) {
+        continue;
       }
+
+      // Record the nonce only for a valid signature, so forged requests cannot burn nonces.
+      return nonceStore.checkAndStore(`${keyId} ${nonce}`, expires);
     }
 
     return false;
@@ -974,121 +994,14 @@ export class AgentIdentity {
     return generateCanonicalDocumentHash(document);
   }
 
+  /** RFC 9530 `Content-Digest` with SHA-256. */
   private static computeContentDigest(body?: string): string {
-    const bodyHashHex = ethers.sha256(ethers.toUtf8Bytes(body || ""));
-    const cleanBodyHashHex = bodyHashHex.startsWith('0x') ? bodyHashHex.slice(2) : bodyHashHex;
-    const bodyHashBase64 = Buffer.from(hexToBytes(cleanBodyHashHex)).toString('base64');
-    return `sha-256=:${bodyHashBase64}:`;
-  }
-
-  private static buildHttpSignatureBase(params: {
-    method: string;
-    url: string;
-    dateHeader: string;
-    contentDigest: string;
-    nonce?: string;
-    signatureParams: string;
-  }): string {
-    const urlObj = new URL(params.url);
-
-    const lines = [
-      `(request-target): ${params.method.toLowerCase()} ${urlObj.pathname}${urlObj.search}`,
-      `host: ${urlObj.host}`,
-      `date: ${params.dateHeader}`,
-      `content-digest: ${params.contentDigest}`
-    ];
-
-    if (params.nonce) {
-      lines.push(`x-request-nonce: ${params.nonce}`);
-    }
-
-    // RFC 9421 §2.5: binds created, expires, keyid and alg to the signature.
-    lines.push(`"@signature-params": ${params.signatureParams}`);
-
-    return lines.join('\n');
+    const digest = sha256(new TextEncoder().encode(body || ''));
+    return `sha-256=:${Buffer.from(digest).toString('base64')}:`;
   }
 
   private static generateNonce(): string {
     return bytesToHex(ethers.randomBytes(16));
-  }
-
-  private static parseHttpSignatureInputDictionary(value: string): Array<{
-    label: string;
-    components: string[];
-    params: Record<string, string>;
-    rawValue: string;
-  }> {
-    const entries = value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-
-    const parsed: Array<{
-      label: string;
-      components: string[];
-      params: Record<string, string>;
-      rawValue: string;
-    }> = [];
-
-    for (const entry of entries) {
-      const match = entry.match(/^([a-zA-Z0-9_-]+)=\(([^)]*)\)(.*)$/);
-      if (!match) {
-        continue;
-      }
-
-      const [, label, componentSection, paramsSection] = match;
-      const componentMatches = componentSection.match(/"([^"]+)"/g) || [];
-      const components = componentMatches.map((component) => component.slice(1, -1));
-
-      const params: Record<string, string> = {};
-      const rawSegments = paramsSection
-        .split(';')
-        .map((segment) => segment.trim())
-        .filter(Boolean);
-
-      for (const segment of rawSegments) {
-        const equalsIndex = segment.indexOf('=');
-        if (equalsIndex === -1) {
-          continue;
-        }
-
-        const key = segment.slice(0, equalsIndex).trim().toLowerCase();
-        const rawValue = segment.slice(equalsIndex + 1).trim();
-        params[key] = rawValue.startsWith('"') && rawValue.endsWith('"')
-          ? rawValue.slice(1, -1)
-          : rawValue;
-      }
-
-      parsed.push({
-        label,
-        components,
-        params,
-        rawValue: `(${componentSection})${paramsSection}`
-      });
-    }
-
-    return parsed;
-  }
-
-  private static parseHttpSignatureDictionary(value: string): Map<string, string> {
-    const entries = value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-
-    const parsed = new Map<string, string>();
-
-    for (const entry of entries) {
-      const match = entry.match(/^([a-zA-Z0-9_-]+)=:([A-Za-z0-9+/=]+):$/);
-      if (!match) {
-        continue;
-      }
-
-      const [, label, base64Value] = match;
-      parsed.set(label, base64Value);
-    }
-
-    return parsed;
   }
 
   /** History entries for a verified did:webvh log, one per log entry. */

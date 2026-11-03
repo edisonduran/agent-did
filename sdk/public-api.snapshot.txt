@@ -1,4 +1,6 @@
 # Public API snapshot for @agentdid/sdk
+AGENT_DID_HTTP_SIGNATURE_COMPONENTS
+AGENT_DID_HTTP_SIGNATURE_TAG
 AgentDIDDocument
 AgentDocumentHistoryAction
 AgentDocumentHistoryEntry
@@ -14,6 +16,7 @@ AwsSigV4S3DIDDocumentSource
 AwsSigV4S3DIDDocumentSourceConfig
 BearerTokenHttpDIDDocumentSource
 BearerTokenHttpDIDDocumentSourceConfig
+buildSignatureBase
 canonicalizeJson
 CreateAgentParams
 CreateAgentResult
@@ -44,19 +47,26 @@ getRelationshipKeyIds
 hashPayload
 HttpDIDDocumentSource
 HttpDIDDocumentSourceConfig
+HttpRequestLike
+HttpSignatureError
 HttpTargetValidationOptions
 IdentityCompositionError
 IdentityCompositionErrorDetails
 IdentityCompositionErrorReason
 InMemoryAgentRegistry
 InMemoryDIDResolver
+InMemoryNonceStore
+InMemoryNonceStoreOptions
 isoToUnixString
 isUnixTimestampString
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
 LocalKeySigner
 MetadataCommitmentSalts
+NonceStore
 normalizeTimestampToIso
+parseSignatureHeader
+parseSignatureInputHeader
 PresignedHttpDIDDocumentSource
 PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
@@ -68,6 +78,9 @@ ResolverResolutionStage
 RotateVerificationMethodResult
 S3CompatibleDIDDocumentSource
 S3CompatibleDIDDocumentSourceConfig
+serializeSignatureInput
+SignatureInput
+SignatureParamValue
 SignHttpRequestParams
 SIGNING_VERIFICATION_PURPOSES
 SigningVerificationPurpose

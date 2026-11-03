@@ -42,6 +42,9 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.4",
   "mypy>=1.10",
+  # Independent RFC 9421 implementation, used only to cross-check HTTP signatures in tests.
+  "http-message-signatures==3.0.0",
+  "requests>=2.31",
 ]
 
 [project.urls]

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regenerates fixtures/interop-vectors.json with a fresh Ed25519 keypair
- * and shared legacy + did:webvh vectors that include anti-replay fields.
+ * and shared legacy + did:webvh vectors for the RFC 9421 Agent-DID HTTP signature profile.
  *
  * Usage: node scripts/regenerate-interop-vectors.js
  */
@@ -64,17 +64,21 @@ function computeContentDigest(body) {
   return `sha-256=:${hash.toString('base64')}:`;
 }
 
-function buildHttpSignatureBase({ method, url, dateHeader, contentDigest, nonce, signatureParams }) {
+// RFC 9421 §2.5 signature base for the Agent-DID profile, built independently of the SDKs.
+const COMPONENTS = ['@method', '@authority', '@path', '@query', 'content-digest', 'date', 'signature-agent'];
+
+function buildHttpSignatureBase({ method, url, headers, signatureParams }) {
   const urlObj = new URL(url);
-  const lines = [
-    `(request-target): ${method.toLowerCase()} ${urlObj.pathname}${urlObj.search}`,
-    `host: ${urlObj.host}`,
-    `date: ${dateHeader}`,
-    `content-digest: ${contentDigest}`
-  ];
-  if (nonce) {
-    lines.push(`x-request-nonce: ${nonce}`);
-  }
+  const values = {
+    '@method': method,
+    '@authority': urlObj.host,
+    '@path': urlObj.pathname || '/',
+    '@query': urlObj.search || '?',
+    'content-digest': headers['Content-Digest'],
+    'date': headers['Date'],
+    'signature-agent': headers['Signature-Agent']
+  };
+  const lines = COMPONENTS.map((component) => `"${component}": ${values[component]}`);
   lines.push(`"@signature-params": ${signatureParams}`);
   return lines.join('\n');
 }
@@ -103,13 +107,13 @@ const contentDigest = computeContentDigest(httpBody);
 
 function buildVector({ did, controller }) {
   const keyId = `${did}#key-1`;
-  const signatureParams = `("@request-target" "host" "date" "content-digest" "x-request-nonce");created=${created};expires=${expiresAt};keyid="${keyId}";alg="ed25519"`;
+  const signatureParams = `(${COMPONENTS.map((component) => `"${component}"`).join(' ')})` +
+    `;created=${created};expires=${expiresAt};nonce="${nonce}";keyid="${keyId}";alg="ed25519";tag="agent-did"`;
+  const signedHeaders = { 'Signature-Agent': did, 'Date': httpDate, 'Content-Digest': contentDigest };
   const signatureBase = buildHttpSignatureBase({
     method: httpMethod,
     url: httpUrl,
-    dateHeader: httpDate,
-    contentDigest,
-    nonce,
+    headers: signedHeaders,
     signatureParams
   });
   const httpSigBase64 = ed25519Sign(Buffer.from(signatureBase, 'utf-8'), privateKeyBytes).toString('base64');
@@ -138,16 +142,16 @@ function buildVector({ did, controller }) {
         'Signature-Input': `sig1=${signatureParams}`,
         'Signature-Agent': did,
         'Date': httpDate,
-        'Content-Digest': contentDigest,
-        'X-Request-Nonce': nonce
+        'Content-Digest': contentDigest
       },
+      signatureBase,
       maxCreatedSkewSeconds: 999999999
     }
   };
 }
 
 const fixture = {
-  formatVersion: 3,
+  formatVersion: 4,
   vectors: {
     legacy: buildVector({
       did: 'did:agent:polygon:0xinteropfixture',

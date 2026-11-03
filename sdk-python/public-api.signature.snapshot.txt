@@ -1,5 +1,11 @@
 # Public API signature snapshot for agent-did-sdk
 
+## AGENT_DID_HTTP_SIGNATURE_COMPONENTS
+value AGENT_DID_HTTP_SIGNATURE_COMPONENTS = ('@method', '@authority', '@path', '@query', 'content-digest', 'date', 'signature-agent')
+
+## AGENT_DID_HTTP_SIGNATURE_TAG
+value AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did'
+
 ## AgentDIDDocument
 class AgentDIDDocument(*, context: list[str], id: str, controller: str, created: str, updated: str, agentMetadata: agent_did_sdk.core.types.AgentMetadata, complianceCertifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None, verificationMethod: list[agent_did_sdk.core.types.VerificationMethod], authentication: list[str], assertionMethod: list[str] | None = None, capabilityDelegation: list[str] | None = None, capabilityInvocation: list[str] | None = None, keyAgreement: list[str] | None = None) -> None
   attr agent_metadata: AgentMetadata
@@ -258,6 +264,15 @@ class HttpDIDDocumentSourceConfig(reference_to_url: 'Callable[[str], str] | None
   attr reference_to_urls: Callable[[str], list[str]] | None
   attr store_method: str
 
+## HttpRequestLike
+class HttpRequestLike(method: 'str', url: 'str', headers: 'Mapping[str, str | Sequence[str]]') -> None
+  attr headers: Mapping[str, str | Sequence[str]]
+  attr method: str
+  attr url: str
+
+## HttpSignatureError
+class HttpSignatureError(...)
+
 ## HttpTargetValidationOptions
 class HttpTargetValidationOptions(*, allow_private_targets: 'bool' = False) -> 'None'
 
@@ -280,6 +295,11 @@ class InMemoryDIDResolver() -> 'None'
   def register_document(self, document: 'AgentDIDDocument') -> 'None'
   def remove(self, did: 'str') -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
+
+## InMemoryNonceStore
+class InMemoryNonceStore(*, max_entries: 'int' = 100000, now: 'Callable[[], int] | None' = None) -> 'None'
+  def check_and_store(self, key: 'str', expires_at: 'int') -> 'bool'
+  property size
 
 ## JsonRpcDIDDocumentSource
 class JsonRpcDIDDocumentSource(config: 'JsonRpcDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -308,6 +328,10 @@ class MetadataCommitmentSalts(*, coreModel: str, systemPrompt: str) -> None
   attr core_model: str
   attr system_prompt: str
   member model_config = {'populate_by_name': True}
+
+## NonceStore
+class NonceStore(*args, **kwargs)
+  def check_and_store(self, key: 'str', expires_at: 'int') -> 'bool'
 
 ## PresignedHttpDIDDocumentSource
 class PresignedHttpDIDDocumentSource(config: 'PresignedHttpDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -429,8 +453,18 @@ class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, a
   attr verification_method_id: str | None
   member model_config = {'arbitrary_types_allowed': True}
 
+## SignatureInput
+class SignatureInput(components: 'list[str]', params: 'list[tuple[str, SignatureParamValue]]' = <factory>) -> None
+  attr components: list[str]
+  attr params: list[tuple[str, SignatureParamValue]]
+  def get(self, name: 'str') -> 'SignatureParamValue | None'
+
 ## SigningVerificationPurpose
 value SigningVerificationPurpose = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation']
+
+## Token
+class Token(value: 'str') -> None
+  attr value: str
 
 ## UniversalResolverClient
 class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
@@ -485,13 +519,14 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
 
 ## VerifyHttpRequestSignatureParams
-class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None) -> None
+class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
   attr body: str | None
   attr headers: dict[str, str]
   attr max_created_skew_seconds: int | None
   attr method: str
+  attr nonce_store: Any | None
   attr url: str
-  member model_config = {}
+  member model_config = {'arbitrary_types_allowed': True}
 
 ## Web3AgentRegistryContractClient
 class Web3AgentRegistryContractClient(contract: 'Any') -> 'None'
@@ -519,6 +554,9 @@ def assert_key_purpose(key_id: 'str', did_doc: 'AgentDIDDocument', required_purp
 
 ## assert_signing_purpose
 def assert_signing_purpose(required_purpose: 'VerificationRelationship', did_doc: 'AgentDIDDocument', key_id: 'str' = '') -> 'None'
+
+## build_signature_base
+def build_signature_base(request: 'HttpRequestLike', signature_input: 'SignatureInput') -> 'str'
 
 ## canonicalize_json
 def canonicalize_json(value: 'object') -> 'str'
@@ -561,6 +599,15 @@ def iso_to_unix_string(value: 'str') -> 'str'
 
 ## normalize_timestamp_to_iso
 def normalize_timestamp_to_iso(value: 'str | None') -> 'str | None'
+
+## parse_signature_header
+def parse_signature_header(value: 'str') -> 'dict[str, bytes]'
+
+## parse_signature_input_header
+def parse_signature_input_header(value: 'str') -> 'dict[str, SignatureInput]'
+
+## serialize_signature_input
+def serialize_signature_input(signature_input: 'SignatureInput') -> 'str'
 
 ## unix_string_to_iso
 def unix_string_to_iso(value: 'str') -> 'str'

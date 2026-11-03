@@ -171,10 +171,7 @@ const valid = await AgentIdentity.verifyHistoricalSignature(
 
 ## Anti-Replay (HTTP Signatures)
 
-HTTP signatures include `created`, `expires`, and a random `nonce`. Verifiers SHOULD:
-- Reject signatures where `expires < now`
-- Reject signatures where `created > now + maxSkew` (default: 30s)
-- Track seen nonces to prevent replay within the expiration window
+On `main` (`rc.3` train) HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: they cover `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `Signature-Agent`, and carry `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
 
 ## Specification
 

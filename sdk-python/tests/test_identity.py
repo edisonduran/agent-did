@@ -325,33 +325,6 @@ class TestAgentIdentityHttpSignature:
                 agent_private_key="aa" * 32, agent_did="did:agent:test",
             ))
 
-    async def test_anti_replay_headers_present(self, identity: AgentIdentity) -> None:
-        result = await identity.create(CreateAgentParams(
-            name="AntiReplayBot", core_model="m", system_prompt="p",
-        ))
-        headers = await identity.sign_http_request(SignHttpRequestParams(
-            method="POST",
-            url="https://api.example.com/v1/test",
-            body='{"nonce":true}',
-            agent_private_key=result.agent_private_key,
-            agent_did=result.document.id,
-            expires_in_seconds=60,
-        ))
-        assert "X-Request-Nonce" in headers
-        assert len(headers["X-Request-Nonce"]) > 0
-        assert '"x-request-nonce"' in headers["Signature-Input"]
-        assert "expires=" in headers["Signature-Input"]
-
-        is_valid = await AgentIdentity.verify_http_request_signature(
-            VerifyHttpRequestSignatureParams(
-                method="POST",
-                url="https://api.example.com/v1/test",
-                body='{"nonce":true}',
-                headers=headers,
-            )
-        )
-        assert is_valid is True
-
     async def test_reject_expired_signature(
         self, identity: AgentIdentity, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -448,70 +421,6 @@ class TestAgentIdentityHttpSignature:
                 max_created_skew_seconds=60,
             )
         ) is False
-
-    async def test_support_verifier_side_nonce_cache_rejection_for_duplicate_requests(
-        self,
-        identity: AgentIdentity,
-    ) -> None:
-        result = await identity.create(CreateAgentParams(
-            name="NonceCacheBot", core_model="m", system_prompt="p",
-        ))
-        headers = await identity.sign_http_request(SignHttpRequestParams(
-            method="POST",
-            url="https://api.example.com/v1/test",
-            body='{"nonce-cache":true}',
-            agent_private_key=result.agent_private_key,
-            agent_did=result.document.id,
-            expires_in_seconds=120,
-        ))
-        nonce_cache: dict[str, int] = {}
-
-        async def verify_with_nonce_cache() -> bool:
-            nonce = headers["X-Request-Nonce"]
-            expires_match = re.search(r"expires=(\d+)", headers["Signature-Input"])
-            expires = int(expires_match.group(1)) if expires_match else 0
-
-            if nonce in nonce_cache:
-                return False
-
-            is_valid = await AgentIdentity.verify_http_request_signature(
-                VerifyHttpRequestSignatureParams(
-                    method="POST",
-                    url="https://api.example.com/v1/test",
-                    body='{"nonce-cache":true}',
-                    headers=headers,
-                )
-            )
-            if is_valid:
-                nonce_cache[nonce] = expires
-            return is_valid
-
-        assert await verify_with_nonce_cache() is True
-        assert await verify_with_nonce_cache() is False
-
-    async def test_reject_missing_nonce_header(self, identity: AgentIdentity) -> None:
-        result = await identity.create(CreateAgentParams(
-            name="NoNonceBot", core_model="m", system_prompt="p",
-        ))
-        headers = await identity.sign_http_request(SignHttpRequestParams(
-            method="POST",
-            url="https://api.example.com/v1/test",
-            body='{"no-nonce":true}',
-            agent_private_key=result.agent_private_key,
-            agent_did=result.document.id,
-        ))
-        del headers["X-Request-Nonce"]
-
-        is_valid = await AgentIdentity.verify_http_request_signature(
-            VerifyHttpRequestSignatureParams(
-                method="POST",
-                url="https://api.example.com/v1/test",
-                body='{"no-nonce":true}',
-                headers=headers,
-            )
-        )
-        assert is_valid is False
-
 
 class TestAgentIdentityResolve:
     async def test_resolve_existing(self, identity: AgentIdentity) -> None:
@@ -846,7 +755,7 @@ class TestSignerAbstraction:
             agent_did=result.document.id,
         ))
         assert "Signature" in headers
-        assert "X-Request-Nonce" in headers
+        assert "X-Request-Nonce" not in headers
         valid = await AgentIdentity.verify_http_request_signature(VerifyHttpRequestSignatureParams(
             method="POST",
             url="https://api.example.com/v1/action",

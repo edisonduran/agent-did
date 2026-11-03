@@ -10,8 +10,10 @@ src/agent_did_sdk.egg-info/requires.txt
 src/agent_did_sdk.egg-info/top_level.txt
 src/agent_did_sdk/core/__init__.py
 src/agent_did_sdk/core/http_security.py
+src/agent_did_sdk/core/http_signatures.py
 src/agent_did_sdk/core/identity.py
 src/agent_did_sdk/core/identity_composition.py
+src/agent_did_sdk/core/nonce_store.py
 src/agent_did_sdk/core/signer.py
 src/agent_did_sdk/core/time_utils.py
 src/agent_did_sdk/core/types.py
@@ -45,6 +47,8 @@ tests/test_crypto.py
 tests/test_evm_registry.py
 tests/test_file_source.py
 tests/test_http_security.py
+tests/test_http_signatures.py
+tests/test_http_signatures_interop.py
 tests/test_http_source.py
 tests/test_identity.py
 tests/test_in_memory_registry.py

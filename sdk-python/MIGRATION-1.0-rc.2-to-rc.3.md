@@ -164,3 +164,27 @@ Use a glibc-based image (for example `python:3.12-slim`) instead of Alpine. An u
    ```
 
 4. Catch `DidWebvhError` (exported; `code` is `invalidDid`, `unauthorized`, ...) where you import logs or change DIDs.
+
+## 6. HTTP request signatures are RFC 9421
+
+### What changed
+
+| | `rc2` | `rc3` |
+|---|---|---|
+| Covered components | `"@request-target" "host" "date" "content-digest" "x-request-nonce"` (signature base not RFC 9421) | `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"` (RFC 9421 §2.5) |
+| Nonce | `X-Request-Nonce` header | `nonce` signature parameter |
+| Other parameters | `created`, `expires`, `keyid`, `alg` (optional on verify) | Also `tag="agent-did"`; `alg="ed25519"`, `expires` and `nonce` required |
+| Replay protection | Left to the integrator | Built in: `verify_http_request_signature` records `(keyid, nonce)` in a `NonceStore` |
+| Signature labels | Any | Lowercase RFC 8941 keys (`sig1`, `sig-a`, ...) |
+
+### Impact
+
+- Signatures made by `rc2` do not verify under `rc3`, and the other way round. Upgrade signers and verifiers together.
+- `sign_http_request` no longer returns `X-Request-Nonce`; forward every header it returns (`Signature-Agent`, `Date`, `Content-Digest`, `Signature-Input`, `Signature`).
+- Verifying the same signed request twice now returns `False` the second time. Tests that re-verify fixed headers need a fresh `InMemoryNonceStore` per check.
+- Remove any custom nonce cache built on `X-Request-Nonce`.
+
+### What to do
+
+1. Upgrade both sides. Proxies must forward `Signature-Agent`, `Date`, `Content-Digest`, `Signature-Input` and `Signature` unchanged, and must not rewrite the method, host, path or query.
+2. With several verifier instances, pass a shared store: `VerifyHttpRequestSignatureParams(..., nonce_store=store)`. A Redis example is in [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
