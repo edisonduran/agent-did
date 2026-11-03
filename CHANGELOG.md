@@ -12,12 +12,18 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Planned (path to 1.0.0)
 
-See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.2`:
+See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.3`:
 
 - `agent-did-in-action` demo switched to the RC, plus a focused feedback window of at least one week.
 - Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
 
-### Changed (breaking, `1.0.0-rc.3` train)
+---
+
+## [1.0.0-rc.3] - Unreleased
+
+Breaking release candidate. All eight co-versioned packages move to `1.0.0-rc.3` (npm, dist-tag `next`) / `1.0.0rc3` (PyPI). Every user of `1.0.0-rc.2` / `1.0.0rc2` should upgrade: `did:webvh` DIDs, document references, metadata commitments and HTTP signatures change format, so rc.2 and rc.3 do not interoperate. Follow [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md) or [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md).
+
+### Changed (breaking)
 
 - **`documentRef` canonicalization is now RFC 8785 (JCS)** in `@agentdid/sdk` and `agent-did-sdk`. `canonicalizeJson` / `canonicalize_json` and `generateCanonicalDocumentHash` / `generate_canonical_document_hash` sort members by UTF-16 code units, serialize numbers per ECMAScript, and no longer rewrite `created` / `updated` / `timestamp` values before hashing. Python keeps `None` members as `null` instead of dropping them. Document references computed by `1.0.0-rc.2` or earlier do not match the new ones; see `sdk/MIGRATION-1.0-rc.2-to-rc.3.md` and `sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md`.
 - `UniversalResolverClient` (TS and Python) now stores documents under the same canonical `documentRef` that `AgentIdentity` registers. Previously each resolver hashed a non-canonical serialization, so stored keys differed from registered references and between the two SDKs.
