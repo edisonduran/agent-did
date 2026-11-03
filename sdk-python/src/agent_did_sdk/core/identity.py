@@ -149,6 +149,9 @@ class AgentIdentity:
     _history_store: ClassVar[dict[str, list[AgentDocumentHistoryEntry]]] = {}
     # did:webvh v1.0 logs (did.jsonl) of the DIDs created or imported in this process.
     _did_webvh_log_store: ClassVar[dict[str, str]] = {}
+    # Deactivation state derived from the verified log, keyed by DID and tied to the exact
+    # log text it was computed from. It is recomputed whenever the stored log changes.
+    _did_webvh_state_cache: ClassVar[dict[str, tuple[str, bool]]] = {}
     # Controller signers (did:webvh updateKeys) retained for DIDs created in this process.
     _did_webvh_signer_store: ClassVar[dict[str, AgentSigner]] = {}
     # Local bootstrap controllers, keyed by lowercase controller wallet address.
@@ -638,10 +641,37 @@ class AgentIdentity:
 
     @classmethod
     async def resolve(cls, did: str) -> AgentDIDDocument:
+        if did.startswith("did:webvh:"):
+            # For did:webvh the verified log is the only source of revocation state: a DID is
+            # revoked only by a controller-signed deactivation entry. The registry record is a
+            # derived index and is not consulted. DIDs without a local log are resolved (and
+            # their logs verified) by the configured resolver.
+            if await cls._is_did_webvh_deactivated(did):
+                raise ValueError(f"DID is revoked: {did}")
+            return await cls._resolver.resolve(did)
+
         is_revoked = await cls._registry.is_revoked(did)
         if is_revoked:
             raise ValueError(f"DID is revoked: {did}")
         return await cls._resolver.resolve(did)
+
+    @classmethod
+    async def _is_did_webvh_deactivated(cls, did: str) -> bool:
+        """Whether the locally stored did:webvh log ends in a deactivation entry.
+
+        The log is verified (SCID, hash chain, controller proofs) before its state is
+        trusted; a log that fails verification is an error, never "not revoked". Returns
+        False when no log is stored for the DID.
+        """
+        log = cls._did_webvh_log_store.get(did)
+        if log is None:
+            return False
+        cached = cls._did_webvh_state_cache.get(did)
+        if cached is not None and cached[0] == log:
+            return cached[1]
+        resolved = await resolve_did_webvh_log(log, did=did)
+        cls._did_webvh_state_cache[did] = (log, resolved.metadata.deactivated)
+        return resolved.metadata.deactivated
 
     @classmethod
     async def resolve_controller_chain(cls, did: str, max_depth: int = 8) -> list[AgentDIDDocument]:
@@ -671,10 +701,12 @@ class AgentIdentity:
 
     @classmethod
     async def revoke_did(cls, did: str, *, controller_signer: AgentSigner | None = None) -> None:
-        """Revoke a DID in the registry.
+        """Revoke a DID.
 
-        For did:webvh DIDs a controller-signed deactivation entry (``deactivated: true``) is
-        appended to the DID's log first.
+        For did:webvh DIDs this appends a controller-signed deactivation entry
+        (``deactivated: true``) to the DID's log, which is what makes the DID revoked; the
+        registry record is then updated as a derived index. Other DID methods are revoked in
+        the registry.
         """
         existing = await cls.resolve(did)
         if did.startswith("did:webvh:"):

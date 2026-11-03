@@ -17,8 +17,12 @@ import { generateCommitmentSalt, verifyMetadataCommitment } from '../src/crypto/
 
 /** Simulates a fresh process: drops the in-process did:webvh logs, controller signers and bootstrap controllers. */
 function resetDidWebvhState(): void {
-  const stores = AgentIdentity as unknown as Record<'didWebvhLogStore' | 'didWebvhSignerStore' | 'bootstrapControllers', Map<string, unknown>>;
+  const stores = AgentIdentity as unknown as Record<
+    'didWebvhLogStore' | 'didWebvhStateCache' | 'didWebvhSignerStore' | 'bootstrapControllers',
+    Map<string, unknown>
+  >;
   stores.didWebvhLogStore.clear();
+  stores.didWebvhStateCache.clear();
   stores.didWebvhSignerStore.clear();
   stores.bootstrapControllers.clear();
 }
@@ -1555,5 +1559,35 @@ describe('did:webvh v1.0 lifecycle authorization', () => {
 
     await expect(AgentIdentity.resolve(document.id)).rejects.toThrow(/revoked/u);
     expect(AgentIdentity.getDocumentHistory(document.id).map((entry) => entry.action)).toEqual(['created', 'revoked']);
+  });
+
+  it('does not revoke a did:webvh DID through the registry alone', async () => {
+    const registry = new InMemoryAgentRegistry();
+    AgentIdentity.setRegistry(registry);
+    const { document } = await identity.create(params);
+
+    await registry.revoke(document.id);
+
+    await expect(AgentIdentity.resolve(document.id)).resolves.toMatchObject({ id: document.id });
+  });
+
+  it('keeps a deactivated did:webvh DID revoked when the registry record is lost', async () => {
+    const { document } = await identity.create(params);
+    await AgentIdentity.revokeDid(document.id);
+
+    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+
+    await expect(AgentIdentity.resolve(document.id)).rejects.toThrow(/revoked/u);
+  });
+
+  it('fails closed when the stored did:webvh log no longer verifies', async () => {
+    const { document } = await identity.create(params);
+    await AgentIdentity.resolve(document.id);
+    const stores = AgentIdentity as unknown as Record<'didWebvhLogStore', Map<string, string>>;
+    const entry = JSON.parse(stores.didWebvhLogStore.get(document.id)!.trimEnd().split('\n')[0]);
+    entry.state.controller = 'did:webvh:QmAttacker:attacker.example';
+    stores.didWebvhLogStore.set(document.id, JSON.stringify(entry) + '\n');
+
+    await expect(AgentIdentity.resolve(document.id)).rejects.toBeInstanceOf(DidWebvhError);
   });
 });

@@ -128,6 +128,11 @@ export class AgentIdentity {
   private static readonly documentHistoryStore: Map<string, AgentDocumentHistoryEntry[]> = new Map();
   /** did:webvh v1.0 logs (`did.jsonl`) of the DIDs created or imported in this process. */
   private static readonly didWebvhLogStore: Map<string, string> = new Map();
+  /**
+   * Deactivation state derived from the verified log, keyed by DID and tied to the exact
+   * log text it was computed from. It is recomputed whenever the stored log changes.
+   */
+  private static readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean }> = new Map();
   /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
   private static readonly didWebvhSignerStore: Map<string, AgentSigner> = new Map();
   /** Local bootstrap controllers, keyed by lowercase controller wallet address. */
@@ -686,6 +691,17 @@ export class AgentIdentity {
    * Uses the configured resolver (in-memory or production) to retrieve the document.
    */
   public static async resolve(did: string): Promise<AgentDIDDocument> {
+    if (did.startsWith('did:webvh:')) {
+      // For did:webvh the verified log is the only source of revocation state: a DID is
+      // revoked only by a controller-signed deactivation entry. The registry record is a
+      // derived index and is not consulted. DIDs without a local log are resolved (and their
+      // logs verified) by the configured resolver.
+      if (await AgentIdentity.isDidWebvhDeactivated(did)) {
+        throw new Error(`DID is revoked: ${did}`);
+      }
+      return AgentIdentity.resolver.resolve(did);
+    }
+
     const isRevoked = await AgentIdentity.registry.isRevoked(did);
 
     if (isRevoked) {
@@ -693,6 +709,26 @@ export class AgentIdentity {
     }
 
     return AgentIdentity.resolver.resolve(did);
+  }
+
+  /**
+   * Whether the locally stored did:webvh log ends in a deactivation entry. The log is
+   * verified (SCID, hash chain, controller proofs) before its state is trusted; a log that
+   * fails verification is an error, never "not revoked". Returns false when no log is
+   * stored for the DID.
+   */
+  private static async isDidWebvhDeactivated(did: string): Promise<boolean> {
+    const log = AgentIdentity.didWebvhLogStore.get(did);
+    if (log === undefined) {
+      return false;
+    }
+    const cached = AgentIdentity.didWebvhStateCache.get(did);
+    if (cached?.log === log) {
+      return cached.deactivated;
+    }
+    const resolved = await resolveDidWebvhLog(log, { did });
+    AgentIdentity.didWebvhStateCache.set(did, { log, deactivated: resolved.metadata.deactivated });
+    return resolved.metadata.deactivated;
   }
 
   public static async resolveControllerChain(did: string, maxDepth = 8): Promise<AgentDIDDocument[]> {
@@ -727,8 +763,10 @@ export class AgentIdentity {
   }
 
   /**
-   * Revokes a DID in the registry. For did:webvh DIDs it first appends a controller-signed
-   * deactivation entry (`deactivated: true`) to the DID's log.
+   * Revokes a DID. For did:webvh DIDs this appends a controller-signed deactivation entry
+   * (`deactivated: true`) to the DID's log, which is what makes the DID revoked; the
+   * registry record is then updated as a derived index. Other DID methods are revoked in
+   * the registry.
    */
   public static async revokeDid(did: string, options: DidWebvhLifecycleOptions = {}): Promise<void> {
     const existing = await AgentIdentity.resolve(did);
