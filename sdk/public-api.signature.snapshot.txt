@@ -76,6 +76,11 @@ export declare class AgentIdentity {
     private static readonly documentHistoryStore;
     /** did:webvh v1.0 logs (`did.jsonl`) of the DIDs created or imported in this process. */
     private static readonly didWebvhLogStore;
+    /**
+     * Deactivation state derived from the verified log, keyed by DID and tied to the exact
+     * log text it was computed from. It is recomputed whenever the stored log changes.
+     */
+    private static readonly didWebvhStateCache;
     /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
     private static readonly didWebvhSignerStore;
     /** Local bootstrap controllers, keyed by lowercase controller wallet address. */
@@ -157,10 +162,19 @@ export declare class AgentIdentity {
      * Uses the configured resolver (in-memory or production) to retrieve the document.
      */
     static resolve(did: string): Promise<AgentDIDDocument>;
+    /**
+     * Whether the locally stored did:webvh log ends in a deactivation entry. The log is
+     * verified (SCID, hash chain, controller proofs) before its state is trusted; a log that
+     * fails verification is an error, never "not revoked". Returns false when no log is
+     * stored for the DID.
+     */
+    private static isDidWebvhDeactivated;
     static resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
     /**
-     * Revokes a DID in the registry. For did:webvh DIDs it first appends a controller-signed
-     * deactivation entry (`deactivated: true`) to the DID's log.
+     * Revokes a DID. For did:webvh DIDs this appends a controller-signed deactivation entry
+     * (`deactivated: true`) to the DID's log, which is what makes the DID revoked; the
+     * registry record is then updated as a derived index. Other DID methods are revoked in
+     * the registry.
      */
     static revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
     static updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;

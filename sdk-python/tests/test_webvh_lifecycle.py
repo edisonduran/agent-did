@@ -26,6 +26,7 @@ def _reset_process() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
     AgentIdentity._history_store = {}
     AgentIdentity._did_webvh_log_store = {}
+    AgentIdentity._did_webvh_state_cache = {}
     AgentIdentity._did_webvh_signer_store = {}
     AgentIdentity._bootstrap_controllers = {}
 
@@ -135,3 +136,33 @@ class TestDidWebvhLifecycleAuthorization:
         with pytest.raises(ValueError, match="revoked"):
             await AgentIdentity.resolve(did)
         assert [entry.action for entry in AgentIdentity.get_document_history(did)] == ["created", "revoked"]
+
+    async def test_does_not_revoke_a_did_webvh_did_through_the_registry_alone(self, identity: AgentIdentity) -> None:
+        registry = InMemoryAgentRegistry()
+        AgentIdentity.set_registry(registry)
+        did = (await identity.create(_params())).document.id
+
+        await registry.revoke(did)
+
+        assert (await AgentIdentity.resolve(did)).id == did
+
+    async def test_keeps_a_deactivated_did_revoked_when_the_registry_record_is_lost(
+        self, identity: AgentIdentity
+    ) -> None:
+        did = (await identity.create(_params())).document.id
+        await AgentIdentity.revoke_did(did)
+
+        AgentIdentity.set_registry(InMemoryAgentRegistry())
+
+        with pytest.raises(ValueError, match="revoked"):
+            await AgentIdentity.resolve(did)
+
+    async def test_fails_closed_when_the_stored_log_no_longer_verifies(self, identity: AgentIdentity) -> None:
+        did = (await identity.create(_params())).document.id
+        await AgentIdentity.resolve(did)
+        entry = json.loads(AgentIdentity._did_webvh_log_store[did].splitlines()[0])
+        entry["state"]["controller"] = "did:webvh:QmAttacker:attacker.example"
+        AgentIdentity._did_webvh_log_store[did] = json.dumps(entry) + "\n"
+
+        with pytest.raises(DidWebvhError):
+            await AgentIdentity.resolve(did)

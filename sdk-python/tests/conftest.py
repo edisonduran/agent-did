@@ -19,6 +19,7 @@ def _reset_agent_identity() -> None:
     AgentIdentity._registry = InMemoryAgentRegistry()
     AgentIdentity._history_store = {}
     AgentIdentity._did_webvh_log_store = {}
+    AgentIdentity._did_webvh_state_cache = {}
     AgentIdentity._did_webvh_signer_store = {}
     AgentIdentity._bootstrap_controllers = {}
 

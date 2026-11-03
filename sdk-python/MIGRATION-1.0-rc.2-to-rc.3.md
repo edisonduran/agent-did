@@ -129,12 +129,14 @@ Use a glibc-based image (for example `python:3.12-slim`) instead of Alpine. An u
 | Who signs the log | Nobody | The controller key (`updateKeys`) |
 | Explicit profile (`webvh.domain`) | `domain`, `controller_did` | Also `controller_signer: AgentSigner` (required) |
 | Implicit `agents.local` profile | Controller DID derived from the wallet address | Controller DID is a v1.0 log; a new bootstrap is a new DID |
-| `revoke_did` | Registry only | Also appends `deactivated: true` to the log |
+| `revoke_did` | Registry only | Appends `deactivated: true` to the log; the registry record is a derived index |
+| Revocation state on `resolve` | Registry `is_revoked` | The verified log; `registry.revoke` alone no longer revokes a `did:webvh` DID |
 | Resolution | — | `UniversalResolverClient` fetches `did.jsonl` and verifies it; failures raise `DocumentIntegrityError` without fallback; deactivated DIDs are refused |
 
 ### Impact
 
 - `did:webvh` DIDs and `did.jsonl` files produced by `rc2` or earlier do not verify and cannot be upgraded in place: the SCID is bound to the genesis entry.
+- `AgentIdentity.resolve` takes the revocation state of a `did:webvh` DID from its verified log, not from the registry. Code that revoked a `did:webvh` DID by calling the registry directly must call `revoke_did` (with the controller signer) instead. A stored log that no longer verifies makes `resolve` raise.
 - `update_did_document`, `rotate_verification_method` and `revoke_did` need the controller signer. In the process that created the DID it is retained automatically. After `import_did_webvh_history` (or the file/source restore helpers) pass it explicitly; otherwise they raise `ValueError`.
 - A `webvh_document_source` must implement `get_did_log_by_reference`. Sources that only return parsed documents are refused for `did:webvh` (`TypeError`).
 - `did:webvh` DIDs must use a lowercase ASCII host name (no IP literals), an optional port encoded as `%3A`, and unencoded path segments.
