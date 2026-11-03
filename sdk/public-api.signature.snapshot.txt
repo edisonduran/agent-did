@@ -940,3 +940,84 @@ export declare class WebvhDIDDocumentSource implements DIDDocumentSource {
     private extractLatestState;
 }
 export {};
+
+## webvh/adapter.d.ts
+import type { AgentSigner } from '../core/signer';
+/** Placeholder that `createDidWebvhLog` replaces with the generated DID. */
+export declare const DID_WEBVH_PLACEHOLDER = "{DID}";
+/** Error codes surfaced by the adapter. Resolution codes follow DID Core. */
+export type DidWebvhErrorCode = 'invalidDid' | 'notFound' | 'invalidOptions' | 'invalidInput' | 'unauthorized';
+export declare class DidWebvhError extends Error {
+    readonly code: DidWebvhErrorCode;
+    constructor(code: DidWebvhErrorCode, message: string);
+}
+export type DidWebvhDocument = Record<string, unknown> & {
+    id: string;
+};
+/**
+ * Resolution metadata exposed by Agent-DID for a did:webvh log. Witness and
+ * watcher configuration are deliberately not exposed until the SDK supports
+ * them (ADR-002, condition 7).
+ */
+export interface DidWebvhMetadata {
+    versionId: string;
+    versionNumber: number;
+    versionTime: string;
+    created: string;
+    updated: string;
+    scid: string;
+    updateKeys: string[];
+    deactivated: boolean;
+    /** Cache TTL in seconds; the did:webvh default (3600) when the log does not set one. */
+    ttl: string;
+}
+export interface DidWebvhLogResult {
+    did: string;
+    document: DidWebvhDocument;
+    metadata: DidWebvhMetadata;
+    /** The full `did.jsonl` text, one entry per line, newline-terminated. */
+    log: string;
+}
+export interface CreateDidWebvhLogParams {
+    /** Lowercase ASCII fully qualified host name, optionally with `:port`. IP literals are rejected. */
+    domain: string;
+    pathSegments?: string[];
+    /** Initial DID document. Every occurrence of `{DID}` is replaced with the generated DID. */
+    document: Record<string, unknown>;
+    /** Controller signer; its key becomes the only entry in `updateKeys`. */
+    signer: AgentSigner;
+    /** Optional `versionTime` of the genesis entry (UTC, second precision). Defaults to now. */
+    created?: string;
+}
+export interface UpdateDidWebvhLogParams {
+    log: string;
+    signer: AgentSigner;
+    /** Complete next DID document. When omitted, the current document is carried over. */
+    document?: Record<string, unknown>;
+    /** Replacement `updateKeys` (Ed25519 multikeys), e.g. for controller key rotation. */
+    updateKeys?: string[];
+    /** Optional `versionTime` for the new entry (UTC, second precision). Defaults to now. */
+    updated?: string;
+}
+export interface DeactivateDidWebvhLogParams {
+    log: string;
+    signer: AgentSigner;
+}
+export interface ResolveDidWebvhLogOptions {
+    /** When set, the log must belong to this DID. */
+    did?: string;
+    versionId?: string;
+    versionNumber?: number;
+    versionTime?: string;
+}
+/** Returns the did:webvh `updateKeys` entry (an Ed25519 multikey) for a signer. */
+export declare function didWebvhUpdateKeyFor(signer: AgentSigner): Promise<string>;
+export declare function createDidWebvhLog(params: CreateDidWebvhLogParams): Promise<DidWebvhLogResult>;
+export declare function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promise<DidWebvhLogResult>;
+export declare function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams): Promise<DidWebvhLogResult>;
+/**
+ * Verifies a `did.jsonl` log (SCID, entry hash chain, `updateKeys` proofs,
+ * version times) and returns the resolved document. Throws `DidWebvhError` on
+ * any verification failure; it never returns a partially verified result.
+ */
+export declare function resolveDidWebvhLog(logText: string, options?: ResolveDidWebvhLogOptions): Promise<DidWebvhLogResult>;
