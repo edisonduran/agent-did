@@ -68,6 +68,6 @@
     "http-message-signatures": "1.0.6",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.4.2"
+    "typescript": "^7.0.2"
   }
 }
