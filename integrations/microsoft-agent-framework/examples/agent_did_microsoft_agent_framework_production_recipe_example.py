@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from agent_framework import BaseChatClient, ChatResponse, Message
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -64,7 +64,7 @@ async def main() -> None:
     tracer = create_opentelemetry_tracer(tracer_provider=tracer_provider)
     events = []
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5959595959595959595959595959595959595959"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="MicrosoftAgentFrameworkProductionBot",

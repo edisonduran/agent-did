@@ -23,6 +23,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
 )
 from agent_framework import WorkflowContext
 
@@ -35,7 +36,7 @@ from agent_did_microsoft_agent_framework import (
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
     identity = AgentIdentity(
-        AgentIdentityConfig(signer_address="0x4242424242424242424242424242424242424242")
+        AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0])
     )
     runtime_identity = await identity.create(
         CreateAgentParams(

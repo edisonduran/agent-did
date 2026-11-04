@@ -59,7 +59,7 @@ from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
 
 # Create identity
 AgentIdentity.set_registry(InMemoryAgentRegistry())
-identity = AgentIdentity(AgentIdentityConfig(signer_address="0x..."))
+identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 runtime = await identity.create(
     CreateAgentParams(name="MyAgent", core_model="gpt-4.1", system_prompt="...")
 )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 
@@ -13,7 +13,7 @@ async def test_real_semantic_kernel_runtime_accepts_agent_did_plugin() -> None:
     from semantic_kernel.kernel import Kernel
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6767676767676767676767676767676767676767"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SemanticKernelRuntimeBot",
@@ -68,7 +68,7 @@ async def test_real_semantic_kernel_runtime_supports_multistep_identity_lifecycl
     from semantic_kernel.kernel import Kernel
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x7878787878787878787878787878787878787878"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SemanticKernelLifecycleBot",

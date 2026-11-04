@@ -19,6 +19,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryNonceStore,
+    LocalKeySigner,
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
     decode_public_key_multibase,
@@ -47,7 +48,7 @@ class _Keys(HTTPSignatureKeyResolver):  # type: ignore[misc]
 
 @pytest.fixture()
 def identity() -> AgentIdentity:
-    return AgentIdentity(AgentIdentityConfig(signer_address="0xInteropRfc9421Tester1234567890"))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
 
 class TestRfc9421Interop:

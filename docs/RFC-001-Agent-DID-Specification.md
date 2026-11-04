@@ -287,11 +287,11 @@ Current fixture reference:
 Executable examples:
 
 - `sdk/examples/quickstart.js`
-- `sdk/examples/e2e-smoke.js`
+- `evm/examples/e2e-smoke.js`
 
 Optional EVM profile example:
 
-- `sdk/examples/evm-registry-wiring.ts`
+- `evm/examples/evm-registry-wiring.ts`
 
 Recommended full validation command:
 

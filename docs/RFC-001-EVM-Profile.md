@@ -74,7 +74,7 @@ An implementation claiming support for `RFC-001-EVM-Profile` MUST:
 3. Verify on-chain revocation state in addition to document-level active state.
 4. Keep the on-chain contract as an overlay for policy and anchoring, not as a replacement for the DID document semantics.
 
-Implementations MAY expose specialized helpers such as `EthersAgentRegistryContractClient` and `EvmAgentRegistry` to manage this profile.
+Implementations MAY expose specialized helpers such as `EthersAgentRegistryContractClient` and `EvmAgentRegistry` to manage this profile. The reference SDKs ship them as optional packages outside the core: `@agentdid/evm` (npm) and `agent-did-sdk[evm]` (PyPI extra).
 
 ---
 

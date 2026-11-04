@@ -1,11 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
-const {
-  AgentIdentity,
-  EvmAgentRegistry,
-  EthersAgentRegistryContractClient
-} = require('../dist/index.js');
+const { AgentIdentity, LocalKeySigner } = require('../../sdk/dist/index.js');
+const { EvmAgentRegistry, EthersAgentRegistryContractClient } = require('../dist/index.js');
 
 const ABI_PATH = path.resolve(__dirname, './abi/AgentRegistry.abi.json');
 
@@ -49,7 +46,7 @@ async function main() {
 
   AgentIdentity.setRegistry(registry);
 
-  const identity = new AgentIdentity({ signer, network: 'localhost' });
+  const identity = new AgentIdentity({ controllerSigner: LocalKeySigner.generate()[0], network: 'localhost' });
   const { document, agentPrivateKey } = await identity.create({
     name: 'SmokeBot',
     coreModel: 'gpt-4o-mini',

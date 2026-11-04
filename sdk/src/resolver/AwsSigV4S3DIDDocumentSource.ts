@@ -1,4 +1,6 @@
-import { ethers } from 'ethers';
+import { hmac } from '@noble/hashes/hmac';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 import { AgentDIDDocument } from '../core/types';
 import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
 import {
@@ -20,7 +22,8 @@ export interface AwsSigV4S3DIDDocumentSourceConfig extends Omit<S3CompatibleDIDD
 type FetchLike = NonNullable<HttpDIDDocumentSourceConfig['fetchFn']>;
 type FetchLikeInit = NonNullable<Parameters<FetchLike>[1]>;
 
-const EMPTY_PAYLOAD_HASH = ethers.sha256(ethers.toUtf8Bytes('')).slice(2);
+const utf8 = (value: string): Uint8Array => new TextEncoder().encode(value);
+const EMPTY_PAYLOAD_HASH = bytesToHex(sha256(utf8('')));
 
 export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
   private readonly source: S3CompatibleDIDDocumentSource;
@@ -153,11 +156,11 @@ export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
 
   private signHex(stringToSign: string, dateStamp: string): string {
     const service = this.config.service || 's3';
-    const kDate = ethers.computeHmac('sha256', ethers.toUtf8Bytes(`AWS4${this.config.secretAccessKey}`), ethers.toUtf8Bytes(dateStamp));
-    const kRegion = ethers.computeHmac('sha256', kDate, ethers.toUtf8Bytes(this.config.region));
-    const kService = ethers.computeHmac('sha256', kRegion, ethers.toUtf8Bytes(service));
-    const kSigning = ethers.computeHmac('sha256', kService, ethers.toUtf8Bytes('aws4_request'));
-    return ethers.computeHmac('sha256', kSigning, ethers.toUtf8Bytes(stringToSign)).slice(2);
+    const kDate = hmac(sha256, utf8(`AWS4${this.config.secretAccessKey}`), utf8(dateStamp));
+    const kRegion = hmac(sha256, kDate, utf8(this.config.region));
+    const kService = hmac(sha256, kRegion, utf8(service));
+    const kSigning = hmac(sha256, kService, utf8('aws4_request'));
+    return bytesToHex(hmac(sha256, kSigning, utf8(stringToSign)));
   }
 
   private hashHex(value: string): string {
@@ -165,7 +168,7 @@ export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
       return EMPTY_PAYLOAD_HASH;
     }
 
-    return ethers.sha256(ethers.toUtf8Bytes(value)).slice(2);
+    return bytesToHex(sha256(utf8(value)));
   }
 
   private formatAmzDate(value: Date): string {

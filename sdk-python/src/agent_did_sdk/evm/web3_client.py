@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..core.time_utils import normalize_timestamp_to_iso
+from ..registry.types import AgentRegistryRecord
 from .evm_types import EvmTxResponse
-from .types import AgentRegistryRecord
 
 
 def _safe_str(v: Any) -> str:  # noqa: ANN401

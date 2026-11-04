@@ -1,6 +1,6 @@
-import { AgentRegistryRecord } from './types';
+import { AgentRegistryRecord } from '@agentdid/sdk';
 import { EvmAgentRegistryContract, EvmTxResponse } from './evm-types';
-import { normalizeTimestampToIso } from '../core/time';
+import { normalizeTimestampToIso } from '@agentdid/sdk';
 
 function safeStr(v: unknown): string {
   if (v === null || v === undefined) return '';

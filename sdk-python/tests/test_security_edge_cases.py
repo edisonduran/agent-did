@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from agent_did_sdk.registry.web3_client import Web3AgentRegistryContractClient
+from agent_did_sdk.evm.web3_client import Web3AgentRegistryContractClient
 from agent_did_sdk.resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 from agent_did_sdk.resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
 

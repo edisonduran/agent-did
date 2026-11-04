@@ -13,6 +13,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentResult,
     InMemoryAgentRegistry,
+    LocalKeySigner,
     ProductionHttpResolverProfileConfig,
     VerifyHttpRequestSignatureParams,
 )
@@ -129,7 +130,7 @@ async def main() -> None:
             )
         )
 
-        identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9797979797979797979797979797979797979797"))
+        identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
         integration = create_agent_did_langchain_integration(
             agent_identity=identity,
             runtime_identity=runtime_identity,

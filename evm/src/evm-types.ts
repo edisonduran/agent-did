@@ -1,4 +1,4 @@
-import { AgentRegistryRecord } from './types';
+import { AgentRegistryRecord } from '@agentdid/sdk';
 
 export interface EvmTxResponse {
   wait?: () => Promise<unknown>;

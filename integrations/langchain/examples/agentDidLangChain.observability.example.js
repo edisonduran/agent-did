@@ -1,5 +1,4 @@
-const { ethers } = require("ethers");
-const { AgentIdentity } = require("@agentdid/sdk");
+const { AgentIdentity, LocalKeySigner } = require("@agentdid/sdk");
 const {
   composeEventHandlers,
   createAgentDidIntegration,
@@ -13,8 +12,8 @@ async function main() {
     throw new Error("Missing CREATOR_PRIVATE_KEY environment variable");
   }
 
-  const signer = new ethers.Wallet(privateKey);
-  const identity = new AgentIdentity({ signer, network: "polygon" });
+  const signer = new LocalKeySigner(privateKey);
+  const identity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
   const runtimeIdentity = await identity.create({
     name: "observable_assistant",
     description: "Agent with structured Agent-DID tool telemetry",

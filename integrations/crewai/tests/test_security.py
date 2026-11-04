@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_crewai import create_agent_did_crewai_integration
 from agent_did_crewai.callbacks import create_step_callback
@@ -13,7 +13,7 @@ from agent_did_crewai.guardrails import create_identity_output_guardrail
 @pytest.mark.asyncio
 async def test_sensitive_tools_are_opt_in_and_http_validation_is_enforced() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9494949494949494949494949494949494949494"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewSecurityBot",
@@ -48,7 +48,7 @@ async def test_sensitive_tools_are_opt_in_and_http_validation_is_enforced() -> N
 @pytest.mark.asyncio
 async def test_callbacks_are_sanitized_and_guardrails_block_sensitive_outputs() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9696969696969696969696969696969696969696"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewAuditBot",
@@ -77,7 +77,7 @@ async def test_callbacks_are_sanitized_and_guardrails_block_sensitive_outputs() 
 @pytest.mark.asyncio
 async def test_guardrail_callable_avoids_runtime_return_annotation() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9797979797979797979797979797979797979797"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewGuardrailCompatibilityBot",

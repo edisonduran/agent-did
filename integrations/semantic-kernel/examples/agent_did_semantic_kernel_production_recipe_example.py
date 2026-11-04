@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -36,7 +36,6 @@ async def main() -> None:
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("agent_did_semantic_kernel.production")
-    signer_address = _require_env("AGENT_DID_SIGNER_ADDRESS") or "0x9696969696969696969696969696969696969696"
 
     provider = TracerProvider()
     exporter = InMemorySpanExporter()
@@ -45,7 +44,7 @@ async def main() -> None:
 
     local_events: list[dict[str, Any]] = []
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address=signer_address, network="polygon"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], network="polygon"))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="semantic_kernel_production_recipe",

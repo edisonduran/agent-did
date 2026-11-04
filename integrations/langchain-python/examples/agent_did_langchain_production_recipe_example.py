@@ -9,7 +9,7 @@ import os
 import sys
 from typing import Any
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, LocalKeySigner
 from langchain.agents import create_agent
 
 from agent_did_langchain import create_agent_did_langchain_integration
@@ -39,7 +39,6 @@ async def main() -> None:
         return
 
     model = _require_env("LANGCHAIN_MODEL") or "openai:gpt-4.1-mini"
-    signer_address = _require_env("AGENT_DID_SIGNER_ADDRESS") or "0x9797979797979797979797979797979797979797"
 
     if model.startswith("openai:") and _require_env("OPENAI_API_KEY") is None:
         print("OPENAI_API_KEY is required when LANGCHAIN_MODEL uses the openai: provider.")
@@ -73,7 +72,7 @@ async def main() -> None:
         )
         handlers.append(create_langsmith_event_handler(root_run))
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address=signer_address, network="polygon"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], network="polygon"))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="production_recipe_bot",

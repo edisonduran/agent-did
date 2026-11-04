@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_a2a import (
     PACKAGE_STATUS,
@@ -15,7 +15,7 @@ from agent_did_a2a import (
 @pytest.mark.asyncio
 async def test_factory_returns_expected_integration_object() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xA2A0A2A0A2A0A2A0A2A0A2A0A2A0A2A0A2A0A2A0"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="A2ABot",
@@ -37,7 +37,7 @@ async def test_factory_returns_expected_integration_object() -> None:
 @pytest.mark.asyncio
 async def test_build_agent_card_contains_did_identity() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xA2A1A2A1A2A1A2A1A2A1A2A1A2A1A2A1A2A1A2A1"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CardBot",
@@ -73,7 +73,7 @@ async def test_build_agent_card_contains_did_identity() -> None:
 @pytest.mark.asyncio
 async def test_agent_card_json_serialization() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xA2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="JsonBot",
@@ -99,7 +99,7 @@ async def test_agent_card_json_serialization() -> None:
 @pytest.mark.asyncio
 async def test_a2a_context_block_contains_identity() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xA2A3A2A3A2A3A2A3A2A3A2A3A2A3A2A3A2A3A2A3"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="ContextBot",
@@ -123,7 +123,7 @@ async def test_a2a_context_block_contains_identity() -> None:
 @pytest.mark.asyncio
 async def test_exposure_config_applies_defaults() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xA2A4A2A4A2A4A2A4A2A4A2A4A2A4A2A4A2A4A2A4"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="ConfigBot",

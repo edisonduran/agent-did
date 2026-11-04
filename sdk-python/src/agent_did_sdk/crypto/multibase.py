@@ -114,3 +114,8 @@ def decode_public_key_multibase(encoded: str) -> bytes:
         return bytes.fromhex(value)
 
     raise ValueError("Unable to decode publicKeyMultibase: unrecognized format")
+
+
+def did_key_from_public_key(raw_public_key: bytes) -> str:
+    """Derive the ``did:key`` identifier of an Ed25519 public key (``did:key:z6Mk…``)."""
+    return f"did:key:{encode_public_key_multibase(raw_public_key)}"

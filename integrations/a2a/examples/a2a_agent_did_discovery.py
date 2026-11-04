@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
 
@@ -20,7 +20,7 @@ from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
 async def main() -> None:
     # --- Server agent: creates identity and publishes AgentCard ---
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xDEMO0DEMO0DEMO0DEMO0DEMO0DEMO0DEMO0DEMO"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime = await identity.create(
         CreateAgentParams(
             name="ResearchAssistant",

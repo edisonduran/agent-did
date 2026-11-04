@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from agent_framework import AgentExecutorResponse, BaseChatClient, ChatResponse, Message
 
 from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
@@ -44,7 +44,7 @@ class DummyChatClient(BaseChatClient):
 
 def test_create_agent_kwargs_exposes_native_tools_and_instructions() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9797979797979797979797979797979797979797"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(
@@ -74,7 +74,7 @@ def test_create_agent_kwargs_exposes_native_tools_and_instructions() -> None:
 
 def test_rotate_key_tool_updates_runtime_identity_reference() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9898989898989898989898989898989898989898"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(
@@ -104,7 +104,7 @@ def test_workflow_helpers_emit_orchestration_events_and_build_chain() -> None:
     events = []
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8787878787878787878787878787878787878787"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(
@@ -148,7 +148,7 @@ def test_advanced_workflow_helpers_emit_specialized_events() -> None:
     events = []
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8686868686868686868686868686868686868686"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(

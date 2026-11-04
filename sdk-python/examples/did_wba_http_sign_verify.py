@@ -13,6 +13,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
     ProductionHttpResolverProfileConfig,
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
@@ -26,7 +27,7 @@ async def main() -> None:
 
     identity = AgentIdentity(
         AgentIdentityConfig(
-            signer_address="0x9292929292929292929292929292929292929292"
+            controller_signer=LocalKeySigner.generate()[0]
         )
     )
 

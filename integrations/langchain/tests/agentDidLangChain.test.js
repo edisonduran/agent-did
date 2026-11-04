@@ -1,13 +1,12 @@
-const { ethers } = require("ethers");
-const { AgentIdentity } = require("@agentdid/sdk");
+const { AgentIdentity, LocalKeySigner } = require("@agentdid/sdk");
 const {
   buildAgentDidSystemPrompt,
   createAgentDidIntegration,
 } = require("../src");
 
 describe("@agentdid/langchain", () => {
-  const signer = ethers.Wallet.createRandom();
-  const agentIdentity = new AgentIdentity({ signer, network: "polygon" });
+  const signer = LocalKeySigner.generate()[0];
+  const agentIdentity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
 
   it("builds a system prompt section with the active Agent-DID context", async () => {
     const runtimeIdentity = await agentIdentity.create({

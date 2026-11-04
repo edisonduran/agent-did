@@ -47,7 +47,7 @@ from agent_did_langchain import create_agent_did_langchain_integration
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
 from langchain.agents import create_agent
 
-identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1234567890123456789012345678901234567890"))
+identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 runtime_identity = await identity.create(
     CreateAgentParams(
         name="research_assistant",
@@ -304,7 +304,6 @@ Variables principales:
 
 - `RUN_LANGCHAIN_PRODUCTION_EXAMPLE=1`: habilita la ejecucion real del agente
 - `LANGCHAIN_MODEL`: modelo/provider para `create_agent(...)`, por ejemplo `openai:gpt-4.1-mini`
-- `AGENT_DID_SIGNER_ADDRESS`: signer address del runtime local
 - `OPENAI_API_KEY`: requerida si usa un modelo OpenAI real
 - `LANGSMITH_TRACING=1`: habilita fan-out adicional a LangSmith si el entorno ya esta configurado
 

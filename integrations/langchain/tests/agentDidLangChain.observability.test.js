@@ -1,5 +1,4 @@
-const { ethers } = require("ethers");
-const { AgentIdentity } = require("@agentdid/sdk");
+const { AgentIdentity, LocalKeySigner } = require("@agentdid/sdk");
 const {
   composeEventHandlers,
   createAgentDidIntegration,
@@ -10,8 +9,8 @@ const {
 } = require("../src");
 
 describe("@agentdid/langchain observability", () => {
-  const signer = ethers.Wallet.createRandom();
-  const agentIdentity = new AgentIdentity({ signer, network: "polygon" });
+  const signer = LocalKeySigner.generate()[0];
+  const agentIdentity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
 
   it("emits sanitized tool events through callbacks", async () => {
     const runtimeIdentity = await agentIdentity.create({

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_a2a.agent_card import A2ASkill, agent_card_to_json, build_agent_card
 from agent_did_a2a.config import AgentDidA2AAuthScheme, AgentDidA2AConfig
@@ -13,7 +13,7 @@ from agent_did_a2a.snapshot import build_agent_did_identity_snapshot
 @pytest.mark.asyncio
 async def test_agent_card_has_required_a2a_fields() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xCA0DCA0DCA0DCA0DCA0DCA0DCA0DCA0DCA0DCA0D"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     result = await identity.create(
         CreateAgentParams(name="CardAgent", core_model="gpt-4.1-mini", system_prompt="test")
     )
@@ -36,7 +36,7 @@ async def test_agent_card_has_required_a2a_fields() -> None:
 @pytest.mark.asyncio
 async def test_agent_card_with_additional_auth_schemes() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xCA1DCA1DCA1DCA1DCA1DCA1DCA1DCA1DCA1DCA1D"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     result = await identity.create(
         CreateAgentParams(name="MultiAuthAgent", core_model="gpt-4.1-mini", system_prompt="test")
     )
@@ -59,7 +59,7 @@ async def test_agent_card_with_additional_auth_schemes() -> None:
 @pytest.mark.asyncio
 async def test_agent_card_to_json_excludes_none() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xCA2DCA2DCA2DCA2DCA2DCA2DCA2DCA2DCA2DCA2D"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     result = await identity.create(
         CreateAgentParams(name="JsonAgent", core_model="gpt-4.1-mini", system_prompt="test")
     )
@@ -79,7 +79,7 @@ async def test_agent_card_to_json_excludes_none() -> None:
 @pytest.mark.asyncio
 async def test_agent_card_includes_verification_endpoint() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xCA3DCA3DCA3DCA3DCA3DCA3DCA3DCA3DCA3DCA3D"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     result = await identity.create(
         CreateAgentParams(name="VerifyAgent", core_model="gpt-4.1-mini", system_prompt="test")
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain.snapshot import build_agent_did_identity_snapshot
 
@@ -9,7 +9,7 @@ from agent_did_langchain.snapshot import build_agent_did_identity_snapshot
 @pytest.mark.asyncio
 async def test_snapshot_contains_expected_fields_without_secrets() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1111111111111111111111111111111111111111"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SnapshotBot",

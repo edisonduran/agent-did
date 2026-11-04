@@ -1,6 +1,5 @@
 import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
-import { randomBytes } from 'ethers';
+import { bytesToHex, randomBytes } from '@noble/hashes/utils';
 
 /** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
 export const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[] = [

@@ -26,6 +26,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
 )
 
 from agent_did_microsoft_agent_framework import (
@@ -64,7 +65,7 @@ def _run_verifier(verifier, message):
 def integration():
     AgentIdentity.set_registry(InMemoryAgentRegistry())
     identity = AgentIdentity(
-        AgentIdentityConfig(signer_address="0x1010101010101010101010101010101010101010")
+        AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0])
     )
     runtime_identity = asyncio.run(
         identity.create(

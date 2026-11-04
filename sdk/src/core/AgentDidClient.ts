@@ -1,6 +1,5 @@
-import { ethers } from 'ethers';
 import { ed25519 } from '@noble/curves/ed25519';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils';
 import {
   AgentDocumentHistoryAction,
   AgentDocumentHistoryEntry,
@@ -21,7 +20,7 @@ import {
   generateCanonicalDocumentHash,
   generateCommitmentSalt
 } from '../crypto/hash';
-import { encodePublicKeyMultibase, decodePublicKeyMultibase } from '../crypto/multibase';
+import { encodePublicKeyMultibase, decodePublicKeyMultibase, didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { sha256 } from '@noble/hashes/sha256';
 import {
@@ -136,7 +135,7 @@ export class AgentDidClient {
   private readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean }> = new Map();
   /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
   private readonly didWebvhSignerStore: Map<string, AgentSigner> = new Map();
-  /** Local bootstrap controllers, keyed by lowercase controller wallet address. */
+  /** Local bootstrap controllers, keyed by the creator's did:key. */
   private readonly bootstrapControllers: Map<string, { did: string; signer: AgentSigner }> = new Map();
 
   constructor(options: AgentDidClientOptions = {}) {
@@ -159,12 +158,14 @@ export class AgentDidClient {
    * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
    */
   public async createAgent(
-    controllerAddress: string,
+    controllerSigner: AgentSigner,
     network: string,
     params: CreateAgentParams
   ): Promise<CreateAgentResult> {
     const didMethod = params.didMethod || 'webvh';
     const timestamp = this.nowIsoTimestamp();
+    // The creator is identified by its Ed25519 key, never by an EVM address
+    const controllerKeyDid = didKeyFromPublicKey(await controllerSigner.getPublicKey());
 
     // Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary
     const metadataCommitmentSalts = {
@@ -193,7 +194,7 @@ export class AgentDidClient {
     }
 
     if (didMethod === 'webvh') {
-      return this.createDidWebvhAgent(params, controllerAddress, {
+      return this.createDidWebvhAgent(params, controllerKeyDid, {
         timestamp,
         agentMetadata,
         publicKeyBytes,
@@ -203,10 +204,10 @@ export class AgentDidClient {
     }
 
     // Legacy did:agent profile
-    const nonce = ethers.hexlify(ethers.randomBytes(16));
-    const rawAgentId = ethers.keccak256(ethers.toUtf8Bytes(`${controllerAddress}-${timestamp}-${nonce}`));
+    const nonce = bytesToHex(randomBytes(16));
+    const rawAgentId = bytesToHex(sha256(new TextEncoder().encode(`${controllerKeyDid}-${timestamp}-${nonce}`)));
     const agentDid = `did:agent:${network}:${rawAgentId}`;
-    const controllerDid = `did:ethr:${controllerAddress}`;
+    const controllerDid = controllerKeyDid;
     const verificationMethodId = `${agentDid}#key-1`;
     const document: AgentDIDDocument = {
       "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
@@ -219,8 +220,7 @@ export class AgentDidClient {
         id: verificationMethodId,
         type: "Ed25519VerificationKey2020",
         controller: controllerDid,
-        publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes),
-        blockchainAccountId: `eip155:1:${ethers.Wallet.createRandom().address}`
+        publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes)
       }],
       authentication: [verificationMethodId],
       assertionMethod: [verificationMethodId]
@@ -239,7 +239,7 @@ export class AgentDidClient {
    */
   private async createDidWebvhAgent(
     params: CreateAgentParams,
-    controllerAddress: string,
+    controllerKeyDid: string,
     agent: {
       timestamp: string;
       agentMetadata: AgentDIDDocument['agentMetadata'];
@@ -263,7 +263,7 @@ export class AgentDidClient {
     } else {
       // Only the implicit local profile bootstraps a controller. An explicitly supplied
       // controller DID must be published by its owner; the SDK never fabricates it.
-      const bootstrap = await this.ensureBootstrapController(controllerAddress);
+      const bootstrap = await this.ensureBootstrapController(controllerKeyDid);
       domain = this.defaultWebvhDomain;
       pathSegments = ['agents', this.normalizeDidPathSegment(params.name)];
       controllerDid = bootstrap.did;
@@ -329,14 +329,15 @@ export class AgentDidClient {
   }
 
   /**
-   * Returns the local bootstrap controller for a wallet address, creating it on first use.
+   * Returns the local bootstrap controller for a creator's `did:key`, creating it on first use.
    * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
    * returned to the caller exactly once (`privateKey`) and never derived from public data.
    */
   private async ensureBootstrapController(
-    controllerAddress: string
+    controllerKeyDid: string
   ): Promise<{ did: string; signer: AgentSigner; privateKey?: string }> {
-    const address = controllerAddress.trim().toLowerCase();
+    const address = controllerKeyDid.trim();
+    const keyId = address.replace(/^did:key:/u, '');
     const existing = this.bootstrapControllers.get(address);
     if (existing && await this.registry.getRecord(existing.did)) {
       return existing;
@@ -352,7 +353,7 @@ export class AgentDidClient {
       created: timestamp,
       updated: timestamp,
       agentMetadata: {
-        name: `controller-${this.normalizeDidPathSegment(address)}`,
+        name: `controller-${this.normalizeDidPathSegment(keyId)}`,
         description: 'Local bootstrap controller root for canonical did:webvh flows.',
         version: '1.0.0',
         coreModelHash: generateAgentMetadataHash(`controller:${address}`),
@@ -370,7 +371,7 @@ export class AgentDidClient {
 
     const created = await createDidWebvhLog({
       domain: this.defaultWebvhDomain,
-      pathSegments: ['controllers', this.normalizeDidPathSegment(address)],
+      pathSegments: ['controllers', this.normalizeDidPathSegment(keyId)],
       document: template,
       signer
     });

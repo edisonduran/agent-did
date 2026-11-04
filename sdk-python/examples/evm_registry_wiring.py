@@ -7,9 +7,9 @@ from pathlib import Path
 
 from web3 import HTTPProvider, Web3
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, EvmAgentRegistry, Web3AgentRegistryContractClient
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams
-from agent_did_sdk.registry.evm_types import EvmAgentRegistryAdapterConfig
+from agent_did_sdk.evm import EvmAgentRegistry, EvmAgentRegistryAdapterConfig, Web3AgentRegistryContractClient
 
 ABI_PATH = Path(__file__).resolve().parent / "abi" / "AgentRegistry.abi.json"
 
@@ -22,11 +22,10 @@ def load_agent_registry_abi() -> list[dict[str, object]]:
 
 async def main() -> None:
     rpc_url = os.getenv("RPC_URL")
-    signer_address = os.getenv("SIGNER_ADDRESS")
     registry_address = os.getenv("AGENT_REGISTRY_ADDRESS")
 
-    if not rpc_url or not signer_address or not registry_address:
-        raise RuntimeError("Missing required env vars: RPC_URL, SIGNER_ADDRESS, AGENT_REGISTRY_ADDRESS")
+    if not rpc_url or not registry_address:
+        raise RuntimeError("Missing required env vars: RPC_URL, AGENT_REGISTRY_ADDRESS")
 
     provider = Web3(HTTPProvider(rpc_url))
     abi = load_agent_registry_abi()
@@ -43,7 +42,7 @@ async def main() -> None:
 
     identity = AgentIdentity(
         AgentIdentityConfig(
-            signer_address=Web3.to_checksum_address(signer_address),
+            controller_signer=LocalKeySigner.generate()[0],
             network="polygon",
         )
     )

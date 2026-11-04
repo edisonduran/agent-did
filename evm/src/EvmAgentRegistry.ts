@@ -1,4 +1,4 @@
-import { AgentRegistry, AgentRegistryRecord } from './types';
+import { AgentRegistry, AgentRegistryRecord } from '@agentdid/sdk';
 import { EvmAgentRegistryAdapterConfig, EvmAgentRegistryContract, EvmTxResponse } from './evm-types';
 
 export class EvmAgentRegistry implements AgentRegistry {

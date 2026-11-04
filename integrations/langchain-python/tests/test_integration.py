@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain import PACKAGE_STATUS, create_agent_did_langchain_integration
 
@@ -9,7 +9,7 @@ from agent_did_langchain import PACKAGE_STATUS, create_agent_did_langchain_integ
 @pytest.mark.asyncio
 async def test_factory_returns_expected_integration_object() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6666666666666666666666666666666666666666"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="IntegrationBot",
@@ -39,7 +39,7 @@ async def test_factory_returns_expected_integration_object() -> None:
 @pytest.mark.asyncio
 async def test_tool_set_tracks_requested_exposure() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x7777777777777777777777777777777777777777"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="ExposureBot",

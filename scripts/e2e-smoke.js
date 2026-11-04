@@ -1,6 +1,7 @@
 const {
   CONTRACTS_DIR,
   SDK_DIR,
+  EVM_DIR,
   run,
   waitForHardhatNode,
   stopProcessTree,
@@ -26,11 +27,13 @@ async function main() {
     console.log('[smoke] Exporting ABI to SDK examples...');
     run('npm run export:abi', CONTRACTS_DIR);
 
-    console.log('[smoke] Building SDK...');
+    console.log('[smoke] Building SDK and EVM adapter...');
     run('npm run build', SDK_DIR);
+    run('npm install --no-audit --no-fund', EVM_DIR);
+    run('npm run build', EVM_DIR);
 
     console.log('[smoke] Running SDK end-to-end scenario...');
-    run('node examples/e2e-smoke.js', SDK_DIR, smokeEnv({
+    run('node examples/e2e-smoke.js', EVM_DIR, smokeEnv({
       RPC_URL: 'http://127.0.0.1:8545',
       AGENT_REGISTRY_ADDRESS: deployedAddress,
       CREATOR_ACCOUNT_INDEX: '1'

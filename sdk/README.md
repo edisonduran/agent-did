@@ -30,7 +30,7 @@ Agent-DID solves this with:
 ## Installation
 
 ```bash
-npm install @agentdid/sdk@next ethers
+npm install @agentdid/sdk@next
 ```
 
 Requires **Node.js 22.12+** (22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes).
@@ -38,12 +38,11 @@ Requires **Node.js 22.12+** (22.23.4+, 24.22.1+ or 26.12.1+ recommended for the 
 ## Quick Start
 
 ```ts
-import { AgentIdentity } from '@agentdid/sdk';
-import { ethers } from 'ethers';
+import { AgentIdentity, LocalKeySigner } from '@agentdid/sdk';
 
-// 1. Create an agent identity
-const wallet = new ethers.Wallet(process.env.CREATOR_PRIVATE_KEY!);
-const identity = new AgentIdentity({ signer: wallet });
+// 1. Create an agent identity. The controller is an Ed25519 key (use a KMS/HSM-backed AgentSigner in production)
+const controllerSigner = new LocalKeySigner(process.env.CREATOR_PRIVATE_KEY!);
+const identity = new AgentIdentity({ controllerSigner });
 
 const { document, agentPrivateKey } = await identity.create({
   name: 'SupportBot-X',
@@ -89,17 +88,17 @@ Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` lo
 | Presigned/object-storage adapter | `PresignedHttpDIDDocumentSource` | ✅ |
 | S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
-| EVM registry adapter | `EvmAgentRegistry` + `EthersAgentRegistryContractClient` | ✅ |
+| EVM registry adapter (optional package `@agentdid/evm`) | `EvmAgentRegistry` + `EthersAgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 
 By default, `verifySignature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
 ## Optional EVM Registry Integration
 
-If a deployment explicitly needs the deferred EVM profile, connect the SDK to a real on-chain `AgentRegistry` contract:
+The core SDK has no EVM dependency. If a deployment explicitly needs the deferred EVM profile, install the optional adapter (`npm install @agentdid/evm ethers`) and connect it to a real on-chain `AgentRegistry` contract:
 
 ```ts
-import { EthersAgentRegistryContractClient, EvmAgentRegistry } from '@agentdid/sdk';
+import { EthersAgentRegistryContractClient, EvmAgentRegistry } from '@agentdid/evm';
 import { ethers } from 'ethers';
 
 const provider = new ethers.JsonRpcProvider('http://localhost:8545');
@@ -112,7 +111,7 @@ const registry = new EvmAgentRegistry(client);
 AgentIdentity.setRegistry(registry);
 ```
 
-See full example: [`examples/evm-registry-wiring.ts`](https://github.com/edisonduran/agent-did/blob/main/sdk/examples/evm-registry-wiring.ts)
+See full example: [`evm/examples/evm-registry-wiring.ts`](https://github.com/edisonduran/agent-did/blob/main/evm/examples/evm-registry-wiring.ts)
 
 ## Production Resolver
 

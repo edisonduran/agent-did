@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from pydantic import BaseModel
 
 from agent_did_crewai import PACKAGE_STATUS, create_agent_did_crewai_integration
@@ -11,7 +11,7 @@ from agent_did_crewai.tools import _load_crewai_basetool_class
 @pytest.mark.asyncio
 async def test_factory_returns_expected_integration_object() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9191919191919191919191919191919191919191"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewBot",
@@ -65,7 +65,7 @@ async def test_factory_adapts_tools_to_runtime_basetool_when_available(monkeypat
     monkeypatch.setattr(crewai_tools_module, "_load_crewai_basetool_class", lambda: FakeBaseTool)
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9393939393939393939393939393939393939393"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewRuntimeAdapterBot",
@@ -92,7 +92,7 @@ async def test_factory_adapts_tools_to_runtime_basetool_when_available(monkeypat
 @pytest.mark.asyncio
 async def test_tool_set_tracks_requested_exposure() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9292929292929292929292929292929292929292"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewExposureBot",

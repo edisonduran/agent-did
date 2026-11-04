@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from agent_did_sdk import InMemoryAgentRegistry
+from agent_did_sdk import InMemoryAgentRegistry, LocalKeySigner
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.types import CreateAgentParams, UpdateAgentDocumentParams
 from agent_did_sdk.crypto.hash import (
@@ -34,7 +34,7 @@ def vectors() -> dict:
 def identity() -> AgentIdentity:
     AgentIdentity.set_resolver(InMemoryDIDResolver())
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    return AgentIdentity(AgentIdentityConfig(signer_address="0xCommitmentController1234567890"))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
 
 def _params(**overrides: str) -> CreateAgentParams:
