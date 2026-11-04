@@ -19,6 +19,8 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Added
 
+- [docs/Threat-Model.md](docs/Threat-Model.md) (M-15): STRIDE threat model of creation, log publication, resolution, HTTP signing, A2A handoff and revocation, with the residual risks that remain after the rc.3 fixes. `docs/S1-3-Adversarial-Review-Crypto-Signing.md` is now labeled historical and gains a post-rc.3 addendum; RFC-001 gains an informative §8.1 (security considerations by flow). `SECURITY.md` links the model and drops its stale "no fuzzing" limitation.
+
 - Property tests and fuzzing of the input parsers (M-14): `fast-check` (`sdk/tests/Fuzz.property.test.ts`) and `hypothesis` (`sdk-python/tests/test_fuzz_properties.py`) cover the `Signature-Input` / `Signature` Structured Fields parsers, `did.jsonl` resolution (arbitrary text, arbitrary JSON lines, mutated and truncated valid logs) and `publicKeyMultibase`. Malformed input must only raise the documented error type; valid input must round-trip. The new `CI — Fuzz` workflow runs them nightly with a much larger budget.
 - `decodePublicKeyMultibase` / `decode_public_key_multibase` reject an empty string with the documented error (Python raised `IndexError`, found by the new fuzzing).
 - `CI — Structured Field Tests` workflow: runs the [`httpwg/structured-field-tests`](https://github.com/httpwg/structured-field-tests) (RFC 8941) dictionary cases, pinned in `fixtures/structured-field-tests.json`, through the `Signature-Input` and `Signature` parsers of both SDKs: malformed input is rejected, valid input inside the accepted subset parses to the expected value and valid input outside it is rejected. Both SDKs also reproduce the RFC 9530 `Content-Digest` example. Tests only; no behavior change.

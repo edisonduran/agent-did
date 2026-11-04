@@ -318,6 +318,18 @@ Recommended full validation command:
 6. **Do not overclaim signature semantics:** a valid Agent-DID signature proves authorized caller identity, not reasoning correctness or policy soundness.
 7. **Reasoning privacy by default:** full chain-of-thought or planner-state disclosure is out of scope; if decision provenance is needed, prefer bounded execution receipts and hashed references.
 
+### 8.1 Security considerations by flow (informative)
+
+The full STRIDE analysis is in [Threat-Model.md](Threat-Model.md). Implementers and verifiers SHOULD read it; the points below are the ones that most affect interoperable behavior.
+
+1. **Authentication is not trust.** A valid signature proves control of a DID, not that the DID deserves access. Verifiers MUST authorize DIDs themselves.
+2. **Verify the whole log.** A `did:webvh` log MUST be verified in full (SCID, `entryHash` chain, proofs, `updateKeys` authorization) before any of its state is used. An integrity failure MUST NOT fall back to another resolution source.
+3. **Freshness is not authenticated.** A log host can serve an older valid prefix or withhold new entries. Verifiers SHOULD bound resolver cache lifetime; for emergency revocation, see the `max_emergency_propagation_window` in the A2A composition contract.
+4. **Replay state is the verifier's.** Verifiers MUST record `(keyid, nonce)` until `expires` after the signature verifies, in a store shared by all verifier instances.
+5. **Time is signer-asserted.** `created` and log `versionTime` are not trusted timestamps; do not infer "signed before compromise" from them alone.
+6. **Controller key custody.** Compromise of the controller key allows an attacker to rotate or deactivate the identity, and without pre-rotation there is no in-protocol recovery. Protect it with an HSM or KMS.
+7. **Commitment salts** are secrets of the controller; leaking one re-enables guessing of the committed value.
+
 ---
 
 ## 9. Reference Use Cases
