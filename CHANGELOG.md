@@ -10,6 +10,10 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Changed
+
+- Hardened HTTP target validation in both SDKs: all non-globally-routable IPv4 and IPv6 ranges are now rejected, with identical results in TypeScript and Python. The default TypeScript fetch no longer follows redirects, so a 3xx response is reported as a non-OK status. Callers that pass their own `fetchFn` keep their own redirect policy.
+
 ### Planned (path to 1.0.0)
 
 See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.4`:

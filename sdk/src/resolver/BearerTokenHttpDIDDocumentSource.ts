@@ -1,3 +1,4 @@
+import { noRedirectFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
 import { DIDDocumentSource } from './types';
@@ -60,7 +61,7 @@ export class BearerTokenHttpDIDDocumentSource implements DIDDocumentSource {
   }
 
   private createAuthenticatedFetchFn(config: BearerTokenHttpDIDDocumentSourceConfig): FetchLike {
-    const baseFetch = config.fetchFn || (globalThis.fetch as unknown as FetchLike);
+    const baseFetch = config.fetchFn || (noRedirectFetch as unknown as FetchLike);
     if (!baseFetch) {
       throw new Error('No fetch implementation available for BearerTokenHttpDIDDocumentSource');
     }

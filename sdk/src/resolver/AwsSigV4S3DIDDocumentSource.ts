@@ -1,3 +1,4 @@
+import { noRedirectFetch } from '../core/safe-fetch';
 import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
@@ -52,7 +53,7 @@ export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
   }
 
   private createSignedFetchFn(config: AwsSigV4S3DIDDocumentSourceConfig): FetchLike {
-    const baseFetch = config.fetchFn || (globalThis.fetch as unknown as FetchLike);
+    const baseFetch = config.fetchFn || (noRedirectFetch as unknown as FetchLike);
     if (!baseFetch) {
       throw new Error('No fetch implementation available for AwsSigV4S3DIDDocumentSource');
     }
