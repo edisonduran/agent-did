@@ -1,0 +1,48 @@
+{
+  "description": "Agent-DID documents that exercise every term of contexts/v1.jsonld, including the ones the did:webvh log vectors do not use. scripts/check-jsonld-context.js expands them in safe mode.",
+  "documents": [
+    {
+      "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
+      "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+      "controller": "did:webvh:QmControllerScid:controller.example.com",
+      "created": "2026-02-22T14:00:00Z",
+      "updated": "2026-02-23T09:30:00Z",
+      "agentMetadata": {
+        "name": "SupportBot-X",
+        "description": "Level 1 technical support agent",
+        "version": "1.0.0",
+        "coreModelHash": "hash://sha256/0000000000000000000000000000000000000000000000000000000000000000",
+        "systemPromptHash": "hash://hmac-sha256/1111111111111111111111111111111111111111111111111111111111111111",
+        "capabilities": ["read:kb", "write:ticket"],
+        "memberOf": "did:webvh:QmFleetScid:example.com:fleets:support"
+      },
+      "complianceCertifications": [
+        {
+          "type": "VerifiableCredential",
+          "issuer": "did:webvh:QmAuditorScid:trust.example:auditors:trustcorp",
+          "credentialSubject": "SOC2-AI-Compliance",
+          "proofHash": "ipfs://QmExampleProof"
+        }
+      ],
+      "verificationMethod": [
+        {
+          "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:webvh:QmControllerScid:controller.example.com",
+          "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+          "deactivated": "2026-02-23T09:30:00Z"
+        },
+        {
+          "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#evm-1",
+          "type": "EcdsaSecp256k1RecoveryMethod2020",
+          "controller": "did:webvh:QmControllerScid:controller.example.com",
+          "blockchainAccountId": "eip155:1:0xab16a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb"
+        }
+      ],
+      "authentication": ["did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"],
+      "assertionMethod": ["did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"],
+      "capabilityDelegation": ["did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"],
+      "capabilityInvocation": ["did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"]
+    }
+  ]
+}

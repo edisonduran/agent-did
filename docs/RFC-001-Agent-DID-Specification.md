@@ -115,6 +115,15 @@ Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients)
 }
 ```
 
+#### 4.1.1 The `https://agent-did.org/v1` context
+
+The context is defined by [`contexts/v1.jsonld`](../contexts/v1.jsonld) (decision: [ADR-003](ADR-003-JSON-LD-Context-and-agentMetadata.md)). It defines the Agent-DID terms (`agentMetadata` and its members, `complianceCertifications`, `blockchainAccountId`, `deactivated`) and the terms and types that the W3C DID v1 context lacks and that this RFC uses (`created`, `updated`, `publicKeyMultibase`, `Ed25519VerificationKey2020`, `Multikey`, `EcdsaSecp256k1RecoveryMethod2020`).
+
+- A published context version is immutable. Its SHA-256 is pinned in `contexts/v1.jsonld.sha256`; a change to any term requires a new version at a new URL.
+- Verifiers that process JSON-LD SHOULD use the pinned copy instead of fetching the URL. Agent-DID verification itself does not require JSON-LD processing: documents are hashed as JSON with JCS (§6.1), so an implementation conforms without a JSON-LD processor.
+- Until `https://agent-did.org/v1` is served with the pinned bytes, the repository copy is the only normative source.
+- `agentMetadata` is a property of the DID document. Representing it as a controller-issued Verifiable Credential is not part of 1.0.
+
 ### 4.2 Normative Field Definitions
 
 | Field | Requirement | Description |
