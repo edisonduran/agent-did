@@ -2,7 +2,7 @@
 
 Agent-DID signs HTTP requests with [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures. This page describes the Agent-DID profile and how verifiers prevent replay. The normative text is RFC-001 §6.5.
 
-> Applies to the `1.0.0-rc.3` train (`main`). The `1.0.0-rc.2` and earlier releases used an `X-Request-Nonce` header and a different signature base; see the rc.2 → rc.3 migration guides.
+> Applies to `1.0.0-rc.3` and later (unchanged in `1.0.0-rc.4`). The `1.0.0-rc.2` and earlier releases used an `X-Request-Nonce` header and a different signature base; see the rc.2 → rc.3 migration guides.
 
 ## The Agent-DID profile
 

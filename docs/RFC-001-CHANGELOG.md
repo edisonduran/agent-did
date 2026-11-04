@@ -6,7 +6,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
-## [1.0-rc.4] - Unreleased (1.0.0-rc.4 train)
+## [1.0-rc.4] - 2026-11-04 (1.0.0-rc.4)
 
 ### Decision Trigger
 
@@ -31,7 +31,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
-## [http-signatures-rfc9421] - Unreleased (1.0.0-rc.3 train)
+## [http-signatures-rfc9421] - 2026-11-03 (1.0.0-rc.3)
 
 ### Decision Trigger
 
@@ -44,7 +44,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
-## [metadata-commitments-hmac] - Unreleased (1.0.0-rc.3 train)
+## [metadata-commitments-hmac] - 2026-11-03 (1.0.0-rc.3)
 
 ### Decision Trigger
 
@@ -57,7 +57,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
-## [errata-document-ref-verification] - Unreleased (1.0.0-rc.3 train)
+## [errata-document-ref-verification] - 2026-11-03 (1.0.0-rc.3)
 
 ### Decision Trigger
 
@@ -69,7 +69,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
-## [errata-document-ref-jcs] - Unreleased (1.0.0-rc.3 train)
+## [errata-document-ref-jcs] - 2026-11-03 (1.0.0-rc.3)
 
 ### Decision Trigger
 

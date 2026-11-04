@@ -29,8 +29,8 @@ This index is the fast path through the repository documentation.
 | [RELEASE-1.0-INTEGRATION-EVIDENCE.md](RELEASE-1.0-INTEGRATION-EVIDENCE.md) | Contributors, Reviewers, Maintainers | Draft | Release evidence matrix for the shipped integrations, used in place of synthetic adapter-only coverage thresholds. |
 | [../sdk/MIGRATION-0.x-to-1.0.md](../sdk/MIGRATION-0.x-to-1.0.md) | Users, Contributors | Draft | Migration guide for TypeScript SDK adopters moving from `0.x` assumptions to the core `1.0.0` web-native path. |
 | [../sdk-python/MIGRATION-0.x-to-1.0.md](../sdk-python/MIGRATION-0.x-to-1.0.md) | Users, Contributors | Draft | Migration guide for Python SDK adopters moving from `0.x` assumptions to the core `1.0.0` web-native path. |
-| [../sdk/MIGRATION-1.0-rc.2-to-rc.3.md](../sdk/MIGRATION-1.0-rc.2-to-rc.3.md) | Users, Contributors | Draft | Breaking changes in the TypeScript SDK between `1.0.0-rc.2` and `1.0.0-rc.3` (updated as they land). |
-| [../sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](../sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md) | Users, Contributors | Draft | Breaking changes in the Python SDK between `1.0.0rc2` and `1.0.0rc3` (updated as they land). |
+| [../sdk/MIGRATION-1.0-rc.2-to-rc.3.md](../sdk/MIGRATION-1.0-rc.2-to-rc.3.md) | Users, Contributors | Active | Breaking changes in the TypeScript SDK between `1.0.0-rc.2` and `1.0.0-rc.3`. |
+| [../sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](../sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md) | Users, Contributors | Active | Breaking changes in the Python SDK between `1.0.0rc2` and `1.0.0rc3`. |
 | [../sdk/MIGRATION-1.0-rc.3-to-rc.4.md](../sdk/MIGRATION-1.0-rc.3-to-rc.4.md) | Users, Contributors | Active | Breaking changes in the TypeScript SDK between `1.0.0-rc.3` and `1.0.0-rc.4` (API only; no wire changes). |
 | [../sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md](../sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md) | Users, Contributors | Active | Breaking changes in the Python SDK between `1.0.0rc3` and `1.0.0rc4` (API only; no wire changes). |
 
