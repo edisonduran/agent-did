@@ -1,0 +1,6 @@
+{
+  "description": "Third-party did:webvh resolver used by scripts/third-party-resolver/run.js (M-17). Pinned deliberately; update with a reason, never to make a run pass.",
+  "driver": "decentralized-identity/uni-resolver-driver-did-webvh",
+  "image": "ghcr.io/decentralized-identity/uni-resolver-driver-did-webvh:v2.8.0-fe75eab",
+  "pinnedFrom": "decentralized-identity/universal-resolver docker-compose.yml"
+}
