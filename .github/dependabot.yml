@@ -1,10 +1,13 @@
+# Dependabot configuration.
+# - evm/ and contracts/ are deferred outside core 1.0 and are intentionally not tracked.
+# - Major bumps of crypto/encoding deps and TypeScript are applied manually (wire/parity impact).
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(ci)"
     groups:
@@ -15,7 +18,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -27,7 +30,7 @@ updates:
     directory: "/sdk"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -35,35 +38,20 @@ updates:
         update-types:
           - "minor"
           - "patch"
-  - package-ecosystem: "npm"
-    directory: "/evm"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-  - package-ecosystem: "npm"
-    directory: "/contracts"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+    ignore:
+      - dependency-name: "@noble/curves"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@noble/hashes"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "multiformats"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/integrations/langchain"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -71,11 +59,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "pip"
     directory: "/sdk-python"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -87,59 +78,54 @@ updates:
     directory: "/integrations/a2a"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      python-deps:
+        patterns:
+          - "*"
   - package-ecosystem: "pip"
     directory: "/integrations/crewai"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      python-deps:
+        patterns:
+          - "*"
   - package-ecosystem: "pip"
     directory: "/integrations/langchain-python"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      python-deps:
+        patterns:
+          - "*"
   - package-ecosystem: "pip"
     directory: "/integrations/microsoft-agent-framework"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      python-deps:
+        patterns:
+          - "*"
   - package-ecosystem: "pip"
     directory: "/integrations/semantic-kernel"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      python-deps:
+        patterns:
+          - "*"
