@@ -52,7 +52,7 @@ jobs:
         run: |
           mkdir smoke && cd smoke
           npm init -y > /dev/null
-          npm install --no-audit --no-fund "@agentdid/sdk@${NPM_VERSION}" "@agentdid/langchain@${NPM_VERSION}" ethers
+          npm install --no-audit --no-fund "@agentdid/sdk@${NPM_VERSION}" "@agentdid/langchain@${NPM_VERSION}"
           node -p "'@agentdid/sdk ' + require('@agentdid/sdk/package.json').version"
           node -p "'@agentdid/langchain ' + require('@agentdid/langchain/package.json').version"
 
@@ -61,12 +61,11 @@ jobs:
         run: |
           cat > quickstart.js <<'EOF'
           const assert = require('node:assert');
-          const { AgentIdentity, InMemoryAgentRegistry } = require('@agentdid/sdk');
-          const { ethers } = require('ethers');
+          const { AgentIdentity, InMemoryAgentRegistry, LocalKeySigner } = require('@agentdid/sdk');
 
           const main = async () => {
             AgentIdentity.setRegistry(new InMemoryAgentRegistry());
-            const identity = new AgentIdentity({ signer: ethers.Wallet.createRandom() });
+            const identity = new AgentIdentity({ controllerSigner: LocalKeySigner.generate()[0] });
             const created = await identity.create({ name: 'quickstart-bot', coreModel: 'gpt-4.1-mini', systemPrompt: 'Sign outbound API requests.' });
             const request = { method: 'POST', url: 'https://api.example.com/tasks', body: '{"taskId":7}' };
             const headers = await identity.signHttpRequest({ ...request, agentPrivateKey: created.agentPrivateKey, agentDid: created.document.id });
@@ -123,11 +122,11 @@ jobs:
         run: |
           cat > quickstart.py <<'EOF'
           import asyncio
-          from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, SignHttpRequestParams, VerifyHttpRequestSignatureParams
+          from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner, SignHttpRequestParams, VerifyHttpRequestSignatureParams
 
           async def main() -> None:
               AgentIdentity.set_registry(InMemoryAgentRegistry())
-              identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9292929292929292929292929292929292929292"))
+              identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
               created = await identity.create(CreateAgentParams(name="quickstart-bot", core_model="gpt-4.1-mini", system_prompt="Sign outbound API requests."))
               request = {"method": "POST", "url": "https://api.example.com/tasks", "body": '{"taskId":7}'}
               headers = await identity.sign_http_request(SignHttpRequestParams(**request, agent_private_key=created.agent_private_key, agent_did=created.document.id))
