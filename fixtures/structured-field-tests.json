@@ -1,0 +1,8 @@
+{
+  "description": "Pinned httpwg/structured-field-tests revision and the known deviations of the Signature-Input / Signature parsers (RFC 9421 §4.1, §4.2) from it. CI checks the suite out at `commit` and runs sdk/tests/StructuredFieldTests.test.ts and sdk-python/tests/test_structured_field_tests.py with STRUCTURED_FIELD_TESTS_DIR pointing at it (M-12, external conformance matrix row RFC 8941).",
+  "repository": "https://github.com/httpwg/structured-field-tests",
+  "commit": "10781e4a59c387853c900cc06cdd8a3fd7ae4134",
+  "files": ["dictionary.json", "param-dict.json", "key-generated.json", "examples.json"],
+  "method": "Every test whose header_type is `dictionary` runs through both wrappers. must_fail cases must be rejected; can_fail cases are skipped. A valid case that fits the wrapper's accepted subset (Signature: byte-sequence members without parameters; Signature-Input: inner lists of parameterless strings whose parameters are integers, strings, tokens or booleans) must parse to exactly the expected value; a valid case outside the subset must be rejected, never silently coerced.",
+  "exceptions": {}
+}

@@ -12,7 +12,7 @@ This matrix records what Agent-DID can prove against **external** specifications
 
 ## Matrix
 
-Status as of `1.0.0-rc.3` plus main on 2026-11-04.
+Status as of `1.0.0-rc.3` plus main on 2026-11-04. A row marked "(scoped)" is PASS only for the stated scope.
 
 | Specification | Scope | Status | External evidence | CI job |
 |---|---|---|---|---|
@@ -21,8 +21,8 @@ Status as of `1.0.0-rc.3` plus main on 2026-11-04.
 | RFC 9421 (HTTP Message Signatures) | Ed25519 signature base and signature | PASS | Appendix B.1.4 key and B.2.6 request: both SDKs reproduce the signature base and the Ed25519 signature byte for byte (`sdk/tests/HttpSignatures.test.ts`, `sdk-python/tests/test_http_signatures.py`). | [`ci.yml`](../.github/workflows/ci.yml): `validate`; [`ci-python.yml`](../.github/workflows/ci-python.yml): `python-sdk` |
 | RFC 9421 | Cross-verification with independent implementations | PASS | Requests signed by us verify with npm `http-message-signatures` 1.0.6 and PyPI `http-message-signatures` 3.0.0, and requests signed by those libraries verify with us (`HttpSignaturesInterop.test.ts`, `test_http_signatures_interop.py`). The libraries are dev dependencies. | `ci.yml`: `validate`; `ci-python.yml`: `python-sdk` |
 | RFC 8785 (JCS) | Canonical JSON used for hashing | PASS | `fixtures/jcs-vectors.json`: the authors' reference documents from [`cyberphone/json-canonicalization`](https://github.com/cyberphone/json-canonicalization/tree/master/testdata) and the RFC 8785 Appendix B number vectors, run by both SDKs, including the values that must be rejected. | `ci-cross-sdk-interop.yml`: `typescript-interop`, `python-interop` |
-| RFC 9530 (Digest Fields) | `Content-Digest` with SHA-256 | PARTIAL | `Content-Digest` produced by us is accepted by the independent RFC 9421 libraries above, and those libraries' digests are accepted by us. There is no official RFC 9530 vector set in CI; the examples in the RFC are not yet encoded as tests. | `ci.yml`: `validate`; `ci-python.yml`: `python-sdk` |
-| RFC 8941 (Structured Field Values) | Parsing of `Signature-Input` and `Signature` | NOT COVERED | Parsing delegates to maintained libraries (`structured-headers`, `http-sf`). The [`httpwg/structured-field-tests`](https://github.com/httpwg/structured-field-tests) suite is not run against our wrappers. Fuzzing is planned in M-14. | none |
+| RFC 9530 (Digest Fields) | `Content-Digest` with SHA-256 | PASS | The RFC's example (SHA-256 of `{"hello": "world"}`) is reproduced by both SDKs (`HttpSignatures.test.ts`, `test_http_signatures.py`). Digests produced by us are also accepted by the independent RFC 9421 libraries above, and theirs by us. Only SHA-256 is implemented; other algorithms are out of scope and not claimed. | `ci.yml`: `validate`; `ci-python.yml`: `python-sdk` |
+| RFC 8941 (Structured Field Values) | Parsing of `Signature-Input` and `Signature` | PASS (scoped) | [`httpwg/structured-field-tests`](https://github.com/httpwg/structured-field-tests) pinned in `fixtures/structured-field-tests.json`: all `dictionary` cases (`dictionary`, `param-dict`, `key-generated`, `examples`; 431 per SDK) run through both wrappers. Malformed input is rejected; valid input inside the accepted subset parses to the expected value; valid input outside it (for example members that are not byte sequences, parameterised component identifiers, dates) is rejected. Scope: the two RFC 9421 dictionaries only, not general RFC 8941 parsing, which stays with the maintained libraries (`structured-headers`, `http-sf`). Fuzzing is planned in M-14. | [`ci-structured-field-tests.yml`](../.github/workflows/ci-structured-field-tests.yml): `typescript`, `python` |
 | W3C DID Core | Structure of the resolved DID document | NOT COVERED | The did:webvh test suite checks the documents that the resolved vectors contain, but no DID Core validator or W3C test suite is run on documents created by `AgentIdentity`. | none |
 
 ## Release criteria mapping
