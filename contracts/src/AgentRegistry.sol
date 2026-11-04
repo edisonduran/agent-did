@@ -109,7 +109,7 @@ contract AgentRegistry {
         emit DocumentReferenceUpdated(did, documentRef, msg.sender);
     }
 
-    function revokeAgent(string calldata did) external whenNotPaused {
+    function revokeAgent(string calldata did) external {
         AgentRecord storage record = records[did];
 
         require(record.exists, "not found");

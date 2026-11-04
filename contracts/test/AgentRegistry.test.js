@@ -137,6 +137,14 @@ describe('AgentRegistry', function () {
       ).to.be.revertedWith('contract paused');
     });
 
+    it('should still allow revocation while paused', async function () {
+      await registry.registerAgentWithDocument(DID, CONTROLLER, DOC_REF);
+      await registry.pause();
+      await registry.revokeAgent(DID);
+      const record = await registry.getAgentRecord(DID);
+      expect(record.revokedAt).to.not.equal('');
+    });
+
     it('should resume after unpause', async function () {
       await registry.pause();
       await registry.unpause();
