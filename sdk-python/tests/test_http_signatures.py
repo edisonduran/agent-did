@@ -118,13 +118,21 @@ class TestRfc9421Primitives:
             'S=("@method")',
             's=("@method"),',
             "s",
+            "s=1",
+            "s=(@method)",
+            's=("@method");created=:AAAA:',
+            's=("@method");created=@1',
         ],
     )
     def test_rejects_malformed_signature_input(self, value: str) -> None:
         with pytest.raises(HttpSignatureError):
             parse_signature_input_header(value)
 
-    @pytest.mark.parametrize("value", ["s=:@@@@:", "s=:AAAA", 's="x"'])
+    def test_does_not_mistake_semicolons_inside_strings_for_parameters(self) -> None:
+        parsed = parse_signature_input_header('s=("a;b");keyid="x;\\"y;z";tag="t"')
+        assert parsed["s"].params == [("keyid", 'x;"y;z'), ("tag", "t")]
+
+    @pytest.mark.parametrize("value", ["s=:@@@@:", "s=:AAAA", 's="x"', "s=:AAAA:;x=1", "s=(:AAAA:)"])
     def test_rejects_malformed_signature(self, value: str) -> None:
         with pytest.raises(HttpSignatureError):
             parse_signature_header(value)
