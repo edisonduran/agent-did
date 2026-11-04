@@ -12,6 +12,7 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Documentation
 
+- **Historical documents moved to `docs/archive/`** (M-21). F1-/F2- design docs, plans and maturity-gap assessments, the strategic assessments, the outreach plan, the analysis reports and the 92 KB research report formerly at the repository root now live under `docs/archive/`, each with a historical banner. Documents still referenced by CI or governance (parity matrices, checklists) stay live. `docs/INDEX.md` lists the archive in its own section.
 - **Conformance headline is external evidence** (M-20). The README, `sdk/README.md`, `CONTRIBUTING.md`, the compliance checklist and the release criteria no longer present "11/11 MUST" as the headline; they point to the External Conformance Matrix and state that the checklist is a self-assessment against RFC-001. A matrix badge replaces the claim in the README header.
 
 ### Changed (breaking)

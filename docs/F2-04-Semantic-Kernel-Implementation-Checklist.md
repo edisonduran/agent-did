@@ -12,7 +12,7 @@ Use this checklist when implementation work starts or when a PR changes the pack
 
 - [x] The package declares itself as `functional` and that status matches the shipped integration surface.
 - [x] `integrations/semantic-kernel/README.md` no longer describes the Python SDK as future work.
-- [x] `docs/F2-04-Semantic-Kernel-Integration-Design.md` still matches the intended runtime surface.
+- [x] `docs/archive/F2-04-Semantic-Kernel-Integration-Design.md` still matches the intended runtime surface.
 - [x] RC metadata stays aligned with the coordinated `1.0.0rc3` release train and the package now carries the frozen `agent-did-sdk==1.0.0rc3` dependency floor expected for the core RC.
 
 ---

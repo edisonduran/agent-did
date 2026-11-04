@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F2-05 - Diseno de Integracion con CrewAI
 
 ## Objetivo
@@ -8,8 +10,8 @@ Consolidar una integracion de Agent-DID para CrewAI orientada a Python, alineada
 
 - Roadmap item: F2-05
 - Estado: integracion funcional con toolkit de tools, observabilidad estructurada, callbacks, guardrails y outputs estructurados
-- Paquete base: [../integrations/crewai/README.md](../integrations/crewai/README.md)
-- Referencia funcional existente: [../integrations/langchain/README.md](../integrations/langchain/README.md)
+- Paquete base: [../integrations/crewai/README.md](../../integrations/crewai/README.md)
+- Referencia funcional existente: [../integrations/langchain/README.md](../../integrations/langchain/README.md)
 - Decision actual: mantener la cobertura funcional sobre tools, callbacks, guardrails y helpers explicitos de `Agent`, `Task` y `Crew`
 
 ## Hallazgos de investigacion
@@ -94,4 +96,4 @@ F2-05 se considera implementado en el alcance actual del repo: existe un paquete
 
 - Checklist de implementacion: `docs/F2-05-CrewAI-Implementation-Checklist.md`
 - Checklist de review: `docs/F2-05-CrewAI-Integration-Review-Checklist.md`
-- Evaluacion de madurez y gaps restantes: `docs/F2-05-CrewAI-Maturity-Gap-Assessment.md`
+- Evaluacion de madurez y gaps restantes: `docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md`

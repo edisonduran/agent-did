@@ -364,7 +364,7 @@ El objeto devuelto expone:
 
 La ejecucion del scaffold a paquete funcional esta desglosada en [../../docs/F1-03-LangChain-Python-Implementation-Checklist.md](../../docs/F1-03-LangChain-Python-Implementation-Checklist.md).
 
-El plan tecnico cerrado por archivos, versiones objetivo y criterios de aceptacion esta en [../../docs/F1-03-LangChain-Python-Technical-Plan.md](../../docs/F1-03-LangChain-Python-Technical-Plan.md).
+El plan tecnico cerrado por archivos, versiones objetivo y criterios de aceptacion esta en [../../docs/archive/F1-03-LangChain-Python-Technical-Plan.md](../../docs/archive/F1-03-LangChain-Python-Technical-Plan.md).
 
 ## Componentes principales
 
@@ -457,5 +457,5 @@ npm run test:langchain-python
 ## Referencias
 
 - Integracion JS funcional: [../langchain/README.md](../langchain/README.md)
-- Documento de diseno: [../../docs/F1-03-LangChain-Python-Integration-Design.md](../../docs/F1-03-LangChain-Python-Integration-Design.md)
+- Documento de diseno: [../../docs/archive/F1-03-LangChain-Python-Integration-Design.md](../../docs/archive/F1-03-LangChain-Python-Integration-Design.md)
 - Documentacion oficial: https://docs.langchain.com/oss/python/langchain/overview

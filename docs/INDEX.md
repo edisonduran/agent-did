@@ -62,15 +62,12 @@ This index is the fast path through the repository documentation.
 | [F1-03-LangChain-Integration-Parity-Review-Checklist.md](F1-03-LangChain-Integration-Parity-Review-Checklist.md) | Contributors, Reviewers | Stable | Review checklist for TS/Python LangChain parity and governance. |
 | [F1-03-LangChain-TS-Python-Integration-Parity-Matrix.md](F1-03-LangChain-TS-Python-Integration-Parity-Matrix.md) | Contributors, Reviewers | Stable | Matrix of feature parity across LangChain TS and Python integrations. |
 | [F1-03-LangChain-Python-Implementation-Checklist.md](F1-03-LangChain-Python-Implementation-Checklist.md) | Contributors, Reviewers | Stable | Checklist for delivered LangChain Python implementation scope. |
-| [F1-03-LangChain-Python-Integration-Design.md](F1-03-LangChain-Python-Integration-Design.md) | Contributors, Reviewers | Draft | Integration design rationale for LangChain Python. |
-| [F1-03-LangChain-Python-Technical-Plan.md](F1-03-LangChain-Python-Technical-Plan.md) | Contributors, Reviewers | Draft | Technical planning notes for LangChain Python work. |
 | [F1-03-LangChain-didwba-Demo-Walkthrough.md](F1-03-LangChain-didwba-Demo-Walkthrough.md) | Users, Contributors | Draft | Walkthrough of the `did:wba` LangChain demonstration. |
 
 ## Python SDK Parity and Core SDK Planning
 
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
-| [F2-01-Python-SDK-Blueprint.md](F2-01-Python-SDK-Blueprint.md) | Contributors, Reviewers | Draft | Blueprint and design notes for the Python SDK. |
 | [F2-01-TS-Python-Parity-Matrix.md](F2-01-TS-Python-Parity-Matrix.md) | Contributors, Reviewers | Stable | Cross-SDK parity matrix between TypeScript and Python. |
 
 ## Semantic Kernel Governance
@@ -78,9 +75,7 @@ This index is the fast path through the repository documentation.
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
 | [F2-04-Semantic-Kernel-Implementation-Checklist.md](F2-04-Semantic-Kernel-Implementation-Checklist.md) | Contributors, Reviewers | Stable | Delivery checklist for the Semantic Kernel integration. |
-| [F2-04-Semantic-Kernel-Integration-Design.md](F2-04-Semantic-Kernel-Integration-Design.md) | Contributors, Reviewers | Draft | Design notes for Semantic Kernel integration choices. |
 | [F2-04-Semantic-Kernel-Integration-Review-Checklist.md](F2-04-Semantic-Kernel-Integration-Review-Checklist.md) | Contributors, Reviewers | Stable | Review checklist for shipped Semantic Kernel behavior. |
-| [F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md](F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md) | Contributors, Reviewers | Stable | Gap assessment between current and target Semantic Kernel maturity. |
 | [F2-04-Semantic-Kernel-Parity-Matrix.md](F2-04-Semantic-Kernel-Parity-Matrix.md) | Contributors, Reviewers | Stable | Matrix of integration coverage and parity expectations. |
 
 ## CrewAI Governance
@@ -88,41 +83,50 @@ This index is the fast path through the repository documentation.
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
 | [F2-05-CrewAI-Implementation-Checklist.md](F2-05-CrewAI-Implementation-Checklist.md) | Contributors, Reviewers | Stable | Delivery checklist for the CrewAI integration. |
-| [F2-05-CrewAI-Integration-Design.md](F2-05-CrewAI-Integration-Design.md) | Contributors, Reviewers | Draft | Design notes for CrewAI integration decisions. |
 | [F2-05-CrewAI-Integration-Review-Checklist.md](F2-05-CrewAI-Integration-Review-Checklist.md) | Contributors, Reviewers | Stable | Review checklist for CrewAI integration quality. |
-| [F2-05-CrewAI-LangChain-Maturity-Rubric.md](F2-05-CrewAI-LangChain-Maturity-Rubric.md) | Contributors, Reviewers | Stable | Comparative rubric for CrewAI and LangChain maturity. |
-| [F2-05-CrewAI-Maturity-Gap-Assessment.md](F2-05-CrewAI-Maturity-Gap-Assessment.md) | Contributors, Reviewers | Stable | Current gap assessment for CrewAI integration maturity. |
 
 ## Microsoft Agent Framework Governance
 
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
 | [F2-09-Microsoft-Agent-Framework-Implementation-Checklist.md](F2-09-Microsoft-Agent-Framework-Implementation-Checklist.md) | Contributors, Reviewers | Stable | Delivery checklist for the Microsoft Agent Framework integration. |
-| [F2-09-Microsoft-Agent-Framework-Integration-Design.md](F2-09-Microsoft-Agent-Framework-Integration-Design.md) | Contributors, Reviewers | Draft | Design notes for Microsoft Agent Framework integration. |
 | [F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md](F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md) | Contributors, Reviewers | Stable | Review checklist for Microsoft Agent Framework behavior. |
-| [F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md](F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md) | Contributors, Reviewers | Stable | Gap assessment for Microsoft Agent Framework maturity. |
 | [F2-09-Microsoft-Agent-Framework-Parity-Matrix.md](F2-09-Microsoft-Agent-Framework-Parity-Matrix.md) | Contributors, Reviewers | Stable | Matrix of feature coverage and parity expectations. |
 
 ## Training and Narrative Material
 
 | Document | Audience | Status | Purpose |
 |---|---|---|---|
-| [Estrategia-Divulgacion-2-Semanas-Agent-DID.md](Estrategia-Divulgacion-2-Semanas-Agent-DID.md) | Contributors, Reviewers | Draft | Defines the minimum visibility, outreach gates, and trigger conditions for post-pivot project communication. |
 | [Complete-Agent-DID-SDK-Course-EN.md](Complete-Agent-DID-SDK-Course-EN.md) | Users, Contributors | Draft | Long-form English training course for the SDK and RFC. |
 | [Complete-Agent-DID-SDK-Course-ES.md](Complete-Agent-DID-SDK-Course-ES.md) | Users, Contributors | Draft | Long-form Spanish training course for the SDK and RFC. |
 | [RFC-001-2h-Practical-Course.md](RFC-001-2h-Practical-Course.md) | Users, Contributors | Draft | Practical workshop-style learning material for RFC-001. |
 | [RFC-001-Training-Manual.md](RFC-001-Training-Manual.md) | Users, Contributors | Draft | Training manual for onboarding and internal teaching. |
-| [Strategic-Assessment-Agent-DID-EN.md](Strategic-Assessment-Agent-DID-EN.md) | Users, Contributors, Reviewers | Draft | English strategic framing of the project and its positioning. |
-| [Strategic-Assessment-Agent-DID-ES.md](Strategic-Assessment-Agent-DID-ES.md) | Users, Contributors, Reviewers | Draft | Spanish strategic framing of the project and its positioning. |
 
-## Historical Analysis and Critique
-
-| Document | Audience | Status | Purpose |
-|---|---|---|---|
-| [Analisis-criticas/Project-Analysis-Report.md](Analisis-criticas/Project-Analysis-Report.md) | Contributors, Reviewers | Historical | Point-in-time analysis retained for background context. |
-| [Analisis-criticas/agent-did-due-diligence-2026-03-29.md](Analisis-criticas/agent-did-due-diligence-2026-03-29.md) | Contributors, Reviewers | Historical | Dated due-diligence snapshot retained for review history. |
 
 ## Notes
 
 - If a live document becomes obsolete and the team decides not to keep it current, it should be relabeled as historical in both the document and this index.
 - For overall project status, start with the repository `README.md`.
+
+## Archive (historical)
+
+Moved out of the live set by M-21. Nothing here is a source of truth; each file carries a banner with its scope. See [archive/README.md](archive/README.md).
+
+| Document | Audience | Status | Purpose |
+|---|---|---|---|
+| [Estrategia-Divulgacion-2-Semanas-Agent-DID.md](archive/Estrategia-Divulgacion-2-Semanas-Agent-DID.md) | Contributors, Reviewers | Historical | Defines the minimum visibility, outreach gates, and trigger conditions for post-pivot project communication. |
+| [F1-03-LangChain-Python-Integration-Design.md](archive/F1-03-LangChain-Python-Integration-Design.md) | Contributors, Reviewers | Historical | Integration design rationale for LangChain Python. |
+| [F1-03-LangChain-Python-Technical-Plan.md](archive/F1-03-LangChain-Python-Technical-Plan.md) | Contributors, Reviewers | Historical | Technical planning notes for LangChain Python work. |
+| [F2-01-Python-SDK-Blueprint.md](archive/F2-01-Python-SDK-Blueprint.md) | Contributors, Reviewers | Historical | Blueprint and design notes for the Python SDK. |
+| [F2-04-Semantic-Kernel-Integration-Design.md](archive/F2-04-Semantic-Kernel-Integration-Design.md) | Contributors, Reviewers | Historical | Design notes for Semantic Kernel integration choices. |
+| [F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md](archive/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md) | Contributors, Reviewers | Historical | Gap assessment between current and target Semantic Kernel maturity. |
+| [F2-05-CrewAI-Integration-Design.md](archive/F2-05-CrewAI-Integration-Design.md) | Contributors, Reviewers | Historical | Design notes for CrewAI integration decisions. |
+| [F2-05-CrewAI-LangChain-Maturity-Rubric.md](archive/F2-05-CrewAI-LangChain-Maturity-Rubric.md) | Contributors, Reviewers | Historical | Comparative rubric for CrewAI and LangChain maturity. |
+| [F2-05-CrewAI-Maturity-Gap-Assessment.md](archive/F2-05-CrewAI-Maturity-Gap-Assessment.md) | Contributors, Reviewers | Historical | Current gap assessment for CrewAI integration maturity. |
+| [F2-09-Microsoft-Agent-Framework-Integration-Design.md](archive/F2-09-Microsoft-Agent-Framework-Integration-Design.md) | Contributors, Reviewers | Historical | Design notes for Microsoft Agent Framework integration. |
+| [F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md](archive/F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md) | Contributors, Reviewers | Historical | Gap assessment for Microsoft Agent Framework maturity. |
+| [Project-Analysis-Report.md](archive/Project-Analysis-Report.md) | Contributors, Reviewers | Historical | Point-in-time analysis retained for background context. |
+| [Strategic-Assessment-Agent-DID-EN.md](archive/Strategic-Assessment-Agent-DID-EN.md) | Users, Contributors, Reviewers | Historical | English strategic framing of the project and its positioning. |
+| [Strategic-Assessment-Agent-DID-ES.md](archive/Strategic-Assessment-Agent-DID-ES.md) | Users, Contributors, Reviewers | Historical | Spanish strategic framing of the project and its positioning. |
+| [agent-did-due-diligence-2026-03-29.md](archive/agent-did-due-diligence-2026-03-29.md) | Contributors, Reviewers | Historical | Dated due-diligence snapshot retained for review history. |
+| [Seguridad-de-Agentes-de-IA-Firma-Digital.md](archive/Seguridad-de-Agentes-de-IA-Firma-Digital.md) | Contributors, Reviewers | Historical | Early research report on AI-agent digital signatures (Spanish), formerly at the repository root. |

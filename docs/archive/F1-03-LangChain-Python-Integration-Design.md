@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F1-03 - Diseno Complementario de Integracion LangChain Python
 
 ## Objetivo
@@ -10,9 +12,9 @@ El plan tecnico cerrado derivado de este diseno esta en [F1-03-LangChain-Python-
 
 - Hito relacionado: F1-03 ya completado para la integracion LangChain JS
 - Estado de esta variante: MVP funcional implementado
-- Paquete base: [../integrations/langchain-python/README.md](../integrations/langchain-python/README.md)
+- Paquete base: [../integrations/langchain-python/README.md](../../integrations/langchain-python/README.md)
 - Dependencia previa resuelta: SDK Python de Agent-DID (F2-01)
-- Referencia funcional existente: [../integrations/langchain/README.md](../integrations/langchain/README.md)
+- Referencia funcional existente: [../integrations/langchain/README.md](../../integrations/langchain/README.md)
 
 ## Hallazgos de investigacion
 
@@ -98,7 +100,7 @@ La readiness actual tambien incluye comandos locales y CI dedicado para el paque
 
 El SDK Python ya no es un blocker.
 
-La siguiente iteracion depende de trabajo de implementacion en `integrations/langchain-python/`, no de una dependencia externa pendiente. El checklist operativo esta en [F1-03-LangChain-Python-Implementation-Checklist.md](F1-03-LangChain-Python-Implementation-Checklist.md).
+La siguiente iteracion depende de trabajo de implementacion en `integrations/langchain-python/`, no de una dependencia externa pendiente. El checklist operativo esta en [F1-03-LangChain-Python-Implementation-Checklist.md](../F1-03-LangChain-Python-Implementation-Checklist.md).
 
 ## Recomendacion actual
 

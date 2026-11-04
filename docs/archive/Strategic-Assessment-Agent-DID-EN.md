@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # Strategic Assessment and Roadmap — Agent-DID
 
 **Document type:** Strategic Assessment & Roadmap  
@@ -6,7 +8,7 @@
 **Author:** Automated assessment (GitHub Copilot)  
 **Version:** 1.0
 
-> Status note (2026-05-08): this draft predates ADR-001, the `did:webvh` pivot, and the core `1.0.0` scope freeze. References below to EVM anchoring as a central release assumption, hybrid on-chain/off-chain framing as the default story, or near-term standards submission as a release dependency should be read as historical strategic context, not current guidance. For the live direction, use [../README.md](../README.md), [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md), and [../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
+> Status note (2026-05-08): this draft predates ADR-001, the `did:webvh` pivot, and the core `1.0.0` scope freeze. References below to EVM anchoring as a central release assumption, hybrid on-chain/off-chain framing as the default story, or near-term standards submission as a release dependency should be read as historical strategic context, not current guidance. For the live direction, use [../README.md](../../README.md), [RELEASE-1.0-CRITERIA.md](../RELEASE-1.0-CRITERIA.md), and [../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
 
 ---
 
@@ -34,7 +36,7 @@ The project occupies a strategic space of very high value with virtually no dire
 | Tests Python | `sdk-python/tests/` | Dedicated suite with lint, mypy, coverage, conformance and smokes |
 | Conformance | `docs/RFC-001-Compliance-Checklist.md` | 11/11 MUST PASS + 5/5 SHOULD PASS |
 | Documentation | `docs/` | RFC + checklist + backlog + HA runbook + 2h course + manual |
-| Theoretical paper | `Seguridad de Agentes de IA_ Firma Digital.md` | Complete (296 lines) |
+| Theoretical paper | `docs/archive/Seguridad-de-Agentes-de-IA-Firma-Digital.md` | Complete (296 lines) |
 
 ### 2.2 Technical architecture
 

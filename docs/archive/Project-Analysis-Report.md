@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # Agent-DID: Informe de Análisis del Proyecto
 
 > **Historical document** — this analysis reflects the project state as of 2026-03-29, before ADR-001 pivoted the core release path to `did:webvh` and before the core `1.0.0` scope freeze excluded EVM/on-chain work from the release gate.

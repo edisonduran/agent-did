@@ -12,8 +12,8 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 
 - [x] The package declares itself as `functional` and that status matches the shipped runtime coverage.
 - [x] `integrations/crewai/README.md` no longer describes the Python SDK as future work.
-- [x] `docs/F2-05-CrewAI-Integration-Design.md` still matches the intended CrewAI surface.
-- [x] `docs/F2-05-CrewAI-Maturity-Gap-Assessment.md` remains the reference document for the remaining maturity delta versus LangChain.
+- [x] `docs/archive/F2-05-CrewAI-Integration-Design.md` still matches the intended CrewAI surface.
+- [x] `docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md` remains the reference document for the remaining maturity delta versus LangChain.
 - [x] RC metadata stays aligned with the coordinated `1.0.0rc3` release train and the package continues to declare `agent-did-sdk==1.0.0rc3` as its core dependency floor for the frozen release candidate.
 
 ---
