@@ -2,7 +2,7 @@
 
 Thank you for considering contributing to Agent-DID! We are building the foundational identity layer for the AI economy, and every contribution matters.
 
-> **Project status:** Agent-DID is an open, pre-1.0 project being built in public. The TypeScript SDK is published (`@agentdid/sdk`), the Python SDK is implemented with dedicated CI in `sdk-python/`, RFC-001 is fully conformant (11/11 MUST + 5/5 SHOULD), and the core release path now follows the canonical `did:webvh` deployment story. EVM/on-chain profile material remains in the repo but is outside the core 1.0 gate. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
+> **Project status:** Agent-DID is an open, pre-1.0 project being built in public. The TypeScript SDK is published (`@agentdid/sdk`), the Python SDK is implemented with dedicated CI in `sdk-python/`, RFC-001 is implemented, with conformance to external standards tracked in the [External Conformance Matrix](docs/External-Conformance-Matrix.md), and the core release path now follows the canonical `did:webvh` deployment story. EVM/on-chain profile material remains in the repo but is outside the core 1.0 gate. See the [Roadmap](#roadmap--where-to-contribute) below for what's next.
 
 ---
 
