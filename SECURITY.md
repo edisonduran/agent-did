@@ -145,7 +145,7 @@ Items the maintainers track as security-relevant work, in addition to the public
 - Add Sigstore signing for release artifacts.
 - Keep the dedicated `cross-sdk-interop` CI workflow green and extend it further when third-party fixture coverage becomes available.
 - Done: property-based / fuzz tests for the HTTP signature parsers and DID log resolution (M-14).
-- Done: STRIDE threat model of the end-to-end flow in [`docs/Threat-Model.md`](docs/Threat-Model.md) (M-15). Still open: a security considerations section in the published RFC-001 that points to it.
+- Done: STRIDE threat model of the end-to-end flow in [`docs/Threat-Model.md`](docs/Threat-Model.md) (M-15). RFC-001 §8.1 summarizes it.
 - Consider exposing did:webvh pre-rotation (`nextKeyHashes`), the only in-protocol recovery from controller key compromise (see the threat model).
 - If the deferred EVM profile is ever re-scoped into active development, stand up a public testnet deployment of `AgentRegistry` with a published address and verification instructions as a separate gate.
 - Engage an external auditor before any maintainer-recommended mainnet deployment.

@@ -6,6 +6,14 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [security-considerations-by-flow] - Unreleased
+
+### Result
+
+- Added informative §8.1 "Security considerations by flow", summarizing the interoperability-relevant points of [Threat-Model.md](Threat-Model.md). No normative or wire-format change.
+
+---
+
 ## [http-signatures-rfc9421] - Unreleased (1.0.0-rc.3 train)
 
 ### Decision Trigger
