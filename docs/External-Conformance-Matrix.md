@@ -12,7 +12,7 @@ This matrix records what Agent-DID can prove against **external** specifications
 
 ## Matrix
 
-Status as of `1.0.0-rc.3` plus main on 2026-11-04. A row marked "(scoped)" is PASS only for the stated scope.
+Status as of `1.0.0-rc.4` (no wire changes since `rc.3`) on 2026-11-04. A row marked "(scoped)" is PASS only for the stated scope.
 
 | Specification | Scope | Status | External evidence | CI job |
 |---|---|---|---|---|

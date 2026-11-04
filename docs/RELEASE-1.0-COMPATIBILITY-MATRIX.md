@@ -2,7 +2,7 @@
 
 **Status:** Draft  
 **Audience:** Contributors, Reviewers, Maintainers  
-**Last updated:** 2026-11-01  
+**Last updated:** 2026-11-04  
 **Owner:** Maintainers (`edison.munoz` + team)  
 **Governed by:** [Documentation-Governance.md](Documentation-Governance.md)
 
@@ -54,12 +54,18 @@ The release train uses three compatibility relationships:
 
 ## 3.1 Version x Version View
 
-| Signer \ Verifier | `0.x` (`@agentdid/sdk` ≤ 0.2.0, `agent-did-sdk` ≤ 0.1.0) | `1.0.0-rc.1` / `1.0.0rc1` |
-|---|---|---|
-| `0.x` | compatible | HTTP signatures rejected |
-| `1.0.0-rc.1` / `1.0.0rc1` | HTTP signatures rejected | compatible (fixtures `formatVersion: 3`) |
+| Signer \ Verifier | `0.x` (`@agentdid/sdk` ≤ 0.2.0, `agent-did-sdk` ≤ 0.1.0) | `1.0.0-rc.1` / `1.0.0rc1` and `rc.2` | `1.0.0-rc.3` / `1.0.0rc3` and `rc.4` / `rc4` |
+|---|---|---|---|
+| `0.x` | compatible | HTTP signatures rejected | HTTP signatures rejected |
+| `rc.1` / `rc.2` | HTTP signatures rejected | compatible | not compatible: `did:webvh` logs, HTTP signatures (RFC 9421 profile, no `X-Request-Nonce`), `documentRef` hashes (JCS) and metadata commitments changed |
+| `rc.3` / `rc.4` | HTTP signatures rejected | not compatible (same reasons) | compatible: no wire-format change between rc.3 and rc.4 |
 
-The `1.0` signature base adds the `"@signature-params"` line (RFC 9421 §2.5), so HTTP signatures do not cross the `0.x`/`1.0` boundary in either direction. Runtime floors for the RC: Node.js 22+ for the npm packages, Python 3.10+ for the PyPI packages.
+Reading the table:
+
+- The `1.0` signature base adds the `"@signature-params"` line (RFC 9421 §2.5), so HTTP signatures do not cross the `0.x`/`1.0` boundary in either direction. The rc.3 profile changed signatures again, so they do not cross `rc.2`/`rc.3` either. See the `rc.2 → rc.3` migration guides.
+- `rc.3 → rc.4` changes the SDK API only (Ed25519 `AgentSigner` controller, `AgentDidClient`, EVM adapter moved to the optional `@agentdid/evm`). Identities, logs and signatures interoperate across both; follow the `rc.3 → rc.4` migration guides for the code changes.
+- `rc.1` and `1.0.0rc1` are deprecated/yanked (see the security advisory); do not deploy them.
+- Runtime floors: Node.js 22.12+ for `@agentdid/sdk` and 22+ for `@agentdid/langchain`; Python 3.10+ for the PyPI packages.
 
 ---
 
@@ -80,11 +86,11 @@ The `1.0` signature base adds the `"@signature-params"` line (RFC 9421 §2.5), s
 
 ## 5. Unresolved Assumptions
 
-The following assumptions remain explicit for the `1.0.0-rc.1` cut:
+The following assumptions remain explicit for the `1.0.0-rc.4` cut:
 
 1. Cross-language compatibility is **contract-level**, not package-manager-level. The TS and Python SDKs interoperate through RFC-001 semantics and shared fixtures, not by direct package import.
 2. The LangChain did:wba demo smoke remains a release-critical cross-package smoke for the current train, even though the core deployment story is now `did:webvh`. It validates multi-package packaging rather than the canonical deployment method.
-3. Public-registry clean-install compatibility remains a Sprint 2 release-candidate gate and is not proven by this document alone.
+3. Public-registry clean-install compatibility is proven by `registry-install-smoke.yml` runs recorded in [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md), not by this document alone.
 
 ---
 

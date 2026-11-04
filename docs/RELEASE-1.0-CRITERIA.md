@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Audience:** Contributors, Reviewers, Maintainers
-**Last updated:** 2026-11-01
+**Last updated:** 2026-11-04
 **Owner:** Maintainers (`edison.munoz` + team)
 **Governed by:** [Documentation-Governance.md](Documentation-Governance.md)
 
@@ -18,14 +18,16 @@ The old path assumed `did:agent` might need to become a new DID method. That is 
 
 | Package | Latest stable | Published RC | Target 1.0 | Registry |
 |---|---|---|---|---|
-| `@agentdid/sdk` (TypeScript) | 0.2.0 | 1.0.0-rc.1 (`next`) | 1.0.0 | npm |
-| `agent-did-sdk` (Python) | 0.1.0 | 1.0.0rc1 | 1.0.0 | PyPI |
-| `@agentdid/langchain` (LangChain JS) | 0.1.0 | 1.0.0-rc.1 (`next`) | 1.0.0 | npm |
-| `agent-did-langchain` (LangChain Python) | — | 1.0.0rc1 | 1.0.0 | PyPI |
-| `agent-did-crewai` | — | 1.0.0rc1 | 1.0.0 | PyPI |
-| `agent-did-semantic-kernel` | — | 1.0.0rc1 | 1.0.0 | PyPI |
-| `agent-did-microsoft-agent-framework` | — | 1.0.0rc1 | 1.0.0 | PyPI |
-| `agent-did-a2a` | — | 1.0.0rc1 | 1.0.0 | PyPI |
+| `@agentdid/sdk` (TypeScript) | 0.2.0 | 1.0.0-rc.4 (`next`, `latest`) | 1.0.0 | npm |
+| `agent-did-sdk` (Python) | 0.1.0 | 1.0.0rc4 | 1.0.0 | PyPI |
+| `@agentdid/langchain` (LangChain JS) | 0.1.0 | 1.0.0-rc.4 (`next`, `latest`) | 1.0.0 | npm |
+| `agent-did-langchain` (LangChain Python) | — | 1.0.0rc4 | 1.0.0 | PyPI |
+| `agent-did-crewai` | — | 1.0.0rc4 | 1.0.0 | PyPI |
+| `agent-did-semantic-kernel` | — | 1.0.0rc4 | 1.0.0 | PyPI |
+| `agent-did-microsoft-agent-framework` | — | 1.0.0rc4 | 1.0.0 | PyPI |
+| `agent-did-a2a` | — | 1.0.0rc4 | 1.0.0 | PyPI |
+
+`@agentdid/evm` (`1.0.0-rc.4`) is also published, as an optional package outside the core `1.0.0` set (see section 2.4).
 
 The Solidity contracts and EVM deployment material are **out of scope for core `1.0.0`**. Existing contract work is retained as deferred research/profile material, but there is no EVM package, testnet, deployed-address, or ABI gate for the core web-native release. If a concrete need appears later, the maintainers will reopen the topic as a separate scope decision after `1.0.0`.
 
@@ -70,7 +72,7 @@ Promotion rules for this release train:
 
 Current recommendation for the normalized `v1.0.0` branch state:
 
-- The current target should be **`1.0.0-rc.1`**, not `1.0.0-beta.1`, because Sprint 1 hardening, migration guides, integration evidence, and API-freeze work are already in place.
+- The first prerelease was **`1.0.0-rc.1`** (the current one is `1.0.0-rc.4`), not `1.0.0-beta.1`, because Sprint 1 hardening, migration guides, integration evidence, and API-freeze work are already in place.
 - A beta should only be introduced if maintainers deliberately reopen contract-shaping work before the first prerelease is cut.
 
 ---
@@ -236,11 +238,11 @@ Goal: cut the appropriate prerelease (`beta` only if contract-shaping feedback i
 
 #### RC Tag Plan
 
-The coordinated `1.0.0-rc.1` cut uses a single monorepo release tag with ecosystem-native prerelease normalization:
+Every coordinated `1.0.0-rc.N` cut uses a single monorepo release tag with ecosystem-native prerelease normalization (shown for the current `rc.4`; `rc.1` to `rc.3` followed the same pattern):
 
-1. npm packages declare `1.0.0-rc.1`.
-2. Python packages declare `1.0.0rc1`.
-3. The coordinated release tag is `v1.0.0-rc.1`.
+1. npm packages declare `1.0.0-rc.4`.
+2. Python packages declare `1.0.0rc4`.
+3. The coordinated release tag is `v1.0.0-rc.4`.
 4. `.github/workflows/publish-release-train.yml` is the coordinated publication entrypoint for the core release train.
 5. npm prereleases publish under dist-tag `next`; PyPI packages publish as prerelease versions derived from the normalized Python manifests.
 6. Legacy `sdk-v*` and `sdk-python-v*` tags remain package-specific workflows for SDK-only publication paths and are not the coordinated core RC tag.
