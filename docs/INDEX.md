@@ -44,6 +44,7 @@ This index is the fast path through the repository documentation.
 | [RFC-001-EVM-Profile.md](RFC-001-EVM-Profile.md) | Contributors, Reviewers | Draft | Optional deployment profile for EVM anchoring, contract policy, and smart-account behavior on top of core RFC-001. |
 | [RFC-001-A2A-Identity-Composition-Contract.md](RFC-001-A2A-Identity-Composition-Contract.md) | Contributors, Reviewers | Draft | Defines the A2A Agent Card and per-request signing composition contract co-drafted with APS. |
 | [RFC-001-Compliance-Checklist.md](RFC-001-Compliance-Checklist.md) | Contributors, Reviewers | Stable | Tracks RFC conformance claims against implemented behavior. |
+| [External-Conformance-Matrix.md](External-Conformance-Matrix.md) | Users, Contributors, Reviewers | Stable | Conformance with external specifications (did:webvh, RFC 9421, RFC 8785, RFC 9530, RFC 8941, DID Core), each row linked to the CI job that proves it. |
 | [RFC-001-Implementation-Backlog.md](RFC-001-Implementation-Backlog.md) | Contributors, Reviewers | Stable | Execution history and remaining implementation work. |
 | [RFC-001-Resolver-HA-Runbook.md](RFC-001-Resolver-HA-Runbook.md) | Contributors, Reviewers | Stable | Operational guidance for resolver high-availability drills. |
 | [Anti-Replay-HTTP-Signatures.md](Anti-Replay-HTTP-Signatures.md) | Users, Contributors, Reviewers | Stable | Security guidance for nonce, expiry, and verifier-side replay protection. |
