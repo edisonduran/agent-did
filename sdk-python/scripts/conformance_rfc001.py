@@ -390,6 +390,7 @@ async def evaluate_interop_should() -> CheckResult:
                 body=http_vector["body"],
                 headers=http_vector["headers"],
                 max_created_skew_seconds=http_vector.get("maxCreatedSkewSeconds", 999_999_999),
+                max_signature_lifetime_seconds=http_vector.get("maxSignatureLifetimeSeconds", 999_999_999),
             )
         )
         results.append(message_valid and http_valid)
