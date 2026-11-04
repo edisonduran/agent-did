@@ -176,7 +176,7 @@ Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with th
 
 This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edisonduran/agent-did/blob/main/docs/RFC-001-Agent-DID-Specification.md) — a standard for decentralized AI agent identity extending W3C DIDs with agent-specific metadata.
 
-**Conformance:** 11/11 MUST PASS + 5/5 SHOULD PASS
+**Conformance:** external evidence per standard is tracked in the [External Conformance Matrix](https://github.com/edisonduran/agent-did/blob/main/docs/External-Conformance-Matrix.md). The internal RFC-001 checklist (MUST 11/11, SHOULD 5/5) measures this SDK against our own specification, not against external standards.
 
 ## Current Limitations
 

@@ -51,6 +51,8 @@ Scale used:
 
 ## C. Executive Conformance Summary
 
+> This summary is self-assessment against RFC-001. Conformance with the external standards RFC-001 builds on is tracked in the [External Conformance Matrix](External-Conformance-Matrix.md) and is the figure to quote.
+
 - **MUST:** 11 PASS / 0 PARTIAL / 0 FAIL
 - **SHOULD:** 5 PASS / 0 PARTIAL / 0 FAIL
 

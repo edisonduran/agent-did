@@ -17,6 +17,7 @@
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
 [![Contract Audit](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml)
 [![Release Candidate](https://img.shields.io/badge/status-1.0.0--rc.3-yellow)](docs/RELEASE-1.0-CRITERIA.md)
+[![External conformance](https://img.shields.io/badge/external%20conformance-see%20matrix-informational)](docs/External-Conformance-Matrix.md)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Feedback Wanted](https://img.shields.io/badge/feedback-wanted-lightgrey)](https://github.com/edisonduran/agent-did/discussions)
 
@@ -38,7 +39,7 @@ OAuth delegates this to a centralized provider. MCP leaves it out of scope by de
 
 Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
-- **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — 11/11 MUST conformant
+- **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — checked against external vectors and independent implementations, see the [External Conformance Matrix](docs/External-Conformance-Matrix.md)
 - **TypeScript and Python SDKs** backed by dedicated CI, interoperability fixtures, and conformance checks
 - **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, Microsoft Agent Framework, and Google A2A
 - **A web-native deployment model** — `did:webvh` for canonical agent/controller identity, verifiable history, and recursive controller validation
@@ -111,7 +112,7 @@ The project is past the specification-only phase: it includes a functional imple
 - **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.3` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **External conformance matrix**: [docs/External-Conformance-Matrix.md](docs/External-Conformance-Matrix.md) (what is proven against did:webvh, RFC 9421, RFC 8785 and others, and what is not yet)
-- **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
+- **Current result**: see the [External Conformance Matrix](docs/External-Conformance-Matrix.md) for what is proven against did:webvh, RFC 9421, RFC 8785, RFC 9530 and RFC 8941 (PASS, scoped or not covered). The checklist's MUST `11/11` and SHOULD `5/5` measure the SDKs against our own RFC-001 and are not external evidence
 - **Published prerelease (2026-11-03, tag `v1.0.0-rc.3`)**: `@agentdid/sdk` and `@agentdid/langchain` `1.0.0-rc.3` on npm under dist-tag `next`; `agent-did-sdk`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework` and `agent-did-a2a` `1.0.0rc3` on PyPI
 - **Security release**: `1.0.0-rc.2` fixes [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf). `1.0.0-rc.1` / `1.0.0rc1` are deprecated; upgrade and recreate any bootstrap controller created with them (see the advisory)
 - **Breaking release candidate**: `1.0.0-rc.3` issues did:webvh v1.0 DIDs (self-certifying SCID, controller-signed `did.jsonl` log verified on resolution), signs HTTP requests as RFC 9421 HTTP Message Signatures, canonicalizes `documentRef` with RFC 8785 (JCS) and salts the model and prompt commitments. rc.2 and rc.3 do not interoperate; see [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md) and [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
@@ -309,7 +310,7 @@ By default the audit gate is strict: any unmatched finding at severity `Low` or 
 
 ## Roadmap
 
-RFC-001 is implemented and fully conformant. The project follows a 3-phase roadmap:
+RFC-001 is implemented; its external conformance is tracked in the [External Conformance Matrix](docs/External-Conformance-Matrix.md). The project follows a 3-phase roadmap:
 
 ### Phase 1 — Consolidation & Visibility
 

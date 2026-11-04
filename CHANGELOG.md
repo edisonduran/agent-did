@@ -10,6 +10,10 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Documentation
+
+- **Conformance headline is external evidence** (M-20). The README, `sdk/README.md`, `CONTRIBUTING.md`, the compliance checklist and the release criteria no longer present "11/11 MUST" as the headline; they point to the External Conformance Matrix and state that the checklist is a self-assessment against RFC-001. A matrix badge replaces the claim in the README header.
+
 ### Changed (breaking)
 
 - **The EVM registry adapter left the core SDKs** (M-09). `EvmAgentRegistry`, `EthersAgentRegistryContractClient` and the `Evm*` types now live in the new optional package `@agentdid/evm` (`evm/`); in Python they moved to `agent_did_sdk.evm` and the `web3` dependency became the `agent-did-sdk[evm]` extra. `@agentdid/sdk` no longer depends on `ethers`, and `agent-did-sdk` no longer depends on `web3` / `eth_utils`. Nothing in the core imports the EVM adapter.

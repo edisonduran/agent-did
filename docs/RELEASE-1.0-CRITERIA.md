@@ -80,7 +80,7 @@ Current recommendation for the normalized `v1.0.0` branch state:
 ### 2.1 Specification
 
 - [x] **C-SPEC-1** — RFC-001 marked as `Stable` in [docs/INDEX.md](INDEX.md) and on its own header.
-- [x] **C-SPEC-2** — `RFC-001-Compliance-Checklist.md` reports MUST `11/11 PASS` and SHOULD `5/5 PASS`.
+- [x] **C-SPEC-2** — `RFC-001-Compliance-Checklist.md` reports MUST `11/11 PASS` and SHOULD `5/5 PASS` (self-assessment; external evidence is the [External Conformance Matrix](External-Conformance-Matrix.md)).
 - [ ] **C-SPEC-3** — Security section of the RFC reviewed and signed off by ≥1 reviewer external to the lead maintainer.
 - [x] **C-SPEC-4** — Public errata procedure documented in the RFC (how corrections are proposed and accepted post-1.0 without a major bump). _Evidence: RFC-001 §11.2._
 
