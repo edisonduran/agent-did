@@ -1,8 +1,8 @@
 /**
  * HTTP Message Signatures (RFC 9421) primitives: Structured Field (RFC 8941)
  * handling for `Signature-Input` / `Signature` (parsing is delegated to the
- * `structured-headers` library) and the signature base of RFC 9421 §2.5. Agent-DID's request profile is built on top of this
- * in `AgentIdentity`.
+ * `structured-headers` library) and the signature base of RFC 9421 §2.5.
+ * Agent-DID's request profile is built on top of this in `AgentIdentity`.
  *
  * Python parity: `agent_did_sdk.core.http_signatures`.
  */
