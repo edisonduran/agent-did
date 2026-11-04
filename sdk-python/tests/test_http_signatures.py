@@ -321,3 +321,16 @@ class TestAgentDidHttpSignatureProfile:
     def test_content_digest_is_rfc9530_sha256(self) -> None:
         digest = base64.b64encode(hashlib.sha256(b"{}").digest()).decode()
         assert compute_content_digest("{}") == f"sha-256=:{digest}:"
+
+
+class TestRfc9530ContentDigest:
+    """RFC 9530 example (SHA-256 of ``{"hello": "world"}``); parity: sdk/tests/HttpSignatures.test.ts."""
+
+    def test_matches_the_rfc_9530_sha256_example(self) -> None:
+        assert (
+            compute_content_digest('{"hello": "world"}')
+            == "sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:"
+        )
+
+    def test_absent_body_is_the_sha256_of_zero_bytes(self) -> None:
+        assert compute_content_digest(None) == "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:"

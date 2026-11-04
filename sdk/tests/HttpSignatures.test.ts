@@ -1,4 +1,5 @@
 import { ed25519 } from '@noble/curves/ed25519';
+import { computeContentDigest } from '../src/core/http-profile';
 import {
   buildSignatureBase,
   HttpSignatureError,
@@ -121,5 +122,18 @@ describe('RFC 9421 primitives', () => {
     expect(buildSignatureBase(request, parseSignatureInputHeader('s=("x-multi")').get('s')!)).toMatch(
       /^"x-multi": a, b\n/u
     );
+  });
+});
+
+// RFC 9530 example: the SHA-256 Content-Digest of the body `{"hello": "world"}`.
+describe('RFC 9530 Content-Digest', () => {
+  it('matches the RFC 9530 SHA-256 example', () => {
+    expect(computeContentDigest('{"hello": "world"}')).toBe(
+      'sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:'
+    );
+  });
+
+  it('digests an absent body as the empty string (SHA-256 of zero bytes)', () => {
+    expect(computeContentDigest()).toBe('sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:');
   });
 });
