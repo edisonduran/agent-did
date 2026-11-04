@@ -62,6 +62,7 @@ Run this checklist when a change affects one or more of the following:
 - [ ] If the integrated `did:wba` demo changes, the canonical walkthrough in `docs/F1-03-LangChain-didwba-Demo-Walkthrough.md` still matches the shipped behavior.
 - [ ] If both packages ship LangSmith adapters, both READMEs still document them as optional observability surfaces.
 - [ ] The parity matrix in `docs/F1-03-LangChain-TS-Python-Integration-Parity-Matrix.md` still reflects reality.
+- [ ] Links from the LangChain READMEs to the design and technical-plan documents point to `docs/archive/` (archived as historical by M-21), not to the live `docs/` set.
 
 ---
 
