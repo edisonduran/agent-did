@@ -82,7 +82,7 @@ The `signature` field is stripped before JCS canonicalization (§1.1). The `kid`
 
 ### 3.2 Canonical `did:webvh` controller-to-agent composition path
 
-Under RFC-001 v0.3, the canonical Agent-DID composition path is a `did:webvh` agent controlled by another `did:webvh` identity higher in the trust chain.
+Under RFC-001 v1.0-rc.4, the canonical Agent-DID composition path is a `did:webvh` agent controlled by another `did:webvh` identity higher in the trust chain.
 
 Reference pattern:
 

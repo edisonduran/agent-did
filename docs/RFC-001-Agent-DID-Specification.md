@@ -2,13 +2,15 @@
 
 ## Document Status
 
-- **Status:** Stable
-- **Version:** 0.3-pivot-pattern-on-webvh
-- **Date:** 2026-05-08
+- **Status:** Release candidate (normative text for the `1.0.0` release contract)
+- **Version:** 1.0-rc.4
+- **Date:** 2026-11-04
 - **Scope:** This RFC is the canonical core specification for Agent-DID as an application pattern on top of `did:webvh`, including the data model, composition semantics, runtime authentication profile, and SDK implementation guidelines.
 - **Feedback:** Use the RFC feedback issue template or GitHub Discussions for errata, clarifications, and post-`1.0` proposals. Report vulnerabilities privately through [SECURITY.md](../SECURITY.md).
 
-This Stable status means the repository treats RFC-001 as the frozen compatibility contract for the `1.0.0-rc.1` release train. It does **not** imply W3C, DIF, or any other external standards-body approval.
+This revision (1.0-rc.4) supersedes `0.3-pivot-pattern-on-webvh`. It pins the external specifications Agent-DID builds on (§2.1), defines lifecycle authorization (§6.6), and requires that `did:webvh` logs be verifiable by any conforming resolver (§6.1). It is the text the `1.0.0` release will be held to; changes after `1.0.0` follow §11.2. The status does **not** imply W3C, DIF, IETF, or any other external standards-body approval of Agent-DID.
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", "SHOULD NOT", "RECOMMENDED" and "MAY" are to be interpreted as described in BCP 14 ([RFC 2119] and [RFC 8174]) when, and only when, they appear in all capitals.
 
 ---
 
@@ -38,6 +40,26 @@ Agent-DID's conformance scope is deliberately limited to identity, controller/de
 - **ERC-4337 / Account Abstraction (optional):** Additional deployment profile for autonomous account and economic operations.
 
 Agent-DID does not replace these standards and does not define a new DID method. It composes them for the specific case of autonomous agents by standardizing AI-specific metadata, controller relationships, verification behavior, and runtime signing expectations.
+
+### 2.1 Normative References
+
+Where this RFC says an item is defined "by" one of these documents, that document governs. If this RFC and a reference disagree, the reference wins and the disagreement is an erratum of this RFC.
+
+| Reference | Used for | Version |
+| :--- | :--- | :--- |
+| [did:webvh] | DID method, `did.jsonl` log format, SCID, `entryHash` chain, `updateKeys`, deactivation | **v1.0** (`method` parameter `did:webvh:1.0`) |
+| [DID-CORE] | DID document data model and verification relationships | W3C Recommendation, DID Core v1.0 |
+| [RFC 9421] | HTTP Message Signatures (signature base, `Signature-Input`, `Signature`) | RFC 9421 |
+| [RFC 8941] | Structured Field Values, as used by `Signature-Input` and `Signature` | RFC 8941 |
+| [RFC 9530] | `Content-Digest` header (`sha-256`) | RFC 9530 |
+| [RFC 8785] | JSON Canonicalization Scheme (JCS) for hashing | RFC 8785 |
+| [RFC 8032] | Ed25519 signatures | RFC 8032 |
+| [RFC 2104] | HMAC, for salted commitments (§4.3) | RFC 2104 |
+| [RFC 2119], [RFC 8174] | Requirement keywords | BCP 14 |
+
+Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients). Agent-DID separates itself from them with the `tag` parameter (§6.5).
+
+**Evidence, not assertion.** Which of these references the reference SDKs are shown to satisfy, and by what external evidence, is recorded in [External-Conformance-Matrix.md](External-Conformance-Matrix.md). An implementation MUST NOT claim conformance with a referenced specification on the strength of this RFC alone.
 
 ---
 
@@ -165,6 +187,8 @@ graph TD
 2. A JSON-LD document is built with model/prompt hashes.
 3. The DID document and, where applicable, its method-specific history are published so a verifier can resolve the agent and its controller chain.
 
+**did:webvh verifiability (MUST).** For `did:webvh` identities, the documents and logs an implementation emits MUST be verifiable by any conforming did:webvh v1.0 resolver, with no Agent-DID-specific code. Concretely, the published `did.jsonl` MUST follow [did:webvh] v1.0 (SCID derivation, `versionId` and `entryHash` chain, `eddsa-jcs-2022` data-integrity proofs by a current `updateKey`, parameters including `method: "did:webvh:1.0"`), and the Agent-DID-specific content (`agentMetadata`, `complianceCertifications`) MUST be carried only inside the DID document state of the log entries. An implementation MUST NOT depend on a side channel, a private log extension, or an Agent-DID-only field to make its log verify. A resolver in this RFC's sense MUST verify the whole log as required by §8.1 item 2 before using any of its state.
+
 **Document reference (`documentRef`).** When an implementation addresses a DID document by content hash, the reference MUST be computed as `hash://sha256/<hex>`, where `<hex>` is the lowercase hexadecimal SHA-256 digest of the UTF-8 bytes of the document's JSON Canonicalization Scheme (JCS, RFC 8785) serialization. Values, including timestamps, MUST be hashed exactly as they appear in the document; implementations MUST NOT normalize them before canonicalization.
 
 ### 6.2 Resolution and Verification
@@ -210,10 +234,11 @@ Raw chain-of-thought capture is out of scope for RFC-001. Implementations that n
 1. The DID remains stable.
 2. `updated` and hashes change in the new document version.
 3. A new DID document version or history entry is published according to the underlying DID method.
+4. Evolution is a lifecycle operation and is subject to §6.6.
 
 ### 6.4 Revocation
 
-1. The controller (or defined policy) marks the DID as revoked or deactivated according to the underlying DID method/profile.
+1. The controller (or defined policy) marks the DID as revoked or deactivated according to the underlying DID method/profile. Revocation is a lifecycle operation and is subject to §6.6. For `did:webvh` it is a log entry with `deactivated: true`.
 2. All subsequent verifications must fail for active authentication.
 3. In the optional EVM deployment profile, the contract policy MAY additionally allow revocation by `owner` or DID-authorized delegate, with explicit ownership transfer.
 
@@ -227,6 +252,18 @@ Agents sign HTTP requests with RFC 9421 HTTP Message Signatures using the follow
 4. The signature base MUST be built as defined in RFC 9421 §2.5. Verifiers MUST rebuild it from the received request, with the `"@signature-params"` line re-serialized from the parsed `Signature-Input`.
 5. Verifiers MUST reject the signature unless: the profile in items 2 and 3 is present; `created` is within the allowed clock skew; `now <= expires`; `Content-Digest` matches the body; and the signature verifies with an active key listed under `assertionMethod` in the resolved DID document.
 6. Verifiers MUST record each accepted `(keyid, nonce)` pair until `expires` and reject a request that repeats one. The pair MUST be recorded only after the signature has verified.
+
+### 6.6 Lifecycle Authorization
+
+Update, key rotation and revocation (deactivation) change the identity that other parties rely on. They are authorized operations, not API calls.
+
+1. **`did:webvh`.** Every lifecycle operation MUST be a new log entry carrying a data-integrity proof made by a key that is in the `updateKeys` parameter in force **before** that entry. An implementation MUST NOT append, and a verifier MUST reject, an entry whose proof is missing, invalid, or made by any other key. Changing `updateKeys` is itself such an operation.
+2. **Signer supplied by the caller.** The implementation MUST obtain the signature from the controller's signer (an in-process key, KMS or HSM behind the signer abstraction). It MUST NOT sign lifecycle entries with a key derived from public data (the DID string, domain or SCID), and it MUST NOT accept a lifecycle request on the basis of the DID alone. Identities loaded from exported history carry no signer and MUST require one to be supplied per operation.
+3. **Rotation.** Entries are verified against the keys in force at their position in the log. Keys removed from `updateKeys` MUST NOT authorize later entries. A verification method deactivated by rotation remains in the document for historical signature verification (§4.2), but MUST NOT be accepted for new signatures.
+4. **Revocation is final.** After a `deactivated: true` entry the DID MUST resolve as deactivated, no further entries are valid, and all subsequent verifications that depend on it MUST fail (§6.4). The log is authoritative: a registry or cache entry MUST NOT be used to reinstate a DID whose log is deactivated.
+5. **Other DID methods.** Compatibility profiles MUST provide an equivalent: a lifecycle change is accepted only with proof of control by a key that the method designates as authorized for that change.
+6. **Callers.** Whether a particular party may *ask* an implementation to perform a lifecycle operation is a deployment decision. The SDK enforces the cryptographic rule above; it does not replace access control around the signer.
+7. **Controller chain.** An agent controlled by another DID (§4.2 `controller`) is operated through that controller's keys; the controller chain MUST be resolvable and active for the agent to verify (§6.2).
 
 The `tag` separates Agent-DID signatures from other RFC 9421 profiles such as the IETF *web-bot-auth* drafts. See [Anti-Replay-HTTP-Signatures.md](Anti-Replay-HTTP-Signatures.md) for guidance and a shared-store example.
 
@@ -249,6 +286,8 @@ The reference SDK (TypeScript/Python) must expose at minimum:
 The optional EVM deployment profile is defined in `docs/RFC-001-EVM-Profile.md`. It is not part of the minimum conformance floor for core RFC-001.
 
 ### 7.2 Interoperability Fixtures
+
+Fixtures that Agent-DID generates itself prove consistency between the SDKs. They do not prove conformance with the references in §2.1; for that, see [External-Conformance-Matrix.md](External-Conformance-Matrix.md).
 
 To validate verification compatibility between implementations, maintain versioned shared vectors (message and HTTP signatures) and run them in CI.
 
@@ -350,7 +389,9 @@ An implementer is considered **RFC-001 conformant** if it:
 2. Implements registration/resolution/verification/revocation flows (section 6).
 3. Can demonstrate signature verification against a resolved DID, including DID verification relationship enforcement for the signing key.
 4. Supports the Agent-DID application pattern on `did:webvh` or on another DID method that preserves the semantics of this RFC.
-5. Treats the EVM profile as optional unless the implementation explicitly claims conformance to `RFC-001-EVM-Profile`.
+5. For `did:webvh`, emits logs that satisfy the verifiability MUST of §6.1 and enforces lifecycle authorization as in §6.6.
+6. Implements the HTTP signing profile of §6.5 and, where it emits metadata commitments, §4.3.
+7. Treats the EVM profile as optional unless the implementation explicitly claims conformance to `RFC-001-EVM-Profile`.
 
 RFC-001 conformance establishes identity/delegation and runtime signature-verification behavior only. It does not, by itself, certify reasoning correctness, planner integrity, or full decision-context capture.
 
@@ -359,7 +400,7 @@ RFC-001 conformance establishes identity/delegation and runtime signature-verifi
 ## 11. RFC Governance
 
 - Major changes: new RFC version (e.g., RFC-002).
-- Compatible minor changes: revision of this version (`0.3.x`).
+- Compatible minor changes: revision of this version (`1.0-rc.N`, then `1.0.x`).
 - Any extension must preserve interoperability of the base schema.
 
 ### 11.1 Conformance Evaluation
@@ -390,6 +431,17 @@ After `1.0.0`, corrections to this RFC must follow an explicit errata path:
 - **Universal Resolver:** component that combines DID resolution, document retrieval, and cache/failover across one or more supported methods.
 
 ---
+
+[RFC 2119]: https://www.rfc-editor.org/rfc/rfc2119
+[RFC 8174]: https://www.rfc-editor.org/rfc/rfc8174
+[RFC 8785]: https://www.rfc-editor.org/rfc/rfc8785
+[RFC 8941]: https://www.rfc-editor.org/rfc/rfc8941
+[RFC 9421]: https://www.rfc-editor.org/rfc/rfc9421
+[RFC 9530]: https://www.rfc-editor.org/rfc/rfc9530
+[RFC 8032]: https://www.rfc-editor.org/rfc/rfc8032
+[RFC 2104]: https://www.rfc-editor.org/rfc/rfc2104
+[did:webvh]: https://identity.foundation/didwebvh/v1.0/
+[DID-CORE]: https://www.w3.org/TR/did-core/
 
 **License:** MIT
 **Canonical document:** `docs/RFC-001-Agent-DID-Specification.md`
