@@ -33,6 +33,10 @@ describe('multibase helpers', () => {
       .toThrow("Unsupported multibase prefix: 'f'. Only 'z' (Base58btc) is supported.");
   });
 
+  it('should reject an empty multibase string with an Error (found by fuzzing, M-14)', () => {
+    expect(() => decodePublicKeyMultibase('')).toThrow("Unsupported multibase prefix: ''.");
+  });
+
   it('should reject unrecognized multibase payloads', () => {
     expect(() => decodePublicKeyMultibase('znot-a-valid-key'))
       .toThrow('Unable to decode publicKeyMultibase: unrecognized format');

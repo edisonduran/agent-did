@@ -90,7 +90,7 @@ def decode_public_key_multibase(encoded: str) -> bytes:
         32-byte raw Ed25519 public key.
     """
     if not encoded.startswith("z"):
-        raise ValueError(f"Unsupported multibase prefix: {encoded[0]!r}. Only 'z' (Base58btc) is supported.")
+        raise ValueError(f"Unsupported multibase prefix: {encoded[:1]!r}. Only 'z' (Base58btc) is supported.")
 
     value = encoded[1:]
 

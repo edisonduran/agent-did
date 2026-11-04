@@ -41,7 +41,7 @@ export function encodePublicKeyMultibase(rawPublicKey: Uint8Array): string {
  */
 export function decodePublicKeyMultibase(encoded: string): Uint8Array {
   if (!encoded.startsWith('z')) {
-    throw new Error(`Unsupported multibase prefix: '${encoded[0]}'. Only 'z' (Base58btc) is supported.`);
+    throw new Error(`Unsupported multibase prefix: '${encoded.slice(0, 1)}'. Only 'z' (Base58btc) is supported.`);
   }
 
   const value = encoded.slice(1);

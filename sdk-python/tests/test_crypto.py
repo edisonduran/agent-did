@@ -10,6 +10,7 @@ from agent_did_sdk.crypto.hash import (
     generate_canonical_document_hash,
     hash_payload,
 )
+from agent_did_sdk.crypto.multibase import decode_public_key_multibase
 
 
 class TestHashPayload:
@@ -27,6 +28,13 @@ class TestHashPayload:
 
     def test_different_inputs(self) -> None:
         assert hash_payload("a") != hash_payload("b")
+
+
+class TestDecodeEmptyMultibase:
+    def test_empty_string_raises_value_error(self) -> None:
+        # Found by fuzzing (M-14): used to raise IndexError instead of ValueError.
+        with pytest.raises(ValueError, match="Unsupported multibase prefix: ''"):
+            decode_public_key_multibase("")
 
 
 class TestFormatHashUri:
