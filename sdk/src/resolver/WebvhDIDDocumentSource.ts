@@ -1,3 +1,4 @@
+import { noRedirectFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
 import { DIDDocumentSource, DocumentIntegrityError } from './types';
@@ -28,7 +29,7 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
   constructor(config: WebvhDIDDocumentSourceConfig = {}) {
     this.referenceToUrl = config.referenceToUrl || ((documentRef) => documentRef);
     this.referenceToUrls = config.referenceToUrls;
-    this.fetchFn = config.fetchFn || (globalThis.fetch as unknown as FetchLike);
+    this.fetchFn = config.fetchFn || (noRedirectFetch as unknown as FetchLike);
     this.httpSecurity = config.httpSecurity || {};
   }
 

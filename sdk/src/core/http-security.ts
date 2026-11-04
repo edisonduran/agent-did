@@ -10,86 +10,99 @@ export interface HttpTargetValidationOptions {
 function parseIpv4(host: string): number[] | null {
   const parts = host.split('.');
   if (parts.length !== 4) return null;
+  if (!parts.every((p) => /^\d{1,3}$/.test(p))) return null;
   const octets = parts.map(Number);
-  if (octets.some((o) => Number.isNaN(o) || o < 0 || o > 255)) return null;
+  if (octets.some((o) => o > 255)) return null;
   return octets;
 }
 
-function isLoopbackIpv4(octets: number[]): boolean {
-  return octets[0] === 127; // 127.0.0.0/8
+/**
+ * True for every IPv4 address that is not globally routable (IANA
+ * special-purpose registry): this-network, private, shared (CGNAT), loopback,
+ * link-local (cloud metadata), IETF protocol, documentation, benchmarking,
+ * multicast and reserved/broadcast.
+ */
+function isNonGlobalIpv4([a, b, c]: number[]): boolean {
+  return a === 0 // 0.0.0.0/8
+    || a === 10
+    || (a === 100 && b >= 64 && b <= 127) // 100.64.0.0/10
+    || a === 127
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 0 && c === 0) // 192.0.0.0/24
+    || (a === 192 && b === 0 && c === 2) // 192.0.2.0/24
+    || (a === 192 && b === 168)
+    || (a === 198 && (b === 18 || b === 19)) // 198.18.0.0/15
+    || (a === 198 && b === 51 && c === 100)
+    || (a === 203 && b === 0 && c === 113)
+    || a >= 224; // multicast + reserved + broadcast
 }
 
-function isZeroAddress(octets: number[]): boolean {
-  return octets.every((o) => o === 0); // 0.0.0.0
-}
+/** Parses an IPv6 literal (no brackets, no zone) into 8 16-bit groups. */
+function parseIpv6(host: string): number[] | null {
+  let text = host.toLowerCase();
+  const lastColon = text.lastIndexOf(':');
+  if (lastColon === -1) return null;
 
-function isLinkLocalIpv4(octets: number[]): boolean {
-  return octets[0] === 169 && octets[1] === 254; // 169.254.0.0/16 (includes metadata endpoint)
-}
-
-function isPrivateIpv4(octets: number[]): boolean {
-  const [first, second] = octets;
-  return first === 10
-    || (first === 172 && second >= 16 && second <= 31)
-    || (first === 192 && second === 168);
-}
-
-function isLoopbackIpv6(host: string): boolean {
-  const normalized = host.replace(/^\[/, '').replace(/]$/, '');
-  return normalized === '::1' || normalized === '0:0:0:0:0:0:0:1';
-}
-
-function parseIpv4MappedIpv6(host: string): number[] | null {
-  const normalized = host.replace(/^\[/, '').replace(/]$/, '').toLowerCase();
-  if (!normalized.startsWith('::ffff:')) {
-    return null;
-  }
-
-  const tail = normalized.slice('::ffff:'.length);
+  const tail = text.slice(lastColon + 1);
   if (tail.includes('.')) {
-    return parseIpv4(tail);
+    const v4 = parseIpv4(tail);
+    if (!v4) return null;
+    text = `${text.slice(0, lastColon + 1)}${((v4[0] << 8) | v4[1]).toString(16)}:${((v4[2] << 8) | v4[3]).toString(16)}`;
   }
 
-  const groups = tail.split(':');
-  if (groups.length !== 2) {
-    return null;
-  }
+  const halves = text.split('::');
+  if (halves.length > 2) return null;
+  const toGroups = (part: string): number[] | null => {
+    if (part === '') return [];
+    const groups = part.split(':');
+    if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null;
+    return groups.map((g) => Number.parseInt(g, 16));
+  };
 
-  const values = groups.map((group) => Number.parseInt(group, 16));
-  if (values.some((value) => Number.isNaN(value) || value < 0 || value > 0xffff)) {
-    return null;
-  }
+  const head = toGroups(halves[0]);
+  if (!head) return null;
+  if (halves.length === 1) return head.length === 8 ? head : null;
 
-  return [
-    (values[0] >> 8) & 0xff,
-    values[0] & 0xff,
-    (values[1] >> 8) & 0xff,
-    values[1] & 0xff,
-  ];
+  const rest = toGroups(halves[1]);
+  if (!rest || head.length + rest.length > 7) return null;
+  return [...head, ...new Array<number>(8 - head.length - rest.length).fill(0), ...rest];
 }
 
-function isPrivateOrReservedIpv4(octets: number[]): boolean {
-  return isLoopbackIpv4(octets)
-    || isZeroAddress(octets)
-    || isLinkLocalIpv4(octets)
-    || isPrivateIpv4(octets);
+function embeddedIpv4(g: number[], hi: number, lo: number): number[] {
+  return [(g[hi] >> 8) & 0xff, g[hi] & 0xff, (g[lo] >> 8) & 0xff, g[lo] & 0xff];
+}
+
+function isNonGlobalIpv6(g: number[]): boolean {
+  // ::/8 covers unspecified, loopback, IPv4-compatible and IPv4-mapped (::ffff:0:0/96).
+  if ((g[0] >> 8) === 0) {
+    const mapped = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff;
+    return mapped ? isNonGlobalIpv4(embeddedIpv4(g, 6, 7)) : true;
+  }
+  return (g[0] & 0xfe00) === 0xfc00 // fc00::/7 unique local
+    || (g[0] & 0xffc0) === 0xfe80 // fe80::/10 link-local
+    || (g[0] & 0xffc0) === 0xfec0 // fec0::/10 site-local (deprecated)
+    || (g[0] & 0xff00) === 0xff00 // ff00::/8 multicast
+    || (g[0] === 0x2001 && g[1] === 0x0db8) // documentation
+    || (g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0
+      && isNonGlobalIpv4(embeddedIpv4(g, 6, 7))) // NAT64 64:ff9b::/96
+    || (g[0] === 0x2002 && isNonGlobalIpv4(embeddedIpv4(g, 1, 2))); // 6to4
 }
 
 function isPrivateOrReservedHost(hostname: string): boolean {
-  // IPv6 loopback
-  if (isLoopbackIpv6(hostname)) return true;
+  const lower = hostname.toLowerCase().replace(/\.$/, '');
+  if (lower === 'localhost' || lower.endsWith('.localhost') || lower === 'localhost.localdomain') {
+    return true;
+  }
 
-  const mappedIpv4 = parseIpv4MappedIpv6(hostname);
-  if (mappedIpv4 && isPrivateOrReservedIpv4(mappedIpv4)) return true;
+  if (lower.startsWith('[') && lower.endsWith(']')) {
+    const v6 = parseIpv6(lower.slice(1, -1));
+    // An unparseable bracketed literal is never a valid host: fail closed.
+    return v6 === null || isNonGlobalIpv6(v6);
+  }
 
-  const ipv4 = parseIpv4(hostname);
-  if (ipv4 && isPrivateOrReservedIpv4(ipv4)) return true;
-
-  // Common loopback hostnames
-  const lower = hostname.toLowerCase();
-  if (lower === 'localhost' || lower === 'localhost.localdomain') return true;
-
-  return false;
+  const v4 = parseIpv4(lower);
+  return v4 !== null && isNonGlobalIpv4(v4);
 }
 
 /**

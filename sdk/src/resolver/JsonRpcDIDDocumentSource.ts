@@ -1,3 +1,4 @@
+import { noRedirectFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
@@ -113,7 +114,7 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
   }
 
   private defaultTransport = async (url: string, body: string, headers: Record<string, string>): Promise<JsonRpcResponse> => {
-    const fetchFn = globalThis.fetch as unknown as (
+    const fetchFn = noRedirectFetch as unknown as (
       input: string,
       init: { method: string; headers: Record<string, string>; body: string }
     ) => Promise<JsonRpcResponse>;

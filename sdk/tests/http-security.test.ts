@@ -76,6 +76,25 @@ describe('validateHttpTarget — SSRF protection', () => {
     expect(() => validateHttpTarget('http://[::ffff:169.254.169.254]/metadata/instance')).toThrow('private/reserved');
   });
 
+  // ── Ranges beyond loopback/RFC1918 ───────────────────────────────
+  it.each([
+    'http://[fc00::1]/', 'http://[fd12:3456::1]/', 'http://[fe80::1]/', 'http://[::]/',
+    'http://[ff02::1]/', 'http://[::ffff:7f00:1]/', 'http://[::ffff:a9fe:a9fe]/',
+    'http://[64:ff9b::a9fe:a9fe]/', 'http://[2002:a9fe:a9fe::1]/', 'http://[2001:db8::1]/',
+    'http://0.1.2.3/', 'http://100.64.0.1/', 'http://100.127.255.255/', 'http://192.0.0.1/',
+    'http://198.18.0.1/', 'http://224.0.0.1/', 'http://240.0.0.1/', 'http://255.255.255.255/',
+    'http://localhost./', 'http://app.localhost/', 'http://2130706433/', 'http://0x7f.1/',
+  ])('should block %s', (url) => {
+    expect(() => validateHttpTarget(url)).toThrow('private/reserved');
+  });
+
+  it.each([
+    'http://[2606:4700:4700::1111]/', 'http://8.8.8.8/', 'http://100.63.255.255/',
+    'http://100.128.0.1/', 'http://172.32.0.1/', 'https://localhost.example.com/',
+  ])('should allow public %s', (url) => {
+    expect(() => validateHttpTarget(url)).not.toThrow();
+  });
+
   // ── allowPrivateTargets flag ─────────────────────────────────────
   it('should allow private targets when allowPrivateTargets is true', () => {
     const opts = { allowPrivateTargets: true };

@@ -98,3 +98,29 @@ class TestValidateHttpTarget:
         opts = HttpTargetValidationOptions(allow_private_targets=True)
         with pytest.raises(ValueError, match="Unsupported protocol"):
             validate_http_target("ftp://127.0.0.1/", opts)
+
+
+BLOCKED_URLS = [
+    "http://[fc00::1]/", "http://[fd12:3456::1]/", "http://[fe80::1]/", "http://[::]/",
+    "http://[ff02::1]/", "http://[::ffff:7f00:1]/", "http://[::ffff:a9fe:a9fe]/",
+    "http://[64:ff9b::a9fe:a9fe]/", "http://[2002:a9fe:a9fe::1]/", "http://[2001:db8::1]/",
+    "http://0.1.2.3/", "http://100.64.0.1/", "http://100.127.255.255/", "http://192.0.0.1/",
+    "http://198.18.0.1/", "http://224.0.0.1/", "http://240.0.0.1/", "http://255.255.255.255/",
+    "http://localhost./", "http://app.localhost/", "http://2130706433/", "http://0x7f.1/",
+]
+
+ALLOWED_URLS = [
+    "http://[2606:4700:4700::1111]/", "http://8.8.8.8/", "http://100.63.255.255/",
+    "http://100.128.0.1/", "http://172.32.0.1/", "https://localhost.example.com/",
+]
+
+
+@pytest.mark.parametrize("url", BLOCKED_URLS)
+def test_blocks_non_global_targets(url: str) -> None:
+    with pytest.raises(ValueError, match="private/reserved"):
+        validate_http_target(url)
+
+
+@pytest.mark.parametrize("url", ALLOWED_URLS)
+def test_allows_public_targets(url: str) -> None:
+    validate_http_target(url)
