@@ -529,10 +529,11 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
 
 ## VerifyHttpRequestSignatureParams
-class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
+class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
   attr body: str | None
   attr headers: dict[str, str]
   attr max_created_skew_seconds: int | None
+  attr max_signature_lifetime_seconds: int | None
   attr method: str
   attr nonce_store: Any | None
   attr url: str

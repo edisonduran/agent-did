@@ -497,6 +497,36 @@ describe('AgentIdentity Core Module', () => {
     })).resolves.toBe(false);
   });
 
+  it('should bound signature lifetime with maxSignatureLifetimeSeconds (default 300)', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({
+      name: 'LifetimeBot',
+      coreModel: 'test',
+      systemPrompt: 'test'
+    });
+    const sign = (expiresInSeconds: number) => agentIdentity.signHttpRequest({
+      method: 'POST',
+      url: 'https://api.example.com/v1/data',
+      body: '{"lifetime": true}',
+      agentPrivateKey,
+      agentDid: document.id,
+      expiresInSeconds
+    });
+    const verify = (headers: Record<string, string>, maxSignatureLifetimeSeconds?: number) =>
+      AgentIdentity.verifyHttpRequestSignature({
+        method: 'POST',
+        url: 'https://api.example.com/v1/data',
+        body: '{"lifetime": true}',
+        headers,
+        maxSignatureLifetimeSeconds,
+        nonceStore: new InMemoryNonceStore()
+      });
+
+    await expect(verify(await sign(300))).resolves.toBe(true);
+    await expect(verify(await sign(301))).resolves.toBe(false);
+    await expect(verify(await sign(301), 400)).resolves.toBe(true);
+    await expect(verify(await sign(61), 60)).resolves.toBe(false);
+  });
+
   it('should reject a replayed request through the built-in nonce store', async () => {
     const { document, agentPrivateKey } = await agentIdentity.create({
       name: 'NonceCacheBot',

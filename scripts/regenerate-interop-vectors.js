@@ -145,7 +145,8 @@ function buildVector({ did, controller }) {
         'Content-Digest': contentDigest
       },
       signatureBase,
-      maxCreatedSkewSeconds: 999999999
+      maxCreatedSkewSeconds: 999999999,
+      maxSignatureLifetimeSeconds: 999999999
     }
   };
 }

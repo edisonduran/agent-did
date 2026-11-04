@@ -189,6 +189,8 @@ class VerifyHttpRequestSignatureParams(BaseModel):
     headers: dict[str, str]
     max_created_skew_seconds: int | None = None
     """Maximum distance between ``created`` and now, in seconds (default: 300)."""
+    max_signature_lifetime_seconds: int | None = None
+    """Maximum lifetime of a signature (``expires - created``), in seconds (default: 300)."""
     nonce_store: Any | None = None
     """Replay store (``NonceStore``). Defaults to a process-wide ``InMemoryNonceStore``."""
 

@@ -50,6 +50,9 @@ async def verify_agent_did_http_request(
 
     now_seconds = int(now.timestamp())
     max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
+    max_lifetime = (
+        params.max_signature_lifetime_seconds if params.max_signature_lifetime_seconds is not None else 300
+    )
     store = params.nonce_store if params.nonce_store is not None else nonce_store
     request = HttpRequestLike(method=params.method.upper(), url=params.url, headers=headers)
 
@@ -76,6 +79,7 @@ async def verify_agent_did_http_request(
             or not all(c in signature_input.components for c in AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
             or abs(now_seconds - created) > max_skew
             or expires < created
+            or expires - created > max_lifetime
             or now_seconds > expires
         ):
             continue
