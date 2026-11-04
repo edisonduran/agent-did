@@ -48,6 +48,8 @@ This index is the fast path through the repository documentation.
 | [RFC-001-Implementation-Backlog.md](RFC-001-Implementation-Backlog.md) | Contributors, Reviewers | Stable | Execution history and remaining implementation work. |
 | [RFC-001-Resolver-HA-Runbook.md](RFC-001-Resolver-HA-Runbook.md) | Contributors, Reviewers | Stable | Operational guidance for resolver high-availability drills. |
 | [Anti-Replay-HTTP-Signatures.md](Anti-Replay-HTTP-Signatures.md) | Users, Contributors, Reviewers | Stable | Security guidance for nonce, expiry, and verifier-side replay protection. |
+| [Threat-Model.md](Threat-Model.md) | Users, Contributors, Reviewers | Draft | STRIDE threat model of creation, log publication, resolution, HTTP signing, A2A handoff and revocation, with residual risks. |
+| [S1-3-Adversarial-Review-Crypto-Signing.md](S1-3-Adversarial-Review-Crypto-Signing.md) | Contributors, Reviewers | Historical | Sprint 1 adversarial review of the signing surfaces (2026-05-08), with a post-rc.3 addendum. |
 | [SDK-Release-Checklist.md](SDK-Release-Checklist.md) | Contributors | Stable | Release checklist for published SDK packages. |
 | [PHILOSOPHY.md](PHILOSOPHY.md) | Users, Contributors, Reviewers | Stable | Design philosophy and scope boundaries for the project. |
 | [F1-05-Contract-Audit-Triage.md](F1-05-Contract-Audit-Triage.md) | Contributors, Reviewers | Stable | Governs how automated contract audit findings are triaged. |

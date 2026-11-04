@@ -93,6 +93,8 @@ State this clearly so reports based on these assumptions are not surprising:
 | O6 | **Trust of the controller (the human or org behind the agent)** | Agent-DID binds the agent to its controller cryptographically; trust in the controller itself is an external concern (KYC, organizational identity, etc.). |
 | O7 | **Operational compromise of a registry node, resolver host, or PyPI/npm account** | Standard infrastructure security applies. We document the published channels (§2) so detection of unexpected releases is possible. |
 
+The per-flow STRIDE analysis (creation, log publication, resolution, HTTP signing, A2A handoff, rotation and revocation) with residual risks is in [`docs/Threat-Model.md`](docs/Threat-Model.md).
+
 ### 3.3 Trust assumptions
 
 We assume:
@@ -128,7 +130,7 @@ These are publicly acknowledged limitations in the current Public Review baselin
 - **No formal external audit yet.** Roadmap item F3-04 (formal contract audit for mainnet deployment) is planned. The repository runs automated audit tools in CI but has not been reviewed by an independent firm.
 - **Resolver persistence is not bundled by default.** The universal resolver core is shipped, but F2-03 tracks operator-grade persistent backend hardening and optional additional transports such as Arweave. Operators running their own resolver should harden persistence and access control.
 - **EVM/on-chain profile is deferred outside core 1.0.** Core `did:webvh` verification does not depend on public testnet deployment or on-chain overlay behavior. Any future EVM profile will require a separate scope decision and security review.
-- **No fuzzing of the HTTP signature verifier.** Property-based / adversarial tests for replay, header injection, and signature stripping are an open contribution area.
+- **Fuzzing covers the input parsers, not the whole verifier.** Property tests and nightly fuzzing (`ci-fuzz.yml`) exercise the `Signature-Input` / `Signature` parsers, `did.jsonl` resolution and `publicKeyMultibase`. Adversarial tests for replay, header injection, and signature stripping beyond that remain an open contribution area.
 - **Cross-SDK interop tests** now run as a dedicated release workflow via `.github/workflows/ci-cross-sdk-interop.yml`, but the evidence still focuses on the repo-managed TS/Python fixture corpus rather than a third-party implementation matrix.
 - **Supply chain hardening beyond registry-native provenance** is still incomplete. npm provenance and PyPI Trusted Publishing are wired in repo workflows, but Sigstore signing and broader artifact attestations remain roadmap work; see §6.
 
@@ -142,8 +144,9 @@ Items the maintainers track as security-relevant work, in addition to the public
 - Keep PyPI Trusted Publishing configuration aligned with `.github/workflows/publish-python-sdk.yml`.
 - Add Sigstore signing for release artifacts.
 - Keep the dedicated `cross-sdk-interop` CI workflow green and extend it further when third-party fixture coverage becomes available.
-- Add property-based / fuzz tests for the HTTP signature parser/verifier and DID document parser.
-- Add a documented threat model and security considerations section to the published RFC-001 (currently lives partially here and partially in `docs/Anti-Replay-HTTP-Signatures.md`).
+- Done: property-based / fuzz tests for the HTTP signature parsers and DID log resolution (M-14).
+- Done: STRIDE threat model of the end-to-end flow in [`docs/Threat-Model.md`](docs/Threat-Model.md) (M-15). Still open: a security considerations section in the published RFC-001 that points to it.
+- Consider exposing did:webvh pre-rotation (`nextKeyHashes`), the only in-protocol recovery from controller key compromise (see the threat model).
 - If the deferred EVM profile is ever re-scoped into active development, stand up a public testnet deployment of `AgentRegistry` with a published address and verification instructions as a separate gate.
 - Engage an external auditor before any maintainer-recommended mainnet deployment.
 

@@ -1,5 +1,7 @@
 # Sprint 1 Adversarial Review - Crypto and Signing Surfaces
 
+> **Status: historical.** This review covers the state of 2026-05-08. A later maturity review found issues in surfaces it did not examine; they were remediated in `1.0.0-rc.2` and `1.0.0-rc.3`. The conclusion "no release-blocking findings" below applies to the reviewed state only. See the [post-rc.3 addendum](#addendum-post-rc3-remediation-and-threat-model) and [Threat-Model.md](Threat-Model.md).
+
 Fecha: 2026-05-08
 
 ## Scope and Inputs
@@ -47,3 +49,33 @@ No finding in the current reviewed state blocks the Sprint 1 release train for c
 2. The reviewed HTTP-signature implementation is intentionally stateless at verification time. That is defensible for `1.0.0`, but only because the nonce-cache responsibility is made explicit and now covered by release evidence.
 3. The reviewed identity-composition helpers in TS and Python remain consistent on deterministic failure reasons and signing-purpose enforcement.
 4. The remaining findings are hardening and operational-policy items, not reasons to block Sprint 1 completion.
+## Addendum: post-rc.3 remediation and threat model
+
+Added with M-15. The original findings above are unchanged. This addendum records what later work closed and where the end-to-end analysis now lives. Wording is deliberately neutral; the public advisory for the `rc.2` release is [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf).
+
+| Work item | Surface | Outcome | Released in |
+|---|---|---|---|
+| M-01 | Controller key generation at creation | Keys come from a CSPRNG or an explicit signer; nothing is derived from public data. See the advisory. | `1.0.0-rc.2` |
+| M-02 | `did:webvh` log format and verification | Logs are did:webvh v1.0 and verified in full on resolution and import. Proven against the DIF test suite in CI. | `1.0.0-rc.3` |
+| M-03 | Lifecycle operations | Update, rotation and revocation are controller-signed log entries. | `1.0.0-rc.3` |
+| M-04 | Canonicalization | RFC 8785 (JCS) in both SDKs, with shared vectors. | `1.0.0-rc.3` |
+| M-05 | HTTP signatures | RFC 9421 profile with `NonceStore`, checked against Appendix B.2.6 and independent implementations. | `1.0.0-rc.3` |
+| M-06 | Resolver integrity | `documentRef` hash verified; integrity failures never fall back. | `1.0.0-rc.3` |
+| M-07 | Metadata commitments | Salted (`hash://hmac-sha256/`). | `1.0.0-rc.3` |
+| M-14 | Parser robustness | Property tests and nightly fuzzing of the signature parsers, `did.jsonl` and multibase. Closes A-08 for the parsers. | `1.0.0-rc.4` train |
+
+### Disposition of A-05 to A-10 against the threat model
+
+The accepted findings are carried into [Threat-Model.md](Threat-Model.md):
+
+| Finding | Where it appears |
+|---|---|
+| A-05 nonce cache boundary | Flow 4. The SDK now ships a `NonceStore` interface and an in-memory default; multi-instance verifiers still need a shared store. |
+| A-06 resolver freshness | Flows 3 and 6, including the rollback caveat that did:webvh authenticates history but not currency. |
+| A-07 skew default | Flow 4. |
+| A-09 algorithm floor | Flow 4 (`alg="ed25519"` is part of the required profile). |
+| A-10 historical verification | Flow 6. |
+
+### Not covered by this review or by the original findings
+
+The threat model records residual risks that no earlier review tracked: controller key compromise has no in-protocol recovery until pre-rotation is exposed, log hosts can roll back or withhold entries, `created` is signer-asserted, and resolver size and time bounds are unproven. These feed the scope of the independent review (M-16).
