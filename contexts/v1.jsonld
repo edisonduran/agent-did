@@ -1,0 +1,50 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "@protected": true,
+
+    "agentdid": "https://agent-did.org/vocab#",
+    "sec": "https://w3id.org/security#",
+    "dcterms": "http://purl.org/dc/terms/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+
+    "created": { "@id": "dcterms:created", "@type": "xsd:dateTime" },
+    "updated": { "@id": "dcterms:modified", "@type": "xsd:dateTime" },
+
+    "Ed25519VerificationKey2020": "sec:Ed25519VerificationKey2020",
+    "Multikey": "sec:Multikey",
+    "EcdsaSecp256k1RecoveryMethod2020": "sec:EcdsaSecp256k1RecoveryMethod2020",
+    "publicKeyMultibase": { "@id": "sec:publicKeyMultibase", "@type": "sec:multibase" },
+    "blockchainAccountId": "agentdid:blockchainAccountId",
+    "deactivated": { "@id": "agentdid:deactivated", "@type": "xsd:dateTime" },
+
+    "AgentMetadata": "agentdid:AgentMetadata",
+    "agentMetadata": {
+      "@id": "agentdid:agentMetadata",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "name": "https://schema.org/name",
+        "description": "https://schema.org/description",
+        "version": "https://schema.org/softwareVersion",
+        "coreModelHash": "agentdid:coreModelHash",
+        "systemPromptHash": "agentdid:systemPromptHash",
+        "capabilities": { "@id": "agentdid:capabilities", "@container": "@set" },
+        "memberOf": { "@id": "agentdid:memberOf", "@type": "@id" }
+      }
+    },
+
+    "complianceCertifications": {
+      "@id": "agentdid:complianceCertifications",
+      "@container": "@set",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "VerifiableCredential": "https://www.w3.org/2018/credentials#VerifiableCredential",
+        "issuer": { "@id": "https://www.w3.org/2018/credentials#issuer", "@type": "@id" },
+        "credentialSubject": "https://www.w3.org/2018/credentials#credentialSubject",
+        "proofHash": "agentdid:proofHash"
+      }
+    }
+  }
+}

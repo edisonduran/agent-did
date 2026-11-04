@@ -55,11 +55,15 @@
     "smoke:rpc": "node scripts/rpc-resolver-smoke.js",
     "python:smoke:webvh-external": "cd sdk-python && python scripts/webvh_external_smoke.py",
     "conformance:rfc001": "node scripts/conformance-rfc001.js",
+    "check:jsonld-context": "node scripts/check-jsonld-context.js",
     "check:integration-governance": "node scripts/check-integration-governance.js",
     "test:python": "npm run python:test"
   },
   "dependencies": {
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.1"
+  },
+  "devDependencies": {
+    "jsonld": "^9.0.0"
   }
 }
