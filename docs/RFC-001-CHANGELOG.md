@@ -2,7 +2,24 @@
 
 This document tracks normative and materially relevant editorial changes to RFC-001 independently from the ecosystem release train tracked in [../CHANGELOG.md](../CHANGELOG.md).
 
-> **Current canonical text:** [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) is Stable and frozen for the `1.0.0-rc.1` release train.
+> **Current canonical text:** [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md), version `1.0-rc.4` (release candidate). It supersedes `0.3-pivot-pattern-on-webvh`.
+
+---
+
+## [1.0-rc.4] - Unreleased (1.0.0-rc.4 train)
+
+### Decision Trigger
+
+- The RFC named `did:webvh`, RFC 9421, JCS and HMAC commitments without pinning versions, described lifecycle operations without saying who may authorize them, and did not require that our logs verify in other resolvers. The text lagged behind the rc.3 implementation.
+
+### Result
+
+- Version `0.3-pivot-pattern-on-webvh` becomes `1.0-rc.4`; status is "Release candidate"; BCP 14 keyword statement added.
+- New §2.1 Normative References pin did:webvh v1.0, DID Core v1.0, RFC 9421, RFC 8941, RFC 9530, RFC 8785, RFC 8032, RFC 2104 and BCP 14, and point to the External Conformance Matrix for evidence.
+- New MUST in §6.1: `did:webvh` documents and logs MUST be verifiable by any conforming did:webvh v1.0 resolver without Agent-DID-specific code.
+- New §6.6 Lifecycle Authorization: updates, rotation and revocation are log entries proven by an `updateKey` in force before the entry; no keys derived from public data; revocation is final. §6.3 and §6.4 refer to it.
+- §4.3 (salted commitments) and §6.5 (RFC 9421 profile) were added earlier in the rc.3 train and are unchanged; §10 now lists them and §6.1/§6.6 among the conformance items.
+- Normative strengthening only: no wire-format change relative to the rc.3 implementation.
 
 ---
 
