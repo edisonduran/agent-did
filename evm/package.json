@@ -1,6 +1,6 @@
 {
   "name": "@agentdid/evm",
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0-rc.4",
   "description": "Optional EVM registry adapter for Agent-DID (EvmAgentRegistry + ethers-compatible contract client). Not required by the core SDK.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
   "publishConfig": { "access": "public" },
   "engines": { "node": ">=22.12.0" },
   "peerDependencies": {
-    "@agentdid/sdk": "^1.0.0-rc.3"
+    "@agentdid/sdk": "^1.0.0-rc.4"
   },
   "devDependencies": {
     "ethers": "^6.11.1",

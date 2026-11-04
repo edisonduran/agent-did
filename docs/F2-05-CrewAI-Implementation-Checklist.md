@@ -14,7 +14,7 @@ Use this checklist when implementation work starts or when a PR changes CrewAI p
 - [x] `integrations/crewai/README.md` no longer describes the Python SDK as future work.
 - [x] `docs/archive/F2-05-CrewAI-Integration-Design.md` still matches the intended CrewAI surface.
 - [x] `docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md` remains the reference document for the remaining maturity delta versus LangChain.
-- [x] RC metadata stays aligned with the coordinated `1.0.0rc3` release train and the package continues to declare `agent-did-sdk==1.0.0rc3` as its core dependency floor for the frozen release candidate.
+- [x] RC metadata stays aligned with the coordinated `1.0.0rc4` release train and the package continues to declare `agent-did-sdk==1.0.0rc4` as its core dependency floor for the frozen release candidate.
 
 ---
 
@@ -79,6 +79,7 @@ F2-05 is complete for repo scope when the package has a functional factory, expl
 | Date | Change |
 |------|--------|
 | 2026-11-04 | M-09: CrewAI examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
+| 2026-11-04 | RC metadata moved to the `1.0.0rc4` release train (npm `1.0.0-rc.4`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-03 | Tools now resolve, verify and rotate through `agentIdentity.client` (`AgentDidClient`) instead of the deprecated static `AgentIdentity` API. Identities without an explicit client use the default client, so behavior and the public tool surface are unchanged. |
 | 2026-11-03 | RC metadata moved to the `1.0.0rc3` release train; the package now pins `agent-did-sdk==1.0.0rc3`. The integration test suite passes unchanged against the rc.3 SDK (did:webvh v1.0 logs, RFC 9421 signatures, salted commitments). No functional changes to the integration surface. |
 | 2026-11-02 | RC metadata moved to the `1.0.0rc2` security release train ([GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)); the package now pins `agent-did-sdk==1.0.0rc2`. No functional changes to the integration surface. |

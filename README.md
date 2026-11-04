@@ -109,7 +109,7 @@ Documentation governance for live project status and canonical sources of truth 
 
 The project is past the specification-only phase: it includes a functional implementation and a validation pipeline.
 
-- **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.3` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
+- **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.4` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
 - **External conformance matrix**: [docs/External-Conformance-Matrix.md](docs/External-Conformance-Matrix.md) (what is proven against did:webvh, RFC 9421, RFC 8785 and others, and what is not yet)
 - **Current result**: see the [External Conformance Matrix](docs/External-Conformance-Matrix.md) for what is proven against did:webvh, RFC 9421, RFC 8785, RFC 9530 and RFC 8941 (PASS, scoped or not covered). The checklist's MUST `11/11` and SHOULD `5/5` measure the SDKs against our own RFC-001 and are not external evidence
@@ -121,13 +121,14 @@ The project is past the specification-only phase: it includes a functional imple
 - **Runtime floor**: `@agentdid/sdk` requires Node.js 22.12+ and `@agentdid/langchain` 22+. `agent-did-sdk` does not install on Alpine (musl) or Windows ARM64 (see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md))
 - **`0.x -> 1.0` migration**: [sdk/MIGRATION-0.x-to-1.0.md](sdk/MIGRATION-0.x-to-1.0.md), [sdk-python/MIGRATION-0.x-to-1.0.md](sdk-python/MIGRATION-0.x-to-1.0.md)
 - **`rc.2 -> rc.3` migration**: [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md), [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)
+- **`rc.3 -> rc.4` migration**: [sdk/MIGRATION-1.0-rc.3-to-rc.4.md](sdk/MIGRATION-1.0-rc.3-to-rc.4.md), [sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md](sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md)
 - **Release-train evidence**: [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md), [docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md](docs/RELEASE-1.0-COMPATIBILITY-MATRIX.md), [docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md](docs/RELEASE-1.0-INTEGRATION-EVIDENCE.md)
 - **Current RC work**: validate public-registry clean-install smokes against the published `1.0.0-rc.3` packages, switch the demo to the RC, and open the focused feedback window; the 30-day green-window gate applies only to final `v1.0.0`
 - **Start here**: [QUICKSTART.md](QUICKSTART.md), [SECURITY.md](SECURITY.md), [docs/INDEX.md](docs/INDEX.md), [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md)
 
 ## Build In Public
 
-Agent-DID is an open project being finalized in public for the `1.0.0-rc.3` release train.
+Agent-DID is an open project being finalized in public for the `1.0.0-rc.4` release train.
 
 - The core RFC lifecycle is implemented, covered by conformance checks, and frozen in-repo as the current Stable release contract.
 - The co-versioned `1.0.0-rc.3` prerelease is published on npm and PyPI across the shipped SDK and integration packages.
