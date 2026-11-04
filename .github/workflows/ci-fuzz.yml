@@ -1,0 +1,77 @@
+name: CI — Fuzz
+
+# Property tests / fuzzing of the input parsers (Structured Fields, did.jsonl,
+# publicKeyMultibase) with fast-check and hypothesis (M-14). Pull requests run
+# the small default budget as part of the normal suites; this workflow runs a
+# much larger budget nightly and on demand.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-fuzz.yml'
+      - 'sdk/tests/Fuzz.property.test.ts'
+      - 'sdk-python/tests/test_fuzz_properties.py'
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: 'fast-check runs per property'
+        default: '5000'
+  schedule:
+    - cron: '23 3 * * *'
+
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    name: fast-check (TypeScript parsers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Install SDK dependencies
+        run: npm --prefix sdk ci
+
+      - name: Run property tests
+        env:
+          FUZZ_RUNS: ${{ github.event_name == 'pull_request' && '300' || inputs.runs || '5000' }}
+        run: npm --prefix sdk test -- --runInBand Fuzz.property.test.ts
+
+  python:
+    name: hypothesis (Python parsers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Install SDK in dev mode
+        working-directory: sdk-python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run property tests
+        env:
+          HYPOTHESIS_PROFILE: ${{ github.event_name == 'pull_request' && 'default' || 'nightly' }}
+        run: python -m pytest sdk-python/tests/test_fuzz_properties.py -q
