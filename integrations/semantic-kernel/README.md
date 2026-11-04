@@ -47,7 +47,7 @@ Integrar Agent-DID como capa de identidad verificable para agentes ejecutados so
 
 ```python
 from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, LocalKeySigner
 
 identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 runtime_identity = await identity.create(

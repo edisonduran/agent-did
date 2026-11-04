@@ -44,7 +44,7 @@ python -m pip install -e .[dev]
 
 ```python
 from agent_did_langchain import create_agent_did_langchain_integration
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, LocalKeySigner
 from langchain.agents import create_agent
 
 identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
