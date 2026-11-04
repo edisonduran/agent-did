@@ -417,6 +417,19 @@ export declare class InMemoryNonceStore implements NonceStore {
     private purge;
 }
 
+## core/safe-fetch.d.ts
+/**
+ * Default `fetch` for the SDK's HTTP sources.
+ *
+ * Targets are validated before the request is sent, so a redirect would move
+ * the request to a destination that was never validated. The default fetch
+ * therefore does not follow redirects: a 3xx response surfaces as a non-OK
+ * status. Callers that supply their own `fetchFn` own their redirect policy.
+ */
+type AnyInit = Record<string, unknown> | undefined;
+export declare function noRedirectFetch(url: string, init?: AnyInit): Promise<any>;
+export {};
+
 ## core/signer.d.ts
 /**
  * Interface for signing operations. Implement this to integrate with
