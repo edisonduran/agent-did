@@ -1,0 +1,6 @@
+# Default owner for everything in the repository.
+* @edisonduran
+
+# Security-sensitive paths: workflows and release automation.
+/.github/ @edisonduran
+/SECURITY.md @edisonduran
