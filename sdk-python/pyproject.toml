@@ -48,6 +48,8 @@ dev = [
   # Independent RFC 9421 implementation, used only to cross-check HTTP signatures in tests.
   "http-message-signatures==3.0.0",
   "requests>=2.31",
+  # Smokes and tests of the optional EVM adapter (agent_did_sdk.evm)
+  "web3>=6.0",
 ]
 
 [project.urls]
