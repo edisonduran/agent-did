@@ -1,11 +1,21 @@
 /**
- * HTTP Message Signatures (RFC 9421) primitives: strict Structured Field
- * (RFC 8941) handling for `Signature-Input` / `Signature`, and the signature
- * base of RFC 9421 §2.5. Agent-DID's request profile is built on top of this
+ * HTTP Message Signatures (RFC 9421) primitives: Structured Field (RFC 8941)
+ * handling for `Signature-Input` / `Signature` (parsing is delegated to the
+ * `structured-headers` library) and the signature base of RFC 9421 §2.5. Agent-DID's request profile is built on top of this
  * in `AgentIdentity`.
  *
  * Python parity: `agent_did_sdk.core.http_signatures`.
  */
+
+import {
+  parseDictionary,
+  Token,
+  type BareItem,
+  type Dictionary,
+  type InnerList,
+  type Item,
+  type Parameters,
+} from 'structured-headers';
 
 /** An RFC 8941 bare item as used by signature parameters. */
 export type SignatureParamValue = string | number | boolean | { token: string };
@@ -88,189 +98,107 @@ export function serializeSignature(label: string, signature: Uint8Array): string
 }
 
 // ---------------------------------------------------------------------------
-// Parsing (RFC 8941 §4.2), restricted to what Signature-Input / Signature use
+// Parsing (RFC 8941 §4.2) by the `structured-headers` library, restricted to
+// what Signature-Input / Signature use
 // ---------------------------------------------------------------------------
 
-class Parser {
-  private index = 0;
-
-  constructor(private readonly input: string) {}
-
-  public parseDictionary<T>(parseMember: () => T): Map<string, T> {
-    const result = new Map<string, T>();
-    this.skipSpaces();
-    while (!this.done()) {
-      const key = this.parseKey();
-      if (this.peek() !== '=') {
-        throw new HttpSignatureError(`Dictionary member ${key} has no value`);
-      }
-      this.index += 1;
-      result.set(key, parseMember());
-      this.skipOws();
-      if (this.done()) {
-        break;
-      }
-      this.expect(',');
-      this.skipOws();
-      if (this.done()) {
-        throw new HttpSignatureError('Trailing comma in dictionary');
-      }
-    }
-    return result;
+function parseDictionaryStrict(value: string): Dictionary {
+  try {
+    return parseDictionary(value.trim());
+  } catch (error) {
+    throw new HttpSignatureError(`Malformed Structured Field: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
 
-  public parseInnerList(): SignatureInput {
-    this.expect('(');
-    const components: string[] = [];
-    for (;;) {
-      this.skipSpaces();
-      if (this.peek() === ')') {
-        this.index += 1;
-        break;
-      }
-      components.push(this.parseString());
-      if (this.peek() === ';') {
-        throw new HttpSignatureError('Component identifier parameters are not supported');
-      }
-      if (this.peek() !== ' ' && this.peek() !== ')') {
-        throw new HttpSignatureError('Malformed inner list');
-      }
-    }
-    return { components, params: this.parseParams() };
-  }
-
-  public parseByteSequence(): Uint8Array {
-    this.expect(':');
-    const end = this.input.indexOf(':', this.index);
-    if (end === -1) {
-      throw new HttpSignatureError('Unterminated byte sequence');
-    }
-    const encoded = this.input.slice(this.index, end);
-    if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(encoded) || encoded.length % 4 !== 0) {
-      throw new HttpSignatureError('Invalid base64 in byte sequence');
-    }
-    this.index = end + 1;
-    return new Uint8Array(Buffer.from(encoded, 'base64'));
-  }
-
-  private parseParams(): Array<[string, SignatureParamValue]> {
-    const params: Array<[string, SignatureParamValue]> = [];
-    while (this.peek() === ';') {
-      this.index += 1;
-      this.skipSpaces();
-      const name = this.parseKey();
-      let value: SignatureParamValue = true;
-      if (this.peek() === '=') {
-        this.index += 1;
-        value = this.parseBareItem();
-      }
-      const existing = params.findIndex(([key]) => key === name);
-      if (existing !== -1) {
-        throw new HttpSignatureError(`Duplicate signature parameter: ${name}`);
-      }
-      params.push([name, value]);
-    }
-    return params;
-  }
-
-  private parseBareItem(): SignatureParamValue {
-    const char = this.peek();
-    if (char === '"') {
-      return this.parseString();
-    }
-    if (char === '?') {
-      const value = this.input.slice(this.index, this.index + 2);
-      if (value !== '?0' && value !== '?1') {
-        throw new HttpSignatureError('Invalid boolean');
-      }
-      this.index += 2;
-      return value === '?1';
-    }
-    if (char === '-' || /[0-9]/u.test(char)) {
-      const match = /^-?[0-9]{1,15}/u.exec(this.input.slice(this.index));
-      if (!match || /^[.0-9]/u.test(this.input.charAt(this.index + match[0].length))) {
-        throw new HttpSignatureError('Invalid integer (decimals are not used by signature parameters)');
-      }
-      this.index += match[0].length;
-      return Number(match[0]);
-    }
-    const match = /^[A-Za-z*][!#$%&'*+\-.^_`|~0-9A-Za-z:/]*/u.exec(this.input.slice(this.index));
-    if (!match) {
-      throw new HttpSignatureError('Invalid bare item');
-    }
-    this.index += match[0].length;
-    return { token: match[0] };
-  }
-
-  private parseString(): string {
-    this.expect('"');
-    let output = '';
-    for (;;) {
-      if (this.done()) {
-        throw new HttpSignatureError('Unterminated string');
-      }
-      const char = this.input.charAt(this.index);
-      this.index += 1;
-      if (char === '\\') {
-        const next = this.input.charAt(this.index);
-        if (next !== '"' && next !== '\\') {
-          throw new HttpSignatureError('Invalid escape in string');
-        }
-        output += next;
-        this.index += 1;
-      } else if (char === '"') {
-        return output;
-      } else if (char < '\x20' || char > '\x7e') {
-        throw new HttpSignatureError('Strings must be printable ASCII');
-      } else {
-        output += char;
-      }
+/**
+ * Counts `;` separators outside strings and byte sequences. RFC 8941 lets a
+ * repeated parameter silently overwrite the earlier one, and the library does
+ * that; a signature parameter list must not contain duplicates (RFC 9421 §2.3),
+ * so a count mismatch against the parsed parameters means one was dropped.
+ */
+function countParameterSeparators(value: string): number {
+  let count = 0;
+  let inString = false;
+  let inBytes = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value.charAt(index);
+    if (inString) {
+      if (char === '\\') index += 1;
+      else if (char === '"') inString = false;
+    } else if (inBytes) {
+      if (char === ':') inBytes = false;
+    } else if (char === '"') {
+      inString = true;
+    } else if (char === ':') {
+      inBytes = true;
+    } else if (char === ';') {
+      count += 1;
     }
   }
+  return count;
+}
 
-  private parseKey(): string {
-    const match = /^[a-z*][a-z0-9_\-.*]*/u.exec(this.input.slice(this.index));
-    if (!match) {
-      throw new HttpSignatureError('Invalid dictionary or parameter key');
+function toParamValue(name: string, value: BareItem): SignatureParamValue {
+  if (typeof value === 'string' || typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    // Decimals are not used by signature parameters. (A decimal with an integral
+    // value such as `1.0` is indistinguishable from `1` in this library; the
+    // signature base is rebuilt from the parsed value, so it cannot verify.)
+    if (!Number.isInteger(value)) {
+      throw new HttpSignatureError(`Invalid integer (decimals are not used by signature parameters): ${name}`);
     }
-    this.index += match[0].length;
-    return match[0];
+    return value;
   }
+  if (value instanceof Token) {
+    return { token: value.toString() };
+  }
+  throw new HttpSignatureError(`Unsupported value type for signature parameter: ${name}`);
+}
 
-  private expect(char: string): void {
-    if (this.peek() !== char) {
-      throw new HttpSignatureError(`Expected "${char}"`);
-    }
-    this.index += 1;
-  }
-
-  private peek(): string {
-    return this.input.charAt(this.index);
-  }
-
-  private skipSpaces(): void {
-    while (this.peek() === ' ') this.index += 1;
-  }
-
-  private skipOws(): void {
-    while (this.peek() === ' ' || this.peek() === '\t') this.index += 1;
-  }
-
-  private done(): boolean {
-    return this.index >= this.input.length;
-  }
+function toParams(params: Parameters): Array<[string, SignatureParamValue]> {
+  return Array.from(params, ([name, value]): [string, SignatureParamValue] => [name, toParamValue(name, value)]);
 }
 
 /** Parses a `Signature-Input` field value into its members (label → inner list). */
 export function parseSignatureInputHeader(value: string): Map<string, SignatureInput> {
-  const parser = new Parser(value.trim());
-  return parser.parseDictionary(() => parser.parseInnerList());
+  const result = new Map<string, SignatureInput>();
+  let separators = 0;
+  for (const [label, member] of parseDictionaryStrict(value)) {
+    if (!Array.isArray(member[0])) {
+      throw new HttpSignatureError(`Signature-Input member ${label} is not an inner list`);
+    }
+    const [items, params] = member as InnerList;
+    const components = items.map(([component, componentParams]) => {
+      if (typeof component !== 'string') {
+        throw new HttpSignatureError('Covered component identifiers must be strings');
+      }
+      if (componentParams.size > 0) {
+        throw new HttpSignatureError('Component identifier parameters are not supported');
+      }
+      return component;
+    });
+    separators += params.size;
+    result.set(label, { components, params: toParams(params) });
+  }
+  if (countParameterSeparators(value) !== separators) {
+    throw new HttpSignatureError('Duplicate signature parameter');
+  }
+  return result;
 }
 
 /** Parses a `Signature` field value into its members (label → signature bytes). */
 export function parseSignatureHeader(value: string): Map<string, Uint8Array> {
-  const parser = new Parser(value.trim());
-  return parser.parseDictionary(() => parser.parseByteSequence());
+  const result = new Map<string, Uint8Array>();
+  for (const [label, member] of parseDictionaryStrict(value)) {
+    const [bare, params] = member as Item;
+    if (!(bare instanceof ArrayBuffer) || params.size > 0) {
+      throw new HttpSignatureError(`Signature member ${label} must be a byte sequence without parameters`);
+    }
+    result.set(label, new Uint8Array(bare));
+  }
+  return result;
 }
 
 export function getSignatureParam(input: SignatureInput, name: string): SignatureParamValue | undefined {

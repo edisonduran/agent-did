@@ -87,16 +87,25 @@ describe('RFC 9421 primitives', () => {
     ['uppercase key', 'S=("@method")'],
     ['trailing comma', 's=("@method"),'],
     ['missing value', 's'],
+    ['not an inner list', 's=1'],
+    ['token component', 's=(@method)'],
+    ['byte sequence parameter', 's=("@method");created=:AAAA:'],
+    ['date parameter', 's=("@method");created=@1'],
   ])('rejects malformed Signature-Input (%s)', (_label, value) => {
     expect(() => parseSignatureInputHeader(value)).toThrow(HttpSignatureError);
   });
 
-  it.each([['bad base64', 's=:@@@@:'], ['unterminated', 's=:AAAA'], ['not bytes', 's="x"']])(
+  it.each([['bad base64', 's=:@@@@:'], ['unterminated', 's=:AAAA'], ['not bytes', 's="x"'], ['parameters', 's=:AAAA:;x=1'], ['inner list', 's=(:AAAA:)']])(
     'rejects malformed Signature (%s)',
     (_label, value) => {
       expect(() => parseSignatureHeader(value)).toThrow(HttpSignatureError);
     }
   );
+
+  it('does not mistake semicolons inside strings for parameters', () => {
+    const parsed = parseSignatureInputHeader('s=("a;b");keyid="x;\\"y;z";tag="t"');
+    expect(parsed.get('s')?.params).toEqual([['keyid', 'x;"y;z'], ['tag', 't']]);
+  });
 
   it.each([
     ['missing header', 's=("x-missing")'],

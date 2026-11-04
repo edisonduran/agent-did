@@ -1,8 +1,8 @@
 """HTTP Message Signatures (RFC 9421) primitives.
 
-Strict Structured Field (RFC 8941) handling for ``Signature-Input`` / ``Signature`` and the
-signature base of RFC 9421 §2.5. Agent-DID's request profile is built on top of this in
-``AgentIdentity``.
+Structured Field (RFC 8941) handling for ``Signature-Input`` / ``Signature`` (parsing is
+delegated to the ``http-sf`` library) and the signature base of RFC 9421 §2.5. Agent-DID's request profile
+is built on top of this in ``AgentIdentity``.
 
 TypeScript parity: ``sdk/src/core/http-signatures.ts``.
 """
@@ -10,14 +10,14 @@ TypeScript parity: ``sdk/src/core/http-signatures.ts``.
 from __future__ import annotations
 
 import base64
-import binascii
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TypeVar
+from decimal import Decimal
+from typing import Any
 from urllib.parse import urlsplit
 
-_T = TypeVar("_T")
+import http_sf
 
 
 @dataclass(frozen=True)
@@ -58,8 +58,6 @@ class HttpSignatureError(ValueError):
 
 _KEY = re.compile(r"[a-z*][a-z0-9_\-.*]*")
 _TOKEN = re.compile(r"[A-Za-z*][!#$%&'*+\-.^_`|~0-9A-Za-z:/]*")
-_INTEGER = re.compile(r"-?[0-9]{1,15}")
-_BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
 
 
 # ---------------------------------------------------------------------------
@@ -109,158 +107,91 @@ def serialize_signature(label: str, signature: bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Parsing (RFC 8941 §4.2), restricted to what Signature-Input / Signature use
+# Parsing (RFC 8941 §4.2) by the ``http-sf`` library, restricted to what
+# Signature-Input / Signature use
 # ---------------------------------------------------------------------------
 
 
-class _Parser:
-    def __init__(self, text: str) -> None:
-        self._text = text
-        self._i = 0
+def _parse_dictionary(value: str) -> dict[str, Any]:
+    try:
+        return http_sf.parse(value.strip().encode("ascii"), tltype="dictionary")  # type: ignore[return-value]
+    except (http_sf.StructuredFieldError, UnicodeEncodeError, ValueError) as error:
+        raise HttpSignatureError(f"Malformed Structured Field: {error}") from None
 
-    def parse_dictionary(self, parse_member: Callable[[], _T]) -> dict[str, _T]:
-        result: dict[str, _T] = {}
-        self._skip_spaces()
-        while not self._done():
-            key = self._parse_key()
-            if self._peek() != "=":
-                raise HttpSignatureError(f"Dictionary member {key} has no value")
-            self._i += 1
-            result[key] = parse_member()
-            self._skip_ows()
-            if self._done():
-                break
-            self._expect(",")
-            self._skip_ows()
-            if self._done():
-                raise HttpSignatureError("Trailing comma in dictionary")
-        return result
 
-    def parse_inner_list(self) -> SignatureInput:
-        self._expect("(")
-        components: list[str] = []
-        while True:
-            self._skip_spaces()
-            if self._peek() == ")":
-                self._i += 1
-                break
-            components.append(self._parse_string())
-            if self._peek() == ";":
-                raise HttpSignatureError("Component identifier parameters are not supported")
-            if self._peek() not in (" ", ")"):
-                raise HttpSignatureError("Malformed inner list")
-        return SignatureInput(components=components, params=self._parse_params())
+def _count_parameter_separators(value: str) -> int:
+    """Count ``;`` separators outside strings and byte sequences.
 
-    def parse_byte_sequence(self) -> bytes:
-        self._expect(":")
-        end = self._text.find(":", self._i)
-        if end == -1:
-            raise HttpSignatureError("Unterminated byte sequence")
-        encoded = self._text[self._i:end]
-        if not _BASE64.fullmatch(encoded) or len(encoded) % 4 != 0:
-            raise HttpSignatureError("Invalid base64 in byte sequence")
-        self._i = end + 1
-        try:
-            return base64.b64decode(encoded, validate=True)
-        except binascii.Error:
-            raise HttpSignatureError("Invalid base64 in byte sequence") from None
-
-    def _parse_params(self) -> list[tuple[str, SignatureParamValue]]:
-        params: list[tuple[str, SignatureParamValue]] = []
-        while self._peek() == ";":
-            self._i += 1
-            self._skip_spaces()
-            name = self._parse_key()
-            value: SignatureParamValue = True
-            if self._peek() == "=":
-                self._i += 1
-                value = self._parse_bare_item()
-            if any(key == name for key, _ in params):
-                raise HttpSignatureError(f"Duplicate signature parameter: {name}")
-            params.append((name, value))
-        return params
-
-    def _parse_bare_item(self) -> SignatureParamValue:
-        char = self._peek()
-        if char == '"':
-            return self._parse_string()
-        if char == "?":
-            value = self._text[self._i:self._i + 2]
-            if value not in ("?0", "?1"):
-                raise HttpSignatureError("Invalid boolean")
-            self._i += 2
-            return value == "?1"
-        if char == "-" or char.isdigit():
-            match = _INTEGER.match(self._text, self._i)
-            following = self._text[match.end():match.end() + 1] if match else ""
-            if match is None or following == "." or following.isdigit():
-                raise HttpSignatureError("Invalid integer (decimals are not used by signature parameters)")
-            self._i = match.end()
-            return int(match.group(0))
-        match = _TOKEN.match(self._text, self._i)
-        if match is None:
-            raise HttpSignatureError("Invalid bare item")
-        self._i = match.end()
-        return Token(match.group(0))
-
-    def _parse_string(self) -> str:
-        self._expect('"')
-        out: list[str] = []
-        while True:
-            if self._done():
-                raise HttpSignatureError("Unterminated string")
-            char = self._text[self._i]
-            self._i += 1
+    RFC 8941 lets a repeated parameter silently overwrite the earlier one, and the
+    library does that; a signature parameter list must not contain duplicates
+    (RFC 9421 §2.3), so a count mismatch against the parsed parameters means one was dropped.
+    """
+    count = 0
+    in_string = False
+    in_bytes = False
+    skip = False
+    for char in value:
+        if skip:
+            skip = False
+        elif in_string:
             if char == "\\":
-                following = self._text[self._i:self._i + 1]
-                if following not in ('"', "\\"):
-                    raise HttpSignatureError("Invalid escape in string")
-                out.append(following)
-                self._i += 1
+                skip = True
             elif char == '"':
-                return "".join(out)
-            elif not 0x20 <= ord(char) <= 0x7E:
-                raise HttpSignatureError("Strings must be printable ASCII")
-            else:
-                out.append(char)
+                in_string = False
+        elif in_bytes:
+            in_bytes = char != ":"
+        elif char == '"':
+            in_string = True
+        elif char == ":":
+            in_bytes = True
+        elif char == ";":
+            count += 1
+    return count
 
-    def _parse_key(self) -> str:
-        match = _KEY.match(self._text, self._i)
-        if match is None:
-            raise HttpSignatureError("Invalid dictionary or parameter key")
-        self._i = match.end()
-        return match.group(0)
 
-    def _expect(self, char: str) -> None:
-        if self._peek() != char:
-            raise HttpSignatureError(f'Expected "{char}"')
-        self._i += 1
-
-    def _peek(self) -> str:
-        return self._text[self._i:self._i + 1]
-
-    def _skip_spaces(self) -> None:
-        while self._peek() == " ":
-            self._i += 1
-
-    def _skip_ows(self) -> None:
-        while self._peek() in (" ", "\t") and self._peek():
-            self._i += 1
-
-    def _done(self) -> bool:
-        return self._i >= len(self._text)
+def _to_param_value(name: str, value: Any) -> SignatureParamValue:
+    if isinstance(value, http_sf.Token):
+        return Token(str(value))
+    if isinstance(value, bool | str | int):
+        return value
+    if isinstance(value, Decimal):
+        raise HttpSignatureError(f"Invalid integer (decimals are not used by signature parameters): {name}")
+    raise HttpSignatureError(f"Unsupported value type for signature parameter: {name}")
 
 
 def parse_signature_input_header(value: str) -> dict[str, SignatureInput]:
     """Parse a ``Signature-Input`` field value into its members (label → inner list)."""
-    parser = _Parser(value.strip())
-    return parser.parse_dictionary(parser.parse_inner_list)
+    result: dict[str, SignatureInput] = {}
+    separators = 0
+    for label, member in _parse_dictionary(value).items():
+        if not isinstance(member[0], list):
+            raise HttpSignatureError(f"Signature-Input member {label} is not an inner list")
+        items, params = member
+        components: list[str] = []
+        for component, component_params in items:
+            if isinstance(component, http_sf.Token) or not isinstance(component, str):
+                raise HttpSignatureError("Covered component identifiers must be strings")
+            if component_params:
+                raise HttpSignatureError("Component identifier parameters are not supported")
+            components.append(component)
+        separators += len(params)
+        result[label] = SignatureInput(
+            components=components,
+            params=[(name, _to_param_value(name, item)) for name, item in params.items()],
+        )
+    if _count_parameter_separators(value) != separators:
+        raise HttpSignatureError("Duplicate signature parameter")
+    return result
 
 
 def parse_signature_header(value: str) -> dict[str, bytes]:
     """Parse a ``Signature`` field value into its members (label → signature bytes)."""
-    parser = _Parser(value.strip())
-    return parser.parse_dictionary(parser.parse_byte_sequence)
+    result: dict[str, bytes] = {}
+    for label, (bare, params) in _parse_dictionary(value).items():
+        if not isinstance(bare, bytes) or params:
+            raise HttpSignatureError(f"Signature member {label} must be a byte sequence without parameters")
+        result[label] = bare
+    return result
 
 
 # ---------------------------------------------------------------------------

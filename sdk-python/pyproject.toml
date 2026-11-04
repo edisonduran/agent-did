@@ -29,6 +29,8 @@ dependencies = [
   "pynacl>=1.5",
   "httpx>=0.27",
   "rfc8785>=0.1.4,<0.2",
+  # RFC 8941 Structured Fields parser for Signature-Input / Signature
+  "http-sf>=1.5,<2",
   # did:webvh v1.0 reference implementation (ADR-002). Pulls aries-askar, which
   # has no musllinux or Windows ARM64 wheels; see README "Platform support".
   "did-webvh>=1.0.1,<1.1",
