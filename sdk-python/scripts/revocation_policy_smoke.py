@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 
+from eth_account import Account
+from eth_account.messages import encode_typed_data
 from smoke_utils import (
     CONTRACTS_DIR,
     NPM_COMMAND,
@@ -13,6 +15,9 @@ from smoke_utils import (
     wait_for_hardhat_node,
 )
 from web3 import HTTPProvider, Web3
+
+# Well-known Hardhat development account #0 (the deployer, hence the registrar).
+HARDHAT_ACCOUNT_0_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 
 def wait_for_tx(web3: Web3, tx_hash: bytes) -> None:
@@ -29,6 +34,48 @@ def expect_revert(action, expected_message: str) -> None:
             ) from exc
         return
     raise RuntimeError(f"Expected revert with message containing: {expected_message}")
+
+
+def register_attested(web3: Web3, contract, did: str, owner: str) -> None:
+    controller = f"did:ethr:{owner}"
+    deadline = web3.eth.get_block("latest")["timestamp"] + 3600
+    message = {
+        "types": {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"},
+            ],
+            "Registration": [
+                {"name": "did", "type": "string"},
+                {"name": "controller", "type": "string"},
+                {"name": "documentRef", "type": "string"},
+                {"name": "owner", "type": "address"},
+                {"name": "deadline", "type": "uint256"},
+            ],
+        },
+        "primaryType": "Registration",
+        "domain": {
+            "name": "AgentRegistry",
+            "version": "1",
+            "chainId": web3.eth.chain_id,
+            "verifyingContract": contract.address,
+        },
+        "message": {
+            "did": did,
+            "controller": controller,
+            "documentRef": "",
+            "owner": owner,
+            "deadline": deadline,
+        },
+    }
+    signature = Account.sign_message(encode_typed_data(full_message=message), HARDHAT_ACCOUNT_0_KEY).signature
+    attestation = (owner, deadline, signature)
+    wait_for_tx(
+        web3,
+        contract.functions.registerAgentAttested(did, controller, "", attestation).transact({"from": owner}),
+    )
 
 
 def main() -> int:
@@ -51,10 +98,7 @@ def main() -> int:
         new_owner = web3.eth.accounts[3]
 
         did_one = "did:agent:polygon:0xpolicy1"
-        wait_for_tx(
-            web3,
-            contract.functions.registerAgent(did_one, f"did:ethr:{owner}").transact({"from": owner}),
-        )
+        register_attested(web3, contract, did_one, owner)
 
         expect_revert(lambda: contract.functions.revokeAgent(did_one).transact({"from": delegate}), "not authorized")
 
@@ -71,10 +115,7 @@ def main() -> int:
             raise RuntimeError("DID should be revoked by authorized delegate")
 
         did_two = "did:agent:polygon:0xpolicy2"
-        wait_for_tx(
-            web3,
-            contract.functions.registerAgent(did_two, f"did:ethr:{owner}").transact({"from": owner}),
-        )
+        register_attested(web3, contract, did_two, owner)
         wait_for_tx(
             web3,
             contract.functions.transferAgentOwnership(did_two, new_owner).transact({"from": owner}),

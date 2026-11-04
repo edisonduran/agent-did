@@ -5,11 +5,22 @@ import json
 import os
 from pathlib import Path
 
+from eth_account import Account
+from eth_account.messages import encode_typed_data
 from web3 import HTTPProvider, Web3
 
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams
-from agent_did_sdk.evm import EvmAgentRegistry, EvmAgentRegistryAdapterConfig, Web3AgentRegistryContractClient
+from agent_did_sdk.evm import (
+    REGISTRATION_ATTESTATION_TYPES,
+    EvmAgentRegistry,
+    EvmAgentRegistryAdapterConfig,
+    RegistrationAttestation,
+    RegistrationAttestationRequest,
+    Web3AgentRegistryContractClient,
+    registration_attestation_domain,
+    registration_attestation_message,
+)
 
 ABI_PATH = Path(__file__).resolve().parent / "abi" / "AgentRegistry.abi.json"
 
@@ -31,10 +42,38 @@ async def main() -> None:
     abi = load_agent_registry_abi()
     contract = provider.eth.contract(address=Web3.to_checksum_address(registry_address), abi=abi)
 
+    # The contract only accepts registrations signed by its registrar. In production the registrar is a
+    # separate service that first verifies the requester controls the DID. This demo signs locally with
+    # REGISTRAR_PRIVATE_KEY, which must match `registrar()` on the deployed contract.
+    registrar_key = os.getenv("REGISTRAR_PRIVATE_KEY")
+    owner_address = os.getenv("OWNER_ADDRESS")
+    if not registrar_key or not owner_address:
+        raise RuntimeError("Missing required env vars: REGISTRAR_PRIVATE_KEY, OWNER_ADDRESS")
+
+    async def attest(request: RegistrationAttestationRequest) -> RegistrationAttestation:
+        deadline = provider.eth.get_block("latest")["timestamp"] + 3600
+        typed_data = {
+            "types": {
+                "EIP712Domain": [
+                    {"name": "name", "type": "string"},
+                    {"name": "version", "type": "string"},
+                    {"name": "chainId", "type": "uint256"},
+                    {"name": "verifyingContract", "type": "address"},
+                ],
+                **REGISTRATION_ATTESTATION_TYPES,
+            },
+            "primaryType": "Registration",
+            "domain": registration_attestation_domain(provider.eth.chain_id, contract.address),
+            "message": registration_attestation_message(request, owner_address, deadline),
+        }
+        signed = Account.sign_message(encode_typed_data(full_message=typed_data), registrar_key)
+        return RegistrationAttestation(owner=owner_address, deadline=deadline, signature=bytes(signed.signature))
+
     registry = EvmAgentRegistry(
         EvmAgentRegistryAdapterConfig(
             contract_client=Web3AgentRegistryContractClient(contract),
             await_transaction_confirmation=True,
+            attestation_provider=attest,
         )
     )
 

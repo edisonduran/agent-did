@@ -1,29 +1,32 @@
 import { AgentRegistry, AgentRegistryRecord } from '@agentdid/sdk';
-import { EvmAgentRegistryAdapterConfig, EvmAgentRegistryContract, EvmTxResponse } from './evm-types';
+import {
+  EvmAgentRegistryAdapterConfig,
+  EvmAgentRegistryContract,
+  EvmTxResponse,
+  RegistrationAttestationProvider
+} from './evm-types';
 
 export class EvmAgentRegistry implements AgentRegistry {
   private readonly contractClient: EvmAgentRegistryContract;
   private readonly awaitTransactionConfirmation: boolean;
+  private readonly attestationProvider: RegistrationAttestationProvider | undefined;
 
   constructor(config: EvmAgentRegistryAdapterConfig) {
     this.contractClient = config.contractClient;
     this.awaitTransactionConfirmation = config.awaitTransactionConfirmation ?? true;
+    this.attestationProvider = config.attestationProvider;
   }
 
   public async register(did: string, controller: string, documentRef?: string): Promise<void> {
-    if (documentRef && this.contractClient.registerAgentWithDocument) {
-      const tx = await this.contractClient.registerAgentWithDocument(did, controller, documentRef);
-      await this.waitForConfirmationIfNeeded(tx);
-      return;
+    if (!this.attestationProvider) {
+      throw new Error(
+        'EvmAgentRegistry.register requires an attestationProvider: the contract only accepts registrar-attested registrations'
+      );
     }
 
-    const tx = await this.contractClient.registerAgent(did, controller);
+    const attestation = await this.attestationProvider({ did, controller, documentRef });
+    const tx = await this.contractClient.registerAgentAttested(did, controller, documentRef ?? '', attestation);
     await this.waitForConfirmationIfNeeded(tx);
-
-    if (documentRef) {
-      const refTx = await this.contractClient.setDocumentRef(did, documentRef);
-      await this.waitForConfirmationIfNeeded(refTx);
-    }
   }
 
   public async setDocumentReference(did: string, documentRef: string): Promise<void> {

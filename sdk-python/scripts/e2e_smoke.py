@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from eth_account import Account
+from eth_account.messages import encode_typed_data
 from smoke_utils import (
     CONTRACTS_DIR,
     NPM_COMMAND,
@@ -18,10 +20,22 @@ from web3 import HTTPProvider, Web3
 
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams
+from agent_did_sdk.evm import (
+    REGISTRATION_ATTESTATION_TYPES,
+    registration_attestation_domain,
+    registration_attestation_message,
+)
 from agent_did_sdk.evm.evm_registry import EvmAgentRegistry
-from agent_did_sdk.evm.evm_types import EvmAgentRegistryAdapterConfig
+from agent_did_sdk.evm.evm_types import (
+    EvmAgentRegistryAdapterConfig,
+    RegistrationAttestation,
+    RegistrationAttestationRequest,
+)
 from agent_did_sdk.evm.web3_client import Web3AgentRegistryContractClient
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
+
+# Well-known Hardhat development account #0 (the deployer, hence the initial registrar).
+HARDHAT_ACCOUNT_0_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 
 async def main() -> int:
@@ -44,11 +58,33 @@ async def main() -> int:
         deployed_address = receipt.contractAddress
         contract = provider.eth.contract(address=Web3.to_checksum_address(deployed_address), abi=abi)
 
+        owner_address = provider.eth.default_account
+
+        async def attest(request: RegistrationAttestationRequest) -> RegistrationAttestation:
+            deadline = provider.eth.get_block("latest")["timestamp"] + 3600
+            typed_data = {
+                "types": {
+                    "EIP712Domain": [
+                        {"name": "name", "type": "string"},
+                        {"name": "version", "type": "string"},
+                        {"name": "chainId", "type": "uint256"},
+                        {"name": "verifyingContract", "type": "address"},
+                    ],
+                    **REGISTRATION_ATTESTATION_TYPES,
+                },
+                "primaryType": "Registration",
+                "domain": registration_attestation_domain(provider.eth.chain_id, contract.address),
+                "message": registration_attestation_message(request, owner_address, deadline),
+            }
+            signed = Account.sign_message(encode_typed_data(full_message=typed_data), HARDHAT_ACCOUNT_0_KEY)
+            return RegistrationAttestation(owner=owner_address, deadline=deadline, signature=bytes(signed.signature))
+
         reset_agent_identity_state()
         registry = EvmAgentRegistry(
             EvmAgentRegistryAdapterConfig(
                 contract_client=Web3AgentRegistryContractClient(contract),
                 await_transaction_confirmation=False,
+                attestation_provider=attest,
             )
         )
 

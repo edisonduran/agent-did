@@ -40,3 +40,34 @@ class TestWeb3Client:
         client = Web3AgentRegistryContractClient(fake)
         with pytest.raises(ValueError, match="Invalid contract response"):
             await client.get_agent_record("did:agent:test:1")
+
+
+class TestWeb3ClientAttestedRegistration:
+    async def test_passes_attestation_as_tuple(self) -> None:
+        from agent_did_sdk.evm.evm_types import RegistrationAttestation
+
+        calls: list[tuple[object, ...]] = []
+
+        class Transactable:
+            def transact(self) -> None:
+                return None
+
+        class Functions:
+            def registerAgentAttested(self, *args: object) -> Transactable:  # noqa: N802
+                calls.append(args)
+                return Transactable()
+
+        client = Web3AgentRegistryContractClient(type("Obj", (), {"functions": Functions()})())
+        attestation = RegistrationAttestation(owner="0x01", deadline=7, signature=b"\x02" * 65)
+        await client.register_agent_attested("did:agent:test:1", "did:ethr:0xabc", "", attestation)
+
+        assert calls == [("did:agent:test:1", "did:ethr:0xabc", "", ("0x01", 7, b"\x02" * 65))]
+
+    async def test_missing_method_raises(self) -> None:
+        from agent_did_sdk.evm.evm_types import RegistrationAttestation
+
+        client = Web3AgentRegistryContractClient(type("Obj", (), {"functions": object()})())
+        with pytest.raises(RuntimeError, match="registerAgentAttested"):
+            await client.register_agent_attested(
+                "did:agent:test:1", "did:ethr:0xabc", "", RegistrationAttestation("0x01", 1, b"")
+            )
