@@ -632,6 +632,8 @@ export interface VerifyHttpRequestSignatureParams {
     headers: Record<string, string>;
     /** Maximum distance between `created` and now, in seconds (default: 300). */
     maxCreatedSkewSeconds?: number;
+    /** Maximum lifetime of a signature (`expires - created`), in seconds (default: 300). */
+    maxSignatureLifetimeSeconds?: number;
     /**
      * Replay store for the signature's `nonce`. Defaults to a process-wide `InMemoryNonceStore`;
      * use a shared store when several verifier instances serve the same agents.

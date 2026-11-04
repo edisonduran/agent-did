@@ -58,7 +58,7 @@ headers = await identity.sign_http_request(SignHttpRequestParams(
 `verifyHttpRequestSignature` / `verify_http_request_signature` returns `true` only when all of the following hold:
 
 1. `Signature-Input` and `Signature` parse as RFC 8941 dictionaries, and some label carries the full profile: every covered component above, `tag="agent-did"`, `alg="ed25519"`, `created`, `expires`, `nonce`, and a `keyid` under the `Signature-Agent` DID.
-2. `created` is within `maxCreatedSkewSeconds` of now (default 300 s), `expires >= created`, and `now <= expires`.
+2. `created` is within `maxCreatedSkewSeconds` of now (default 300 s), `expires >= created`, `expires - created` is at most `maxSignatureLifetimeSeconds` (default 300 s), and `now <= expires`.
 3. `Content-Digest` matches the body.
 4. The signature verifies over the base rebuilt from the received request, with `@signature-params` re-serialized from the parsed `Signature-Input`, using an active `assertionMethod` key of a DID whose controller chain is active.
 5. The `(keyid, nonce)` pair has not been seen before. It is then recorded until `expires`.
@@ -112,7 +112,7 @@ await AgentIdentity.verify_http_request_signature(VerifyHttpRequestSignaturePara
 | Batch operations | 300 |
 | Cross-region calls (high latency) | 120 |
 
-Shorter windows keep the nonce store small. `maxCreatedSkewSeconds` (default 300) bounds clock drift between signer and verifier; it is checked independently of `expires`.
+Shorter windows keep the nonce store small. `maxCreatedSkewSeconds` (default 300) bounds clock drift between signer and verifier; it is checked independently of `expires`. `maxSignatureLifetimeSeconds` (default 300) caps `expires - created`, which bounds how long a nonce is retained.
 
 ## Relation to Web Bot Auth
 

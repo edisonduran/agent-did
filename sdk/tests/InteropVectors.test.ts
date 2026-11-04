@@ -30,6 +30,7 @@ describe('Interoperability Vectors', () => {
         body: string;
         headers: Record<string, string>;
         maxCreatedSkewSeconds: number;
+        maxSignatureLifetimeSeconds: number;
       signatureBase: string;
       };
     }>;
@@ -108,6 +109,7 @@ describe('Interoperability Vectors', () => {
         body: fixture.httpVector.body,
         headers: fixture.httpVector.headers,
         maxCreatedSkewSeconds: fixture.httpVector.maxCreatedSkewSeconds,
+        maxSignatureLifetimeSeconds: fixture.httpVector.maxSignatureLifetimeSeconds,
         nonceStore: new InMemoryNonceStore()
       });
 

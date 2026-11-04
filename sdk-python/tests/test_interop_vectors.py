@@ -99,6 +99,7 @@ class TestInteropHttpVector:
                     body=http["body"],
                     headers=http["headers"],
                     max_created_skew_seconds=http.get("maxCreatedSkewSeconds", 999999999),
+                    max_signature_lifetime_seconds=http.get("maxSignatureLifetimeSeconds", 999999999),
                     nonce_store=InMemoryNonceStore(),
                 )
             )

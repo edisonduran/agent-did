@@ -53,6 +53,7 @@ export async function verifyAgentDidHttpRequest(
 
   const now = Math.floor(deps.now.getTime() / 1000);
   const maxSkew = params.maxCreatedSkewSeconds ?? 300;
+  const maxLifetime = params.maxSignatureLifetimeSeconds ?? 300;
   const nonceStore = params.nonceStore ?? deps.nonceStore;
   const request = { method: params.method.toUpperCase(), url: params.url, headers };
 
@@ -77,6 +78,7 @@ export async function verifyAgentDidHttpRequest(
       !AGENT_DID_HTTP_SIGNATURE_COMPONENTS.every((component) => input.components.includes(component)) ||
       Math.abs(now - created) > maxSkew ||
       expires < created ||
+      expires - created > maxLifetime ||
       now > expires
     ) {
       continue;

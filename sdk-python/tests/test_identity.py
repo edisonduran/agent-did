@@ -17,6 +17,7 @@ from agent_did_sdk.core.identity_composition import (
     assert_key_purpose,
     assert_signing_purpose,
 )
+from agent_did_sdk.core.nonce_store import InMemoryNonceStore
 from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.types import (
     AgentDIDDocument,
@@ -421,6 +422,37 @@ class TestAgentIdentityHttpSignature:
                 max_created_skew_seconds=60,
             )
         ) is False
+
+    async def test_bound_signature_lifetime(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(
+            name="LifetimeBot", core_model="m", system_prompt="p",
+        ))
+
+        async def verify(expires_in: int, max_lifetime: int | None = None) -> bool:
+            headers = await identity.sign_http_request(SignHttpRequestParams(
+                method="POST",
+                url="https://api.example.com/v1/test",
+                body='{"lifetime":true}',
+                agent_private_key=result.agent_private_key,
+                agent_did=result.document.id,
+                expires_in_seconds=expires_in,
+            ))
+            return await AgentIdentity.verify_http_request_signature(
+                VerifyHttpRequestSignatureParams(
+                    method="POST",
+                    url="https://api.example.com/v1/test",
+                    body='{"lifetime":true}',
+                    headers=headers,
+                    max_signature_lifetime_seconds=max_lifetime,
+                    nonce_store=InMemoryNonceStore(),
+                )
+            )
+
+        assert await verify(300) is True
+        assert await verify(301) is False
+        assert await verify(301, 400) is True
+        assert await verify(61, 60) is False
+
 
 class TestAgentIdentityResolve:
     async def test_resolve_existing(self, identity: AgentIdentity) -> None:

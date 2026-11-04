@@ -28,7 +28,8 @@
           "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
         },
         "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/interop\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:00 GMT\n\"signature-agent\": did:agent:polygon:0xinteropfixture\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067200;expires=2704067199;nonce=\"ff7a4ab6fdb94f71cb93c3bb77cd85aa\";keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "maxCreatedSkewSeconds": 999999999
+        "maxCreatedSkewSeconds": 999999999,
+        "maxSignatureLifetimeSeconds": 999999999
       }
     },
     "webvh": {
@@ -58,7 +59,8 @@
           "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
         },
         "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/interop\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:00 GMT\n\"signature-agent\": did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067200;expires=2704067199;nonce=\"ff7a4ab6fdb94f71cb93c3bb77cd85aa\";keyid=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "maxCreatedSkewSeconds": 999999999
+        "maxCreatedSkewSeconds": 999999999,
+        "maxSignatureLifetimeSeconds": 999999999
       }
     }
   }
