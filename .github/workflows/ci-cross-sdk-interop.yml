@@ -29,6 +29,9 @@ concurrency:
   group: interop-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   typescript-interop:
     name: TypeScript shared-fixture interop

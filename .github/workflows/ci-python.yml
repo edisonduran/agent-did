@@ -25,6 +25,9 @@ concurrency:
   group: ci-python-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   python-sdk:
     name: Python ${{ matrix.python-version }} - Lint, Type-check, Build, Test & RFC-001 Conformance

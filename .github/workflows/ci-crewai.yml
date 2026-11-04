@@ -25,6 +25,9 @@ concurrency:
   group: ci-crewai-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   crewai:
     name: CrewAI Python ${{ matrix.python-version }} - Validate

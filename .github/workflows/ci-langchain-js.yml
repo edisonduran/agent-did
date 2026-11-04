@@ -27,6 +27,9 @@ concurrency:
   group: ci-langchain-js-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   langchain-js:
     name: Node 24 - Build SDK & Test LangChain JS Integration
