@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       npm_version:
-        description: "npm version or dist-tag for @agentdid/* (e.g. next, 1.0.0-rc.3)"
+        description: "npm version or dist-tag for @agentdid/* (e.g. next, 1.0.0-rc.4)"
         required: true
         default: "next"
       pypi_version:
-        description: "PyPI version for agent-did-* packages (e.g. 1.0.0rc3)"
+        description: "PyPI version for agent-did-* packages (e.g. 1.0.0rc4)"
         required: true
-        default: "1.0.0rc3"
+        default: "1.0.0rc4"
   pull_request:
     paths:
       - ".github/workflows/registry-install-smoke.yml"
@@ -27,7 +27,7 @@ concurrency:
 
 env:
   NPM_VERSION: ${{ inputs.npm_version || 'next' }}
-  PYPI_VERSION: ${{ inputs.pypi_version || '1.0.0rc3' }}
+  PYPI_VERSION: ${{ inputs.pypi_version || '1.0.0rc4' }}
 
 jobs:
   npm:

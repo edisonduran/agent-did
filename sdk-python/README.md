@@ -6,9 +6,9 @@ Functional parity with the TypeScript SDK (`@agentdid/sdk`), with a dedicated Py
 
 Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.md`.
 
-> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.3` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.4` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
-> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Coming from `1.0.0rc2`? The breaking changes in `1.0.0rc3` are listed in [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md).
+> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Coming from `1.0.0rc3`? The breaking changes in `1.0.0rc4` are listed in [MIGRATION-1.0-rc.3-to-rc.4.md](MIGRATION-1.0-rc.3-to-rc.4.md); from `1.0.0rc2`, see [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) first.
 
 Pythonic surface conventions apply:
 
@@ -19,7 +19,7 @@ Pythonic surface conventions apply:
 ## Installation
 
 ```bash
-pip install agent-did-sdk==1.0.0rc3
+pip install agent-did-sdk==1.0.0rc4
 ```
 
 For development:

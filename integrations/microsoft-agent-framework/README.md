@@ -40,7 +40,7 @@ Integrar Agent-DID como capa de identidad verificable para agentes y workflows c
 Instalacion recomendada, con el runtime validado fijado:
 
 ```bash
-pip install agent-did-microsoft-agent-framework==1.0.0rc3 agent-framework==1.24.0
+pip install agent-did-microsoft-agent-framework==1.0.0rc4 agent-framework==1.24.0
 ```
 
 `agent-framework` es un meta-paquete que arrastra unos 30 subpaquetes `agent-framework-*`. Sin fijar la version, pip puede tardar varios minutos en resolver dependencias (~7.5 min medidos en el smoke del RC).

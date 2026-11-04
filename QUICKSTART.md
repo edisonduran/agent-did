@@ -21,7 +21,7 @@ Install (requires Node.js 22.12+):
 npm install @agentdid/sdk@next
 ```
 
-`@next` selects the `1.0.0-rc.3` release candidate; without it npm may install an older release whose DIDs and HTTP signatures do not interoperate with `1.0.0-rc.3`.
+`@next` selects the `1.0.0-rc.4` release candidate; without it npm may install an older release whose DIDs and HTTP signatures do not interoperate with `1.0.0-rc.4`.
 
 Save this as `quickstart.js` and run `node quickstart.js`:
 
@@ -73,10 +73,10 @@ This snippet proves the current local SDK signing flow. The SDK auto-bootstraps 
 Install:
 
 ```bash
-pip install agent-did-sdk==1.0.0rc3
+pip install agent-did-sdk==1.0.0rc4
 ```
 
-Pinning `1.0.0rc3` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc3`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)).
+Pinning `1.0.0rc4` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc4`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)).
 
 Save this as `quickstart.py` and run `python quickstart.py`:
 

@@ -10,6 +10,18 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Planned (path to 1.0.0)
+
+See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.4`:
+
+- `agent-did-in-action` demo switched to the RC, plus a focused feedback window of at least one week.
+- Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
+
+---
+
+## [1.0.0-rc.4] - 2026-11-04
+
+Breaking release candidate, tag `v1.0.0-rc.4`. All nine co-versioned packages move to `1.0.0-rc.4` (npm, dist-tag `next`) / `1.0.0rc4` (PyPI); `@agentdid/evm` is published for the first time. There are no wire-format changes for the canonical `did:webvh` profile, so rc.3 and rc.4 identities, logs and signatures interoperate; the breaking changes are in the SDK API. Follow [sdk/MIGRATION-1.0-rc.3-to-rc.4.md](sdk/MIGRATION-1.0-rc.3-to-rc.4.md) or [sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md](sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md).
 ### Documentation
 
 - **Historical documents moved to `docs/archive/`** (M-21). F1-/F2- design docs, plans and maturity-gap assessments, the strategic assessments, the outreach plan, the analysis reports and the 92 KB research report formerly at the repository root now live under `docs/archive/`, each with a historical banner. Documents still referenced by CI or governance (parity matrices, checklists) stay live. `docs/INDEX.md` lists the archive in its own section.
@@ -38,13 +50,6 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 - The static `AgentIdentity` API (`resolve`, `verifySignature`, lifecycle operations, history import/export, `setResolver`, `useProductionResolver*`...) keeps working unchanged as a facade over the default client and is now documented as deprecated, with removal planned for 2.0. This is additive: no behavior or wire format changes.
 - The LangChain (JS and Python), CrewAI, Semantic Kernel, Microsoft Agent Framework and A2A integrations now resolve, verify and rotate through `agentIdentity.client` instead of the static `AgentIdentity` API, so an integration built around an identity with its own `AgentDidClient` no longer touches the process-wide default state. Identities without an explicit client behave as before.
 - `AgentDidClient` / `client.py` no longer hold all the logic (M-10). The pure parts moved into internal modules, mirrored in both SDKs and not exported: `webvh/documents` (genesis templates, history from a did:webvh log), `lifecycle/documents` (update and rotation builders, timestamps), `verification/signature` (signature checks against a resolved document) and `http-signatures/verify-request` (Agent-DID request profile and replay check). The client keeps state, resolution, revocation and authorization. No behavior, wire format or public API changes; only the private members of the TS signature snapshot changed.
-
-### Planned (path to 1.0.0)
-
-See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.3`:
-
-- `agent-did-in-action` demo switched to the RC, plus a focused feedback window of at least one week.
-- Stable `v1.0.0` remains gated by the 30-day green window on the core release-critical workflows.
 
 ---
 

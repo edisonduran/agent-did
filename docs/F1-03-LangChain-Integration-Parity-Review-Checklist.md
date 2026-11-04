@@ -55,7 +55,7 @@ Run this checklist when a change affects one or more of the following:
 ## Documentation And Examples
 
 - [ ] `integrations/langchain/README.md` and `integrations/langchain-python/README.md` still describe the same conceptual model.
-- [ ] If release-candidate metadata changes, both READMEs still document the coordinated prerelease install path (`@next` on npm, `1.0.0rc3` on Python) without implying divergent runtime behavior.
+- [ ] If release-candidate metadata changes, both READMEs still document the coordinated prerelease install path (`@next` on npm, `1.0.0rc4` on Python) without implying divergent runtime behavior.
 - [ ] If a local quickstart clarifies controller bootstrap or hosted `did:webvh` publication boundaries, both READMEs still describe that deployment split consistently.
 - [ ] Both packages still ship, at minimum, base, observability and production-style examples.
 - [ ] If one package ships an integrated `did:wba` demo, the other package ships an equivalent integrated `did:wba` demo or the divergence is explicit in docs.
@@ -99,6 +99,7 @@ Parity verification is complete when:
 | Date | Change |
 |------|--------|
 | 2026-11-04 | M-09: LangChain TS and Python examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
+| 2026-11-04 | RC metadata moved to the `1.0.0rc4` release train (npm `1.0.0-rc.4`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-03 | Tools now resolve, verify and rotate through `agentIdentity.client` (`AgentDidClient`) instead of the deprecated static `AgentIdentity` API. Identities without an explicit client use the default client, so behavior and the public tool surface are unchanged. |
 | 2026-11-03 | Coordinated prerelease install path moved to `1.0.0-rc.3` / `1.0.0rc3`. Both integration test suites pass unchanged against the rc.3 SDKs. No functional changes to the integration surface. |
 | 2026-11-02 | Coordinated prerelease install path moved to `1.0.0-rc.2` / `1.0.0rc2` (security release, [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)). No functional changes to the integration surface. |
