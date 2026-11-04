@@ -3,28 +3,24 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
-from nacl.signing import SigningKey, VerifyKey
+from nacl.signing import SigningKey
 
-from ..crypto.hash import (
-    create_metadata_commitment,
-    generate_agent_metadata_hash,
-    generate_canonical_document_hash,
-    generate_commitment_salt,
-)
-from ..crypto.multibase import (
-    decode_public_key_multibase,
-    did_key_from_public_key,
-    encode_public_key_multibase,
+from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
+from ..crypto.multibase import did_key_from_public_key, encode_public_key_multibase
+from ..http_signatures.verify_request import verify_agent_did_http_request
+from ..lifecycle.documents import (
+    assert_update_patch,
+    build_rotated_document,
+    build_updated_document,
+    next_document_timestamp,
 )
 from ..registry.in_memory import InMemoryAgentRegistry
 from ..registry.types import AgentRegistry
@@ -39,23 +35,21 @@ from ..resolver.types import (
 )
 from ..resolver.universal import UniversalResolverClient
 from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
+from ..verification.signature import verify_with_active_keys, verify_with_historical_key
 from ..webvh.adapter import (
-    DID_WEBVH_PLACEHOLDER,
     create_did_webvh_log,
     deactivate_did_webvh_log,
     resolve_did_webvh_log,
     update_did_webvh_log,
 )
-from .http_profile import AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, compute_content_digest
-from .http_security import HttpTargetValidationOptions
-from .http_signatures import (
-    HttpRequestLike,
-    HttpSignatureError,
-    build_signature_base,
-    parse_signature_header,
-    parse_signature_input_header,
+from ..webvh.documents import (
+    build_agent_document_template,
+    build_bootstrap_controller_template,
+    compute_document_reference,
+    history_from_did_webvh_log,
+    normalize_did_path_segment,
 )
-from .identity_composition import assert_key_purpose, assert_signing_purpose, get_relationship_key_ids
+from .http_security import HttpTargetValidationOptions
 from .nonce_store import InMemoryNonceStore, NonceStore
 from .signer import AgentSigner, LocalKeySigner
 from .time_utils import normalize_timestamp_to_iso
@@ -228,7 +222,7 @@ class AgentDidClient:
         )
 
         self._resolver.register_document(document)
-        await self._registry.register(document.id, document.controller, self._compute_document_reference(document))
+        await self._registry.register(document.id, document.controller, compute_document_reference(document))
         self._append_history(document, "created")
 
         return CreateAgentResult(
@@ -267,27 +261,14 @@ class AgentDidClient:
                 controller_key_did
             )
             domain = self._webvh_domain
-            path_segments = ["agents", self._normalize_did_path_segment(params.name)]
+            path_segments = ["agents", normalize_did_path_segment(params.name)]
 
-        verification_method_id = f"{DID_WEBVH_PLACEHOLDER}#key-1"
-        template = {
-            "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
-            "id": DID_WEBVH_PLACEHOLDER,
-            "controller": controller_did,
-            "created": timestamp,
-            "updated": timestamp,
-            "agentMetadata": {k: v for k, v in agent_metadata.items() if v is not None},
-            "verificationMethod": [
-                {
-                    "id": verification_method_id,
-                    "type": "Ed25519VerificationKey2020",
-                    "controller": controller_did,
-                    "publicKeyMultibase": encode_public_key_multibase(public_key_bytes),
-                }
-            ],
-            "authentication": [verification_method_id],
-            "assertionMethod": [verification_method_id],
-        }
+        template = build_agent_document_template(
+            controller_did=controller_did,
+            timestamp=timestamp,
+            agent_metadata=agent_metadata,
+            public_key_bytes=public_key_bytes,
+        )
 
         created = await create_did_webvh_log(
             domain=domain, path_segments=path_segments, document=template, signer=controller_signer
@@ -297,7 +278,7 @@ class AgentDidClient:
         self._did_webvh_signer_store[document.id] = controller_signer
 
         self._resolver.register_document(document)
-        await self._registry.register(document.id, document.controller, self._compute_document_reference(document))
+        await self._registry.register(document.id, document.controller, compute_document_reference(document))
         self._append_history(document, "created")
 
         return CreateAgentResult(
@@ -317,11 +298,6 @@ class AgentDidClient:
 
         return params.webvh
 
-    @staticmethod
-    def _normalize_did_path_segment(value: str) -> str:
-        normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
-        return normalized or "agent"
-
     async def _ensure_bootstrap_controller(self, controller_key_did: str) -> tuple[str, AgentSigner, str | None]:
         """Return the local bootstrap controller for a creator's did:key, creating it on first use.
 
@@ -335,36 +311,15 @@ class AgentDidClient:
             return existing[0], existing[1], None
 
         signer, private_key = LocalKeySigner.generate()
-        timestamp = self._now_iso_timestamp()
-        verification_method_id = f"{DID_WEBVH_PLACEHOLDER}#key-1"
-        template = {
-            "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
-            "id": DID_WEBVH_PLACEHOLDER,
-            "controller": DID_WEBVH_PLACEHOLDER,
-            "created": timestamp,
-            "updated": timestamp,
-            "agentMetadata": {
-                "name": f"controller-{self._normalize_did_path_segment(key_id)}",
-                "description": "Local bootstrap controller root for canonical did:webvh flows.",
-                "version": "1.0.0",
-                "coreModelHash": generate_agent_metadata_hash(f"controller:{address}"),
-                "systemPromptHash": generate_agent_metadata_hash("controller-bootstrap-root"),
-            },
-            "verificationMethod": [
-                {
-                    "id": verification_method_id,
-                    "type": "Ed25519VerificationKey2020",
-                    "controller": DID_WEBVH_PLACEHOLDER,
-                    "publicKeyMultibase": encode_public_key_multibase(await signer.get_public_key()),
-                }
-            ],
-            "authentication": [verification_method_id],
-            "assertionMethod": [verification_method_id],
-        }
+        template = build_bootstrap_controller_template(
+            creator_key_did=address,
+            timestamp=self._now_iso_timestamp(),
+            public_key_bytes=await signer.get_public_key(),
+        )
 
         created = await create_did_webvh_log(
             domain=self._webvh_domain,
-            path_segments=["controllers", self._normalize_did_path_segment(key_id)],
+            path_segments=["controllers", normalize_did_path_segment(key_id)],
             document=template,
             signer=signer,
         )
@@ -374,7 +329,7 @@ class AgentDidClient:
         self._bootstrap_controllers[address] = (document.id, signer)
 
         self._resolver.register_document(document)
-        await self._registry.register(document.id, document.controller, self._compute_document_reference(document))
+        await self._registry.register(document.id, document.controller, compute_document_reference(document))
         self._append_history(document, "created")
         return document.id, signer, private_key
 
@@ -420,69 +375,17 @@ class AgentDidClient:
         Requires the Agent-DID profile (covered components, ``tag="agent-did"``, ``alg="ed25519"``,
         ``created``, ``expires``, ``nonce``, a ``keyid`` under the ``Signature-Agent`` DID), a matching
         ``Content-Digest``, and a signature by an active ``assertionMethod`` key. The nonce is then
-        recorded in ``nonce_store`` (default: a process-wide :class:`InMemoryNonceStore`), so a
+        recorded in ``nonce_store`` (default: this client's :class:`InMemoryNonceStore`), so a
         replayed request is rejected. Returns ``False`` on any failure.
         """
-        headers = {key.lower(): value for key, value in params.headers.items()}
-        signature_agent = headers.get("signature-agent")
-        if not headers.get("signature") or not headers.get("signature-input") or not signature_agent:
-            return False
-        if headers.get("content-digest") != compute_content_digest(params.body):
-            return False
-
-        try:
-            inputs = parse_signature_input_header(headers["signature-input"])
-            signatures = parse_signature_header(headers["signature"])
-        except HttpSignatureError:
-            return False
-
-        now = int(self._clock().timestamp())
-        max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
-        nonce_store = params.nonce_store if params.nonce_store is not None else self._nonce_store
-        request = HttpRequestLike(method=params.method.upper(), url=params.url, headers=headers)
-
-        for label, signature_input in inputs.items():
-            signature = signatures.get(label)
-            if signature is None:
-                continue
-
-            created = signature_input.get("created")
-            expires = signature_input.get("expires")
-            nonce = signature_input.get("nonce")
-            key_id = signature_input.get("keyid")
-            if (
-                signature_input.get("tag") != AGENT_DID_HTTP_SIGNATURE_TAG
-                or signature_input.get("alg") != "ed25519"
-                or not isinstance(created, int)
-                or isinstance(created, bool)
-                or not isinstance(expires, int)
-                or isinstance(expires, bool)
-                or not isinstance(nonce, str)
-                or not nonce
-                or not isinstance(key_id, str)
-                or not key_id.startswith(f"{signature_agent}#")
-                or not all(c in signature_input.components for c in AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
-                or abs(now - created) > max_skew
-                or expires < created
-                or now > expires
-            ):
-                continue
-
-            try:
-                signature_base = build_signature_base(request, signature_input)
-            except HttpSignatureError:
-                continue
-
-            is_valid = await self.verify_signature(
-                signature_agent, signature_base, signature.hex(), key_id, required_purpose="assertionMethod"
-            )
-            if not is_valid:
-                continue
-
-            # Record the nonce only for a valid signature, so forged requests cannot burn nonces.
-            return await nonce_store.check_and_store(f"{key_id} {nonce}", expires)
-
-        return False
+        return await verify_agent_did_http_request(
+            params,
+            verify_signature=lambda did, payload, signature, key_id, purpose: self.verify_signature(
+                did, payload, signature, key_id, required_purpose=purpose
+            ),
+            nonce_store=self._nonce_store,
+            now=self._clock(),
+        )
 
     async def verify_signature(
         self,
@@ -498,35 +401,7 @@ class AgentDidClient:
         except Exception:
             return False
 
-        doc = verification_chain[0]
-        assert_signing_purpose(required_purpose, doc, key_id or "")
-        if key_id is not None:
-            assert_key_purpose(key_id, doc, required_purpose)
-
-        message_bytes = payload.encode("utf-8")
-        sig_bytes = bytes.fromhex(signature)
-
-        active_ids = set(get_relationship_key_ids(doc, required_purpose))
-        candidates = [
-            m
-            for m in doc.verification_method
-            if m.public_key_multibase
-            and not m.deactivated
-            and (m.id == key_id and m.id in active_ids if key_id else m.id in active_ids)
-        ]
-
-        for vm in candidates:
-            pk_raw = vm.public_key_multibase
-            if not pk_raw:
-                continue
-            try:
-                pk_bytes = decode_public_key_multibase(pk_raw)
-                vk = VerifyKey(pk_bytes)
-                vk.verify(message_bytes, sig_bytes)
-                return True
-            except Exception:
-                continue
-        return False
+        return verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
 
     async def verify_historical_signature(
         self,
@@ -542,27 +417,7 @@ class AgentDidClient:
         except Exception:
             return False
 
-        doc = verification_chain[0]
-        assert_signing_purpose(required_purpose, doc, key_id)
-        assert_key_purpose(key_id, doc, required_purpose)
-
-        message_bytes = payload.encode("utf-8")
-        sig_bytes = bytes.fromhex(signature)
-
-        candidate = next(
-            (m for m in doc.verification_method if m.id == key_id and m.public_key_multibase),
-            None,
-        )
-        if candidate is None or not candidate.public_key_multibase:
-            return False
-
-        try:
-            pk_bytes = decode_public_key_multibase(candidate.public_key_multibase)
-            vk = VerifyKey(pk_bytes)
-            vk.verify(message_bytes, sig_bytes)
-            return True
-        except Exception:
-            return False
+        return verify_with_historical_key(verification_chain[0], payload, signature, key_id, required_purpose)
 
     async def resolve(self, did: str) -> AgentDIDDocument:
         if did.startswith("did:webvh:"):
@@ -644,76 +499,16 @@ class AgentDidClient:
         *,
         controller_signer: AgentSigner | None = None,
     ) -> AgentDIDDocument:
-        if not did or not did.strip():
-            raise ValueError("DID is required")
-
-        if patch.core_model and not patch.core_model_salt:
-            raise ValueError(
-                "core_model_salt is required when updating core_model "
-                "(use generate_commitment_salt() and keep it private)"
-            )
-        if patch.system_prompt and not patch.system_prompt_salt:
-            raise ValueError(
-                "system_prompt_salt is required when updating system_prompt "
-                "(use generate_commitment_salt() and keep it private)"
-            )
+        assert_update_patch(did, patch)
 
         existing = await self.resolve(did)
-        now = self._next_document_timestamp(existing.updated)
-
-        updated = AgentDIDDocument(
-            **{
-                "@context": existing.context,
-                "id": existing.id,
-                "controller": existing.controller,
-                "created": existing.created,
-                "updated": now,
-                "agentMetadata": {
-                    "name": existing.agent_metadata.name,
-                    "description": (
-                        patch.description if patch.description is not None else existing.agent_metadata.description
-                    ),
-                    "version": (patch.version if patch.version is not None else existing.agent_metadata.version),
-                    "coreModelHash": (
-                        create_metadata_commitment(patch.core_model, patch.core_model_salt or "")
-                        if patch.core_model
-                        else existing.agent_metadata.core_model_hash
-                    ),
-                    "systemPromptHash": (
-                        create_metadata_commitment(patch.system_prompt, patch.system_prompt_salt or "")
-                        if patch.system_prompt
-                        else existing.agent_metadata.system_prompt_hash
-                    ),
-                    "capabilities": (
-                        patch.capabilities if patch.capabilities is not None else existing.agent_metadata.capabilities
-                    ),
-                    "memberOf": (patch.member_of if patch.member_of is not None else existing.agent_metadata.member_of),
-                },
-                "complianceCertifications": (
-                    [c.model_dump(by_alias=True) for c in patch.compliance_certifications]
-                    if patch.compliance_certifications is not None
-                    else (
-                        [c.model_dump(by_alias=True) for c in existing.compliance_certifications]
-                        if existing.compliance_certifications
-                        else None
-                    )
-                ),
-                "verificationMethod": [
-                    vm.model_dump(by_alias=True, exclude_none=True) for vm in existing.verification_method
-                ],
-                "authentication": existing.authentication,
-                "assertionMethod": existing.assertion_method,
-                "capabilityDelegation": existing.capability_delegation,
-                "capabilityInvocation": existing.capability_invocation,
-                "keyAgreement": existing.key_agreement,
-            }
-        )
+        updated = build_updated_document(existing, patch, self._next_timestamp(existing.updated))
 
         if did.startswith("did:webvh:"):
             updated = await self._append_did_webvh_entry(did, updated, controller_signer)
 
         self._resolver.register_document(updated)
-        await self._registry.set_document_reference(did, self._compute_document_reference(updated))
+        await self._registry.set_document_reference(did, compute_document_reference(updated))
         self._append_history(updated, "updated")
         return updated
 
@@ -721,58 +516,13 @@ class AgentDidClient:
         self, did: str, *, controller_signer: AgentSigner | None = None
     ) -> RotateVerificationMethodResult:
         existing = await self.resolve(did)
-        key_indexes: list[int] = []
-        for m in existing.verification_method:
-            match = re.search(r"#key-(\d+)$", m.id)
-            key_indexes.append(int(match.group(1)) if match else 0)
-
-        next_idx = (max(key_indexes) if key_indexes else 0) + 1
-        vm_id = f"{did}#key-{next_idx}"
-
-        signing_key = SigningKey.generate()
-        private_key_hex = signing_key.encode().hex()
-        public_key_bytes = bytes(signing_key.verify_key)
-
-        new_vm = VerificationMethod(
-            id=vm_id,
-            type="Ed25519VerificationKey2020",
-            controller=existing.controller,
-            publicKeyMultibase=encode_public_key_multibase(public_key_bytes),
-        )
-
-        deactivated_timestamp = self._next_document_timestamp(existing.updated)
-        deactivated_vms = []
-        for vm in existing.verification_method:
-            d = vm.model_dump(by_alias=True, exclude_none=True)
-            if "deactivated" not in d:
-                d["deactivated"] = deactivated_timestamp
-            deactivated_vms.append(d)
-
-        all_vms = deactivated_vms
-        all_vms.append(new_vm.model_dump(by_alias=True, exclude_none=True))
-
-        updated = AgentDIDDocument(
-            **{
-                "@context": existing.context,
-                "id": existing.id,
-                "controller": existing.controller,
-                "created": existing.created,
-                "updated": deactivated_timestamp,
-                "agentMetadata": existing.agent_metadata.model_dump(by_alias=True, exclude_none=True),
-                "verificationMethod": all_vms,
-                "authentication": [vm_id],
-                "assertionMethod": list(dict.fromkeys([*(existing.assertion_method or []), vm_id])),
-                "capabilityDelegation": existing.capability_delegation,
-                "capabilityInvocation": existing.capability_invocation,
-                "keyAgreement": existing.key_agreement,
-            }
-        )
+        updated, vm_id, private_key_hex = build_rotated_document(did, existing, self._next_timestamp(existing.updated))
 
         if did.startswith("did:webvh:"):
             updated = await self._append_did_webvh_entry(did, updated, controller_signer)
 
         self._resolver.register_document(updated)
-        await self._registry.set_document_reference(did, self._compute_document_reference(updated))
+        await self._registry.set_document_reference(did, compute_document_reference(updated))
         self._append_history(updated, "rotated-key")
 
         return RotateVerificationMethodResult(
@@ -802,9 +552,9 @@ class AgentDidClient:
         resolved = await resolve_did_webvh_log(did_log)
         did = resolved.did
         latest = AgentDIDDocument.model_validate(resolved.state)
-        document_ref = self._compute_document_reference(latest)
+        document_ref = compute_document_reference(latest)
 
-        self._history_store[did] = self._history_from_did_webvh_log(resolved.log)
+        self._history_store[did] = history_from_did_webvh_log(resolved.log)
         self._did_webvh_log_store[did] = resolved.log
         self._did_webvh_signer_store.pop(did, None)
 
@@ -931,53 +681,8 @@ class AgentDidClient:
     # Private helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _compute_document_reference(document: AgentDIDDocument) -> str:
-        return generate_canonical_document_hash(document.model_dump_jsonld())
-
-    def _history_from_did_webvh_log(self, log: str) -> list[AgentDocumentHistoryEntry]:
-        """History entries for a verified did:webvh log, one per log entry."""
-        entries: list[AgentDocumentHistoryEntry] = []
-        previous: AgentDIDDocument | None = None
-        for index, line in enumerate((line for line in log.splitlines() if line.strip()), start=1):
-            entry = json.loads(line)
-            document = AgentDIDDocument.model_validate(entry["state"])
-            action: AgentDocumentHistoryAction = "updated"
-            if index == 1 or previous is None:
-                action = "created"
-            elif (entry.get("parameters") or {}).get("deactivated") is True:
-                action = "revoked"
-            elif len(document.verification_method) != len(previous.verification_method):
-                action = "rotated-key"
-            entries.append(
-                AgentDocumentHistoryEntry(
-                    did=document.id,
-                    revision=index,
-                    action=action,
-                    timestamp=entry["versionTime"],
-                    version=document.agent_metadata.version,
-                    documentRef=self._compute_document_reference(document),
-                )
-            )
-            previous = document
-        return entries
-
-    def _next_document_timestamp(self, previous_timestamp: str | None = None) -> str:
-        candidate = self._now_iso_timestamp()
-        if previous_timestamp:
-            try:
-                previous_normalized = normalize_timestamp_to_iso(previous_timestamp)
-                if previous_normalized is None:
-                    return candidate
-                previous_dt = datetime.fromisoformat(previous_normalized.replace("Z", "+00:00"))
-            except ValueError:
-                return candidate
-
-            if candidate <= previous_normalized:
-                next_timestamp = normalize_timestamp_to_iso((previous_dt + timedelta(milliseconds=1)).isoformat())
-                return next_timestamp or candidate
-
-        return candidate
+    def _next_timestamp(self, previous_timestamp: str | None = None) -> str:
+        return next_document_timestamp(self._now_iso_timestamp(), previous_timestamp)
 
     def _append_history(self, document: AgentDIDDocument, action: AgentDocumentHistoryAction) -> None:
         did = document.id
@@ -988,6 +693,6 @@ class AgentDidClient:
             action=action,
             timestamp=self._now_iso_timestamp(),
             version=document.agent_metadata.version,
-            document_ref=self._compute_document_reference(document),
+            document_ref=compute_document_reference(document),
         )
         self._history_store[did] = [*current, entry]

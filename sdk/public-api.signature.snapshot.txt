@@ -110,7 +110,6 @@ export declare class AgentDidClient {
      */
     private createDidWebvhAgent;
     private requireWebvhCreateOptions;
-    private normalizeDidPathSegment;
     /**
      * Returns the local bootstrap controller for a creator's `did:key`, creating it on first use.
      * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
@@ -188,11 +187,7 @@ export declare class AgentDidClient {
     useProductionResolver(config: ProductionResolverProfileConfig): void;
     useProductionResolverFromHttp(config: ProductionHttpResolverProfileConfig): void;
     useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
-    private computeDocumentReference;
-    /** History entries for a verified did:webvh log, one per log entry. */
-    private historyFromDidWebvhLog;
-    private cloneDocument;
-    private nextDocumentTimestamp;
+    private nextTimestamp;
     private appendHistory;
 }
 
@@ -721,6 +716,17 @@ export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
  */
 export declare function didKeyFromPublicKey(rawPublicKey: Uint8Array): string;
 
+## http-signatures/verify-request.d.ts
+import { VerificationRelationship, VerifyHttpRequestSignatureParams } from '../core/types';
+import { NonceStore } from '../core/nonce-store';
+export interface VerifyRequestDeps {
+    /** Verifies `signatureHex` over `payload` by `keyId` under the DID `did`. */
+    verifySignature: (did: string, payload: string, signatureHex: string, keyId: string, purpose: VerificationRelationship) => Promise<boolean>;
+    nonceStore: NonceStore;
+    now: Date;
+}
+export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSignatureParams, deps: VerifyRequestDeps): Promise<boolean>;
+
 ## index.d.ts
 /**
  * @agentdid/sdk
@@ -754,6 +760,19 @@ export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
 export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, serializeSignatureInput } from './core/http-signatures';
+
+## lifecycle/documents.d.ts
+import { AgentDIDDocument, UpdateAgentDocumentParams } from '../core/types';
+/** Timestamp strictly after `previousTimestamp`, using `now` unless it is not later. */
+export declare function nextDocumentTimestamp(now: Date, previousTimestamp?: string): string;
+export declare function assertUpdatePatch(did: string, patch: UpdateAgentDocumentParams): void;
+export declare function buildUpdatedDocument(existing: AgentDIDDocument, patch: UpdateAgentDocumentParams, updated: string): AgentDIDDocument;
+/** Deactivates every current key and adds a fresh Ed25519 key as the active one. */
+export declare function buildRotatedDocument(did: string, existing: AgentDIDDocument, updated: string): {
+    document: AgentDIDDocument;
+    verificationMethodId: string;
+    agentPrivateKey: string;
+};
 
 ## registry/InMemoryAgentRegistry.d.ts
 import { AgentRegistry, AgentRegistryRecord } from './types';
@@ -1159,6 +1178,13 @@ export declare class WebvhDIDDocumentSource implements DIDDocumentSource {
 }
 export {};
 
+## verification/signature.d.ts
+import { AgentDIDDocument, VerificationRelationship } from '../core/types';
+/** Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given). */
+export declare function verifyWithActiveKeys(didDoc: AgentDIDDocument, payload: string, signature: string, keyId: string | undefined, requiredPurpose: VerificationRelationship): boolean;
+/** Verifies against `keyId` even if it was rotated out (audit-trail verification). */
+export declare function verifyWithHistoricalKey(didDoc: AgentDIDDocument, payload: string, signature: string, keyId: string, requiredPurpose: VerificationRelationship): boolean;
+
 ## webvh/adapter.d.ts
 import type { AgentSigner } from '../core/signer';
 /** Placeholder that `createDidWebvhLog` replaces with the generated DID. */
@@ -1250,3 +1276,28 @@ export declare function resolveDidWebvhLog(logText: string, options?: ResolveDid
  * query or fragment in the DID. Throws `DidWebvhError('invalidDid')` otherwise.
  */
 export declare function deriveDidWebvhLogUrl(did: string): string;
+
+## webvh/documents.d.ts
+/**
+ * Pure helpers that build the documents and history derived from did:webvh logs.
+ * No state and no I/O: `AgentDidClient` owns the stores and calls these.
+ */
+import { AgentDIDDocument, AgentDocumentHistoryEntry } from '../core/types';
+export declare function cloneDocument(document: AgentDIDDocument): AgentDIDDocument;
+export declare function computeDocumentReference(document: AgentDIDDocument): string;
+export declare function normalizeDidPathSegment(value: string): string;
+/** Genesis document of an agent, with the did:webvh placeholder in place of the DID. */
+export declare function buildAgentDocumentTemplate(params: {
+    controllerDid: string;
+    timestamp: string;
+    agentMetadata: AgentDIDDocument['agentMetadata'];
+    publicKeyBytes: Uint8Array;
+}): Record<string, unknown>;
+/** Genesis document of a self-controlled local bootstrap controller. */
+export declare function buildBootstrapControllerTemplate(params: {
+    creatorKeyDid: string;
+    timestamp: string;
+    publicKeyBytes: Uint8Array;
+}): Record<string, unknown>;
+/** History entries for a verified did:webvh log, one per log entry. */
+export declare function historyFromDidWebvhLog(log: string): AgentDocumentHistoryEntry[];

@@ -22,6 +22,7 @@ from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 from agent_did_sdk.resolver.types import UniversalResolverConfig
 from agent_did_sdk.resolver.universal import UniversalResolverClient
 from agent_did_sdk.webvh.adapter import DID_WEBVH_PLACEHOLDER, create_did_webvh_log, derive_did_webvh_log_url
+from agent_did_sdk.webvh.documents import compute_document_reference
 
 
 @dataclass
@@ -321,7 +322,7 @@ async def evaluate_universal_resolver_should(revoked_document) -> CheckResult:
     fallback = InMemoryDIDResolver()
     events = []
 
-    document_ref = AgentIdentity.get_default_client()._compute_document_reference(document)
+    document_ref = compute_document_reference(document)
     await registry.register(document.id, document.controller, document_ref)
     await source.store_by_reference(document_ref, document)
     # did:webvh: the resolver fetches and verifies the controller-signed did.jsonl log.
