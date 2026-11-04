@@ -25,6 +25,9 @@ concurrency:
   group: ci-a2a-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   a2a:
     name: A2A Python ${{ matrix.python-version }} - Validate

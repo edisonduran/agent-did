@@ -25,6 +25,9 @@ concurrency:
   group: ci-langchain-python-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   langchain-python:
     name: LangChain Python ${{ matrix.python-version }} - Validate

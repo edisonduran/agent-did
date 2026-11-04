@@ -25,6 +25,9 @@ concurrency:
   group: ci-microsoft-agent-framework-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   microsoft-agent-framework:
     name: Microsoft Agent Framework Python ${{ matrix.python-version }} - Validate

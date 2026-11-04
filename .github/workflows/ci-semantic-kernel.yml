@@ -25,6 +25,9 @@ concurrency:
   group: ci-semantic-kernel-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   semantic-kernel:
     name: Semantic Kernel Python ${{ matrix.python-version }} - Validate

@@ -31,6 +31,9 @@ concurrency:
   group: ci-langchain-didwba-smoke-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   didwba-demo-smoke:
     name: Node 24 + Python 3.12 - LangChain did:wba Demo Smoke
