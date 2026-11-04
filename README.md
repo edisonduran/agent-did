@@ -110,6 +110,7 @@ The project is past the specification-only phase: it includes a functional imple
 
 - **RFC-001** is now **Stable** in-repo as the frozen `1.0` contract for the `1.0.0-rc.3` release train: [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md)
 - **Compliance checklist**: [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md)
+- **External conformance matrix**: [docs/External-Conformance-Matrix.md](docs/External-Conformance-Matrix.md) (what is proven against did:webvh, RFC 9421, RFC 8785 and others, and what is not yet)
 - **Current result**: MUST `11/11 PASS` and SHOULD `5/5 PASS`
 - **Published prerelease (2026-11-03, tag `v1.0.0-rc.3`)**: `@agentdid/sdk` and `@agentdid/langchain` `1.0.0-rc.3` on npm under dist-tag `next`; `agent-did-sdk`, `agent-did-langchain`, `agent-did-crewai`, `agent-did-semantic-kernel`, `agent-did-microsoft-agent-framework` and `agent-did-a2a` `1.0.0rc3` on PyPI
 - **Security release**: `1.0.0-rc.2` fixes [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf). `1.0.0-rc.1` / `1.0.0rc1` are deprecated; upgrade and recreate any bootstrap controller created with them (see the advisory)
