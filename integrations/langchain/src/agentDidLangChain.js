@@ -1,4 +1,3 @@
-const { AgentIdentity } = require("@agentdid/sdk");
 const net = require("node:net");
 const { SystemMessage } = require("@langchain/core/messages");
 const { tool } = require("@langchain/core/tools");
@@ -258,7 +257,7 @@ function createAgentDidTools(options) {
         emitToolStarted(observer, { toolName, did: currentDid, inputs: { did } });
         try {
           const targetDid = did && did.trim() ? did.trim() : options.runtimeIdentity.document.id;
-          const resolved = await AgentIdentity.resolve(targetDid);
+          const resolved = await options.agentIdentity.client.resolve(targetDid);
           emitToolSucceeded(observer, {
             toolName,
             did: currentDid,
@@ -291,7 +290,7 @@ function createAgentDidTools(options) {
         });
         try {
           const targetDid = did && did.trim() ? did.trim() : options.runtimeIdentity.document.id;
-          const isValid = await AgentIdentity.verifySignature(targetDid, payload, signature, keyId);
+          const isValid = await options.agentIdentity.client.verifySignature(targetDid, payload, signature, keyId);
           emitToolSucceeded(observer, {
             toolName,
             did: currentDid,
@@ -418,7 +417,7 @@ function createAgentDidTools(options) {
         emitToolStarted(observer, { toolName, did: currentDid, inputs: { did } });
         try {
           const targetDid = did && did.trim() ? did.trim() : options.runtimeIdentity.document.id;
-          const history = await AgentIdentity.getDocumentHistory(targetDid);
+          const history = await options.agentIdentity.client.getDocumentHistory(targetDid);
           emitToolSucceeded(observer, {
             toolName,
             did: currentDid,
@@ -446,7 +445,7 @@ function createAgentDidTools(options) {
         const toolName = withPrefix(toolPrefix, "rotate_key");
         emitToolStarted(observer, { toolName, did: currentDid });
         try {
-          const rotated = await AgentIdentity.rotateVerificationMethod(options.runtimeIdentity.document.id);
+          const rotated = await options.agentIdentity.client.rotateVerificationMethod(options.runtimeIdentity.document.id);
           const updatedIdentity = {
             ...options.runtimeIdentity,
             document: rotated.document,

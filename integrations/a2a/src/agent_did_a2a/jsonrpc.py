@@ -143,7 +143,7 @@ async def verify_a2a_request(
     """
 
     try:
-        return await AgentIdentity.verify_http_request_signature(
+        return await agent_identity.client.verify_http_request_signature(
             VerifyHttpRequestSignatureParams(
                 method=method,
                 url=url,

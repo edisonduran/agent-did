@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from agent_did_sdk import AgentDIDDocument, AgentIdentity
+from agent_did_sdk import AgentDidClient, AgentDIDDocument, AgentIdentity
 from agent_framework import Agent, AgentExecutor, Case, Default, FunctionExecutor, WorkflowBuilder
 
 from .config import AgentDidExposureConfig, AgentDidMicrosoftAgentFrameworkConfig
@@ -31,6 +31,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
     """
 
     _agent_did_observer: AgentDidObserver | None = None
+    _agent_did_client: AgentDidClient | None = None
 
     def add_verified_handoff(
         self,
@@ -70,6 +71,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
             cross_domain=cross_domain,
             on_verification_blocked=on_verification_blocked,
             observer=self._agent_did_observer,
+            client=self._agent_did_client,
             executor_id=executor_id,
             output_type=output_type,
         )
@@ -215,6 +217,7 @@ class AgentDidMicrosoftAgentFrameworkIntegration:
             output_executors=list(output_executors) if output_executors is not None else None,
         )
         builder._agent_did_observer = self.observer
+        builder._agent_did_client = self.agent_identity.client
         self.observer.emit(
             "agent_did.workflow.builder_created",
             attributes={

@@ -6,7 +6,7 @@ from ipaddress import ip_address
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
-from agent_did_sdk import AgentIdentity, SignHttpRequestParams
+from agent_did_sdk import AgentDidClient, AgentIdentity, SignHttpRequestParams
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -200,6 +200,7 @@ def _build_get_current_identity_tool(
 
 
 def _build_resolve_did_tool(
+    client: AgentDidClient,
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
@@ -211,7 +212,7 @@ def _build_resolve_did_tool(
         _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs={"did": did})
         try:
             target_did = did.strip() if did and did.strip() else runtime_identity.document.id
-            document = await AgentIdentity.resolve(target_did)
+            document = await client.resolve(target_did)
             result = _serialize_document(document)
             _emit_tool_succeeded(
                 observer,
@@ -233,6 +234,7 @@ def _build_resolve_did_tool(
 
 
 def _build_verify_signature_tool(
+    client: AgentDidClient,
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
@@ -259,7 +261,7 @@ def _build_verify_signature_tool(
         )
         try:
             target_did = did.strip() if did and did.strip() else runtime_identity.document.id
-            is_valid = await AgentIdentity.verify_signature(target_did, payload, signature, key_id)
+            is_valid = await client.verify_signature(target_did, payload, signature, key_id)
             result: dict[str, Any] = {"did": target_did, "is_valid": is_valid}
             if key_id:
                 result["key_id"] = key_id
@@ -413,6 +415,7 @@ def _build_sign_http_request_tool(
 
 
 def _build_rotate_keys_tool(
+    client: AgentDidClient,
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
@@ -423,7 +426,7 @@ def _build_rotate_keys_tool(
         current_did = runtime_identity.document.id
         _emit_tool_started(observer, tool_name=tool_name, did=current_did)
         try:
-            rotated = await AgentIdentity.rotate_verification_method(runtime_identity.document.id)
+            rotated = await client.rotate_verification_method(runtime_identity.document.id)
             runtime_identity.document = rotated.document
             runtime_identity.agent_private_key = rotated.agent_private_key
 
@@ -452,6 +455,7 @@ def _build_rotate_keys_tool(
 
 
 def _build_document_history_tool(
+    client: AgentDidClient,
     runtime_identity: RuntimeIdentity,
     tool_prefix: str,
     observer: AgentDidObserver,
@@ -463,7 +467,7 @@ def _build_document_history_tool(
         _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs={"did": did})
         try:
             target_did = did.strip() if did and did.strip() else runtime_identity.document.id
-            history = AgentIdentity.get_document_history(target_did)
+            history = client.get_document_history(target_did)
             result = [entry.model_dump(by_alias=True, exclude_none=True) for entry in history]
             _emit_tool_succeeded(
                 observer,
@@ -494,14 +498,15 @@ def create_agent_did_tools(
     observer: AgentDidObserver | None = None,
 ) -> list[StructuredTool]:
     active_observer = observer or AgentDidObserver()
+    client = agent_identity.client
     tool_builders: list[StructuredTool] = []
 
     if expose.current_identity:
         tool_builders.append(_build_get_current_identity_tool(runtime_identity, tool_prefix, active_observer))
     if expose.resolve_did:
-        tool_builders.append(_build_resolve_did_tool(runtime_identity, tool_prefix, active_observer))
+        tool_builders.append(_build_resolve_did_tool(client, runtime_identity, tool_prefix, active_observer))
     if expose.verify_signatures:
-        tool_builders.append(_build_verify_signature_tool(runtime_identity, tool_prefix, active_observer))
+        tool_builders.append(_build_verify_signature_tool(client, runtime_identity, tool_prefix, active_observer))
     if expose.sign_payload:
         tool_builders.append(_build_sign_payload_tool(agent_identity, runtime_identity, tool_prefix, active_observer))
     if expose.sign_http:
@@ -515,8 +520,8 @@ def create_agent_did_tools(
             )
         )
     if expose.document_history:
-        tool_builders.append(_build_document_history_tool(runtime_identity, tool_prefix, active_observer))
+        tool_builders.append(_build_document_history_tool(client, runtime_identity, tool_prefix, active_observer))
     if expose.rotate_keys:
-        tool_builders.append(_build_rotate_keys_tool(runtime_identity, tool_prefix, active_observer))
+        tool_builders.append(_build_rotate_keys_tool(client, runtime_identity, tool_prefix, active_observer))
 
     return tool_builders

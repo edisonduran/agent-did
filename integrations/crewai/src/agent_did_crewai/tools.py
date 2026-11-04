@@ -321,7 +321,7 @@ def _create_resolve_did_runner(context: _ToolRuntimeContext, tool_name: str) -> 
         _emit_tool_started(context, tool_name=tool_name, inputs={"did": did})
         try:
             target_did = did.strip() if did and did.strip() else context.current_did
-            document = await AgentIdentity.resolve(target_did)
+            document = await context.agent_identity.client.resolve(target_did)
             _emit_tool_succeeded(context, tool_name=tool_name, outputs={"resolved_did": document.id})
             return document.model_dump(by_alias=True, exclude_none=True)
         except Exception as error:
@@ -342,7 +342,7 @@ def _create_verify_signature_runner(context: _ToolRuntimeContext, tool_name: str
         _emit_tool_started(context, tool_name=tool_name, inputs=inputs)
         try:
             target_did = did.strip() if did and did.strip() else context.current_did
-            is_valid = await AgentIdentity.verify_signature(target_did, payload, signature, key_id)
+            is_valid = await context.agent_identity.client.verify_signature(target_did, payload, signature, key_id)
             result: dict[str, Any] = {"did": target_did, "is_valid": is_valid}
             if key_id:
                 result["key_id"] = key_id
@@ -422,7 +422,7 @@ def _create_document_history_runner(context: _ToolRuntimeContext, tool_name: str
         _emit_tool_started(context, tool_name=tool_name, inputs={"did": did})
         try:
             target_did = did.strip() if did and did.strip() else context.current_did
-            entries = AgentIdentity.get_document_history(target_did)
+            entries = context.agent_identity.client.get_document_history(target_did)
             _emit_tool_succeeded(
                 context,
                 tool_name=tool_name,
@@ -443,7 +443,8 @@ def _create_rotate_key_runner(context: _ToolRuntimeContext, tool_name: str) -> R
     async def rotate_key() -> dict[str, Any]:
         _emit_tool_started(context, tool_name=tool_name)
         try:
-            context.runtime_identity = await AgentIdentity.rotate_verification_method(context.current_did)
+            client = context.agent_identity.client
+            context.runtime_identity = await client.rotate_verification_method(context.current_did)
             _emit_identity_snapshot_refreshed(context, reason="tool:rotate_key")
             _emit_tool_succeeded(
                 context,
