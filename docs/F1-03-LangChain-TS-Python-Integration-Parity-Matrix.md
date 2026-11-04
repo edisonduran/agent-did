@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-04 | LangChain Python README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |
 | 2026-11-04 | M-09: LangChain TS and Python examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
 | 2026-11-04 | RC metadata moved to the `1.0.0rc4` release train (npm `1.0.0-rc.4`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-03 | Las tools ahora resuelven, verifican y rotan a traves de `agentIdentity.client` (`AgentDidClient`) en lugar de la API estatica `AgentIdentity`, ya obsoleta, en TS y Python por igual. Una identidad sin client explicito usa el client por defecto: sin cambios en la superficie publica ni en la parity. |
