@@ -5,7 +5,7 @@ import json
 import logging
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain import create_agent_did_langchain_integration
 from agent_did_langchain.observability import (
@@ -20,7 +20,7 @@ from agent_did_langchain.observability import (
 @pytest.mark.asyncio
 async def test_identity_snapshot_refresh_emits_observability_event() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8181818181818181818181818181818181818181"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SnapshotObserverBot",
@@ -53,7 +53,7 @@ async def test_identity_snapshot_refresh_emits_observability_event() -> None:
 @pytest.mark.asyncio
 async def test_tool_events_redact_payloads_signatures_and_headers() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8282828282828282828282828282828282828282"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="ToolObserverBot",
@@ -105,7 +105,7 @@ async def test_tool_events_redact_payloads_signatures_and_headers() -> None:
 @pytest.mark.asyncio
 async def test_tool_failure_event_emits_sanitized_error_context() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8383838383838383838383838383838383838383"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="FailureObserverBot",

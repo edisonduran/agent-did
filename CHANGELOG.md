@@ -10,8 +10,16 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **The EVM registry adapter left the core SDKs** (M-09). `EvmAgentRegistry`, `EthersAgentRegistryContractClient` and the `Evm*` types now live in the new optional package `@agentdid/evm` (`evm/`); in Python they moved to `agent_did_sdk.evm` and the `web3` dependency became the `agent-did-sdk[evm]` extra. `@agentdid/sdk` no longer depends on `ethers`, and `agent-did-sdk` no longer depends on `web3` / `eth_utils`. Nothing in the core imports the EVM adapter.
+- **The controller is an Ed25519 `AgentSigner`, not an EVM wallet.** `AgentIdentityConfig.signer: ethers.Signer` is now `controllerSigner: AgentSigner` (Python: `signer_address: str` is now `controller_signer: AgentSigner`), and `AgentDidClient.createAgent` / `create_agent` takes the signer instead of an address. The controller is identified by a `did:key` derived from its public key (new `didKeyFromPublicKey` / `did_key_from_public_key`). The legacy `did:agent` profile now sets `controller` to that `did:key` instead of `did:ethr:<address>`, derives its identifier from SHA-256 (hex, no `0x` prefix) instead of Keccak-256, and no longer attaches a random `blockchainAccountId` to the verification method.
+- `@agentdid/sdk` uses `@noble/hashes` instead of `ethers` for the random nonce and the AWS SigV4 HMAC/SHA-256; `agent-did-sdk` uses `hashlib` / `os.urandom` instead of `eth_utils`.
+- The LangChain (JS), LangChain (Python), CrewAI, Semantic Kernel, Microsoft Agent Framework and A2A examples and tests create identities with a `LocalKeySigner` controller. Migration: [sdk/MIGRATION-1.0-rc.3-to-rc.4.md](sdk/MIGRATION-1.0-rc.3-to-rc.4.md), [sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md](sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md).
+
 ### Added
 
+- New optional npm package `@agentdid/evm` (`evm/`) with its own CI job (`ci-evm.yml`).
 - **`AgentDidClient`** (`@agentdid/sdk`, `agent-did-sdk`): an instance that owns all identity state that used to be process-global static state of `AgentIdentity` (resolver, registry, HTTP-signature replay store, document history, did:webvh logs and controller signers). Options: `resolver`, `registry`, `nonceStore` / `nonce_store`, `clock`, `webvhDomain` / `webvh_domain`. Two clients never share state, so tests and multi-tenant hosts no longer need to reset or poke private statics. `AgentIdentity` takes an optional `client` in its config and exposes `getDefaultClient()` / `setDefaultClient()` (`get_default_client()` / `set_default_client()`).
 - The static `AgentIdentity` API (`resolve`, `verifySignature`, lifecycle operations, history import/export, `setResolver`, `useProductionResolver*`...) keeps working unchanged as a facade over the default client and is now documented as deprecated, with removal planned for 2.0. This is additive: no behavior or wire format changes.
 - The LangChain (JS and Python), CrewAI, Semantic Kernel, Microsoft Agent Framework and A2A integrations now resolve, verify and rotate through `agentIdentity.client` instead of the static `AgentIdentity` API, so an integration built around an identity with its own `AgentDidClient` no longer touches the process-wide default state. Identities without an explicit client behave as before.

@@ -17,6 +17,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryNonceStore,
+    LocalKeySigner,
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
 )
@@ -167,7 +168,7 @@ REQUEST = {"method": "POST", "url": "https://api.example.com/v1/data?x=1", "body
 
 @pytest.fixture()
 def identity() -> AgentIdentity:
-    return AgentIdentity(AgentIdentityConfig(signer_address="0xHttpSignatureTester1234567890"))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
 
 async def _signed(identity: AgentIdentity, name: str = "HttpBot") -> tuple[str, str, dict[str, str]]:

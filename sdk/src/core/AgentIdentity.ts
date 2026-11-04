@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
@@ -44,8 +43,12 @@ export type {
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './http-profile';
 
 export interface AgentIdentityConfig {
-  signer: ethers.Signer; // The Creator's Wallet (Controller)
-  network?: string; // e.g., 'polygon', 'base', 'ethereum'
+  /**
+   * The controller's Ed25519 signer (the creator). Its public key identifies the controller
+   * (`did:key`) and, for did:webvh, authorizes the log. Use a KMS/HSM-backed `AgentSigner` in production.
+   */
+  controllerSigner: AgentSigner;
+  network?: string; // Network label of the legacy did:agent profile, e.g. 'polygon', 'base'
   /**
    * Client that owns the identity state (resolver, registry, did:webvh logs...) this
    * identity creates documents in. Defaults to the process-wide default client.
@@ -55,12 +58,12 @@ export interface AgentIdentityConfig {
 
 export class AgentIdentity {
   private static defaultClient: AgentDidClient = new AgentDidClient();
-  private readonly signer: ethers.Signer;
+  private readonly controllerSigner: AgentSigner;
   private readonly network: string;
   private readonly explicitClient?: AgentDidClient;
 
   constructor(config: AgentIdentityConfig) {
-    this.signer = config.signer;
+    this.controllerSigner = config.controllerSigner;
     this.network = config.network || 'polygon';
     this.explicitClient = config.client;
   }
@@ -88,7 +91,7 @@ export class AgentIdentity {
    * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
    */
   public async create(params: CreateAgentParams): Promise<CreateAgentResult> {
-    return this.client.createAgent(await this.signer.getAddress(), this.network, params);
+    return this.client.createAgent(this.controllerSigner, this.network, params);
   }
 
   /**

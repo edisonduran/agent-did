@@ -6,7 +6,7 @@ import logging
 import os
 from pprint import pprint
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_crewai import create_agent_did_crewai_integration
 from agent_did_crewai.guardrails import create_identity_output_guardrail
@@ -22,7 +22,7 @@ async def main() -> None:
     environment = os.getenv("AGENT_DID_ENVIRONMENT", "dev")
 
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9895959595959595959595959595959595959595"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="crewai_production_assistant",

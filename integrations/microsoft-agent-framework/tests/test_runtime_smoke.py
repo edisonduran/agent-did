@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from agent_framework import AgentExecutorResponse, BaseChatClient, ChatResponse, Message
 
 from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
@@ -44,7 +44,7 @@ class DummyChatClient(BaseChatClient):
 
 def test_real_agent_framework_runtime_accepts_agent_did_bundle() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6767676767676767676767676767676767676767"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(
@@ -85,7 +85,7 @@ def test_real_agent_framework_runtime_accepts_agent_did_bundle() -> None:
 
 def test_real_agent_framework_runtime_supports_multistep_workflow_orchestration() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6868686868686868686868686868686868686868"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(
@@ -160,7 +160,7 @@ def test_real_agent_framework_runtime_supports_multistep_workflow_orchestration(
 
 def test_real_agent_framework_runtime_supports_advanced_workflow_patterns() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6969696969696969696969696969696969696969"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = asyncio.run(
         identity.create(
             CreateAgentParams(

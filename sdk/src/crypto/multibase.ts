@@ -77,3 +77,11 @@ export function decodePublicKeyMultibase(encoded: string): Uint8Array {
 
   throw new Error('Unable to decode publicKeyMultibase: unrecognized format');
 }
+
+/**
+ * Derives the `did:key` identifier of an Ed25519 public key (did:key method, `z6Mk…`).
+ * The DID is a pure function of the public key, so it needs no registry or network access.
+ */
+export function didKeyFromPublicKey(rawPublicKey: Uint8Array): string {
+  return `did:key:${encodePublicKeyMultibase(rawPublicKey)}`;
+}

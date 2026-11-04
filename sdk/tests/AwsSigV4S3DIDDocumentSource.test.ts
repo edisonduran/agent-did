@@ -1,4 +1,5 @@
-import { ethers } from 'ethers';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 import { AwsSigV4S3DIDDocumentSource } from '../src/resolver/AwsSigV4S3DIDDocumentSource';
 
 describe('AwsSigV4S3DIDDocumentSource', () => {
@@ -54,7 +55,7 @@ describe('AwsSigV4S3DIDDocumentSource', () => {
         headers: expect.objectContaining({
           host: 's3.us-east-1.amazonaws.com',
           'x-amz-date': '20260507T123456Z',
-          'x-amz-content-sha256': ethers.sha256(ethers.toUtf8Bytes('')).slice(2),
+          'x-amz-content-sha256': bytesToHex(sha256(new TextEncoder().encode(''))),
           authorization: expect.stringContaining('Credential=AKIDEXAMPLE/20260507/us-east-1/s3/aws4_request')
         })
       })
@@ -91,7 +92,7 @@ describe('AwsSigV4S3DIDDocumentSource', () => {
           'content-type': 'application/jsonl; charset=utf-8',
           'x-amz-date': '20260507T123456Z',
           'x-amz-security-token': 'session-token-example',
-          'x-amz-content-sha256': ethers.sha256(ethers.toUtf8Bytes(didLog)).slice(2),
+          'x-amz-content-sha256': bytesToHex(sha256(new TextEncoder().encode(didLog))),
           authorization: expect.stringContaining('SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token')
         }),
         body: didLog

@@ -1,9 +1,9 @@
+import { LocalKeySigner } from '../src/core/signer';
 /**
  * Cross-checks the Agent-DID RFC 9421 profile against an independent
  * implementation (`http-message-signatures`, dev dependency).
  */
 import crypto from 'crypto';
-import { ethers } from 'ethers';
 import { httpbis, createSigner, createVerifier } from 'http-message-signatures';
 import { AgentIdentity, AGENT_DID_HTTP_SIGNATURE_COMPONENTS } from '../src/core/AgentIdentity';
 import { decodePublicKeyMultibase } from '../src/crypto/multibase';
@@ -23,7 +23,7 @@ function publicKeyObject(raw: Uint8Array): crypto.KeyObject {
 }
 
 describe('RFC 9421 interoperability with http-message-signatures', () => {
-  const identity = new AgentIdentity({ signer: ethers.Wallet.createRandom(), network: 'polygon' });
+  const identity = new AgentIdentity({ controllerSigner: LocalKeySigner.generate()[0], network: 'polygon' });
   const request = { method: 'POST', url: 'https://api.example.com/v1/orders?id=42', body: '{"qty":1}' };
 
   beforeEach(() => {

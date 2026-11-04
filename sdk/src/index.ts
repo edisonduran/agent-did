@@ -63,6 +63,7 @@ export {
 
 export {
   encodePublicKeyMultibase,
+  didKeyFromPublicKey,
   decodePublicKeyMultibase
 } from './crypto/multibase';
 
@@ -146,20 +147,6 @@ export {
 export {
   InMemoryAgentRegistry
 } from './registry/InMemoryAgentRegistry';
-
-export {
-  EvmAgentRegistry
-} from './registry/EvmAgentRegistry';
-
-export {
-  EthersAgentRegistryContractClient
-} from './registry/EthersAgentRegistryContractClient';
-
-export {
-  EvmTxResponse,
-  EvmAgentRegistryContract,
-  EvmAgentRegistryAdapterConfig
-} from './registry/evm-types';
 
 // did:webvh v1.0 errors (log verification, unauthorized controller signer)
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';

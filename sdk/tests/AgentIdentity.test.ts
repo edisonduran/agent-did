@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { sha256 } from '@noble/hashes/sha256';
 import { AgentIdentity, AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from '../src/core/AgentIdentity';
 import { buildSignatureBase, parseSignatureInputHeader, serializeSignatureInput } from '../src/core/http-signatures';
 import { InMemoryNonceStore } from '../src/core/nonce-store';
@@ -11,7 +11,7 @@ import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
 import { DIDDocumentSource } from '../src/resolver/types';
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { encodePublicKeyMultibase } from '../src/crypto/multibase';
+import { encodePublicKeyMultibase, didKeyFromPublicKey } from '../src/crypto/multibase';
 import { generateCommitmentSalt, verifyMetadataCommitment } from '../src/crypto/hash';
 
 
@@ -29,13 +29,13 @@ function resetDidWebvhState(): void {
 
 describe('AgentIdentity Core Module', () => {
   // Create a random wallet to act as the "Creator" (Controller)
-  const creatorWallet = ethers.Wallet.createRandom();
+  const [creatorSigner] = LocalKeySigner.generate();
   let agentIdentity: AgentIdentity;
 
   beforeAll(() => {
     // Initialize the SDK with the creator's wallet
     agentIdentity = new AgentIdentity({
-      signer: creatorWallet,
+      controllerSigner: creatorSigner,
       network: 'polygon'
     });
 
@@ -130,9 +130,9 @@ describe('AgentIdentity Core Module', () => {
       didMethod: 'agent'
     });
 
-    expect(result.document.id.startsWith('did:agent:polygon:0x')).toBe(true);
-    expect(result.document.controller).toEqual(`did:ethr:${creatorWallet.address}`);
-    expect(result.document.verificationMethod[0].blockchainAccountId?.startsWith('eip155:1:0x')).toBe(true);
+    expect(result.document.id).toMatch(/^did:agent:polygon:[0-9a-f]{64}$/);
+    expect(result.document.controller).toEqual(didKeyFromPublicKey(await creatorSigner.getPublicKey()));
+    expect(result.document.verificationMethod[0].blockchainAccountId).toBeUndefined();
   });
 
   it('should create a did:webvh document when the web-native profile is requested', async () => {
@@ -1296,8 +1296,8 @@ describe('AgentIdentity Core Module', () => {
 });
 
 describe('Bootstrap controller keys', () => {
-  const creatorWallet = ethers.Wallet.createRandom();
-  const identity = new AgentIdentity({ signer: creatorWallet, network: 'polygon' });
+  const [creatorSigner] = LocalKeySigner.generate();
+  const identity = new AgentIdentity({ controllerSigner: creatorSigner, network: 'polygon' });
   const minimalParams: CreateAgentParams = {
     name: 'BootstrapBot',
     coreModel: 'gpt-4.1-mini',
@@ -1328,7 +1328,7 @@ describe('Bootstrap controller keys', () => {
   it('never derives the controller key from public data', async () => {
     const result = await identity.create(minimalParams);
     const controllerDid = result.document.controller;
-    const publiclyDerivableSeed = ethers.keccak256(ethers.toUtf8Bytes(`${controllerDid}:bootstrap-key`)).slice(2);
+    const publiclyDerivableSeed = bytesToHex(sha256(new TextEncoder().encode(`${controllerDid}:bootstrap-key`)));
 
     expect(result.controllerPrivateKey).not.toEqual(publiclyDerivableSeed);
 
@@ -1407,7 +1407,7 @@ describe('Bootstrap controller keys', () => {
       const { document } = await identity.create(baseParams);
       expect(verifyMetadataCommitment(document.agentMetadata.systemPromptHash, baseParams.systemPrompt)).toBe(false);
       expect(document.agentMetadata.systemPromptHash).not.toContain(
-        ethers.sha256(ethers.toUtf8Bytes(baseParams.systemPrompt)).slice(2)
+        bytesToHex(sha256(new TextEncoder().encode(baseParams.systemPrompt)))
       );
     });
 
@@ -1445,8 +1445,8 @@ describe('Bootstrap controller keys', () => {
 });
 
 describe('did:webvh v1.0 lifecycle authorization', () => {
-  const creatorWallet = ethers.Wallet.createRandom();
-  const identity = new AgentIdentity({ signer: creatorWallet, network: 'polygon' });
+  const [creatorSigner] = LocalKeySigner.generate();
+  const identity = new AgentIdentity({ controllerSigner: creatorSigner, network: 'polygon' });
   const controllerSigner = new LocalKeySigner('7c'.repeat(32));
   const params = {
     name: 'LifecycleBot',

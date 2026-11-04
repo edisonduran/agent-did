@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 
@@ -9,7 +9,7 @@ from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integrati
 @pytest.mark.asyncio
 async def test_secure_defaults_keep_sensitive_tools_disabled() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6161616161616161616161616161616161616161"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="MicrosoftSecureDefaultsBot",
@@ -34,7 +34,7 @@ async def test_secure_defaults_keep_sensitive_tools_disabled() -> None:
 @pytest.mark.asyncio
 async def test_http_signing_rejects_private_targets_by_default() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6262626262626262626262626262626262626262"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="MicrosoftHttpPolicyBot",

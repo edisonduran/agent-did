@@ -12,7 +12,7 @@ Formal parity tracking is documented in `../docs/F2-01-TS-Python-Parity-Matrix.m
 
 Pythonic surface conventions apply:
 
-- constructor config uses `signer_address`
+- constructor config uses `controller_signer` (an Ed25519 `AgentSigner`)
 - instance methods use `snake_case`
 - lifecycle-wide operations such as revoke/update/rotate/resolve remain class methods on `AgentIdentity`
 
@@ -28,6 +28,8 @@ For development:
 pip install -e ".[dev]"
 ```
 
+The optional EVM registry adapter is not part of the core install: `pip install "agent-did-sdk[evm]"`.
+
 ### Platform support
 
 Since `1.0.0rc3` the SDK depends on [`did-webvh`](https://pypi.org/project/did-webvh/), which pulls the native `aries-askar` library. `aries-askar` ships wheels for Linux glibc (x86_64, aarch64), macOS and Windows x86_64 only, so the SDK does not install on Alpine (musl) images or Windows ARM64. Use a glibc-based image such as `python:3.12-slim`.
@@ -41,11 +43,12 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
 )
 
 async def main():
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xYourWalletAddress"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
     result = await identity.create(CreateAgentParams(
         name="MyAgent",
@@ -107,18 +110,19 @@ By default, `verify_signature` and HTTP signature verification require the signi
 | `core.identity` | `AgentIdentity` — main class for DID lifecycle |
 | `core.time_utils` | ISO-8601 ↔ Unix timestamp utilities |
 | `crypto.hash` | SHA-256 hashing with `hash://` URI format |
-| `registry.*` | Agent registry (in-memory, EVM adapter, Web3 client) |
+| `registry.*` | Agent registry (in-memory) |
+| `evm.*` | Optional EVM registry adapter and Web3 client (`agent-did-sdk[evm]`) |
 | `resolver.*` | DID resolver (in-memory, filesystem source, HTTP source, bearer/authenticated HTTP source, presigned/object-storage source, S3-compatible source, AWS SigV4 S3 source, JSON-RPC source, universal) |
 
 ## Optional EVM Registry Integration
 
-If a deployment explicitly needs the deferred EVM profile, connect the SDK to a real on-chain `AgentRegistry` contract:
+If a deployment explicitly needs the deferred EVM profile, install `agent-did-sdk[evm]` and connect the SDK to a real on-chain `AgentRegistry` contract:
 
 ```python
 from web3 import HTTPProvider, Web3
 
-from agent_did_sdk import AgentIdentity, EvmAgentRegistry, Web3AgentRegistryContractClient
-from agent_did_sdk.registry.evm_types import EvmAgentRegistryAdapterConfig
+from agent_did_sdk import AgentIdentity
+from agent_did_sdk.evm import EvmAgentRegistry, EvmAgentRegistryAdapterConfig, Web3AgentRegistryContractClient
 
 provider = Web3(HTTPProvider("http://127.0.0.1:8545"))
 contract = provider.eth.contract(address=REGISTRY_ADDRESS, abi=ABI)

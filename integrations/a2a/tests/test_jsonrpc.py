@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_a2a.jsonrpc import (
     JsonRpcRequest,
@@ -83,7 +83,7 @@ def test_jsonrpc_request_serialization() -> None:
 @pytest.mark.asyncio
 async def test_sign_a2a_request_produces_signed_headers() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(name="SignBot", core_model="gpt-4.1-mini", system_prompt="sign test")
     )
@@ -128,7 +128,7 @@ async def test_verify_a2a_request_uses_the_identity_client() -> None:
     client = AgentDidClient()
     client.verify_http_request_signature = AsyncMock(return_value=True)  # type: ignore[method-assign]
     identity = AgentIdentity(
-        AgentIdentityConfig(signer_address="0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", client=client)
+        AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client)
     )
 
     assert await verify_a2a_request(

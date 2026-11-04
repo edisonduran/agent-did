@@ -6,6 +6,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
     VerifyHttpRequestSignatureParams,
 )
 
@@ -15,7 +16,7 @@ from agent_did_langchain.integration import create_agent_did_langchain_integrati
 @pytest.mark.asyncio
 async def test_sensitive_tools_are_opt_in_and_http_signing_rejects_non_http_schemes() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x4444444444444444444444444444444444444444"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SecurityBot",
@@ -59,7 +60,7 @@ async def test_sensitive_tools_are_opt_in_and_http_signing_rejects_non_http_sche
 @pytest.mark.asyncio
 async def test_http_signing_is_secret_safe_and_verifiable() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5555555555555555555555555555555555555555"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="HttpBot",
@@ -101,7 +102,7 @@ async def test_http_signing_is_secret_safe_and_verifiable() -> None:
 @pytest.mark.asyncio
 async def test_private_network_targets_can_be_enabled_explicitly() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5656565656565656565656565656565656565656"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="PrivateHttpBot",

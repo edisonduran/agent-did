@@ -52,7 +52,7 @@ def build_identity() -> tuple[AgentIdentity, InMemoryAgentRegistry]:
     AgentIdentity.get_default_client()._did_webvh_signer_store = {}
     AgentIdentity.get_default_client()._bootstrap_controllers = {}
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x1234567890abcdef1234567890abcdef12345678"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     return identity, registry
 
 

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from pprint import pprint
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_crewai import create_agent_did_crewai_integration
 from agent_did_crewai.observability import compose_event_handlers, create_json_logger_event_handler
@@ -12,7 +12,7 @@ from agent_did_crewai.observability import compose_event_handlers, create_json_l
 
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9797979797979797979797979797979797979797"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="crewai_observable_bot",

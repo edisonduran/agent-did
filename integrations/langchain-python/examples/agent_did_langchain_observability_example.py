@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain import create_agent_did_langchain_integration
 
@@ -13,7 +13,7 @@ from agent_did_langchain import create_agent_did_langchain_integration
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9191919191919191919191919191919191919191"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="observer_bot",

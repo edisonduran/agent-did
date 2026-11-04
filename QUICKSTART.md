@@ -18,7 +18,7 @@ If you want a live browser walkthrough before wiring code, open [Agent-DID in Ac
 Install (requires Node.js 22.12+):
 
 ```bash
-npm install @agentdid/sdk@next ethers
+npm install @agentdid/sdk@next
 ```
 
 `@next` selects the `1.0.0-rc.3` release candidate; without it npm may install an older release whose DIDs and HTTP signatures do not interoperate with `1.0.0-rc.3`.
@@ -26,14 +26,13 @@ npm install @agentdid/sdk@next ethers
 Save this as `quickstart.js` and run `node quickstart.js`:
 
 ```js
-const { AgentIdentity, InMemoryAgentRegistry } = require('@agentdid/sdk');
-const { ethers } = require('ethers');
+const { AgentIdentity, InMemoryAgentRegistry, LocalKeySigner } = require('@agentdid/sdk');
 
 const main = async () => {
   AgentIdentity.setRegistry(new InMemoryAgentRegistry());
 
-  const wallet = ethers.Wallet.createRandom();
-  const identity = new AgentIdentity({ signer: wallet });
+  const [controllerSigner] = LocalKeySigner.generate();
+  const identity = new AgentIdentity({ controllerSigner });
 
   const created = await identity.create({
     name: 'quickstart-bot',
@@ -83,12 +82,12 @@ Save this as `quickstart.py` and run `python quickstart.py`:
 
 ```python
 import asyncio
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, SignHttpRequestParams, VerifyHttpRequestSignatureParams
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner, SignHttpRequestParams, VerifyHttpRequestSignatureParams
 
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9292929292929292929292929292929292929292"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
     created = await identity.create(CreateAgentParams(
         name="quickstart-bot",

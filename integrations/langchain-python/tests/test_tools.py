@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain.integration import create_agent_did_langchain_integration
 
@@ -9,7 +9,7 @@ from agent_did_langchain.integration import create_agent_did_langchain_integrati
 @pytest.mark.asyncio
 async def test_tools_expose_identity_resolution_and_signature_verification() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x2222222222222222222222222222222222222222"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="ToolBot",
@@ -51,7 +51,7 @@ async def test_tools_expose_identity_resolution_and_signature_verification() -> 
 @pytest.mark.asyncio
 async def test_tools_return_structured_errors_on_invalid_inputs() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x3333333333333333333333333333333333333333"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="ErrorBot",

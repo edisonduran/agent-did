@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -12,8 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from eth_utils.address import to_checksum_address
-from eth_utils.crypto import keccak
 from nacl.signing import SigningKey, VerifyKey
 
 from ..crypto.hash import (
@@ -22,7 +21,11 @@ from ..crypto.hash import (
     generate_canonical_document_hash,
     generate_commitment_salt,
 )
-from ..crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
+from ..crypto.multibase import (
+    decode_public_key_multibase,
+    did_key_from_public_key,
+    encode_public_key_multibase,
+)
 from ..registry.in_memory import InMemoryAgentRegistry
 from ..registry.types import AgentRegistry
 from ..resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
@@ -152,10 +155,14 @@ class AgentDidClient:
     def _now_iso_timestamp(self) -> str:
         return normalize_timestamp_to_iso(self._clock().isoformat())  # type: ignore[return-value]
 
-    async def create_agent(self, signer_address: str, network: str, params: CreateAgentParams) -> CreateAgentResult:
+    async def create_agent(
+        self, controller_signer: AgentSigner, network: str, params: CreateAgentParams
+    ) -> CreateAgentResult:
         """Create a new Agent-DID document (passport) in this client's state."""
         did_method = params.did_method or "webvh"
         timestamp = self._now_iso_timestamp()
+        # The creator is identified by its Ed25519 key, never by an EVM address
+        controller_key_did = did_key_from_public_key(await controller_signer.get_public_key())
 
         # Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary
         metadata_commitment_salts = MetadataCommitmentSalts(
@@ -186,7 +193,7 @@ class AgentDidClient:
         if did_method == "webvh":
             return await self._create_did_webvh_agent(
                 params,
-                signer_address=signer_address,
+                controller_key_did=controller_key_did,
                 timestamp=timestamp,
                 agent_metadata=agent_metadata,
                 public_key_bytes=public_key_bytes,
@@ -196,16 +203,15 @@ class AgentDidClient:
 
         # Legacy did:agent profile
         nonce = os.urandom(16).hex()
-        raw_id = keccak(text=f"{signer_address}-{timestamp}-{nonce}").hex()
+        raw_id = hashlib.sha256(f"{controller_key_did}-{timestamp}-{nonce}".encode()).hexdigest()
         agent_did = f"did:agent:{network}:{raw_id}"
-        controller_did = f"did:ethr:{signer_address}"
+        controller_did = controller_key_did
         verification_method_id = f"{agent_did}#key-1"
         vm = VerificationMethod(
             id=verification_method_id,
             type="Ed25519VerificationKey2020",
             controller=controller_did,
             publicKeyMultibase=encode_public_key_multibase(public_key_bytes),
-            blockchainAccountId=f"eip155:1:{to_checksum_address(os.urandom(20))}",
         )
         document = AgentDIDDocument(
             **{
@@ -235,7 +241,7 @@ class AgentDidClient:
         self,
         params: CreateAgentParams,
         *,
-        signer_address: str,
+        controller_key_did: str,
         timestamp: str,
         agent_metadata: dict[str, Any],
         public_key_bytes: bytes,
@@ -258,7 +264,7 @@ class AgentDidClient:
             # Only the implicit local profile bootstraps a controller. An explicitly supplied
             # controller DID must be published by its owner; the SDK never fabricates it.
             controller_did, controller_signer, controller_private_key = await self._ensure_bootstrap_controller(
-                signer_address
+                controller_key_did
             )
             domain = self._webvh_domain
             path_segments = ["agents", self._normalize_did_path_segment(params.name)]
@@ -316,13 +322,14 @@ class AgentDidClient:
         normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
         return normalized or "agent"
 
-    async def _ensure_bootstrap_controller(self, controller_address: str) -> tuple[str, AgentSigner, str | None]:
-        """Return the local bootstrap controller for a wallet address, creating it on first use.
+    async def _ensure_bootstrap_controller(self, controller_key_did: str) -> tuple[str, AgentSigner, str | None]:
+        """Return the local bootstrap controller for a creator's did:key, creating it on first use.
 
         Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
         returned to the caller exactly once (third element) and never derived from public data.
         """
-        address = controller_address.strip().lower()
+        address = controller_key_did.strip()
+        key_id = address.removeprefix("did:key:")
         existing = self._bootstrap_controllers.get(address)
         if existing is not None and await self._registry.get_record(existing[0]) is not None:
             return existing[0], existing[1], None
@@ -337,7 +344,7 @@ class AgentDidClient:
             "created": timestamp,
             "updated": timestamp,
             "agentMetadata": {
-                "name": f"controller-{self._normalize_did_path_segment(address)}",
+                "name": f"controller-{self._normalize_did_path_segment(key_id)}",
                 "description": "Local bootstrap controller root for canonical did:webvh flows.",
                 "version": "1.0.0",
                 "coreModelHash": generate_agent_metadata_hash(f"controller:{address}"),
@@ -357,7 +364,7 @@ class AgentDidClient:
 
         created = await create_did_webvh_log(
             domain=self._webvh_domain,
-            path_segments=["controllers", self._normalize_did_path_segment(address)],
+            path_segments=["controllers", self._normalize_did_path_segment(key_id)],
             document=template,
             signer=signer,
         )

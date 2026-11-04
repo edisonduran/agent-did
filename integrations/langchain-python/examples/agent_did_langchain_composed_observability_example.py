@@ -7,7 +7,7 @@ import io
 import json
 import logging
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain import create_agent_did_langchain_integration
 from agent_did_langchain.observability import (
@@ -60,7 +60,7 @@ async def main() -> None:
         ),
     )
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9696969696969696969696969696969696969696"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="composed_observer_bot",

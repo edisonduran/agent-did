@@ -26,7 +26,7 @@ class AgentDIDDocument(*, context: list[str], id: str, controller: str, created:
 
 ## AgentDidClient
 class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
-  def create_agent(self, signer_address: 'str', network: 'str', params: 'CreateAgentParams') -> 'CreateAgentResult'
+  def create_agent(self, controller_signer: 'AgentSigner', network: 'str', params: 'CreateAgentParams') -> 'CreateAgentResult'
   def export_did_webvh_history(self, did: 'str') -> 'str'
   def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
   def import_did_webvh_history(self, did_log: 'str') -> 'AgentDIDDocument'
@@ -99,10 +99,10 @@ class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
   classmethod verify_signature(cls, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
 
 ## AgentIdentityConfig
-class AgentIdentityConfig(signer_address: 'str', network: 'str' = 'polygon', client: 'AgentDidClient | None' = None) -> None
+class AgentIdentityConfig(controller_signer: 'AgentSigner', network: 'str' = 'polygon', client: 'AgentDidClient | None' = None) -> None
   attr client: AgentDidClient | None
+  attr controller_signer: AgentSigner
   attr network: str
-  attr signer_address: str
 
 ## AgentMetadata
 class AgentMetadata(*, name: str, description: str | None = None, version: str, coreModelHash: str, systemPromptHash: str, capabilities: list[str] | None = None, memberOf: str | None = None) -> None
@@ -244,32 +244,6 @@ value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptio
 
 ## DocumentIntegrityError
 class DocumentIntegrityError(...)
-
-## EvmAgentRegistry
-class EvmAgentRegistry(config: 'EvmAgentRegistryAdapterConfig') -> 'None'
-  def get_record(self, did: 'str') -> 'AgentRegistryRecord | None'
-  def is_revoked(self, did: 'str') -> 'bool'
-  def register(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'None'
-  def revoke(self, did: 'str') -> 'None'
-  def set_document_reference(self, did: 'str', document_ref: 'str') -> 'None'
-
-## EvmAgentRegistryAdapterConfig
-class EvmAgentRegistryAdapterConfig(contract_client: 'EvmAgentRegistryContract', await_transaction_confirmation: 'bool' = True) -> None
-  attr await_transaction_confirmation: bool
-  attr contract_client: EvmAgentRegistryContract
-
-## EvmAgentRegistryContract
-class EvmAgentRegistryContract(*args, **kwargs)
-  def get_agent_record(self, did: 'str') -> 'AgentRegistryRecord | None'
-  def is_revoked(self, did: 'str') -> 'bool'
-  def register_agent(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'EvmTxResponse | None'
-  def register_agent_with_document(self, did: 'str', controller: 'str', document_ref: 'str') -> 'EvmTxResponse | None'
-  def revoke_agent(self, did: 'str') -> 'EvmTxResponse | None'
-  def set_document_ref(self, did: 'str', document_ref: 'str') -> 'EvmTxResponse | None'
-
-## EvmTxResponse
-class EvmTxResponse(wait: 'object | None' = None) -> None
-  attr wait: object | None
 
 ## FilesystemDIDDocumentSource
 class FilesystemDIDDocumentSource(config: 'FilesystemDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -564,14 +538,6 @@ class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | Non
   attr url: str
   member model_config = {'arbitrary_types_allowed': True}
 
-## Web3AgentRegistryContractClient
-class Web3AgentRegistryContractClient(contract: 'Any') -> 'None'
-  def get_agent_record(self, did: 'str') -> 'AgentRegistryRecord | None'
-  def is_revoked(self, did: 'str') -> 'bool'
-  def register_agent(self, did: 'str', controller: 'str', document_ref: 'str | None' = None) -> 'EvmTxResponse | None'
-  def revoke_agent(self, did: 'str') -> 'EvmTxResponse | None'
-  def set_document_ref(self, did: 'str', document_ref: 'str') -> 'EvmTxResponse | None'
-
 ## WebvhDIDDocumentSource
 class WebvhDIDDocumentSource(config: 'WebvhDIDDocumentSourceConfig | None' = None) -> 'None'
   def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
@@ -602,6 +568,12 @@ def create_metadata_commitment(value: 'str', salt_hex: 'str') -> 'str'
 
 ## decode_public_key_multibase
 def decode_public_key_multibase(encoded: 'str') -> 'bytes'
+
+## did_key_from_public_key
+def did_key_from_public_key(raw_public_key: 'bytes') -> 'str'
+
+## did_key_from_public_key
+def did_key_from_public_key(raw_public_key: 'bytes') -> 'str'
 
 ## encode_public_key_multibase
 def encode_public_key_multibase(raw_public_key: 'bytes') -> 'str'

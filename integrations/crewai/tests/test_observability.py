@@ -5,7 +5,7 @@ import json
 import logging
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_crewai import create_agent_did_crewai_integration
 from agent_did_crewai.callbacks import create_step_callback
@@ -19,7 +19,7 @@ from agent_did_crewai.observability import (
 @pytest.mark.asyncio
 async def test_identity_snapshot_refresh_emits_observability_event() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8181818181818181818181818181818181818181"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewSnapshotObserverBot",
@@ -52,7 +52,7 @@ async def test_identity_snapshot_refresh_emits_observability_event() -> None:
 @pytest.mark.asyncio
 async def test_tool_events_redact_payloads_bodies_and_urls() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8282828282828282828282828282828282828282"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewToolObserverBot",
@@ -104,7 +104,7 @@ async def test_tool_events_redact_payloads_bodies_and_urls() -> None:
 @pytest.mark.asyncio
 async def test_step_callback_emits_structured_observability_event() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x8383838383838383838383838383838383838383"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="CrewCallbackObserverBot",

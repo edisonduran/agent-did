@@ -5,7 +5,7 @@ import json
 import logging
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 from agent_did_semantic_kernel.observability import (
@@ -20,7 +20,7 @@ from agent_did_semantic_kernel.observability import (
 @pytest.mark.asyncio
 async def test_identity_snapshot_refresh_emits_observability_event() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5959595959595959595959595959595959595959"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SemanticKernelSnapshotObserverBot",
@@ -53,7 +53,7 @@ async def test_identity_snapshot_refresh_emits_observability_event() -> None:
 @pytest.mark.asyncio
 async def test_tool_events_redact_payloads_bodies_and_urls() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x6060606060606060606060606060606060606060"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SemanticKernelToolObserverBot",

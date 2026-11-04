@@ -1,0 +1,26 @@
+name: CI EVM adapter
+
+on:
+  push:
+    branches: [main]
+    paths: ['evm/**', '.github/workflows/ci-evm.yml']
+  pull_request:
+    paths: ['evm/**', '.github/workflows/ci-evm.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  evm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: evm/package-lock.json
+      - run: npm --prefix evm ci
+      - run: npm --prefix evm run build
+      - run: npm --prefix evm test
+      - run: node scripts/check-npm-package-manifest.js evm

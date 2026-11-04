@@ -6,17 +6,16 @@ import asyncio
 import json
 import os
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, LocalKeySigner
 from langchain.agents import create_agent
 
 from agent_did_langchain import create_agent_did_langchain_integration
 
 
 async def main() -> None:
-    signer_address = os.environ.get("AGENT_DID_SIGNER_ADDRESS", "0x8888888888888888888888888888888888888888")
     model = os.environ.get("LANGCHAIN_MODEL", "openai:gpt-4.1-mini")
     run_model_example = os.environ.get("RUN_LANGCHAIN_MODEL_EXAMPLE") == "1"
-    identity = AgentIdentity(AgentIdentityConfig(signer_address=signer_address, network="polygon"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], network="polygon"))
     emitted_events: list[tuple[str, dict[str, object]]] = []
 
     runtime_identity = await identity.create(

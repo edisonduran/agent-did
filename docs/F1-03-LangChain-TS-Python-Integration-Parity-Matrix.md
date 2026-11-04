@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-04 | M-09: LangChain TS and Python examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
 | 2026-11-03 | Las tools ahora resuelven, verifican y rotan a traves de `agentIdentity.client` (`AgentDidClient`) en lugar de la API estatica `AgentIdentity`, ya obsoleta, en TS y Python por igual. Una identidad sin client explicito usa el client por defecto: sin cambios en la superficie publica ni en la parity. |
 | 2026-11-03 | Metadata de release candidate movida al tren `1.0.0-rc.3` / `1.0.0rc3`: LangChain JS queda en `1.0.0-rc.3` con peer `@agentdid/sdk@1.0.0-rc.3` y LangChain Python en `1.0.0rc3` con `agent-did-sdk==1.0.0rc3`. Los tests de ambas integraciones pasan sin cambios contra el SDK rc.3. Sin cambios funcionales en la integracion. |
 | 2026-11-02 | Metadata de release candidate movida al tren de seguridad `1.0.0-rc.2` / `1.0.0rc2` ([GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf)): LangChain JS queda en `1.0.0-rc.2` con peer `@agentdid/sdk@1.0.0-rc.2` y LangChain Python en `1.0.0rc2` con `agent-did-sdk==1.0.0rc2`. Sin cambios funcionales en la integracion. |

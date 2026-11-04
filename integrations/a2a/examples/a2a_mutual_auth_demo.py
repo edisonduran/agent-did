@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
 
@@ -25,7 +25,7 @@ async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
 
     # --- Agent A: the requesting agent ---
-    identity_a = AgentIdentity(AgentIdentityConfig(signer_address="0xAAA0AAA0AAA0AAA0AAA0AAA0AAA0AAA0AAA0AAA0"))
+    identity_a = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_a = await identity_a.create(
         CreateAgentParams(
             name="OrchestratorAgent",
@@ -40,7 +40,7 @@ async def main() -> None:
     )
 
     # --- Agent B: the service agent ---
-    identity_b = AgentIdentity(AgentIdentityConfig(signer_address="0xBBB0BBB0BBB0BBB0BBB0BBB0BBB0BBB0BBB0BBB0"))
+    identity_b = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_b = await identity_b.create(
         CreateAgentParams(
             name="DataAnalystAgent",

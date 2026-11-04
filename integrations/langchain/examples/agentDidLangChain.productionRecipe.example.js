@@ -1,6 +1,5 @@
-const { ethers } = require("ethers");
 const { createAgent } = require("langchain");
-const { AgentIdentity } = require("@agentdid/sdk");
+const { AgentIdentity, LocalKeySigner } = require("@agentdid/sdk");
 const {
   composeEventHandlers,
   createAgentDidIntegration,
@@ -20,8 +19,8 @@ async function main() {
   }
 
   const model = process.env.LANGCHAIN_MODEL ?? "openai:gpt-4.1-mini";
-  const signer = new ethers.Wallet(privateKey);
-  const identity = new AgentIdentity({ signer, network: "polygon" });
+  const signer = new LocalKeySigner(privateKey);
+  const identity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
   const runtimeIdentity = await identity.create({
     name: "production_assistant",
     description: "Production-style Agent-DID LangChain JS recipe",

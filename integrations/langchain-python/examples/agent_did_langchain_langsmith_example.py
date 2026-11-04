@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_langchain import create_agent_did_langchain_integration
 from agent_did_langchain.observability import create_langsmith_event_handler, create_langsmith_run_tree
@@ -20,7 +20,7 @@ async def main() -> None:
         tags=["example", "agent-did"],
     )
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9494949494949494949494949494949494949494"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="langsmith_demo_bot",

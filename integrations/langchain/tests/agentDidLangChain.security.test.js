@@ -1,10 +1,9 @@
-const { ethers } = require("ethers");
-const { AgentIdentity, InMemoryAgentRegistry } = require("@agentdid/sdk");
+const { AgentIdentity, InMemoryAgentRegistry, LocalKeySigner } = require("@agentdid/sdk");
 const { createAgentDidTools } = require("../src");
 
 describe("@agentdid/langchain security edge cases", () => {
-  const signer = ethers.Wallet.createRandom();
-  const agentIdentity = new AgentIdentity({ signer, network: "polygon" });
+  const signer = LocalKeySigner.generate()[0];
+  const agentIdentity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
 
   beforeAll(() => {
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());

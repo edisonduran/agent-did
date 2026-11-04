@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_semantic_kernel import (
     PACKAGE_STATUS,
@@ -13,7 +13,7 @@ from agent_did_semantic_kernel import (
 @pytest.mark.asyncio
 async def test_factory_returns_expected_integration_object() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5656565656565656565656565656565656565656"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SemanticKernelBot",
@@ -46,7 +46,7 @@ async def test_factory_returns_expected_integration_object() -> None:
 @pytest.mark.asyncio
 async def test_tool_set_tracks_requested_exposure() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5757575757575757575757575757575757575757"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="SemanticKernelExposureBot",

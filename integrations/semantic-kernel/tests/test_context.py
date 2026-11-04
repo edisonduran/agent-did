@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
 from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 
@@ -9,7 +9,7 @@ from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integrati
 @pytest.mark.asyncio
 async def test_session_context_and_middleware_inject_identity_without_secrets() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5858585858585858585858585858585858585858"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="MicrosoftContextBot",

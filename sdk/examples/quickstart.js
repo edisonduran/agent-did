@@ -1,13 +1,12 @@
 // Run: node sdk/examples/quickstart.js
 
-const { AgentIdentity, InMemoryAgentRegistry } = require('../dist');
-const { ethers } = require('ethers');
+const { AgentIdentity, InMemoryAgentRegistry, LocalKeySigner } = require('../dist');
 
 const main = async () => {
   AgentIdentity.setRegistry(new InMemoryAgentRegistry());
 
-  const wallet = ethers.Wallet.createRandom();
-  const identity = new AgentIdentity({ signer: wallet });
+  const [controllerSigner] = LocalKeySigner.generate();
+  const identity = new AgentIdentity({ controllerSigner });
 
   const created = await identity.create({
     name: 'quickstart-bot',

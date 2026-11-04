@@ -2,6 +2,7 @@
 
 ## core/AgentDidClient.d.ts
 import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
@@ -91,7 +92,7 @@ export declare class AgentDidClient {
     private readonly didWebvhStateCache;
     /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
     private readonly didWebvhSignerStore;
-    /** Local bootstrap controllers, keyed by lowercase controller wallet address. */
+    /** Local bootstrap controllers, keyed by the creator's did:key. */
     private readonly bootstrapControllers;
     constructor(options?: AgentDidClientOptions);
     private nowIsoTimestamp;
@@ -102,7 +103,7 @@ export declare class AgentDidClient {
      * @param params The raw agent configuration (name, prompt, capabilities, etc.)
      * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
      */
-    createAgent(controllerAddress: string, network: string, params: CreateAgentParams): Promise<CreateAgentResult>;
+    createAgent(controllerSigner: AgentSigner, network: string, params: CreateAgentParams): Promise<CreateAgentResult>;
     /**
      * Canonical did:webvh v1.0 profile: the agent document is the genesis entry of a
      * `did.jsonl` log signed by the controller key (the log's only `updateKeys` entry).
@@ -111,7 +112,7 @@ export declare class AgentDidClient {
     private requireWebvhCreateOptions;
     private normalizeDidPathSegment;
     /**
-     * Returns the local bootstrap controller for a wallet address, creating it on first use.
+     * Returns the local bootstrap controller for a creator's `did:key`, creating it on first use.
      * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
      * returned to the caller exactly once (`privateKey`) and never derived from public data.
      */
@@ -196,7 +197,6 @@ export declare class AgentDidClient {
 }
 
 ## core/AgentIdentity.d.ts
-import { ethers } from 'ethers';
 import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { DIDDocumentSource, DIDResolver } from '../resolver/types';
@@ -205,7 +205,11 @@ import { AgentDidClient, ProductionHttpResolverProfileConfig, ProductionJsonRpcR
 export type { ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig, ProductionResolverProfileConfig } from './AgentDidClient';
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './http-profile';
 export interface AgentIdentityConfig {
-    signer: ethers.Signer;
+    /**
+     * The controller's Ed25519 signer (the creator). Its public key identifies the controller
+     * (`did:key`) and, for did:webvh, authorizes the log. Use a KMS/HSM-backed `AgentSigner` in production.
+     */
+    controllerSigner: AgentSigner;
     network?: string;
     /**
      * Client that owns the identity state (resolver, registry, did:webvh logs...) this
@@ -215,7 +219,7 @@ export interface AgentIdentityConfig {
 }
 export declare class AgentIdentity {
     private static defaultClient;
-    private readonly signer;
+    private readonly controllerSigner;
     private readonly network;
     private readonly explicitClient?;
     constructor(config: AgentIdentityConfig);
@@ -711,6 +715,11 @@ export declare function encodePublicKeyMultibase(rawPublicKey: Uint8Array): stri
  * @returns 32-byte raw Ed25519 public key
  */
 export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
+/**
+ * Derives the `did:key` identifier of an Ed25519 public key (did:key method, `z6Mk…`).
+ * The DID is a pure function of the public key, so it needs no registry or network access.
+ */
+export declare function didKeyFromPublicKey(rawPublicKey: Uint8Array): string;
 
 ## index.d.ts
 /**
@@ -725,7 +734,7 @@ export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICA
 export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
 export { AgentDidClient, AgentDidClientOptions } from './core/AgentDidClient';
 export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash, generateCommitmentSalt, createMetadataCommitment, verifyMetadataCommitment } from './crypto/hash';
-export { encodePublicKeyMultibase, decodePublicKeyMultibase } from './crypto/multibase';
+export { encodePublicKeyMultibase, didKeyFromPublicKey, decodePublicKeyMultibase } from './crypto/multibase';
 export { AgentSigner, LocalKeySigner } from './core/signer';
 export { validateHttpTarget, HttpTargetValidationOptions } from './core/http-security';
 export { isUnixTimestampString, unixStringToIso, isoToUnixString, normalizeTimestampToIso } from './core/time';
@@ -741,69 +750,10 @@ export { AwsSigV4S3DIDDocumentSource, AwsSigV4S3DIDDocumentSourceConfig } from '
 export { JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig } from './resolver/JsonRpcDIDDocumentSource';
 export { AgentRegistry, AgentRegistryRecord } from './registry/types';
 export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
-export { EvmAgentRegistry } from './registry/EvmAgentRegistry';
-export { EthersAgentRegistryContractClient } from './registry/EthersAgentRegistryContractClient';
-export { EvmTxResponse, EvmAgentRegistryContract, EvmAgentRegistryAdapterConfig } from './registry/evm-types';
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
 export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, serializeSignatureInput } from './core/http-signatures';
-
-## registry/EthersAgentRegistryContractClient.d.ts
-import { AgentRegistryRecord } from './types';
-import { EvmAgentRegistryContract, EvmTxResponse } from './evm-types';
-interface EthersLikeContract {
-    registerAgent?: (did: string, controller: string, documentRef?: string) => Promise<EvmTxResponse | void>;
-    registerAgentWithDocument?: (did: string, controller: string, documentRef: string) => Promise<EvmTxResponse | void>;
-    setDocumentRef?: (did: string, documentRef: string) => Promise<EvmTxResponse | void>;
-    revokeAgent?: (did: string) => Promise<EvmTxResponse | void>;
-    getAgentRecord?: (did: string) => Promise<AgentRegistryRecord | null>;
-    isRevoked?: (did: string) => Promise<boolean>;
-}
-export declare class EthersAgentRegistryContractClient implements EvmAgentRegistryContract {
-    private readonly contract;
-    constructor(contract: EthersLikeContract);
-    registerAgent(did: string, controller: string): Promise<EvmTxResponse | void>;
-    registerAgentWithDocument(did: string, controller: string, documentRef: string): Promise<EvmTxResponse | void>;
-    setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void>;
-    revokeAgent(did: string): Promise<EvmTxResponse | void>;
-    getAgentRecord(did: string): Promise<AgentRegistryRecord | null>;
-    isRevoked(did: string): Promise<boolean>;
-}
-export {};
-
-## registry/evm-types.d.ts
-import { AgentRegistryRecord } from './types';
-export interface EvmTxResponse {
-    wait?: () => Promise<unknown>;
-}
-export interface EvmAgentRegistryContract {
-    registerAgent(did: string, controller: string, documentRef?: string): Promise<EvmTxResponse | void>;
-    registerAgentWithDocument?(did: string, controller: string, documentRef: string): Promise<EvmTxResponse | void>;
-    setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void>;
-    revokeAgent(did: string): Promise<EvmTxResponse | void>;
-    getAgentRecord(did: string): Promise<AgentRegistryRecord | null>;
-    isRevoked?(did: string): Promise<boolean>;
-}
-export interface EvmAgentRegistryAdapterConfig {
-    contractClient: EvmAgentRegistryContract;
-    awaitTransactionConfirmation?: boolean;
-}
-
-## registry/EvmAgentRegistry.d.ts
-import { AgentRegistry, AgentRegistryRecord } from './types';
-import { EvmAgentRegistryAdapterConfig } from './evm-types';
-export declare class EvmAgentRegistry implements AgentRegistry {
-    private readonly contractClient;
-    private readonly awaitTransactionConfirmation;
-    constructor(config: EvmAgentRegistryAdapterConfig);
-    register(did: string, controller: string, documentRef?: string): Promise<void>;
-    setDocumentReference(did: string, documentRef: string): Promise<void>;
-    revoke(did: string): Promise<void>;
-    getRecord(did: string): Promise<AgentRegistryRecord | null>;
-    isRevoked(did: string): Promise<boolean>;
-    private waitForConfirmationIfNeeded;
-}
 
 ## registry/InMemoryAgentRegistry.d.ts
 import { AgentRegistry, AgentRegistryRecord } from './types';

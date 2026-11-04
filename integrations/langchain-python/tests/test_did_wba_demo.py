@@ -8,6 +8,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentResult,
     InMemoryAgentRegistry,
+    LocalKeySigner,
     ProductionHttpResolverProfileConfig,
     VerifyHttpRequestSignatureParams,
 )
@@ -113,7 +114,7 @@ async def test_did_wba_runtime_identity_supports_resolve_and_http_signature_veri
             )
         )
 
-        identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9898989898989898989898989898989898989898"))
+        identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
         integration = create_agent_did_langchain_integration(
             agent_identity=identity,
             runtime_identity=runtime_identity,

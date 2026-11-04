@@ -16,7 +16,7 @@ function main() {
   }
 
   const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
-  const outputDir = path.join(__dirname, '..', '..', 'sdk', 'examples', 'abi');
+  const outputDir = path.join(__dirname, '..', '..', 'evm', 'examples', 'abi');
   const outputPath = path.join(outputDir, 'AgentRegistry.abi.json');
 
   fs.mkdirSync(outputDir, { recursive: true });

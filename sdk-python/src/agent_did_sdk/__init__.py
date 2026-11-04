@@ -69,12 +69,9 @@ from .crypto.hash import (
     hash_payload,
     verify_metadata_commitment,
 )
-from .crypto.multibase import decode_public_key_multibase, encode_public_key_multibase
-from .registry.evm_registry import EvmAgentRegistry
-from .registry.evm_types import EvmAgentRegistryAdapterConfig, EvmAgentRegistryContract, EvmTxResponse
+from .crypto.multibase import decode_public_key_multibase, did_key_from_public_key, encode_public_key_multibase
 from .registry.in_memory import InMemoryAgentRegistry
 from .registry.types import AgentRegistry, AgentRegistryRecord
-from .registry.web3_client import Web3AgentRegistryContractClient
 from .resolver.aws_sigv4_s3_source import AwsSigV4S3DIDDocumentSource, AwsSigV4S3DIDDocumentSourceConfig
 from .resolver.bearer_http_source import BearerTokenHttpDIDDocumentSource, BearerTokenHttpDIDDocumentSourceConfig
 from .resolver.file_source import FilesystemDIDDocumentSource, FilesystemDIDDocumentSourceConfig
@@ -169,15 +166,12 @@ __all__ = [
     "verify_metadata_commitment",
     "encode_public_key_multibase",
     "decode_public_key_multibase",
+    "did_key_from_public_key",
+    "did_key_from_public_key",
     # Registry
     "AgentRegistry",
     "AgentRegistryRecord",
-    "EvmTxResponse",
-    "EvmAgentRegistryContract",
-    "EvmAgentRegistryAdapterConfig",
     "InMemoryAgentRegistry",
-    "EvmAgentRegistry",
-    "Web3AgentRegistryContractClient",
     # Resolver
     "DIDResolver",
     "DIDDocumentSource",

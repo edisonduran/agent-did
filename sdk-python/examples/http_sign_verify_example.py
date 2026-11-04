@@ -8,6 +8,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
 )
@@ -20,7 +21,7 @@ async def main() -> None:
     # 2. Create identity
     identity = AgentIdentity(
         AgentIdentityConfig(
-            signer_address="0x9292929292929292929292929292929292929292",
+            controller_signer=LocalKeySigner.generate()[0],
         )
     )
     created = await identity.create(

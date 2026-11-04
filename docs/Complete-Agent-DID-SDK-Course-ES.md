@@ -1282,7 +1282,7 @@ const contract = new Contract(address, ABI);
 contract.registerAgent("did:agent:abc", "https://..."); // ✅
 ```
 
-En nuestro SDK, el ABI está en `sdk/examples/abi/` y es lo que permite a `EthersAgentRegistryContractClient` comunicarse con el contrato desplegado en blockchain.
+En nuestro SDK, el ABI está en `evm/examples/abi/` y es lo que permite a `EthersAgentRegistryContractClient` comunicarse con el contrato desplegado en blockchain.
 
 **Analogía:** Si el smart contract es un restaurante, el ABI es el **menú** — te dice qué puedes pedir y qué ingredientes necesita cada plato.
 

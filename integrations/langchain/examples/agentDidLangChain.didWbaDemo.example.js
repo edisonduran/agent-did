@@ -1,8 +1,7 @@
 const { AIMessage } = require("@langchain/core/messages");
 const { fakeModel } = require("@langchain/core/testing");
-const { ethers } = require("ethers");
 const { createAgent } = require("langchain");
-const { AgentIdentity, InMemoryAgentRegistry } = require("@agentdid/sdk");
+const { AgentIdentity, InMemoryAgentRegistry, LocalKeySigner } = require("@agentdid/sdk");
 const { createAgentDidIntegration } = require("../src");
 
 const ACTIVE_DID = "did:wba:agents.example:profiles:weather-bot";
@@ -70,9 +69,9 @@ function buildPartnerDocument() {
 }
 
 async function main() {
-  const signer = ethers.Wallet.createRandom();
+  const signer = LocalKeySigner.generate()[0];
   const registry = new InMemoryAgentRegistry();
-  const identity = new AgentIdentity({ signer, network: "polygon" });
+  const identity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
   const createdIdentity = await identity.create({
     name: "weather_demo_bot",
     description: "Base identity used to derive a did:wba runtime",

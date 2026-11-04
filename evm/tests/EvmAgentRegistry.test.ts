@@ -1,5 +1,5 @@
-import { EvmAgentRegistry } from '../src/registry/EvmAgentRegistry';
-import { EvmAgentRegistryContract } from '../src/registry/evm-types';
+import { EvmAgentRegistry } from '../src/EvmAgentRegistry';
+import { EvmAgentRegistryContract } from '../src/evm-types';
 
 describe('EvmAgentRegistry Adapter', () => {
   it('should call registerAgent and await tx confirmation by default', async () => {

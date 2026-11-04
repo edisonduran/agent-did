@@ -41,13 +41,13 @@ npm install @agentdid/langchain@next
 ## Uso rapido
 
 ```ts
-import { ethers } from "ethers";
 import { createAgent } from "langchain";
-import { AgentIdentity } from "@agentdid/sdk";
+import { AgentIdentity, LocalKeySigner } from "@agentdid/sdk";
 import { createAgentDidIntegration } from "@agentdid/langchain";
 
-const signer = new ethers.Wallet(process.env.CREATOR_PRIVATE_KEY!);
-const identity = new AgentIdentity({ signer });
+// CREATOR_PRIVATE_KEY: 32-byte Ed25519 private key (hex); use a KMS/HSM-backed AgentSigner in production
+const controllerSigner = new LocalKeySigner(process.env.CREATOR_PRIVATE_KEY!);
+const identity = new AgentIdentity({ controllerSigner });
 
 const runtimeIdentity = await identity.create({
   name: "research_assistant",

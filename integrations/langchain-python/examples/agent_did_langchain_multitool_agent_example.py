@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Any
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from langchain.agents import create_agent
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
@@ -24,7 +24,7 @@ class ToolReadyFakeMessagesListChatModel(FakeMessagesListChatModel):
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9595959595959595959595959595959595959595"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="multitool_demo_bot",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_did_sdk.registry.web3_client import Web3AgentRegistryContractClient
+from agent_did_sdk.evm.web3_client import Web3AgentRegistryContractClient
 
 
 class FakeContractFunctions:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agent_did_sdk.registry.evm_registry import EvmAgentRegistry
-from agent_did_sdk.registry.evm_types import EvmAgentRegistryAdapterConfig, EvmTxResponse
+from agent_did_sdk.evm.evm_registry import EvmAgentRegistry
+from agent_did_sdk.evm.evm_types import EvmAgentRegistryAdapterConfig, EvmTxResponse
 from agent_did_sdk.registry.types import AgentRegistryRecord
 
 

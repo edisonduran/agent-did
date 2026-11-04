@@ -54,7 +54,7 @@ async def _import_into_fresh_process(did: str) -> None:
 @pytest.fixture()
 def identity() -> AgentIdentity:
     _reset_process()
-    return AgentIdentity(AgentIdentityConfig(signer_address="0xLifecycleController1234567890"))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
 
 class TestDidWebvhLifecycleAuthorization:

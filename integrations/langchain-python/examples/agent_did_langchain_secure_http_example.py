@@ -10,6 +10,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    LocalKeySigner,
     VerifyHttpRequestSignatureParams,
 )
 
@@ -19,7 +20,7 @@ from agent_did_langchain import create_agent_did_langchain_integration
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
 
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x9292929292929292929292929292929292929292"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="http_signer_bot",

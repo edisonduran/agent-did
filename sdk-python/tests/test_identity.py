@@ -39,7 +39,7 @@ def identity() -> AgentIdentity:
     AgentIdentity.get_default_client()._did_webvh_log_store = {}
     AgentIdentity.get_default_client()._did_webvh_signer_store = {}
     AgentIdentity.get_default_client()._bootstrap_controllers = {}
-    return AgentIdentity(AgentIdentityConfig(signer_address="0xTestController1234567890"))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
 
 class TestAgentIdentityCreate:
@@ -72,9 +72,9 @@ class TestAgentIdentityCreate:
             did_method="agent",
         ))
         doc = result.document
-        assert doc.id.startswith("did:agent:polygon:")
-        assert doc.controller.startswith("did:ethr:")
-        assert doc.verification_method[0].blockchain_account_id is not None
+        assert re.fullmatch(r"did:agent:polygon:[0-9a-f]{64}", doc.id)
+        assert doc.controller.startswith("did:key:z6Mk")
+        assert doc.verification_method[0].blockchain_account_id is None
 
     async def test_create_webvh_agent_when_requested(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(

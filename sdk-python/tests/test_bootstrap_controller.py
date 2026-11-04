@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
-from eth_utils.crypto import keccak
 from nacl.signing import SigningKey
 
 from agent_did_sdk import InMemoryAgentRegistry
@@ -22,7 +23,7 @@ def _reset_state() -> None:
 @pytest.fixture()
 def identity() -> AgentIdentity:
     _reset_state()
-    return AgentIdentity(AgentIdentityConfig(signer_address="0xBootstrapController1234567890"))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
 
 
 def _params(name: str = "BootstrapBot", webvh: CreateDidWebvhOptions | None = None) -> CreateAgentParams:
@@ -57,7 +58,7 @@ class TestBootstrapControllerKeys:
     async def test_never_derives_controller_key_from_public_data(self, identity: AgentIdentity) -> None:
         result = await identity.create(_params())
         controller_did = result.document.controller
-        publicly_derivable_seed = keccak(text=f"{controller_did}:bootstrap-key").hex()
+        publicly_derivable_seed = hashlib.sha256(f"{controller_did}:bootstrap-key".encode()).hexdigest()
 
         assert result.controller_private_key != publicly_derivable_seed
 

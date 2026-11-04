@@ -1,4 +1,4 @@
-import { EthersAgentRegistryContractClient } from '../src/registry/EthersAgentRegistryContractClient';
+import { EthersAgentRegistryContractClient } from '../src/EthersAgentRegistryContractClient';
 
 describe('EthersAgentRegistryContractClient', () => {
   it('should delegate write methods to the contract when available', async () => {

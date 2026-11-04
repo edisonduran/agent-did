@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from ..registry.types import AgentRegistryRecord
 from .evm_types import EvmAgentRegistryAdapterConfig, EvmTxResponse
-from .types import AgentRegistryRecord
 
 
 class EvmAgentRegistry:

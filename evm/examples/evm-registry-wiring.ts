@@ -1,11 +1,8 @@
 import { ethers } from 'ethers';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  AgentIdentity,
-  EvmAgentRegistry,
-  EthersAgentRegistryContractClient
-} from '../src';
+import { AgentIdentity, LocalKeySigner } from '@agentdid/sdk';
+import { EvmAgentRegistry, EthersAgentRegistryContractClient } from '../src';
 
 const ABI_PATH = path.resolve(__dirname, './abi/AgentRegistry.abi.json');
 
@@ -48,8 +45,9 @@ async function main() {
 
   AgentIdentity.setRegistry(registry);
 
+  // The EVM wallet only pays for registry transactions; the creator is an Ed25519 key.
   const identity = new AgentIdentity({
-    signer,
+    controllerSigner: LocalKeySigner.generate()[0],
     network: 'polygon'
   });
 

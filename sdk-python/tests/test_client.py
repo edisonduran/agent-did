@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from agent_did_sdk import AgentDidClient, AgentDidClientOptions
+from agent_did_sdk import AgentDidClient, AgentDidClientOptions, LocalKeySigner
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.types import CreateAgentParams
 
@@ -20,7 +20,7 @@ ADDRESS = "0x" + "ab" * 20
 
 
 def _identity(client: AgentDidClient | None = None) -> AgentIdentity:
-    return AgentIdentity(AgentIdentityConfig(signer_address=ADDRESS, client=client))
+    return AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client))
 
 
 async def test_state_is_isolated_between_clients() -> None:

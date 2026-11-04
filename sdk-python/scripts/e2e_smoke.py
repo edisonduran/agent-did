@@ -16,11 +16,11 @@ from smoke_utils import (
 )
 from web3 import HTTPProvider, Web3
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams
-from agent_did_sdk.registry.evm_registry import EvmAgentRegistry
-from agent_did_sdk.registry.evm_types import EvmAgentRegistryAdapterConfig
-from agent_did_sdk.registry.web3_client import Web3AgentRegistryContractClient
+from agent_did_sdk.evm.evm_registry import EvmAgentRegistry
+from agent_did_sdk.evm.evm_types import EvmAgentRegistryAdapterConfig
+from agent_did_sdk.evm.web3_client import Web3AgentRegistryContractClient
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 
 
@@ -56,7 +56,7 @@ async def main() -> int:
         AgentIdentity.set_resolver(InMemoryDIDResolver())
 
         identity = AgentIdentity(
-            AgentIdentityConfig(signer_address=provider.eth.default_account, network="localhost")
+            AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], network="localhost")
         )
         result = await identity.create(
             CreateAgentParams(

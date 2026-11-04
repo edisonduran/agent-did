@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from agent_framework import AgentExecutorResponse, BaseChatClient, ChatResponse, Message
 
 from agent_did_microsoft_agent_framework import create_agent_did_microsoft_agent_framework_integration
@@ -44,7 +44,7 @@ class DummyChatClient(BaseChatClient):
 
 async def main() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
-    identity = AgentIdentity(AgentIdentityConfig(signer_address="0x5757575757575757575757575757575757575757"))
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
     runtime_identity = await identity.create(
         CreateAgentParams(
             name="MicrosoftAgentFrameworkAdvancedWorkflowBot",
