@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F2-05 - Rubrica de Madurez CrewAI vs LangChain
 
 ## Objetivo
@@ -22,7 +24,7 @@ La referencia de comparacion para CrewAI es la superficie combinada ya existente
 Artefactos de apoyo:
 
 - `docs/F1-03-LangChain-TS-Python-Integration-Parity-Matrix.md`
-- `docs/F2-05-CrewAI-Maturity-Gap-Assessment.md`
+- `docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md`
 - `docs/F2-05-CrewAI-Integration-Review-Checklist.md`
 
 ---
@@ -129,6 +131,6 @@ Las siguientes diferencias no bloquean la comparabilidad actual:
 Si una nueva capacidad mueve el claim de madurez de CrewAI, se deben actualizar en la misma PR:
 
 1. esta rubrica,
-2. `docs/F2-05-CrewAI-Maturity-Gap-Assessment.md`,
+2. `docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md`,
 3. `docs/F2-05-CrewAI-Integration-Review-Checklist.md`,
 4. y el README de `integrations/crewai/`.

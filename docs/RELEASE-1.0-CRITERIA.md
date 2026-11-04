@@ -156,7 +156,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 - [x] **C-REL-1** — All core packages bumped simultaneously under a single monorepo tag for each prerelease stage used (`1.0.0-beta.N`, if any, and `1.0.0-rc.N`). The first RC cut for the stable path is `1.0.0-rc.1`. Package manifests may use ecosystem-native prerelease normalization when required by the registry (`1.0.0-rc.1` on npm, `1.0.0rc1` on PyPI).
 - [ ] **C-REL-2** — Public feedback window of **≥1 week** on the RC, announced on GitHub Discussions.
 - [ ] **C-REL-3** — `v1.0.0` tag only after every criterion above is met.
-- [ ] **C-REL-4** — Release note and README status update coordinated with the tag. Broad public announcement is optional and should follow the visibility gates in `docs/Estrategia-Divulgacion-2-Semanas-Agent-DID.md`.
+- [ ] **C-REL-4** — Release note and README status update coordinated with the tag. Broad public announcement is optional and should follow the visibility gates in `docs/archive/Estrategia-Divulgacion-2-Semanas-Agent-DID.md`.
 
 ### 2.11 Roadmap Consistency
 

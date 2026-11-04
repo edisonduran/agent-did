@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F2-04 - Semantic Kernel Maturity Gap Assessment
 
 ## Objetivo
@@ -183,7 +185,7 @@ Esas recipes deben ser mas que snippets: tienen que explicar objetivo, prerequis
 Los siguientes artefactos deben alinearse en el mismo PR cuando se cierre la brecha:
 
 - `docs/F2-04-Semantic-Kernel-Parity-Matrix.md`
-- `docs/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md`
+- `docs/archive/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md`
 - `docs/F2-04-Semantic-Kernel-Implementation-Checklist.md`
 - `docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md`
 - `integrations/semantic-kernel/README.md`

@@ -198,11 +198,11 @@ La receta usa un registry en memoria y no exige credenciales de modelo por defec
 
 - Checklist de implementacion: [../../docs/F2-05-CrewAI-Implementation-Checklist.md](../../docs/F2-05-CrewAI-Implementation-Checklist.md)
 - Checklist de review recurrente: [../../docs/F2-05-CrewAI-Integration-Review-Checklist.md](../../docs/F2-05-CrewAI-Integration-Review-Checklist.md)
-- Evaluacion de madurez frente a LangChain: [../../docs/F2-05-CrewAI-Maturity-Gap-Assessment.md](../../docs/F2-05-CrewAI-Maturity-Gap-Assessment.md)
-- Rubrica de madurez CrewAI vs LangChain: [../../docs/F2-05-CrewAI-LangChain-Maturity-Rubric.md](../../docs/F2-05-CrewAI-LangChain-Maturity-Rubric.md)
+- Evaluacion de madurez frente a LangChain: [../../docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md](../../docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md)
+- Rubrica de madurez CrewAI vs LangChain: [../../docs/archive/F2-05-CrewAI-LangChain-Maturity-Rubric.md](../../docs/archive/F2-05-CrewAI-LangChain-Maturity-Rubric.md)
 
 ## Referencias
 
 - Integracion funcional de referencia: [../langchain/README.md](../langchain/README.md)
-- Documento de diseno: [../../docs/F2-05-CrewAI-Integration-Design.md](../../docs/F2-05-CrewAI-Integration-Design.md)
+- Documento de diseno: [../../docs/archive/F2-05-CrewAI-Integration-Design.md](../../docs/archive/F2-05-CrewAI-Integration-Design.md)
 - Documentacion oficial: https://docs.crewai.com/

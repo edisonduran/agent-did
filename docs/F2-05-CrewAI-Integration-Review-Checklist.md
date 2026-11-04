@@ -13,7 +13,7 @@ Run this checklist whenever a change affects `integrations/crewai/**` or the Cre
 Run this checklist when a change affects one or more of the following:
 
 - `integrations/crewai/**`
-- `docs/F2-05-CrewAI-Integration-Design.md`
+- `docs/archive/F2-05-CrewAI-Integration-Design.md`
 - `docs/F2-05-CrewAI-Implementation-Checklist.md`
 - CrewAI tools, callbacks, guardrails, README or package metadata
 
@@ -57,8 +57,8 @@ Run this checklist when a change affects one or more of the following:
 
 - [ ] `docs/F2-05-CrewAI-Implementation-Checklist.md` still reflects the current shipped completion state or the next concrete delta.
 - [ ] The README still points to the implementation and review checklists.
-- [ ] The README and design doc still point to `docs/F2-05-CrewAI-Maturity-Gap-Assessment.md` when maturity claims or remaining gaps change.
-- [ ] The README and review flow still point to `docs/F2-05-CrewAI-LangChain-Maturity-Rubric.md` when CrewAI maturity claims are updated.
+- [ ] The README and design doc still point to `docs/archive/F2-05-CrewAI-Maturity-Gap-Assessment.md` when maturity claims or remaining gaps change.
+- [ ] The README and review flow still point to `docs/archive/F2-05-CrewAI-LangChain-Maturity-Rubric.md` when CrewAI maturity claims are updated.
 - [ ] If shipped behavior changes, the design doc is updated in the same PR.
 - [ ] If the package ships base, observability or production-style examples, the README still describes the current example set and local execution guards.
 

@@ -13,7 +13,7 @@ Run this checklist whenever a change affects `integrations/semantic-kernel/**` o
 Run this checklist when a change affects one or more of the following:
 
 - `integrations/semantic-kernel/**`
-- `docs/F2-04-Semantic-Kernel-Integration-Design.md`
+- `docs/archive/F2-04-Semantic-Kernel-Integration-Design.md`
 - `docs/F2-04-Semantic-Kernel-Implementation-Checklist.md`
 - Semantic Kernel tools, middleware, context, README or package metadata
 

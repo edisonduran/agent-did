@@ -302,10 +302,10 @@ La ruta anterior valida tanto la suite base como la cobertura avanzada de runtim
 - Checklist de implementacion: [../../docs/F2-04-Semantic-Kernel-Implementation-Checklist.md](../../docs/F2-04-Semantic-Kernel-Implementation-Checklist.md)
 - Checklist de review recurrente: [../../docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md](../../docs/F2-04-Semantic-Kernel-Integration-Review-Checklist.md)
 - Matriz de paridad: [../../docs/F2-04-Semantic-Kernel-Parity-Matrix.md](../../docs/F2-04-Semantic-Kernel-Parity-Matrix.md)
-- Evaluacion de brecha de madurez: [../../docs/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md](../../docs/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md)
+- Evaluacion de brecha de madurez: [../../docs/archive/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md](../../docs/archive/F2-04-Semantic-Kernel-Maturity-Gap-Assessment.md)
 
 ## Referencias
 
 - Implementacion de referencia actual: [../langchain/README.md](../langchain/README.md)
-- Documento de diseno: [../../docs/F2-04-Semantic-Kernel-Integration-Design.md](../../docs/F2-04-Semantic-Kernel-Integration-Design.md)
+- Documento de diseno: [../../docs/archive/F2-04-Semantic-Kernel-Integration-Design.md](../../docs/archive/F2-04-Semantic-Kernel-Integration-Design.md)
 - Documentacion oficial: https://github.com/microsoft/semantic-kernel

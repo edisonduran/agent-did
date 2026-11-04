@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F2-04 - Diseno de Integracion con Semantic Kernel
 
 ## Objetivo
@@ -8,8 +10,8 @@ Definir una integracion de Agent-DID para Semantic Kernel que reproduzca las cap
 
 - Roadmap item: F2-04
 - Estado: integracion funcional Python
-- Paquete base: [../integrations/semantic-kernel/README.md](../integrations/semantic-kernel/README.md)
-- Referencia funcional existente: [../integrations/langchain/README.md](../integrations/langchain/README.md)
+- Paquete base: [../integrations/semantic-kernel/README.md](../../integrations/semantic-kernel/README.md)
+- Referencia funcional existente: [../integrations/langchain/README.md](../../integrations/langchain/README.md)
 - Superficie publica confirmada: `Kernel`, `KernelPlugin`, `Kernel.invoke(...)` y `ChatCompletionAgent`
 - Decision actual: implementar en Python sobre el SDK Python existente de Agent-DID y validar el host real mediante `semantic-kernel`, con observabilidad especializada opt-in via OpenTelemetry
 

@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F1-03 - LangChain Python Technical Implementation Plan
 
 ## Objetivo
@@ -395,7 +397,7 @@ Queda fuera del MVP inicial:
 #### Archivos
 
 - `integrations/langchain-python/README.md`
-- `docs/F1-03-LangChain-Python-Integration-Design.md`
+- `docs/archive/F1-03-LangChain-Python-Integration-Design.md`
 - `docs/F1-03-LangChain-Python-Implementation-Checklist.md`
 
 #### Cambios
@@ -430,7 +432,7 @@ Queda fuera del MVP inicial:
 13. `integrations/langchain-python/tests/test_integration.py`
 14. `integrations/langchain-python/examples/agent_did_langchain_example.py`
 15. `integrations/langchain-python/README.md`
-16. `docs/F1-03-LangChain-Python-Integration-Design.md`
+16. `docs/archive/F1-03-LangChain-Python-Integration-Design.md`
 17. `docs/F1-03-LangChain-Python-Implementation-Checklist.md`
 
 ---

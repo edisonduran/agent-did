@@ -38,7 +38,7 @@ La parity de integracion se define en cinco dimensiones:
 
 - TS package: `integrations/langchain/`
 - Python package: `integrations/langchain-python/`
-- Diseno Python: `docs/F1-03-LangChain-Python-Integration-Design.md`
+- Diseno Python: `docs/archive/F1-03-LangChain-Python-Integration-Design.md`
 - Parity SDK core: `docs/F2-01-TS-Python-Parity-Matrix.md`
 
 ---

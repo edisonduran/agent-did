@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F2-09 - Diseno de Integracion con Microsoft Agent Framework
 
 ## Objetivo
@@ -8,7 +10,7 @@ Definir una integracion de Agent-DID para Microsoft Agent Framework que reproduz
 
 - Roadmap item: F2-09
 - Estado: integracion funcional Python
-- Paquete base: [../integrations/microsoft-agent-framework/README.md](../integrations/microsoft-agent-framework/README.md)
+- Paquete base: [../integrations/microsoft-agent-framework/README.md](../../integrations/microsoft-agent-framework/README.md)
 - Dependencia base: `agent-framework>=1.0.1,<2`
 - Superficie publica confirmada: `Agent`, `FunctionTool`, `AgentExecutor`, `WorkflowBuilder`, `Workflow.run(...)` y `AgentSession`
 - Decision actual: implementar en Python sobre el SDK Python existente de Agent-DID y validar el host real mediante clientes stub locales para runtime y orquestacion
@@ -71,4 +73,4 @@ F2-09 se considera implementado con cierre operativo cuando existan simultaneame
 - Checklist de implementacion: `docs/F2-09-Microsoft-Agent-Framework-Implementation-Checklist.md`
 - Checklist de review: `docs/F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md`
 - Matriz de paridad: `docs/F2-09-Microsoft-Agent-Framework-Parity-Matrix.md`
-- Evaluacion de brecha de madurez: `docs/F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md`
+- Evaluacion de brecha de madurez: `docs/archive/F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md`

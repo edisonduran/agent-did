@@ -276,8 +276,8 @@ python examples/agent_did_microsoft_agent_framework_production_recipe_example.py
 - Checklist de implementacion: `../../docs/F2-09-Microsoft-Agent-Framework-Implementation-Checklist.md`
 - Checklist de review recurrente: `../../docs/F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md`
 - Matriz de paridad: `../../docs/F2-09-Microsoft-Agent-Framework-Parity-Matrix.md`
-- Evaluacion de brecha de madurez: `../../docs/F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md`
-- Documento de diseno: `../../docs/F2-09-Microsoft-Agent-Framework-Integration-Design.md`
+- Evaluacion de brecha de madurez: `../../docs/archive/F2-09-Microsoft-Agent-Framework-Maturity-Gap-Assessment.md`
+- Documento de diseno: `../../docs/archive/F2-09-Microsoft-Agent-Framework-Integration-Design.md`
 
 ## CI dedicada
 

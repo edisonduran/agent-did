@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # F2-05 - CrewAI Maturity Gap Assessment
 
 ## Objective
@@ -121,7 +123,7 @@ This is now a non-blocking documentation and recipe delta, not a primary maturit
 
 Current state:
 
-- CrewAI now has a dedicated maturity rubric in `docs/F2-05-CrewAI-LangChain-Maturity-Rubric.md`.
+- CrewAI now has a dedicated maturity rubric in `docs/archive/F2-05-CrewAI-LangChain-Maturity-Rubric.md`.
 - The implementation and review checklists remain the governance layer around that rubric.
 
 Why it matters:

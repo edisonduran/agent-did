@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # Evaluación Estratégica y Hoja de Ruta — Agent-DID
 
 **Tipo de documento:** Strategic Assessment & Roadmap  
@@ -6,7 +8,7 @@
 **Autor:** Evaluación automatizada (GitHub Copilot)  
 **Versión:** 1.0
 
-> Nota de estado (2026-05-08): este borrador es anterior al ADR-001, al pivote hacia `did:webvh` y al congelamiento del alcance core `1.0.0`. Las referencias que aparecen más abajo a anclaje EVM como supuesto central del release, a framing híbrido on-chain/off-chain como narrativa por defecto o a estandarización formal inmediata como dependencia de release deben leerse como contexto estratégico histórico, no como guía vigente. Para la dirección actual, usar [../README.md](../README.md), [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md) y [../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
+> Nota de estado (2026-05-08): este borrador es anterior al ADR-001, al pivote hacia `did:webvh` y al congelamiento del alcance core `1.0.0`. Las referencias que aparecen más abajo a anclaje EVM como supuesto central del release, a framing híbrido on-chain/off-chain como narrativa por defecto o a estandarización formal inmediata como dependencia de release deben leerse como contexto estratégico histórico, no como guía vigente. Para la dirección actual, usar [../README.md](../../README.md), [RELEASE-1.0-CRITERIA.md](../RELEASE-1.0-CRITERIA.md) y [../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md](../../_bmad-output/planning-artifacts/ADR-001-Pivot-to-didwebvh-Pattern.md).
 
 ---
 
@@ -34,7 +36,7 @@ El proyecto ocupa un espacio estratégico de altísimo valor y prácticamente si
 | Tests Python | `sdk-python/tests/` | Suite dedicada con lint, mypy, coverage, conformance y smokes |
 | Conformidad | `docs/RFC-001-Compliance-Checklist.md` | 11/11 MUST PASS + 5/5 SHOULD PASS |
 | Documentación | `docs/` | RFC + checklist + backlog + runbook HA + curso 2h + manual |
-| Paper teórico | `Seguridad de Agentes de IA_ Firma Digital.md` | Completo (296 líneas) |
+| Paper teórico | `docs/archive/Seguridad-de-Agentes-de-IA-Firma-Digital.md` | Completo (296 líneas) |
 
 ### 2.2 Arquitectura técnica
 

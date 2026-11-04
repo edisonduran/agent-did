@@ -1,3 +1,5 @@
+> **Historical document (archived by M-21, 2026-11).** Retained for context only; claims here may be stale. Current sources of truth: [INDEX](../INDEX.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # Due diligence técnica y estratégica — Agent-DID
 
 > **Historical document** — this analysis reflects the project state as of 2026-03-29 and is not updated as the project evolves. For current status, see [`README.md`](../../README.md) and [`docs/INDEX.md`](../INDEX.md).

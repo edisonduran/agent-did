@@ -6,8 +6,8 @@ Turn the current `integrations/langchain-python/` design scaffold into a functio
 
 This checklist is the execution companion to:
 
-- `docs/F1-03-LangChain-Python-Integration-Design.md`
-- `docs/F1-03-LangChain-Python-Technical-Plan.md`
+- `docs/archive/F1-03-LangChain-Python-Integration-Design.md`
+- `docs/archive/F1-03-LangChain-Python-Technical-Plan.md`
 - `integrations/langchain-python/README.md`
 
 ---
@@ -104,6 +104,6 @@ The LangChain Python integration is ready when all of the following are true:
 - `integrations/langchain-python/README.md`
 - `integrations/langchain-python/pyproject.toml`
 - `integrations/langchain-python/src/agent_did_langchain/__init__.py`
-- `docs/F1-03-LangChain-Python-Integration-Design.md`
+- `docs/archive/F1-03-LangChain-Python-Integration-Design.md`
 - `docs/F2-01-TS-Python-Parity-Matrix.md`
 - `docs/SDK-Release-Checklist.md`
