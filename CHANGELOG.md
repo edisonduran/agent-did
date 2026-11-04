@@ -15,6 +15,10 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 - Hardened HTTP target validation in both SDKs: all non-globally-routable IPv4 and IPv6 ranges are now rejected, with identical results in TypeScript and Python. The default TypeScript fetch no longer follows redirects, so a 3xx response is reported as a non-OK status. Callers that pass their own `fetchFn` keep their own redirect policy.
 - HTTP signature verification now rejects signatures whose `expires - created` exceeds `maxSignatureLifetimeSeconds` / `max_signature_lifetime_seconds` (default 300 s). The signer default is 30 s, so conforming signers are unaffected; pass a larger value to accept longer-lived signatures. This is a verifier-side policy; the wire format does not change.
 
+### Security
+
+- `AgentRegistry` (EVM profile, deferred outside core 1.0): registration now requires an EIP-712 attestation from a registrar, so that an unrelated account can no longer register someone else's DID and become its owner. **Breaking for `@agentdid/evm` and `agent-did-sdk[evm]` users and for any deployed registry:** `registerAgent` and `registerAgentWithDocument` are replaced by `registerAgentAttested(did, controller, documentRef, attestation)`, `EvmAgentRegistry` needs an `attestationProvider` / `attestation_provider` to call `register`, and the contract adds `registrar()` / `setRegistrar()`. A new registry must be deployed. See `docs/RFC-001-EVM-Profile.md` section 4.1.
+
 ### Planned (path to 1.0.0)
 
 See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining after `1.0.0-rc.4`:

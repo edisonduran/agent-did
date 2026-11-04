@@ -2,30 +2,28 @@ import { EthersAgentRegistryContractClient } from '../src/EthersAgentRegistryCon
 
 describe('EthersAgentRegistryContractClient', () => {
   it('should delegate write methods to the contract when available', async () => {
-    const registerAgent = jest.fn().mockResolvedValue({ hash: '0x1' });
-    const registerAgentWithDocument = jest.fn().mockResolvedValue({ hash: '0x2' });
+    const registerAgentAttested = jest.fn().mockResolvedValue({ hash: '0x1' });
     const setDocumentRef = jest.fn().mockResolvedValue({ hash: '0x3' });
     const revokeAgent = jest.fn().mockResolvedValue({ hash: '0x4' });
 
     const client = new EthersAgentRegistryContractClient({
-      registerAgent,
-      registerAgentWithDocument,
+      registerAgentAttested,
       setDocumentRef,
       revokeAgent,
     });
+    const attestation = { owner: '0x0000000000000000000000000000000000000001', deadline: 1700000000, signature: '0xsig' };
 
-    await expect(client.registerAgent('did:agent:test:1', 'did:webvh:controller')).resolves.toEqual({ hash: '0x1' });
     await expect(
-      client.registerAgentWithDocument('did:agent:test:1', 'did:webvh:controller', 'hash://sha256/doc')
-    ).resolves.toEqual({ hash: '0x2' });
+      client.registerAgentAttested('did:agent:test:1', 'did:webvh:controller', 'hash://sha256/doc', attestation)
+    ).resolves.toEqual({ hash: '0x1' });
     await expect(client.setDocumentRef('did:agent:test:1', 'hash://sha256/next')).resolves.toEqual({ hash: '0x3' });
     await expect(client.revokeAgent('did:agent:test:1')).resolves.toEqual({ hash: '0x4' });
 
-    expect(registerAgent).toHaveBeenCalledWith('did:agent:test:1', 'did:webvh:controller');
-    expect(registerAgentWithDocument).toHaveBeenCalledWith(
+    expect(registerAgentAttested).toHaveBeenCalledWith(
       'did:agent:test:1',
       'did:webvh:controller',
-      'hash://sha256/doc'
+      'hash://sha256/doc',
+      attestation
     );
     expect(setDocumentRef).toHaveBeenCalledWith('did:agent:test:1', 'hash://sha256/next');
     expect(revokeAgent).toHaveBeenCalledWith('did:agent:test:1');
@@ -34,10 +32,10 @@ describe('EthersAgentRegistryContractClient', () => {
   it('should throw when a required write method is unavailable', async () => {
     const client = new EthersAgentRegistryContractClient({});
 
-    await expect(client.registerAgent('did:agent:test:1', 'did:webvh:controller'))
-      .rejects.toThrow('Contract method not available: registerAgent(did, controller)');
-    await expect(client.registerAgentWithDocument('did:agent:test:1', 'did:webvh:controller', 'hash://sha256/doc'))
-      .rejects.toThrow('Contract method not available: registerAgentWithDocument(did, controller, documentRef)');
+    await expect(client.registerAgentAttested(
+      'did:agent:test:1', 'did:webvh:controller', 'hash://sha256/doc',
+      { owner: '0x0000000000000000000000000000000000000001', deadline: 1, signature: '0xsig' }
+    )).rejects.toThrow('Contract method not available: registerAgentAttested(did, controller, documentRef, attestation)');
     await expect(client.setDocumentRef('did:agent:test:1', 'hash://sha256/doc'))
       .rejects.toThrow('Contract method not available: setDocumentRef(did, documentRef)');
     await expect(client.revokeAgent('did:agent:test:1'))

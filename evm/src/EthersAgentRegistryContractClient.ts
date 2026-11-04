@@ -1,5 +1,5 @@
 import { AgentRegistryRecord } from '@agentdid/sdk';
-import { EvmAgentRegistryContract, EvmTxResponse } from './evm-types';
+import { EvmAgentRegistryContract, EvmTxResponse, RegistrationAttestation } from './evm-types';
 import { normalizeTimestampToIso } from '@agentdid/sdk';
 
 function safeStr(v: unknown): string {
@@ -10,8 +10,12 @@ function safeStr(v: unknown): string {
 }
 
 interface EthersLikeContract {
-  registerAgent?: (did: string, controller: string, documentRef?: string) => Promise<EvmTxResponse | void>;
-  registerAgentWithDocument?: (did: string, controller: string, documentRef: string) => Promise<EvmTxResponse | void>;
+  registerAgentAttested?: (
+    did: string,
+    controller: string,
+    documentRef: string,
+    attestation: RegistrationAttestation
+  ) => Promise<EvmTxResponse | void>;
   setDocumentRef?: (did: string, documentRef: string) => Promise<EvmTxResponse | void>;
   revokeAgent?: (did: string) => Promise<EvmTxResponse | void>;
   getAgentRecord?: (did: string) => Promise<AgentRegistryRecord | null>;
@@ -25,20 +29,17 @@ export class EthersAgentRegistryContractClient implements EvmAgentRegistryContra
     this.contract = contract;
   }
 
-  public async registerAgent(did: string, controller: string): Promise<EvmTxResponse | void> {
-    if (!this.contract.registerAgent) {
-      throw new Error('Contract method not available: registerAgent(did, controller)');
+  public async registerAgentAttested(
+    did: string,
+    controller: string,
+    documentRef: string,
+    attestation: RegistrationAttestation
+  ): Promise<EvmTxResponse | void> {
+    if (!this.contract.registerAgentAttested) {
+      throw new Error('Contract method not available: registerAgentAttested(did, controller, documentRef, attestation)');
     }
 
-    return this.contract.registerAgent(did, controller);
-  }
-
-  public async registerAgentWithDocument(did: string, controller: string, documentRef: string): Promise<EvmTxResponse | void> {
-    if (!this.contract.registerAgentWithDocument) {
-      throw new Error('Contract method not available: registerAgentWithDocument(did, controller, documentRef)');
-    }
-
-    return this.contract.registerAgentWithDocument(did, controller, documentRef);
+    return this.contract.registerAgentAttested(did, controller, documentRef, attestation);
   }
 
   public async setDocumentRef(did: string, documentRef: string): Promise<EvmTxResponse | void> {

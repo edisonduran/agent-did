@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..registry.types import AgentRegistryRecord
-from .evm_types import EvmAgentRegistryAdapterConfig, EvmTxResponse
+from .evm_types import EvmAgentRegistryAdapterConfig, EvmTxResponse, RegistrationAttestationRequest
 
 
 class EvmAgentRegistry:
@@ -12,18 +12,20 @@ class EvmAgentRegistry:
     def __init__(self, config: EvmAgentRegistryAdapterConfig) -> None:
         self._contract = config.contract_client
         self._await_tx = config.await_transaction_confirmation
+        self._attestation_provider = config.attestation_provider
 
     async def register(self, did: str, controller: str, document_ref: str | None = None) -> None:
-        if document_ref and hasattr(self._contract, 'register_agent_with_document'):
-            tx = await self._contract.register_agent_with_document(did, controller, document_ref)
-            await self._wait_if_needed(tx)
-            return
+        if self._attestation_provider is None:
+            raise RuntimeError(
+                "EvmAgentRegistry.register requires an attestation_provider: "
+                "the contract only accepts registrar-attested registrations"
+            )
 
-        tx = await self._contract.register_agent(did, controller)
+        attestation = await self._attestation_provider(
+            RegistrationAttestationRequest(did=did, controller=controller, document_ref=document_ref)
+        )
+        tx = await self._contract.register_agent_attested(did, controller, document_ref or "", attestation)
         await self._wait_if_needed(tx)
-        if document_ref:
-            ref_tx = await self._contract.set_document_ref(did, document_ref)
-            await self._wait_if_needed(ref_tx)
 
     async def set_document_reference(self, did: str, document_ref: str) -> None:
         tx = await self._contract.set_document_ref(did, document_ref)
