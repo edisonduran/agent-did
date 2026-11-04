@@ -1,5 +1,5 @@
-import { ed25519 } from '@noble/curves/ed25519';
-import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils';
+import { bytesToHex, randomBytes } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha256';
 import {
   AgentDocumentHistoryAction,
   AgentDocumentHistoryEntry,
@@ -8,32 +8,14 @@ import {
   CreateAgentResult,
   DidWebvhLifecycleOptions,
   RotateVerificationMethodResult,
-  SignHttpRequestParams,
   UpdateAgentDocumentParams,
   VerifyHttpRequestSignatureParams,
-  VerificationRelationship,
-  VerificationMethod
+  VerificationRelationship
 } from './types';
-import {
-  createMetadataCommitment,
-  generateAgentMetadataHash,
-  generateCanonicalDocumentHash,
-  generateCommitmentSalt
-} from '../crypto/hash';
-import { encodePublicKeyMultibase, decodePublicKeyMultibase, didKeyFromPublicKey } from '../crypto/multibase';
+import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash';
+import { encodePublicKeyMultibase, didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
-import { sha256 } from '@noble/hashes/sha256';
-import {
-  buildSignatureBase,
-  getSignatureParam,
-  parseSignatureHeader,
-  parseSignatureInputHeader,
-  serializeSignature,
-  serializeSignatureInput,
-  SignatureInput
-} from './http-signatures';
 import { InMemoryNonceStore, NonceStore } from './nonce-store';
-import { validateHttpTarget } from './http-security';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
 import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
 import { UniversalResolverClient } from '../resolver/UniversalResolverClient';
@@ -44,14 +26,27 @@ import { AgentRegistry } from '../registry/types';
 import {
   createDidWebvhLog,
   deactivateDidWebvhLog,
-  DID_WEBVH_PLACEHOLDER,
   resolveDidWebvhLog,
   updateDidWebvhLog
 } from '../webvh/adapter';
+import {
+  buildAgentDocumentTemplate,
+  buildBootstrapControllerTemplate,
+  cloneDocument,
+  computeDocumentReference,
+  historyFromDidWebvhLog,
+  normalizeDidPathSegment
+} from '../webvh/documents';
+import {
+  assertUpdatePatch,
+  buildRotatedDocument,
+  buildUpdatedDocument,
+  nextDocumentTimestamp
+} from '../lifecycle/documents';
+import { verifyWithActiveKeys, verifyWithHistoricalKey } from '../verification/signature';
+import { verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
-import { assertKeyPurpose, assertSigningPurpose, getRelationshipKeyIds } from './identity-composition';
-import { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, computeContentDigest } from './http-profile';
 
 export interface ProductionResolverProfileConfig {
   registry: AgentRegistry;
@@ -227,7 +222,7 @@ export class AgentDidClient {
     };
 
     this.resolver.registerDocument(document);
-    await this.registry.register(document.id, document.controller, this.computeDocumentReference(document));
+    await this.registry.register(document.id, document.controller, computeDocumentReference(document));
     this.appendHistory(document, 'created');
 
     return { document, agentPrivateKey: privateKeyHex, metadataCommitmentSalts };
@@ -265,37 +260,26 @@ export class AgentDidClient {
       // controller DID must be published by its owner; the SDK never fabricates it.
       const bootstrap = await this.ensureBootstrapController(controllerKeyDid);
       domain = this.defaultWebvhDomain;
-      pathSegments = ['agents', this.normalizeDidPathSegment(params.name)];
+      pathSegments = ['agents', normalizeDidPathSegment(params.name)];
       controllerDid = bootstrap.did;
       controllerSigner = bootstrap.signer;
       controllerPrivateKey = bootstrap.privateKey;
     }
 
-    const verificationMethodId = `${DID_WEBVH_PLACEHOLDER}#key-1`;
-    const template = {
-      '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
-      id: DID_WEBVH_PLACEHOLDER,
-      controller: controllerDid,
-      created: agent.timestamp,
-      updated: agent.timestamp,
+    const template = buildAgentDocumentTemplate({
+      controllerDid,
+      timestamp: agent.timestamp,
       agentMetadata: agent.agentMetadata,
-      verificationMethod: [{
-        id: verificationMethodId,
-        type: 'Ed25519VerificationKey2020',
-        controller: controllerDid,
-        publicKeyMultibase: encodePublicKeyMultibase(agent.publicKeyBytes)
-      }],
-      authentication: [verificationMethodId],
-      assertionMethod: [verificationMethodId]
-    };
+      publicKeyBytes: agent.publicKeyBytes
+    });
 
     const created = await createDidWebvhLog({ domain, pathSegments, document: template, signer: controllerSigner });
-    const document = this.cloneDocument(created.state as unknown as AgentDIDDocument);
+    const document = cloneDocument(created.state as unknown as AgentDIDDocument);
     this.didWebvhLogStore.set(document.id, created.log);
     this.didWebvhSignerStore.set(document.id, controllerSigner);
 
     this.resolver.registerDocument(document);
-    await this.registry.register(document.id, document.controller, this.computeDocumentReference(document));
+    await this.registry.register(document.id, document.controller, computeDocumentReference(document));
     this.appendHistory(document, 'created');
 
     return {
@@ -323,11 +307,6 @@ export class AgentDidClient {
     return options;
   }
 
-  private normalizeDidPathSegment(value: string): string {
-    const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    return normalized || 'agent';
-  }
-
   /**
    * Returns the local bootstrap controller for a creator's `did:key`, creating it on first use.
    * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
@@ -344,44 +323,25 @@ export class AgentDidClient {
     }
 
     const [signer, privateKey] = LocalKeySigner.generate();
-    const timestamp = this.nowIsoTimestamp();
-    const verificationMethodId = `${DID_WEBVH_PLACEHOLDER}#key-1`;
-    const template = {
-      '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
-      id: DID_WEBVH_PLACEHOLDER,
-      controller: DID_WEBVH_PLACEHOLDER,
-      created: timestamp,
-      updated: timestamp,
-      agentMetadata: {
-        name: `controller-${this.normalizeDidPathSegment(keyId)}`,
-        description: 'Local bootstrap controller root for canonical did:webvh flows.',
-        version: '1.0.0',
-        coreModelHash: generateAgentMetadataHash(`controller:${address}`),
-        systemPromptHash: generateAgentMetadataHash('controller-bootstrap-root')
-      },
-      verificationMethod: [{
-        id: verificationMethodId,
-        type: 'Ed25519VerificationKey2020',
-        controller: DID_WEBVH_PLACEHOLDER,
-        publicKeyMultibase: encodePublicKeyMultibase(await signer.getPublicKey())
-      }],
-      authentication: [verificationMethodId],
-      assertionMethod: [verificationMethodId]
-    };
+    const template = buildBootstrapControllerTemplate({
+      creatorKeyDid: address,
+      timestamp: this.nowIsoTimestamp(),
+      publicKeyBytes: await signer.getPublicKey()
+    });
 
     const created = await createDidWebvhLog({
       domain: this.defaultWebvhDomain,
-      pathSegments: ['controllers', this.normalizeDidPathSegment(keyId)],
+      pathSegments: ['controllers', normalizeDidPathSegment(keyId)],
       document: template,
       signer
     });
-    const document = this.cloneDocument(created.state as unknown as AgentDIDDocument);
+    const document = cloneDocument(created.state as unknown as AgentDIDDocument);
     this.didWebvhLogStore.set(document.id, created.log);
     this.didWebvhSignerStore.set(document.id, signer);
     this.bootstrapControllers.set(address, { did: document.id, signer });
 
     this.resolver.registerDocument(document);
-    await this.registry.register(document.id, document.controller, this.computeDocumentReference(document));
+    await this.registry.register(document.id, document.controller, computeDocumentReference(document));
     this.appendHistory(document, 'created');
     return { did: document.id, signer, privateKey };
   }
@@ -399,7 +359,7 @@ export class AgentDidClient {
     const { log, signer } = this.requireDidWebvhLifecycle(did, controllerSigner);
     const updated = await updateDidWebvhLog({ log, signer, document: document as unknown as Record<string, unknown> });
     this.didWebvhLogStore.set(did, updated.log);
-    return this.cloneDocument(updated.state as unknown as AgentDIDDocument);
+    return cloneDocument(updated.state as unknown as AgentDIDDocument);
   }
 
   private requireDidWebvhLifecycle(did: string, controllerSigner?: AgentSigner): { log: string; signer: AgentSigner } {
@@ -440,80 +400,12 @@ export class AgentDidClient {
    * request is rejected. Returns `false` on any failure.
    */
   public async verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean> {
-    const headers = Object.fromEntries(
-      Object.entries(params.headers).map(([key, value]) => [key.toLowerCase(), value])
-    );
-    const signatureAgent = headers['signature-agent'];
-    if (!headers['signature'] || !headers['signature-input'] || !signatureAgent) {
-      return false;
-    }
-    if (headers['content-digest'] !== computeContentDigest(params.body)) {
-      return false;
-    }
-
-    let inputs: Map<string, SignatureInput>;
-    let signatures: Map<string, Uint8Array>;
-    try {
-      inputs = parseSignatureInputHeader(headers['signature-input']);
-      signatures = parseSignatureHeader(headers['signature']);
-    } catch {
-      return false;
-    }
-
-    const now = Math.floor(this.clock().getTime() / 1000);
-    const maxSkew = params.maxCreatedSkewSeconds ?? 300;
-    const nonceStore = params.nonceStore ?? this.nonceStore;
-    const request = { method: params.method.toUpperCase(), url: params.url, headers };
-
-    for (const [label, input] of inputs) {
-      const signature = signatures.get(label);
-      if (!signature) {
-        continue;
-      }
-
-      const created = getSignatureParam(input, 'created');
-      const expires = getSignatureParam(input, 'expires');
-      const nonce = getSignatureParam(input, 'nonce');
-      const keyId = getSignatureParam(input, 'keyid');
-      if (
-        getSignatureParam(input, 'tag') !== AGENT_DID_HTTP_SIGNATURE_TAG ||
-        getSignatureParam(input, 'alg') !== 'ed25519' ||
-        typeof created !== 'number' ||
-        typeof expires !== 'number' ||
-        typeof nonce !== 'string' || nonce.length === 0 ||
-        typeof keyId !== 'string' ||
-        !keyId.startsWith(`${signatureAgent}#`) ||
-        !AGENT_DID_HTTP_SIGNATURE_COMPONENTS.every((component) => input.components.includes(component)) ||
-        Math.abs(now - created) > maxSkew ||
-        expires < created ||
-        now > expires
-      ) {
-        continue;
-      }
-
-      let signatureBase: string;
-      try {
-        signatureBase = buildSignatureBase(request, input);
-      } catch {
-        continue;
-      }
-
-      const isValid = await this.verifySignature(
-        signatureAgent,
-        signatureBase,
-        bytesToHex(signature),
-        keyId,
-        'assertionMethod'
-      );
-      if (!isValid) {
-        continue;
-      }
-
-      // Record the nonce only for a valid signature, so forged requests cannot burn nonces.
-      return nonceStore.checkAndStore(`${keyId} ${nonce}`, expires);
-    }
-
-    return false;
+    return verifyAgentDidHttpRequest(params, {
+      verifySignature: (did, payload, signature, keyId, purpose) =>
+        this.verifySignature(did, payload, signature, keyId, purpose),
+      nonceStore: this.nonceStore,
+      now: this.clock()
+    });
   }
 
   /**
@@ -534,45 +426,7 @@ export class AgentDidClient {
       return false;
     }
 
-    const didDoc = verificationChain[0];
-    assertSigningPurpose(requiredPurpose, didDoc, keyId || '');
-    if (keyId) {
-      assertKeyPurpose(keyId, didDoc, requiredPurpose);
-    }
-
-    const messageBytes = new TextEncoder().encode(payload);
-    const signatureBytes = hexToBytes(signature);
-
-    const activeKeyIds = new Set(getRelationshipKeyIds(didDoc, requiredPurpose));
-    const candidateMethods = didDoc.verificationMethod.filter((method) => {
-      if (!method.publicKeyMultibase || method.deactivated) {
-        return false;
-      }
-
-      if (keyId) {
-        return method.id === keyId && activeKeyIds.has(method.id);
-      }
-
-      return activeKeyIds.has(method.id);
-    });
-
-    for (const verificationMethod of candidateMethods) {
-      const keyValue = verificationMethod.publicKeyMultibase;
-      if (!keyValue) continue;
-
-      try {
-        const publicKeyBytes = decodePublicKeyMultibase(keyValue);
-        const valid = ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
-
-        if (valid) {
-          return true;
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    return false;
+    return verifyWithActiveKeys(verificationChain[0], payload, signature, keyId, requiredPurpose);
   }
 
   /**
@@ -595,27 +449,7 @@ export class AgentDidClient {
       return false;
     }
 
-    const didDoc = verificationChain[0];
-    assertSigningPurpose(requiredPurpose, didDoc, keyId);
-    assertKeyPurpose(keyId, didDoc, requiredPurpose);
-
-    const messageBytes = new TextEncoder().encode(payload);
-    const signatureBytes = hexToBytes(signature);
-
-    const candidate = didDoc.verificationMethod.find(
-      (method) => method.id === keyId && method.publicKeyMultibase
-    );
-
-    if (!candidate?.publicKeyMultibase) {
-      return false;
-    }
-
-    try {
-      const publicKeyBytes = decodePublicKeyMultibase(candidate.publicKeyMultibase);
-      return ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
-    } catch {
-      return false;
-    }
+    return verifyWithHistoricalKey(verificationChain[0], payload, signature, keyId, requiredPurpose);
   }
 
   /**
@@ -716,45 +550,17 @@ export class AgentDidClient {
     patch: UpdateAgentDocumentParams,
     options: DidWebvhLifecycleOptions = {}
   ): Promise<AgentDIDDocument> {
-    if (!did?.trim()) {
-      throw new Error('DID is required');
-    }
-
-    if (patch.coreModel && !patch.coreModelSalt) {
-      throw new Error('coreModelSalt is required when updating coreModel (use generateCommitmentSalt() and keep it private)');
-    }
-    if (patch.systemPrompt && !patch.systemPromptSalt) {
-      throw new Error('systemPromptSalt is required when updating systemPrompt (use generateCommitmentSalt() and keep it private)');
-    }
+    assertUpdatePatch(did, patch);
 
     const existing = await this.resolve(did);
-    const now = this.nextDocumentTimestamp(existing.updated);
-
-    let updatedDocument: AgentDIDDocument = {
-      ...existing,
-      updated: now,
-      agentMetadata: {
-        ...existing.agentMetadata,
-        description: patch.description ?? existing.agentMetadata.description,
-        version: patch.version ?? existing.agentMetadata.version,
-        coreModelHash: patch.coreModel
-          ? createMetadataCommitment(patch.coreModel, patch.coreModelSalt as string)
-          : existing.agentMetadata.coreModelHash,
-        systemPromptHash: patch.systemPrompt
-          ? createMetadataCommitment(patch.systemPrompt, patch.systemPromptSalt as string)
-          : existing.agentMetadata.systemPromptHash,
-        capabilities: patch.capabilities ?? existing.agentMetadata.capabilities,
-        memberOf: patch.memberOf ?? existing.agentMetadata.memberOf
-      },
-      complianceCertifications: patch.complianceCertifications ?? existing.complianceCertifications
-    };
+    let updatedDocument = buildUpdatedDocument(existing, patch, this.nextTimestamp(existing.updated));
 
     if (did.startsWith('did:webvh:')) {
       updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
     }
 
     this.resolver.registerDocument(updatedDocument);
-    await this.registry.setDocumentReference(did, this.computeDocumentReference(updatedDocument));
+    await this.registry.setDocumentReference(did, computeDocumentReference(updatedDocument));
     this.appendHistory(updatedDocument, 'updated');
     return updatedDocument;
   }
@@ -764,52 +570,21 @@ export class AgentDidClient {
     options: DidWebvhLifecycleOptions = {}
   ): Promise<RotateVerificationMethodResult> {
     const existing = await this.resolve(did);
-    const keyIndexes = existing.verificationMethod
-      .map((method) => {
-        const match = method.id.match(/#key-(\d+)$/);
-        return match ? Number(match[1]) : 0;
-      });
-
-    const nextIndex = (keyIndexes.length ? Math.max(...keyIndexes) : 0) + 1;
-    const verificationMethodId = `${did}#key-${nextIndex}`;
-
-    const privateKeyBytes = ed25519.utils.randomPrivateKey();
-    const publicKeyBytes = ed25519.getPublicKey(privateKeyBytes);
-    const privateKeyHex = bytesToHex(privateKeyBytes);
-
-    const newVerificationMethod: VerificationMethod = {
-      id: verificationMethodId,
-      type: 'Ed25519VerificationKey2020',
-      controller: existing.controller,
-      publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes)
-    };
-
-    const deactivatedTimestamp = this.nextDocumentTimestamp(existing.updated);
-    const deactivatedMethods = existing.verificationMethod.map((method) => ({
-      ...method,
-      deactivated: method.deactivated || deactivatedTimestamp
-    }));
-
-    let updatedDocument: AgentDIDDocument = {
-      ...existing,
-      updated: deactivatedTimestamp,
-      verificationMethod: [...deactivatedMethods, newVerificationMethod],
-      authentication: [verificationMethodId],
-      assertionMethod: Array.from(new Set([...(existing.assertionMethod || []), verificationMethodId]))
-    };
+    const rotated = buildRotatedDocument(did, existing, this.nextTimestamp(existing.updated));
+    let updatedDocument = rotated.document;
 
     if (did.startsWith('did:webvh:')) {
       updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
     }
 
     this.resolver.registerDocument(updatedDocument);
-    await this.registry.setDocumentReference(did, this.computeDocumentReference(updatedDocument));
+    await this.registry.setDocumentReference(did, computeDocumentReference(updatedDocument));
     this.appendHistory(updatedDocument, 'rotated-key');
 
     return {
       document: updatedDocument,
-      verificationMethodId,
-      agentPrivateKey: privateKeyHex
+      verificationMethodId: rotated.verificationMethodId,
+      agentPrivateKey: rotated.agentPrivateKey
     };
   }
 
@@ -838,10 +613,10 @@ export class AgentDidClient {
   public async importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument> {
     const resolved = await resolveDidWebvhLog(didLog);
     const did = resolved.did;
-    const latestDocument = this.cloneDocument(resolved.state as unknown as AgentDIDDocument);
-    const documentRef = this.computeDocumentReference(latestDocument);
+    const latestDocument = cloneDocument(resolved.state as unknown as AgentDIDDocument);
+    const documentRef = computeDocumentReference(latestDocument);
 
-    this.documentHistoryStore.set(did, this.historyFromDidWebvhLog(resolved.log));
+    this.documentHistoryStore.set(did, historyFromDidWebvhLog(resolved.log));
     this.didWebvhLogStore.set(did, resolved.log);
     this.didWebvhSignerStore.delete(did);
 
@@ -960,56 +735,8 @@ export class AgentDidClient {
     });
   }
 
-  private computeDocumentReference(document: AgentDIDDocument): string {
-    return generateCanonicalDocumentHash(document);
-  }
-
-  /** History entries for a verified did:webvh log, one per log entry. */
-  private historyFromDidWebvhLog(log: string): AgentDocumentHistoryEntry[] {
-    let previous: AgentDIDDocument | undefined;
-    return log
-      .split(/\r?\n/u)
-      .filter((line) => line.trim().length > 0)
-      .map((line, index) => {
-        const entry = JSON.parse(line) as {
-          versionTime: string;
-          parameters?: { deactivated?: boolean };
-          state: AgentDIDDocument;
-        };
-        const document = this.cloneDocument(entry.state);
-        let action: AgentDocumentHistoryAction = 'updated';
-        if (index === 0 || !previous) {
-          action = 'created';
-        } else if (entry.parameters?.deactivated === true) {
-          action = 'revoked';
-        } else if (document.verificationMethod.length !== previous.verificationMethod.length) {
-          action = 'rotated-key';
-        }
-        previous = document;
-        return {
-          did: document.id,
-          revision: index + 1,
-          action,
-          timestamp: entry.versionTime,
-          version: document.agentMetadata?.version,
-          documentRef: this.computeDocumentReference(document)
-        };
-      });
-  }
-
-  private cloneDocument(document: AgentDIDDocument): AgentDIDDocument {
-    return JSON.parse(JSON.stringify(document)) as AgentDIDDocument;
-  }
-
-  private nextDocumentTimestamp(previousTimestamp?: string): string {
-    const now = this.clock().getTime();
-    const previous = previousTimestamp ? Date.parse(previousTimestamp) : Number.NaN;
-
-    if (!Number.isNaN(previous) && now <= previous) {
-      return normalizeTimestampToIso(new Date(previous + 1).toISOString()) as string;
-    }
-
-    return this.nowIsoTimestamp();
+  private nextTimestamp(previousTimestamp?: string): string {
+    return nextDocumentTimestamp(this.clock(), previousTimestamp);
   }
 
   private appendHistory(document: AgentDIDDocument, action: AgentDocumentHistoryAction): void {
@@ -1023,7 +750,7 @@ export class AgentDidClient {
       action,
       timestamp: this.nowIsoTimestamp(),
       version: document.agentMetadata.version,
-      documentRef: this.computeDocumentReference(document)
+      documentRef: computeDocumentReference(document)
     };
 
     this.documentHistoryStore.set(did, [...currentHistory, entry]);
