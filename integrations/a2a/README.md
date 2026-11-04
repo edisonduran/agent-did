@@ -54,7 +54,7 @@ python -m pip install -e ".[dev]"
 ## Quick Start
 
 ```python
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry
+from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
 
 # Create identity

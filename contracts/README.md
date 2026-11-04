@@ -1,6 +1,8 @@
 # src/AgentRegistry.sol
 
-Contrato mínimo compatible con el SDK en `sdk/`.
+> **Status: deferred, optional EVM profile.** These contracts are not part of the core `1.0.0` release gate. The core `@agentdid/sdk` does not depend on them; the optional adapter is [`@agentdid/evm`](../evm/README.md) (see `docs/RFC-001-EVM-Profile.md`).
+
+Contrato mínimo compatible con el adaptador `@agentdid/evm` (ver `evm/`).
 
 ## Setup rápido (Hardhat)
 
@@ -40,7 +42,7 @@ Exportar ABI para el SDK:
 npm run export:abi
 ```
 
-Esto genera: `sdk/examples/abi/AgentRegistry.abi.json`.
+Esto genera: `evm/examples/abi/AgentRegistry.abi.json`.
 
 ## Funciones expuestas
 
@@ -77,7 +79,7 @@ function isRevoked(string did) external view returns (bool);
 
 ## Conexión desde el SDK
 
-Usa el ejemplo: `sdk/examples/evm-registry-wiring.ts`.
+Usa el ejemplo: `evm/examples/evm-registry-wiring.ts`.
 
 Variables mínimas para ese ejemplo:
 

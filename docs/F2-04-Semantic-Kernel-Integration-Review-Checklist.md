@@ -82,6 +82,7 @@ Semantic Kernel review is complete when the scaffold state is accurately describ
 
 | Date | Change |
 |------|--------|
+| 2026-11-04 | Semantic Kernel README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |
 | 2026-11-04 | M-09: Semantic Kernel examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
 | 2026-11-04 | RC metadata moved to the `1.0.0rc4` release train (npm `1.0.0-rc.4`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-03 | Tools now resolve, verify and rotate through `agentIdentity.client` (`AgentDidClient`) instead of the deprecated static `AgentIdentity` API. Identities without an explicit client use the default client, so behavior and the public tool surface are unchanged. |
