@@ -87,3 +87,33 @@ class TestBearerTokenHttpDIDDocumentSource:
         assert seen_requests[0].headers["authorization"] == "Bearer refreshed-token"
         assert seen_requests[0].headers["content-type"] == "application/jsonl; charset=utf-8"
         assert seen_requests[0].content.decode("utf-8") == did_log
+
+
+class TestBearerHttpSecurity:
+    async def test_http_security_can_be_passed_to_the_constructor(self) -> None:
+        from agent_did_sdk.core.http_security import HttpTargetValidationOptions
+
+        seen: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(str(request.url))
+            return httpx.Response(200, json=_make_document())
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        url = "http://10.0.0.5/agents/bearer-bot.json"
+
+        blocked = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            token="t", reference_to_url=lambda ref: url, http_client=client,
+        ))
+        assert await blocked.get_by_reference("ref") is None
+        assert seen == []
+
+        allowed = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            token="t",
+            reference_to_url=lambda ref: url,
+            http_client=client,
+            http_security=HttpTargetValidationOptions(allow_private_targets=True),
+        ))
+        assert await allowed.get_by_reference("ref") is not None
+        assert seen == [url]
+        await client.aclose()
