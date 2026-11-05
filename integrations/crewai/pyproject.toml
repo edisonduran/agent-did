@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 runtime = [
-  "crewai<1.0",
+  "crewai<2.0",
 ]
 dev = [
   "build>=1.2",
