@@ -6,7 +6,7 @@ from typing import Any
 
 from ..core.time_utils import normalize_timestamp_to_iso
 from ..registry.types import AgentRegistryRecord
-from .evm_types import EvmTxResponse
+from .evm_types import EvmTxResponse, RegistrationAttestation
 
 
 def _safe_str(v: Any) -> str:  # noqa: ANN401
@@ -25,11 +25,18 @@ class Web3AgentRegistryContractClient:
     def __init__(self, contract: Any) -> None:  # noqa: ANN401
         self._contract = contract
 
-    async def register_agent(self, did: str, controller: str, document_ref: str | None = None) -> EvmTxResponse | None:
-        fn = getattr(self._contract, "register_agent", None) or getattr(self._contract.functions, "registerAgent", None)
+    async def register_agent_attested(
+        self, did: str, controller: str, document_ref: str, attestation: RegistrationAttestation,
+    ) -> EvmTxResponse | None:
+        fn = (
+            getattr(self._contract, "register_agent_attested", None)
+            or getattr(self._contract.functions, "registerAgentAttested", None)
+        )
         if fn is None:
-            raise RuntimeError("Contract method not available: registerAgent(did, controller)")
-        result = fn(did, controller)
+            raise RuntimeError(
+                "Contract method not available: registerAgentAttested(did, controller, documentRef, attestation)"
+            )
+        result = fn(did, controller, document_ref, (attestation.owner, attestation.deadline, attestation.signature))
         if hasattr(result, "transact"):
             result.transact()
             return EvmTxResponse(wait=None)

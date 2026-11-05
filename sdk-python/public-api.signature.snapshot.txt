@@ -176,18 +176,18 @@ class BearerTokenHttpDIDDocumentSource(config: 'BearerTokenHttpDIDDocumentSource
   def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## BearerTokenHttpDIDDocumentSourceConfig
-class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
   attr did_log_store_method: str | None
   attr get_token: Callable[[], str | Awaitable[str]] | None
   attr header_name: str
   attr http_client: httpx.AsyncClient | None
+  attr http_security: HttpTargetValidationOptions | None
   attr ipfs_gateways: list[str] | None
   attr reference_to_url: Callable[[str], str] | None
   attr reference_to_urls: Callable[[str], list[str]] | None
   attr scheme: str
   attr store_method: str
   attr token: str | None
-  member http_security = None
 
 ## CreateAgentParams
 class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None

@@ -12,6 +12,26 @@ async function expectRevert(promise, expectedMessage) {
   }
 }
 
+async function registerAttested(contract, registrar, ownerAddress, did) {
+  const { chainId } = await hre.ethers.provider.getNetwork();
+  const deadline = Math.floor(Date.now() / 1000) + 3600;
+  const controller = `did:ethr:${ownerAddress}`;
+  const signature = await registrar.signTypedData(
+    { name: 'AgentRegistry', version: '1', chainId, verifyingContract: await contract.getAddress() },
+    {
+      Registration: [
+        { name: 'did', type: 'string' },
+        { name: 'controller', type: 'string' },
+        { name: 'documentRef', type: 'string' },
+        { name: 'owner', type: 'address' },
+        { name: 'deadline', type: 'uint256' }
+      ]
+    },
+    { did, controller, documentRef: '', owner: ownerAddress, deadline }
+  );
+  await (await contract.registerAgentAttested(did, controller, '', { owner: ownerAddress, deadline, signature })).wait();
+}
+
 async function main() {
   const contractAddress = process.env.AGENT_REGISTRY_ADDRESS;
   if (!contractAddress) {
@@ -22,7 +42,7 @@ async function main() {
   const contract = await hre.ethers.getContractAt('AgentRegistry', contractAddress);
 
   const didOne = 'did:agent:polygon:0xpolicy1';
-  await (await contract.connect(owner).registerAgent(didOne, `did:ethr:${owner.address}`)).wait();
+  await registerAttested(contract, deployer, owner.address, didOne);
 
   await expectRevert(contract.connect(delegate).revokeAgent(didOne), 'not authorized');
 
@@ -41,7 +61,7 @@ async function main() {
   }
 
   const didTwo = 'did:agent:polygon:0xpolicy2';
-  await (await contract.connect(owner).registerAgent(didTwo, `did:ethr:${owner.address}`)).wait();
+  await registerAttested(contract, deployer, owner.address, didTwo);
 
   await (await contract.connect(owner).transferAgentOwnership(didTwo, newOwner.address)).wait();
 

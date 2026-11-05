@@ -52,7 +52,12 @@ The EVM profile is an overlay. The DID document remains the canonical identity a
 Recommended minimum ABI:
 
 ```solidity
-function registerAgent(string did, string controller) external;
+function registerAgentAttested(
+  string did,
+  string controller,
+  string documentRef,
+  (address owner, uint256 deadline, bytes signature) attestation
+) external;
 function revokeAgent(string did) external;
 function getAgentRecord(string did)
   external
@@ -62,6 +67,17 @@ function isRevoked(string did) external view returns (bool);
 ```
 
 Implementations MAY provide a superset of this ABI for ownership transfer, delegates, or richer metadata, as long as the minimum behaviors above remain available.
+
+### 4.1 Registration authorization
+
+A contract cannot verify, on its own, that the caller controls a DID. A registration MUST therefore be authorized by a trusted registrar, so that nobody can register another party's DID and become its record owner:
+
+1. `registerAgentAttested` MUST reject a registration unless it carries an EIP-712 signature by the contract's current `registrar` over `Registration(string did,string controller,string documentRef,address owner,uint256 deadline)`, with a domain of `name = "AgentRegistry"`, `version = "1"`, the chain id and the contract address.
+2. The record owner is the attested `owner`, not the transaction sender.
+3. The contract MUST reject expired attestations and MUST NOT allow a DID to be registered twice.
+4. The registrar MUST verify, before signing, that `owner` controls the DID through the underlying DID method. This is a trust assumption of the profile: the registrar is a trusted authority for registration.
+
+Revocation remains available to the owner and its delegates even while registration is paused.
 
 ---
 

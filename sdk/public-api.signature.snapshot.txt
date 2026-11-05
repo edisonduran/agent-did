@@ -309,6 +309,11 @@ export interface HttpTargetValidationOptions {
     allowPrivateTargets?: boolean;
 }
 /**
+ * True when `address` (an IPv4 or IPv6 literal, with or without brackets) is not globally routable.
+ * Used on the addresses a host name resolves to.
+ */
+export declare function isNonGlobalAddress(address: string): boolean;
+/**
  * Validates an HTTP target URL for SSRF safety.
  * Throws if the URL is unsafe (loopback, private, metadata, embedded credentials).
  */
@@ -421,13 +426,33 @@ export declare class InMemoryNonceStore implements NonceStore {
 /**
  * Default `fetch` for the SDK's HTTP sources.
  *
- * Targets are validated before the request is sent, so a redirect would move
- * the request to a destination that was never validated. The default fetch
- * therefore does not follow redirects: a 3xx response surfaces as a non-OK
- * status. Callers that supply their own `fetchFn` own their redirect policy.
+ * - Redirects are not followed: targets are validated before the request is sent, so a redirect
+ *   would move it to a destination that was never validated. A 3xx surfaces as a non-OK status.
+ * - Host names are resolved once, at connection time, and the connection is refused when any
+ *   resolved address is not globally routable. The address that was validated is the address that
+ *   is connected to, so a DNS answer that changes after the check (rebinding) cannot redirect the
+ *   request. TLS still verifies the original host name.
+ *
+ * IP literals and `allowPrivateTargets` use the platform `fetch` (with redirects disabled), since
+ * there is nothing to resolve or the caller opted out. Callers that supply their own `fetchFn`
+ * own their redirect and DNS policy. Node.js only: it relies on `node:http`, `node:https` and
+ * `node:dns`.
  */
+import { HttpTargetValidationOptions } from './http-security';
 type AnyInit = Record<string, unknown> | undefined;
-export declare function noRedirectFetch(url: string, init?: AnyInit): Promise<any>;
+type LookupFn = (hostname: string) => Promise<Array<{
+    address: string;
+}>>;
+export interface SafeFetchResponse {
+    ok: boolean;
+    status: number;
+    headers: Headers;
+    text: () => Promise<string>;
+    json: () => Promise<unknown>;
+}
+/** Resolves the host of `url` and throws unless every address is globally routable. */
+export declare function assertResolvedTargetAllowed(url: string, options?: HttpTargetValidationOptions, lookup?: LookupFn): Promise<void>;
+export declare function createSafeFetch(options?: HttpTargetValidationOptions, lookup?: LookupFn, isBlockedAddress?: (address: string) => boolean): (url: string, init?: AnyInit) => Promise<any>;
 export {};
 
 ## core/signer.d.ts

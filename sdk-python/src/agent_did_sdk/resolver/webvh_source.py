@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import httpx
 
 from ..core.http_security import HttpTargetValidationOptions, validate_http_target
+from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
 from ..webvh.adapter import DidWebvhError, resolve_did_webvh_log
 from .types import DocumentIntegrityError
@@ -59,7 +60,7 @@ class WebvhDIDDocumentSource:
                 errors.append(f"{url}: {exc}")
                 continue
 
-            client = self._client or httpx.AsyncClient()
+            client = self._client or create_safe_client(self._http_security)
             try:
                 response = await client.get(url)
             except Exception as exc:  # noqa: BLE001

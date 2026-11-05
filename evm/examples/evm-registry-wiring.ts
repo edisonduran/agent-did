@@ -2,7 +2,13 @@ import { ethers } from 'ethers';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AgentIdentity, LocalKeySigner } from '@agentdid/sdk';
-import { EvmAgentRegistry, EthersAgentRegistryContractClient } from '../src';
+import {
+  EvmAgentRegistry,
+  EthersAgentRegistryContractClient,
+  REGISTRATION_ATTESTATION_TYPES,
+  registrationAttestationDomain,
+  registrationAttestationMessage
+} from '../src';
 
 const ABI_PATH = path.resolve(__dirname, './abi/AgentRegistry.abi.json');
 
@@ -16,7 +22,7 @@ function loadAgentRegistryAbi(): unknown[] {
 }
 
 const AGENT_REGISTRY_ABI_FALLBACK = [
-  'function registerAgent(string did, string controller) external',
+  'function registerAgentAttested(string did, string controller, string documentRef, (address owner, uint256 deadline, bytes signature) attestation) external',
   'function setDocumentRef(string did, string documentRef) external',
   'function revokeAgent(string did) external',
   'function getAgentRecord(string did) external view returns (string did, string controller, string createdAt, string revokedAt, string documentRef)',
@@ -38,9 +44,28 @@ async function main() {
 
   const contract = new ethers.Contract(registryAddress, abi, signer);
   const contractClient = new EthersAgentRegistryContractClient(contract as never);
+  // The contract only accepts registrations signed by its registrar. In production the registrar is a
+  // separate service that first verifies the requester controls the DID. This demo signs locally with
+  // REGISTRAR_PRIVATE_KEY, which must match `registrar()` on the deployed contract.
+  const registrarKey = process.env.REGISTRAR_PRIVATE_KEY;
+  if (!registrarKey) {
+    throw new Error('Missing required env var: REGISTRAR_PRIVATE_KEY');
+  }
+  const registrar = new ethers.Wallet(registrarKey);
+  const { chainId } = await provider.getNetwork();
+
   const registry = new EvmAgentRegistry({
     contractClient,
-    awaitTransactionConfirmation: true
+    awaitTransactionConfirmation: true,
+    attestationProvider: async (request) => {
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
+      const signature = await registrar.signTypedData(
+        registrationAttestationDomain(chainId, registryAddress),
+        REGISTRATION_ATTESTATION_TYPES,
+        registrationAttestationMessage(request, signer.address, deadline)
+      );
+      return { owner: signer.address, deadline, signature };
+    }
   });
 
   AgentIdentity.setRegistry(registry);

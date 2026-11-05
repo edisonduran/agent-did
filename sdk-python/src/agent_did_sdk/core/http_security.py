@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import re
 import socket
+from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
 __all__ = ["HttpTargetValidationOptions", "validate_http_target"]
@@ -89,3 +91,63 @@ def validate_http_target(url: str, options: HttpTargetValidationOptions | None =
     hostname = parsed.hostname or ""
     if _is_private_or_reserved(hostname):
         raise ValueError(f"Blocked request to private/reserved address: {hostname}")
+
+
+LookupFn = Callable[[str], Awaitable[list[str]]]
+
+
+async def _default_lookup(hostname: str) -> list[str]:
+    infos = await asyncio.get_running_loop().getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
+def is_non_global_address(address: str) -> bool:
+    """Return *True* if *address* (an IPv4 or IPv6 literal) is not globally routable."""
+    try:
+        return _is_non_global(ipaddress.ip_address(address.strip("[]").split("%", 1)[0]))
+    except ValueError:
+        return True
+
+
+async def resolve_allowed_addresses(
+    url: str,
+    options: HttpTargetValidationOptions | None = None,
+    lookup: LookupFn | None = None,
+) -> list[str] | None:
+    """Resolve the host of *url* and return its addresses, all of which are globally routable.
+
+    Returns ``None`` when there is nothing to pin: the host is an IP literal (already classified by
+    ``validate_http_target``) or private targets are allowed. An unresolvable name, or any
+    non-global address, raises ``ValueError`` (fail closed). The caller must connect to one of the
+    returned addresses instead of resolving the name again, so a DNS answer that changes after this
+    check (rebinding) cannot redirect the connection.
+    """
+    opts = options or HttpTargetValidationOptions()
+    if opts.allow_private_targets:
+        return None
+
+    hostname = (urlparse(url).hostname or "").strip("[]")
+    try:
+        ipaddress.ip_address(hostname)
+        return None
+    except ValueError:
+        pass
+    if _LEGACY_IPV4_RE.match(hostname):
+        return None  # classified by validate_http_target
+
+    try:
+        addresses = await (lookup or _default_lookup)(hostname)
+    except OSError as exc:
+        raise ValueError(f"Blocked request: could not resolve {hostname}") from exc
+    if not addresses or any(is_non_global_address(address) for address in addresses):
+        raise ValueError(f"Blocked request to private/reserved address: {hostname}")
+    return addresses
+
+
+async def assert_resolved_target_allowed(
+    url: str,
+    options: HttpTargetValidationOptions | None = None,
+    lookup: LookupFn | None = None,
+) -> None:
+    """Like ``resolve_allowed_addresses`` but only checks; it does not pin the connection."""
+    await resolve_allowed_addresses(url, options, lookup)

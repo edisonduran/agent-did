@@ -2,7 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 const { AgentIdentity, LocalKeySigner } = require('../../sdk/dist/index.js');
-const { EvmAgentRegistry, EthersAgentRegistryContractClient } = require('../dist/index.js');
+const {
+  EvmAgentRegistry,
+  EthersAgentRegistryContractClient,
+  REGISTRATION_ATTESTATION_TYPES,
+  registrationAttestationDomain,
+  registrationAttestationMessage
+} = require('../dist/index.js');
 
 const ABI_PATH = path.resolve(__dirname, './abi/AgentRegistry.abi.json');
 
@@ -39,9 +45,24 @@ async function main() {
 
   const contract = new ethers.Contract(registryAddress, abi, signer);
   const contractClient = new EthersAgentRegistryContractClient(contract);
+  // The deployer (account 0) is the contract's initial registrar. In production the registrar is a
+  // separate service that verifies DID control before signing.
+  const registrar = await provider.getSigner(Number(process.env.REGISTRAR_ACCOUNT_INDEX || 0));
+  const ownerAddress = await signer.getAddress();
+  const { chainId } = await provider.getNetwork();
+
   const registry = new EvmAgentRegistry({
     contractClient,
-    awaitTransactionConfirmation: true
+    awaitTransactionConfirmation: true,
+    attestationProvider: async (request) => {
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
+      const signature = await registrar.signTypedData(
+        registrationAttestationDomain(chainId, registryAddress),
+        REGISTRATION_ATTESTATION_TYPES,
+        registrationAttestationMessage(request, ownerAddress, deadline)
+      );
+      return { owner: ownerAddress, deadline, signature };
+    }
   });
 
   AgentIdentity.setRegistry(registry);

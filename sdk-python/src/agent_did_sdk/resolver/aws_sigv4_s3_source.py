@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl, quote, unquote, urlsplit
 import httpx
 
 from ..core.http_security import HttpTargetValidationOptions
+from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
 from .s3_compatible_source import S3CompatibleDIDDocumentSource, S3CompatibleDIDDocumentSourceConfig
 
@@ -78,7 +79,7 @@ class _AwsSigV4AsyncClient:
     def _acquire_client(self) -> tuple[httpx.AsyncClient, bool]:
         if self._client is not None:
             return self._client, False
-        return httpx.AsyncClient(), True
+        return create_safe_client(self._config.http_security), True
 
     def _sign_request(
         self,

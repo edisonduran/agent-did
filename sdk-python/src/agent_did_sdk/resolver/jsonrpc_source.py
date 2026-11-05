@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from ..core.http_security import HttpTargetValidationOptions, validate_http_target
+from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
 
 
@@ -62,7 +63,7 @@ class JsonRpcDIDDocumentSource:
             had_valid = True
 
             try:
-                client = self._client or httpx.AsyncClient()
+                client = self._client or create_safe_client(self._http_security)
                 try:
                     response = await client.post(endpoint, content=payload, headers=self._headers)
                 finally:

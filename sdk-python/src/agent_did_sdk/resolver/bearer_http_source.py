@@ -9,6 +9,8 @@ from typing import cast
 
 import httpx
 
+from ..core.http_security import HttpTargetValidationOptions
+from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
 from .http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 
@@ -23,7 +25,7 @@ class BearerTokenHttpDIDDocumentSourceConfig:
     reference_to_urls: Callable[[str], list[str]] | None = None
     http_client: httpx.AsyncClient | None = None
     ipfs_gateways: list[str] | None = None
-    http_security = None
+    http_security: HttpTargetValidationOptions | None = None
     store_method: str = "PUT"
     did_log_store_method: str | None = None
 
@@ -63,7 +65,7 @@ class _BearerAuthAsyncClient:
     def _acquire_client(self) -> tuple[httpx.AsyncClient, bool]:
         if self._client is not None:
             return self._client, False
-        return httpx.AsyncClient(), True
+        return create_safe_client(self._config.http_security), True
 
     async def _build_headers(self, headers: dict[str, str]) -> dict[str, str]:
         token = await self._resolve_token()
