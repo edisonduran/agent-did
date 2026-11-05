@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import re
 import socket
+from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
 __all__ = ["HttpTargetValidationOptions", "validate_http_target"]
@@ -88,4 +90,55 @@ def validate_http_target(url: str, options: HttpTargetValidationOptions | None =
 
     hostname = parsed.hostname or ""
     if _is_private_or_reserved(hostname):
+        raise ValueError(f"Blocked request to private/reserved address: {hostname}")
+
+
+LookupFn = Callable[[str], Awaitable[list[str]]]
+
+
+async def _default_lookup(hostname: str) -> list[str]:
+    infos = await asyncio.get_running_loop().getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
+def is_non_global_address(address: str) -> bool:
+    """Return *True* if *address* (an IPv4 or IPv6 literal) is not globally routable."""
+    try:
+        return _is_non_global(ipaddress.ip_address(address.strip("[]").split("%", 1)[0]))
+    except ValueError:
+        return True
+
+
+async def assert_resolved_target_allowed(
+    url: str,
+    options: HttpTargetValidationOptions | None = None,
+    lookup: LookupFn | None = None,
+) -> None:
+    """Resolve the host of *url* and reject it when any address is not globally routable.
+
+    IP literals are already classified by ``validate_http_target`` and are not looked up.
+    An unresolvable name is rejected (fail closed). Raises ``ValueError``.
+
+    Residual risk: the name is resolved again when the connection is made, so a DNS answer that
+    changes between the two lookups (rebinding) is not covered; also filter egress at the network
+    level where that matters.
+    """
+    opts = options or HttpTargetValidationOptions()
+    if opts.allow_private_targets:
+        return
+
+    hostname = (urlparse(url).hostname or "").strip("[]")
+    try:
+        ipaddress.ip_address(hostname)
+        return
+    except ValueError:
+        pass
+    if _LEGACY_IPV4_RE.match(hostname):
+        return  # classified by validate_http_target
+
+    try:
+        addresses = await (lookup or _default_lookup)(hostname)
+    except OSError as exc:
+        raise ValueError(f"Blocked request: could not resolve {hostname}") from exc
+    if not addresses or any(is_non_global_address(address) for address in addresses):
         raise ValueError(f"Blocked request to private/reserved address: {hostname}")
