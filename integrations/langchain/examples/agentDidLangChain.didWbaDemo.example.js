@@ -138,7 +138,8 @@ async function main() {
           body: SIGNED_REQUEST_BODY,
         },
       },
-    ]);
+    ])
+    .respond(new AIMessage(`Identity ${ACTIVE_DID} checked, partner resolved and request signed for ${SIGNED_REQUEST_URL}.`));
 
   const agent = createAgent({
     model,
