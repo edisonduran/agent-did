@@ -9,6 +9,7 @@ from typing import cast
 
 import httpx
 
+from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
 from .http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 
@@ -63,7 +64,7 @@ class _BearerAuthAsyncClient:
     def _acquire_client(self) -> tuple[httpx.AsyncClient, bool]:
         if self._client is not None:
             return self._client, False
-        return httpx.AsyncClient(), True
+        return create_safe_client(self._config.http_security), True
 
     async def _build_headers(self, headers: dict[str, str]) -> dict[str, str]:
         token = await self._resolve_token()

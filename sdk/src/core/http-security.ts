@@ -106,6 +106,15 @@ function isPrivateOrReservedHost(hostname: string): boolean {
 }
 
 /**
+ * True when `address` (an IPv4 or IPv6 literal, with or without brackets) is not globally routable.
+ * Used on the addresses a host name resolves to.
+ */
+export function isNonGlobalAddress(address: string): boolean {
+  const bare = address.replace(/^\[|\]$/g, '');
+  return isPrivateOrReservedHost(bare.includes(':') ? `[${bare}]` : bare);
+}
+
+/**
  * Validates an HTTP target URL for SSRF safety.
  * Throws if the URL is unsafe (loopback, private, metadata, embedded credentials).
  */

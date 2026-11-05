@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from agent_did_sdk.core.http_security import HttpTargetValidationOptions, validate_http_target
+from agent_did_sdk.core.http_security import (
+    HttpTargetValidationOptions,
+    assert_resolved_target_allowed,
+    validate_http_target,
+)
+from agent_did_sdk.core.safe_client import create_safe_client
 
 
 class TestValidateHttpTarget:
@@ -124,3 +129,58 @@ def test_blocks_non_global_targets(url: str) -> None:
 @pytest.mark.parametrize("url", ALLOWED_URLS)
 def test_allows_public_targets(url: str) -> None:
     validate_http_target(url)
+
+
+class TestResolvedTargets:
+    @staticmethod
+    def _lookup(*addresses: str):  # type: ignore[no-untyped-def]
+        async def lookup(hostname: str) -> list[str]:
+            return list(addresses)
+
+        return lookup
+
+    @pytest.mark.parametrize(
+        "address",
+        ["10.0.0.5", "127.0.0.1", "100.64.0.1", "169.254.169.254", "fd00::1", "fe80::1", "::1", "::ffff:10.0.0.1"],
+    )
+    async def test_rejects_name_resolving_to_non_global_address(self, address: str) -> None:
+        with pytest.raises(ValueError, match="private/reserved"):
+            await assert_resolved_target_allowed("https://app.example.com/", None, self._lookup(address))
+
+    async def test_rejects_when_any_address_is_private(self) -> None:
+        with pytest.raises(ValueError, match="private/reserved"):
+            await assert_resolved_target_allowed(
+                "https://app.example.com/", None, self._lookup("93.184.216.34", "10.0.0.5")
+            )
+
+    async def test_allows_only_public_addresses(self) -> None:
+        await assert_resolved_target_allowed(
+            "https://app.example.com/", None, self._lookup("93.184.216.34", "2606:4700:4700::1111")
+        )
+
+    async def test_fails_closed_on_resolution_error_or_no_addresses(self) -> None:
+        async def failing(hostname: str) -> list[str]:
+            raise OSError("not found")
+
+        with pytest.raises(ValueError, match="could not resolve"):
+            await assert_resolved_target_allowed("https://nope.example.com/", None, failing)
+        with pytest.raises(ValueError, match="private/reserved"):
+            await assert_resolved_target_allowed("https://nope.example.com/", None, self._lookup())
+
+    async def test_skips_lookup_for_literals_and_when_private_allowed(self) -> None:
+        async def boom(hostname: str) -> list[str]:
+            raise AssertionError("lookup must not run")
+
+        await assert_resolved_target_allowed("https://93.184.216.34/", None, boom)
+        await assert_resolved_target_allowed("https://[2606:4700:4700::1111]/", None, boom)
+        await assert_resolved_target_allowed(
+            "https://internal.example.com/", HttpTargetValidationOptions(allow_private_targets=True), boom
+        )
+
+    async def test_safe_client_blocks_request_before_connecting(self) -> None:
+        client = create_safe_client(None, self._lookup("169.254.169.254"))
+        try:
+            with pytest.raises(ValueError, match="private/reserved"):
+                await client.get("https://metadata.example.com/latest")
+        finally:
+            await client.aclose()
