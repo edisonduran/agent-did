@@ -60,5 +60,8 @@ jobs:
         with:
           node-version: 24
 
+      # Dependabot PRs only bump dependency manifests and cannot update the review checklists.
+      # They still go through the other CI jobs and manual review.
       - name: Verify integration governance artifacts
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: node scripts/check-integration-governance.js "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.event.pull_request.head.sha || github.sha }}"
