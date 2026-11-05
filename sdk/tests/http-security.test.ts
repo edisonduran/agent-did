@@ -1,4 +1,6 @@
-import { validateHttpTarget } from '../src/core/http-security';
+import fs from 'fs';
+import path from 'path';
+import { isNonGlobalAddress, validateHttpTarget } from '../src/core/http-security';
 
 describe('validateHttpTarget — SSRF protection', () => {
   // ── Allowed URLs ─────────────────────────────────────────────────
@@ -113,4 +115,32 @@ describe('validateHttpTarget — SSRF protection', () => {
     expect(() => validateHttpTarget('ftp://127.0.0.1/', { allowPrivateTargets: true }))
       .toThrow('Unsupported protocol');
   });
+});
+
+
+describe('HTTP target policy — shared vectors (fixtures/http-target-vectors.json)', () => {
+  const vectors = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'http-target-vectors.json'), 'utf8')
+  ) as {
+    addresses: Array<{ address: string; blocked: boolean }>;
+    urls: Array<{ url: string; allowed: boolean }>;
+  };
+
+  it.each(vectors.addresses.map((v) => [v.address, v.blocked] as const))(
+    'classifies %s (blocked: %s) like the Python SDK',
+    (address, blocked) => {
+      expect(isNonGlobalAddress(address)).toBe(blocked);
+    }
+  );
+
+  it.each(vectors.urls.map((v) => [v.url, v.allowed] as const))(
+    'validates %s (allowed: %s) like the Python SDK',
+    (url, allowed) => {
+      if (allowed) {
+        expect(() => validateHttpTarget(url)).not.toThrow();
+      } else {
+        expect(() => validateHttpTarget(url)).toThrow();
+      }
+    }
+  );
 });

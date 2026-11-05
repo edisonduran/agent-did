@@ -74,19 +74,21 @@ function embeddedIpv4(g: number[], hi: number, lo: number): number[] {
 }
 
 function isNonGlobalIpv6(g: number[]): boolean {
-  // ::/8 covers unspecified, loopback, IPv4-compatible and IPv4-mapped (::ffff:0:0/96).
-  if ((g[0] >> 8) === 0) {
-    const mapped = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff;
-    return mapped ? isNonGlobalIpv4(embeddedIpv4(g, 6, 7)) : true;
+  // IPv4-mapped (::ffff:0:0/96) and NAT64 (64:ff9b::/96) addresses are judged by the IPv4 address they embed.
+  const zeroPrefix = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0;
+  if (zeroPrefix && g[5] === 0xffff) return isNonGlobalIpv4(embeddedIpv4(g, 6, 7));
+  if (g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) {
+    return isNonGlobalIpv4(embeddedIpv4(g, 6, 7));
   }
-  return (g[0] & 0xfe00) === 0xfc00 // fc00::/7 unique local
-    || (g[0] & 0xffc0) === 0xfe80 // fe80::/10 link-local
-    || (g[0] & 0xffc0) === 0xfec0 // fec0::/10 site-local (deprecated)
-    || (g[0] & 0xff00) === 0xff00 // ff00::/8 multicast
-    || (g[0] === 0x2001 && g[1] === 0x0db8) // documentation
-    || (g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0
-      && isNonGlobalIpv4(embeddedIpv4(g, 6, 7))) // NAT64 64:ff9b::/96
-    || (g[0] === 0x2002 && isNonGlobalIpv4(embeddedIpv4(g, 1, 2))); // 6to4
+  // 6to4 (2002::/16) embeds the IPv4 address in bits 16-47.
+  if (g[0] === 0x2002) return isNonGlobalIpv4(embeddedIpv4(g, 1, 2));
+
+  // Fail closed: only global unicast space (2000::/3) is allowed. Everything else (unspecified, loopback,
+  // IPv4-compatible, discard 100::/64, unique local, link-local, site-local, multicast, unallocated) is not.
+  if ((g[0] & 0xe000) !== 0x2000) return true;
+  return (g[0] === 0x2001 && g[1] < 0x0200) // 2001::/23 IETF protocol assignments (Teredo, ORCHID, benchmarking, ...)
+    || (g[0] === 0x2001 && g[1] === 0x0db8) // 2001:db8::/32 documentation
+    || (g[0] === 0x3fff && g[1] < 0x1000); // 3fff::/20 documentation
 }
 
 function isPrivateOrReservedHost(hostname: string): boolean {

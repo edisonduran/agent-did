@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 
 from agent_did_sdk.core.http_security import (
     HttpTargetValidationOptions,
     assert_resolved_target_allowed,
+    is_non_global_address,
     validate_http_target,
 )
 from agent_did_sdk.core.safe_client import create_safe_client
@@ -274,3 +278,24 @@ class TestAddressPinning:
 
         assert [r.url.host for r in seen] == ["93.184.216.34", "internal.example.com"]
         assert all("sni_hostname" not in r.extensions for r in seen)
+
+
+_VECTORS = json.loads(
+    (Path(__file__).resolve().parents[2] / "fixtures" / "http-target-vectors.json").read_text(encoding="utf-8")
+)
+
+
+class TestSharedVectors:
+    """Cross-SDK vectors (fixtures/http-target-vectors.json): the TypeScript SDK must agree on every entry."""
+
+    @pytest.mark.parametrize("vector", _VECTORS["addresses"], ids=lambda v: v["address"])
+    def test_address_classification(self, vector: dict[str, object]) -> None:
+        assert is_non_global_address(str(vector["address"])) is vector["blocked"]
+
+    @pytest.mark.parametrize("vector", _VECTORS["urls"], ids=lambda v: v["url"])
+    def test_url_validation(self, vector: dict[str, object]) -> None:
+        if vector["allowed"]:
+            validate_http_target(str(vector["url"]))
+        else:
+            with pytest.raises(ValueError):
+                validate_http_target(str(vector["url"]))

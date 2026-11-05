@@ -20,33 +20,61 @@ class HttpTargetValidationOptions:
 
 
 _LEGACY_IPV4_RE = re.compile(r"^(0x[0-9a-f]+|\d+)(\.(0x[0-9a-f]+|\d+)){0,3}$", re.IGNORECASE)
+_NUMERIC_LABEL_RE = re.compile(r"^(0x[0-9a-f]*|\d+)$", re.IGNORECASE)
+_FORBIDDEN_HOST_CHARS_RE = re.compile(r"[\x00-\x20\x7f#%/:<>?@\[\\\]^|]")
+
+
+_NON_GLOBAL_IPV4 = tuple(
+    ipaddress.IPv4Network(network)
+    for network in (
+        "0.0.0.0/8",  # this network
+        "10.0.0.0/8",  # private
+        "100.64.0.0/10",  # shared address space (CGNAT)
+        "127.0.0.0/8",  # loopback
+        "169.254.0.0/16",  # link-local (cloud metadata)
+        "172.16.0.0/12",  # private
+        "192.0.0.0/24",  # IETF protocol assignments
+        "192.0.2.0/24",  # documentation
+        "192.168.0.0/16",  # private
+        "198.18.0.0/15",  # benchmarking
+        "198.51.100.0/24",  # documentation
+        "203.0.113.0/24",  # documentation
+        "224.0.0.0/3",  # multicast, reserved and broadcast
+    )
+)
+_GLOBAL_UNICAST_IPV6 = ipaddress.IPv6Network("2000::/3")
+_NON_GLOBAL_IPV6 = tuple(
+    ipaddress.IPv6Network(network)
+    for network in (
+        "2001::/23",  # IETF protocol assignments (Teredo, ORCHID, benchmarking, ...)
+        "2001:db8::/32",  # documentation
+        "3fff::/20",  # documentation
+    )
+)
+_NAT64 = ipaddress.IPv6Network("64:ff9b::/96")
+_SIX_TO_FOUR = ipaddress.IPv6Network("2002::/16")
 
 
 def _is_non_global(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """Return *True* for any address that is not globally routable."""
-    if isinstance(addr, ipaddress.IPv6Address):
-        embedded = addr.ipv4_mapped
-        if embedded is None and addr in _NAT64:
-            embedded = ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
-        if embedded is None and addr in _SIX_TO_FOUR:
-            embedded = ipaddress.IPv4Address((int(addr) >> 80) & 0xFFFFFFFF)
-        if embedded is not None:
-            return _is_non_global(embedded)
-        if addr in _IPV6_ZERO_SLASH_8 or addr.is_site_local:
-            return True
-    return (
-        not addr.is_global
-        or addr.is_multicast
-        or addr.is_loopback
-        or addr.is_link_local
-        or addr.is_unspecified
-        or addr.is_reserved
-    )
+    """Return *True* for any address that is not globally routable.
 
+    The ranges are listed explicitly (not taken from ``ipaddress.is_global``, which changes between
+    Python versions) so the result is identical on every supported interpreter and in the TypeScript SDK.
+    """
+    if isinstance(addr, ipaddress.IPv4Address):
+        return any(addr in network for network in _NON_GLOBAL_IPV4)
 
-_NAT64 = ipaddress.IPv6Network("64:ff9b::/96")
-_SIX_TO_FOUR = ipaddress.IPv6Network("2002::/16")
-_IPV6_ZERO_SLASH_8 = ipaddress.IPv6Network("::/8")
+    # IPv4-mapped, NAT64 and 6to4 addresses are judged by the IPv4 address they embed.
+    embedded = addr.ipv4_mapped
+    if embedded is None and addr in _NAT64:
+        embedded = ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+    if embedded is None and addr in _SIX_TO_FOUR:
+        embedded = ipaddress.IPv4Address((int(addr) >> 80) & 0xFFFFFFFF)
+    if embedded is not None:
+        return _is_non_global(embedded)
+
+    # Fail closed: only global unicast space (2000::/3) is allowed.
+    return addr not in _GLOBAL_UNICAST_IPV6 or any(addr in network for network in _NON_GLOBAL_IPV6)
 
 
 def _is_private_or_reserved(hostname: str) -> bool:
@@ -73,6 +101,21 @@ def _is_private_or_reserved(hostname: str) -> bool:
     return lower.startswith("[")
 
 
+def _assert_valid_host(hostname: str) -> None:
+    """Reject hosts the TypeScript SDK's WHATWG URL parser rejects (parity), so both fail the same way."""
+    if not hostname:
+        raise ValueError("Invalid URL: missing host name")
+    if ":" in hostname:  # IPv6 literal: classified by ``_is_private_or_reserved``
+        return
+    if _FORBIDDEN_HOST_CHARS_RE.search(hostname):
+        raise ValueError(f"Invalid URL: forbidden character in host name: {hostname!r}")
+    # A host whose last label is a number must be a valid IPv4 address ("1.2.3.4.5" is not a name).
+    if _NUMERIC_LABEL_RE.match(hostname.rstrip(".").rsplit(".", 1)[-1]) and not _LEGACY_IPV4_RE.match(
+        hostname.rstrip(".")
+    ):
+        raise ValueError(f"Invalid URL: malformed IPv4 address: {hostname}")
+
+
 def validate_http_target(url: str, options: HttpTargetValidationOptions | None = None) -> None:
     """Validate *url* for SSRF safety.  Raises ``ValueError`` if the URL is unsafe."""
     opts = options or HttpTargetValidationOptions()
@@ -89,6 +132,7 @@ def validate_http_target(url: str, options: HttpTargetValidationOptions | None =
         return
 
     hostname = parsed.hostname or ""
+    _assert_valid_host(hostname)
     if _is_private_or_reserved(hostname):
         raise ValueError(f"Blocked request to private/reserved address: {hostname}")
 
