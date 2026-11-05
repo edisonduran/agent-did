@@ -1,3 +1,4 @@
+const { AIMessage } = require("@langchain/core/messages");
 const { createAgent } = require("langchain");
 const { fakeModel } = require("@langchain/core/testing");
 const { AgentIdentity, InMemoryAgentRegistry, LocalKeySigner } = require("@agentdid/sdk");
@@ -136,7 +137,8 @@ describe("@agentdid/langchain did:wba integrated demo", () => {
             body: SIGNED_REQUEST_BODY,
           },
         },
-      ]);
+      ])
+      .respond(new AIMessage(`Identity ${ACTIVE_DID} checked, partner resolved and request signed for ${SIGNED_REQUEST_URL}.`));
 
     const agent = createAgent({
       model,
