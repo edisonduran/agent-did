@@ -1,3 +1,5 @@
+import http from 'node:http';
+import { AddressInfo } from 'node:net';
 import { assertResolvedTargetAllowed, createSafeFetch } from '../src/core/safe-fetch';
 
 const lookupTo = (...addresses: string[]) => async () => addresses.map((address) => ({ address }));
@@ -8,29 +10,100 @@ describe('createSafeFetch', () => {
     globalThis.fetch = original;
   });
 
-  it('never follows redirects and preserves the caller init', async () => {
+  it('uses the platform fetch without following redirects for IP literals and allowed private targets', async () => {
     const spy = jest.fn().mockResolvedValue({ ok: false, status: 302 });
     globalThis.fetch = spy as unknown as typeof fetch;
+    const lookup = jest.fn();
 
-    await createSafeFetch({}, lookupTo('93.184.216.34'))(
-      'https://example.com/a',
-      { method: 'PUT', headers: { a: 'b' }, redirect: 'follow' }
-    );
+    await createSafeFetch({}, lookup)('https://93.184.216.34/a', { method: 'PUT', headers: { a: 'b' }, redirect: 'follow' });
+    await createSafeFetch({ allowPrivateTargets: true }, lookup)('http://internal.example.com/b');
 
-    expect(spy).toHaveBeenCalledWith('https://example.com/a', {
+    expect(spy).toHaveBeenNthCalledWith(1, 'https://93.184.216.34/a', {
       method: 'PUT',
       headers: { a: 'b' },
       redirect: 'manual'
     });
+    expect(spy).toHaveBeenNthCalledWith(2, 'http://internal.example.com/b', { redirect: 'manual' });
+    expect(lookup).not.toHaveBeenCalled();
   });
 
-  it('does not send the request when the host resolves to a private address', async () => {
-    const spy = jest.fn();
-    globalThis.fetch = spy as unknown as typeof fetch;
+  describe('against a local server', () => {
+    let server: http.Server;
+    let port: number;
+    let received: Array<{ method?: string; url?: string; host?: string; body: string }>;
 
-    await expect(createSafeFetch({}, lookupTo('169.254.169.254'))('https://metadata.example.com/'))
-      .rejects.toThrow('private/reserved');
-    expect(spy).not.toHaveBeenCalled();
+    beforeEach(async () => {
+      received = [];
+      server = http.createServer((req, res) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (c: Buffer) => chunks.push(c));
+        req.on('end', () => {
+          received.push({ method: req.method, url: req.url, host: req.headers.host, body: Buffer.concat(chunks).toString() });
+          if (req.url === '/redirect') {
+            res.writeHead(302, { location: 'http://169.254.169.254/' });
+            res.end();
+            return;
+          }
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      port = (server.address() as AddressInfo).port;
+    });
+
+    afterEach(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    it('connects to the validated address, resolves once, and keeps the Host header', async () => {
+      const lookup = jest.fn().mockResolvedValue([{ address: '127.0.0.1' }]);
+      const safeFetch = createSafeFetch({}, lookup, () => false);
+
+      const response = await safeFetch(`http://pinned.test:${port}/doc?x=1`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"a":1}'
+      });
+
+      expect(response.ok).toBe(true);
+      expect(await response.json()).toEqual({ ok: true });
+      expect(lookup).toHaveBeenCalledTimes(1);
+      expect(received).toEqual([
+        { method: 'POST', url: '/doc?x=1', host: `pinned.test:${port}`, body: '{"a":1}' }
+      ]);
+    });
+
+    it('does not follow redirects', async () => {
+      const safeFetch = createSafeFetch({}, async () => [{ address: '127.0.0.1' }], () => false);
+
+      const response = await safeFetch(`http://pinned.test:${port}/redirect`);
+
+      expect(response.status).toBe(302);
+      expect(response.ok).toBe(false);
+      expect(response.headers.get('location')).toBe('http://169.254.169.254/');
+      expect(received).toHaveLength(1);
+    });
+
+    it.each([['127.0.0.1'], ['10.0.0.5'], ['169.254.169.254'], ['fd00::1']])(
+      'refuses to connect when the name resolves to %s',
+      async (address) => {
+        const safeFetch = createSafeFetch({}, async () => [{ address }]);
+
+        await expect(safeFetch(`http://rebind.test:${port}/`)).rejects.toThrow('private/reserved');
+        expect(received).toHaveLength(0);
+      }
+    );
+
+    it('refuses when any resolved address is private, and when the name does not resolve', async () => {
+      await expect(
+        createSafeFetch({}, async () => [{ address: '93.184.216.34' }, { address: '127.0.0.1' }])(`http://mixed.test:${port}/`)
+      ).rejects.toThrow('private/reserved');
+      await expect(
+        createSafeFetch({}, async () => { throw new Error('ENOTFOUND'); })(`http://nope.test:${port}/`)
+      ).rejects.toThrow('could not resolve');
+      expect(received).toHaveLength(0);
+    });
   });
 });
 
