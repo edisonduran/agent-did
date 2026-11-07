@@ -255,8 +255,8 @@ Raw chain-of-thought capture is out of scope for RFC-001. Implementations that n
 
 Agents sign HTTP requests with RFC 9421 HTTP Message Signatures using the following profile:
 
-1. The request MUST carry `Signature-Agent` (the agent's DID), `Date`, and `Content-Digest` (RFC 9530, `sha-256`).
-2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`. Additional components MAY follow.
+1. The request MUST carry `Signature-Agent` (the agent's DID), `Date`, and `Content-Digest` (RFC 9530, `sha-256`). The `Content-Digest` value is exactly `sha-256=:<base64 of SHA-256(body)>:`: a verifier MUST reject a field with any other form, including a dictionary that adds further algorithms.
+2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`. Additional components MAY follow. A verifier MUST reject a signature whose covered components start with anything else (a missing, reordered or preceded component).
 3. The signature parameters MUST include `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `keyid` MUST be a verification method of the `Signature-Agent` DID.
 4. The signature base MUST be built as defined in RFC 9421 §2.5. Verifiers MUST rebuild it from the received request, with the `"@signature-params"` line re-serialized from the parsed `Signature-Input`.
 5. Verifiers MUST reject the signature unless: the profile in items 2 and 3 is present; `created` is within the allowed clock skew; `now <= expires`; `Content-Digest` matches the body; and the signature verifies with an active key listed under `assertionMethod` in the resolved DID document.

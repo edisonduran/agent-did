@@ -28,6 +28,11 @@ export interface VerifyRequestDeps {
   now: Date;
 }
 
+/** RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow. */
+function startsWithComponents(components: readonly string[], required: readonly string[]): boolean {
+  return required.every((component, index) => components[index] === component);
+}
+
 export async function verifyAgentDidHttpRequest(
   params: VerifyHttpRequestSignatureParams,
   deps: VerifyRequestDeps
@@ -76,7 +81,7 @@ export async function verifyAgentDidHttpRequest(
       typeof nonce !== 'string' || nonce.length === 0 ||
       typeof keyId !== 'string' ||
       !keyId.startsWith(`${signatureAgent}#`) ||
-      !AGENT_DID_HTTP_SIGNATURE_COMPONENTS.every((component) => input.components.includes(component)) ||
+      !startsWithComponents(input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS) ||
       Math.abs(now - created) > maxSkew ||
       expires < created ||
       expires - created > maxLifetime ||

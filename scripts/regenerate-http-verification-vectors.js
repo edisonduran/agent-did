@@ -245,6 +245,13 @@ add('reject-digest-other-algorithm', '§6.5 item 1', '`Content-Digest` uses `sha
   expected: false
 });
 
+add('reject-digest-with-additional-algorithm', '§6.5 item 1', '`Content-Digest` is a dictionary with `sha-256` and `sha-512`; the profile allows exactly one member, `sha-256`.', {
+  build: buildHeaders({
+    headers: { 'Content-Digest': `${contentDigest(REQUEST.body)}, sha-512=:${crypto.createHash('sha512').update(REQUEST.body, 'utf-8').digest().toString('base64')}:` }
+  }),
+  expected: false
+});
+
 // Signature parameters
 add('reject-foreign-tag', '§6.5 item 3 (tag)', '`tag="web-bot-auth"`: another profile must not be accepted as an Agent-DID signature.', {
   build: buildHeaders({ params: { tag: 'web-bot-auth' } }), expected: false
@@ -328,6 +335,23 @@ for (const component of FULL_COMPONENTS) {
     expected: false
   });
 }
+
+// Required components must come in the order of §6.5 item 2 (re-signed: only the order is wrong)
+const swapped = [...FULL_COMPONENTS];
+[swapped[1], swapped[2]] = [swapped[2], swapped[1]];
+add('reject-components-reordered', '§6.5 item 2', 'Two required components are swapped (`@path` before `@authority`).', {
+  build: buildHeaders({ params: { components: swapped } }), expected: false
+});
+add('reject-components-reversed', '§6.5 item 2', 'The seven required components in reverse order.', {
+  build: buildHeaders({ params: { components: [...FULL_COMPONENTS].reverse() } }), expected: false
+});
+add('reject-additional-component-first', '§6.5 item 2', 'An additional component comes before the required ones; additional components may only follow.', {
+  build: buildHeaders({
+    headers: { 'Content-Type': 'application/json' },
+    params: { components: ['content-type', ...FULL_COMPONENTS] }
+  }),
+  expected: false
+});
 
 // The verified request differs from the signed one
 const request2 = (change) => ({ ...REQUEST, ...change });
