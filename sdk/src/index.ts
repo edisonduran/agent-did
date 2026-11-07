@@ -31,8 +31,16 @@ export {
   RotateVerificationMethodResult,
   VerifyHttpRequestSignatureParams,
   VerifyHttpRequestSignatureResult,
-  HttpSignatureRejection
+  HttpSignatureRejection,
+  CheckKeyAtTimeOptions,
+  KeyAtTimeRejection,
+  KeyAtTimeResult,
+  KeyAtTimeUncertainty,
+  VerifySignatureAtTimeOptions,
+  VerifySignatureAtTimeResult
 } from './core/types';
+
+export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 
 export {
   IdentityCompositionError,

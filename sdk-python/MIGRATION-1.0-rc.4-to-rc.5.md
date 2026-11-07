@@ -111,7 +111,19 @@ await identity.create(CreateAgentParams(**params, additional_verification_relati
 
 Without the option the document is the same as before.
 
-## 9. EVM profile (`agent_did_sdk.evm`)
+## 9. New: signatures at a stated time; `verify_historical_signature` deprecated
+
+`verify_historical_signature` accepts any retired key still in the document, with no time check. It keeps working in rc.5 but is deprecated and scheduled for removal before `v1.0.0`. Replace it with `verify_signature_at_time`, which checks the key against the DID's did:webvh log at the time the artifact states (RFC-001 §6.2.2):
+
+```python
+await client.import_did_webvh_history(did_log)  # for DIDs not created by this client
+result = await client.verify_signature_at_time(did, payload, signature, key_id, stated_time=stated_time)
+# result.status: "valid" | "invalid" | "indeterminate"
+```
+
+A key retired after `stated_time` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trusted_time_not_after` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verify_historical_signature` must decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
+
+## 10. EVM profile (`agent_did_sdk.evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
@@ -126,3 +138,4 @@ Without the option the document is the same as before.
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`next_update_keys`); it only helps if done before a compromise.
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `required_relationship_for(...)` instead of the `assertionMethod` default.
 - [ ] Agents that issue delegations or invoke capabilities are created with `additional_verification_relationships`.
+- [ ] Calls to `verify_historical_signature` are replaced with `verify_signature_at_time`, and `indeterminate` is handled as not accepted.

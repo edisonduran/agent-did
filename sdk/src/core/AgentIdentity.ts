@@ -179,7 +179,10 @@ export class AgentIdentity {
     return AgentIdentity.defaultClient.verifySignature(did, payload, signature, keyId, requiredPurpose);
   }
 
-  /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
+  /**
+   * @deprecated Accepts a retired key with no time check. Use `verifySignatureAtTime` on an `AgentDidClient`
+   * (RFC-001 §6.2.2). Scheduled for removal before `v1.0.0`.
+   */
   public static async verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion): Promise<boolean> {
     return AgentIdentity.defaultClient.verifyHistoricalSignature(did, payload, signature, keyId, requiredPurpose);
   }

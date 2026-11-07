@@ -56,6 +56,9 @@ from .core.types import (
     DidWebvhControllerKeys,
     HttpSignatureRejection,
     IdentityCompositionErrorReason,
+    KeyAtTimeRejection,
+    KeyAtTimeResult,
+    KeyAtTimeUncertainty,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     SignedArtifactKind,
@@ -67,6 +70,8 @@ from .core.types import (
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
+    VerifySignatureAtTimeRejection,
+    VerifySignatureAtTimeResult,
 )
 from .crypto.hash import (
     canonicalize_json,
@@ -100,6 +105,7 @@ from .resolver.types import (
 )
 from .resolver.universal import UniversalResolverClient
 from .resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
+from .verification.key_at_time import check_did_webvh_key_at_time
 from .webvh.adapter import DidWebvhError, DidWebvhErrorCode
 
 __all__ = [
@@ -124,6 +130,12 @@ __all__ = [
     "VerifyHttpRequestSignatureResult",
     "DidWebvhControllerKeys",
     "HttpSignatureRejection",
+    "KeyAtTimeRejection",
+    "KeyAtTimeResult",
+    "KeyAtTimeUncertainty",
+    "VerifySignatureAtTimeRejection",
+    "VerifySignatureAtTimeResult",
+    "check_did_webvh_key_at_time",
     "AgentDocumentHistoryAction",
     "AgentDocumentHistoryEntry",
     # did:webvh v1.0 errors (log verification, unauthorized controller signer)

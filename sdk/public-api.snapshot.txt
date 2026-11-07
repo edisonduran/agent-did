@@ -22,6 +22,8 @@ BearerTokenHttpDIDDocumentSource
 BearerTokenHttpDIDDocumentSourceConfig
 buildSignatureBase
 canonicalizeJson
+checkDidWebvhKeyAtTime
+CheckKeyAtTimeOptions
 CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
@@ -63,6 +65,9 @@ isoToUnixString
 isUnixTimestampString
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
+KeyAtTimeRejection
+KeyAtTimeResult
+KeyAtTimeUncertainty
 LocalKeySigner
 MetadataCommitmentSalts
 NonceStore
@@ -102,3 +107,5 @@ VerificationRelationship
 VerifyHttpRequestSignatureParams
 VerifyHttpRequestSignatureResult
 verifyMetadataCommitment
+VerifySignatureAtTimeOptions
+VerifySignatureAtTimeResult

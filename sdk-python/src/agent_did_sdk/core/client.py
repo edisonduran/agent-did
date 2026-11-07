@@ -35,8 +35,10 @@ from ..resolver.types import (
 )
 from ..resolver.universal import UniversalResolverClient
 from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
+from ..verification.key_at_time import check_did_webvh_key_at_time, signature_result_for_key
 from ..verification.signature import verify_with_active_keys, verify_with_historical_key
 from ..webvh.adapter import (
+    DidWebvhError,
     create_did_webvh_log,
     deactivate_did_webvh_log,
     did_webvh_update_key_for,
@@ -64,6 +66,7 @@ from .types import (
     CreateAgentResult,
     CreateDidWebvhOptions,
     DidWebvhControllerKeys,
+    KeyAtTimeResult,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     UpdateAgentDocumentParams,
@@ -71,6 +74,7 @@ from .types import (
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
+    VerifySignatureAtTimeResult,
 )
 
 
@@ -515,13 +519,62 @@ class AgentDidClient:
         key_id: str,
         required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
-        """Verify a historical signature against any key (including deactivated) in the DID document."""
+        """Verify a historical signature against any key (including deactivated) in the DID document.
+
+        Deprecated: it accepts a retired key with no time check, so it cannot tell a signature made before the
+        key was retired from one forged afterwards. Use ``verify_signature_at_time`` (RFC-001 §6.2.2). Scheduled
+        for removal before ``v1.0.0``.
+        """
         try:
             verification_chain = await self._resolve_active_verification_chain(did)
         except Exception:
             return False
 
         return verify_with_historical_key(verification_chain[0], payload, signature, key_id, required_purpose)
+
+    async def verify_signature_at_time(
+        self,
+        did: str,
+        payload: str,
+        signature: str,
+        key_id: str,
+        *,
+        stated_time: str,
+        required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
+        trusted_time_not_after: str | None = None,
+    ) -> VerifySignatureAtTimeResult:
+        """Verify a signature made with *key_id* at the time the signed artifact states (RFC-001 §6.2.2).
+
+        Uses the DID's did:webvh log as created or imported in this client (``import_did_webvh_history``).
+
+        * ``valid``: the signature verifies and the key was authorized for *required_purpose* at *stated_time*,
+          with no later change that retires it, or with *trusted_time_not_after* earlier than that change.
+        * ``invalid``: the signature does not verify, the key was not authorized at *stated_time*, or the log
+          fails verification.
+        * ``indeterminate``: the key was retired or the DID deactivated after *stated_time* and there is no
+          trusted time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+
+        The stated time is asserted by the signer. Unlike ``verify_historical_signature``, a retired key is never
+        accepted on the signer's word alone.
+        """
+        log = self._did_webvh_log_store.get(did) if did.startswith("did:webvh:") else None
+        if log is None:
+            return VerifySignatureAtTimeResult(
+                status="indeterminate",
+                key=KeyAtTimeResult(status="indeterminate", key_id=key_id, reason="history_unavailable"),
+            )
+        try:
+            key = await check_did_webvh_key_at_time(
+                log,
+                key_id=key_id,
+                stated_time=stated_time,
+                required_purpose=required_purpose,
+                did=did,
+                trusted_time_not_after=trusted_time_not_after,
+            )
+        except DidWebvhError:
+            return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed")
+        return signature_result_for_key(key, payload, signature)
 
     async def resolve(self, did: str) -> AgentDIDDocument:
         if did.startswith("did:webvh:"):
