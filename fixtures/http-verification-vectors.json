@@ -325,25 +325,6 @@
       "reason": "digest_mismatch"
     },
     {
-      "id": "reject-digest-with-additional-algorithm",
-      "rule": "§6.5 item 1",
-      "description": "`Content-Digest` is a dictionary with `sha-256` and `sha-512`; the profile allows exactly one member, `sha-256`.",
-      "request": {
-        "method": "POST",
-        "url": "https://api.example.com/v1/verify?mode=fixture",
-        "body": "{\"fixture\":true}"
-      },
-      "headers": {
-        "Signature": "sig1=:ff/5L/Jx2QTutCppjQYCyPMXT1Ne18J6v+lRxtY5c9YL5Vk26M4/QQToFMBxtJghZzPiDLS+bsINow05jTyVDA==:",
-        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
-        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
-        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:, sha-512=:2XvzyzjWlZU3J7+YOp3fybDmGIj7SSh7j8WtMqh3LgB/f1GAPrX7Sboj2yyN/4tVjFZUrzimjeXYtQqa9aAXLA==:"
-      },
-      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:, sha-512=:2XvzyzjWlZU3J7+YOp3fybDmGIj7SSh7j8WtMqh3LgB/f1GAPrX7Sboj2yyN/4tVjFZUrzimjeXYtQqa9aAXLA==:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-      "expected": false
-    },
-    {
       "id": "reject-foreign-tag",
       "rule": "§6.5 item 3 (tag)",
       "description": "`tag=\"web-bot-auth\"`: another profile must not be accepted as an Agent-DID signature.",
@@ -1012,64 +993,6 @@
       "signatureBase": "\"content-type\": application/json\n\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"content-type\" \"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
       "expected": false,
       "reason": "components_order"
-    },
-    {
-      "id": "reject-components-reordered",
-      "rule": "§6.5 item 2",
-      "description": "Two required components are swapped (`@path` before `@authority`).",
-      "request": {
-        "method": "POST",
-        "url": "https://api.example.com/v1/verify?mode=fixture",
-        "body": "{\"fixture\":true}"
-      },
-      "headers": {
-        "Signature": "sig1=:ZkJSROvJpACMdR7wrdv+/a/zHCm2aweQuno4uyp1VzbYoeMpxkQaPDrYjk5IBjI/fJFRTBHDbvdzjQ1MI679Cg==:",
-        "Signature-Input": "sig1=(\"@method\" \"@path\" \"@authority\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
-        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
-        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
-      },
-      "signatureBase": "\"@method\": POST\n\"@path\": /v1/verify\n\"@authority\": api.example.com\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@path\" \"@authority\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-      "expected": false
-    },
-    {
-      "id": "reject-components-reversed",
-      "rule": "§6.5 item 2",
-      "description": "The seven required components in reverse order.",
-      "request": {
-        "method": "POST",
-        "url": "https://api.example.com/v1/verify?mode=fixture",
-        "body": "{\"fixture\":true}"
-      },
-      "headers": {
-        "Signature": "sig1=:l4EG7xVwlfl2FYhLLFjPY55GHf1Yt7tjGYhcP0bWc79MFRH879jvTqDlZObLEnuJHZgK4uPW1Dn8HNTDGSFcAQ==:",
-        "Signature-Input": "sig1=(\"signature-agent\" \"date\" \"content-digest\" \"@query\" \"@path\" \"@authority\" \"@method\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
-        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
-        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
-      },
-      "signatureBase": "\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"@query\": ?mode=fixture\n\"@path\": /v1/verify\n\"@authority\": api.example.com\n\"@method\": POST\n\"@signature-params\": (\"signature-agent\" \"date\" \"content-digest\" \"@query\" \"@path\" \"@authority\" \"@method\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-      "expected": false
-    },
-    {
-      "id": "reject-additional-component-first",
-      "rule": "§6.5 item 2",
-      "description": "An additional component comes before the required ones; additional components may only follow.",
-      "request": {
-        "method": "POST",
-        "url": "https://api.example.com/v1/verify?mode=fixture",
-        "body": "{\"fixture\":true}"
-      },
-      "headers": {
-        "Signature": "sig1=:wex4YVlfAUt+0BA5KtyTwsjpi/0jcRMETz421EFPlXJ7/PgMzNswEesMrNx1wNcgJyNY5QAql+md0P01HeS5Ag==:",
-        "Signature-Input": "sig1=(\"content-type\" \"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
-        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
-        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
-        "Content-Type": "application/json"
-      },
-      "signatureBase": "\"content-type\": application/json\n\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"content-type\" \"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-      "expected": false
     },
     {
       "id": "reject-method-differs",
