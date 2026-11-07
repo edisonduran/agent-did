@@ -28,6 +28,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 ### Result
 
 - Added informative §8.1 "Security considerations by flow", summarizing the interoperability-relevant points of [Threat-Model.md](Threat-Model.md). No normative or wire-format change.
+- §7.2 lists the new HTTP verification vectors (`fixtures/http-verification-vectors.json`) and states three conventions the vectors rely on (salt written as hex text, bytes signed by `signMessage`, rejection instead of an exception for a `keyid` outside `assertionMethod`). No wire-format change.
 
 ---
 

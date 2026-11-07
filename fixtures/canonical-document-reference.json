@@ -25,12 +25,12 @@
         "id": "did:agent:polygon:0xcanonicalfixture#key-1",
         "type": "Ed25519VerificationKey2020",
         "controller": "did:ethr:0xfixturecontroller",
-        "publicKeyMultibase": "z678cd8acdfbc5713c5eec46e89b0934543fe7e51602794360f421eba84cb1a5a"
+        "publicKeyMultibase": "z6MktPRkkheyNrEEUFkbdFKopndngf3BV4X5Xis3cDkwABu9"
       }
     ],
     "authentication": [
       "did:agent:polygon:0xcanonicalfixture#key-1"
     ]
   },
-  "expectedDocumentRef": "hash://sha256/9bb9d869ba8861acf18456dd051ad7a28bf23b0074c37c5a22e67901daa80d4b"
+  "expectedDocumentRef": "hash://sha256/87402cb5f300dc199df404f4bab22fec471ecf1257ba621610fa47891c293dcf"
 }

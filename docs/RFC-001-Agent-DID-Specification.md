@@ -302,10 +302,17 @@ To validate verification compatibility between implementations, maintain version
 
 Current fixture reference:
 
-- `fixtures/interop-vectors.json` (message and HTTP signatures)
+- `fixtures/interop-vectors.json` (message and HTTP signatures: one valid request per DID method)
+- `fixtures/http-verification-vectors.json` (the §6.5 verification rules: accepted requests and rejected requests, each rejected one differing from the valid request by a single change)
 - `fixtures/canonical-document-reference.json` (`documentRef` computation)
 - `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)
-- `sdk/tests/InteropVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`
+- `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
+
+Conventions the shared vectors rely on, stated here so that an independent implementation does not have to infer them:
+
+- A commitment salt carried as text is the lowercase hexadecimal encoding of its bytes (64 characters for the required 32 bytes); the HMAC key is the decoded bytes (§4.3).
+- `signMessage` signs the UTF-8 bytes of the payload, and signatures are carried as lowercase hexadecimal.
+- A verifier returns a rejection, never an exception, for a request whose `keyid` is not an `assertionMethod` key of the `Signature-Agent` DID document.
 
 ### 7.3 Quick Mapping: RFC → SDK
 

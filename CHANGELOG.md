@@ -10,6 +10,15 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- `fixtures/http-verification-vectors.json`: shared HTTP verification vectors for RFC-001 §6.5 (49 vectors: accepted requests, including no query, an explicit default port, extra covered components and a re-serialized `Signature-Input`, and rejected requests for each rule: foreign or missing `tag`, `alg`, `nonce`, `created`, `expires`, `keyid`, a `keyid` under another DID or outside `assertionMethod`, expired and not-yet-valid signatures, lifetime above the cap, each required component dropped, a `Content-Digest` that does not match, a tampered signature, a request that differs from the signed one and a replayed nonce). Each rejected vector differs from the valid request by one change, so a verifier that skips one rule fails exactly that vector. `scripts/regenerate-http-verification-vectors.js` rebuilds the file deterministically (test-only keys). Both SDKs run it (`sdk/tests/HttpVerificationVectors.test.ts`, `sdk-python/tests/test_http_verification_vectors.py`) in `npm run interop:check` and the cross-SDK interop workflow. These are self-written vectors: they prove the SDKs agree, not conformance with an external reference.
+
+### Fixed
+
+- `verifyHttpRequestSignature` / `verify_http_request_signature` raised `IdentityCompositionError` instead of returning `false` when the `keyid` of a signed request is not an `assertionMethod` key of the `Signature-Agent` DID (for example a fragment the document does not have, or a key listed only under `keyAgreement`). The request is now rejected. Found by the new vectors.
+- `fixtures/canonical-document-reference.json`: the document carried a `publicKeyMultibase` that is hex, not base58btc (reported in #127). It now holds a valid key, and `expectedDocumentRef` changes to `hash://sha256/87402cb5f300dc199df404f4bab22fec471ecf1257ba621610fa47891c293dcf`. Readers pinned to an earlier commit of the fixture must update the expected value; the canonicalization itself is unchanged.
+
 ### Changed
 
 - The default HTTP client of the SDK's document sources (TypeScript fetch, Python httpx client) now resolves the host name before each request and refuses it when any resolved address is not globally routable; an unresolvable name is refused. A caller-supplied `fetchFn` / `http_client` keeps its own policy. The connection is made to the address that was validated (the name is resolved once, TLS still verifies the original host name), so DNS rebinding after the check cannot redirect the request. The default TypeScript client now uses `node:http`/`node:https` for named hosts, so it is Node.js only and returns a minimal fetch-like response (`ok`, `status`, `headers`, `text()`, `json()`).

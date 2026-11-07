@@ -11,6 +11,7 @@ import {
   parseSignatureInputHeader,
   SignatureInput
 } from '../core/http-signatures';
+import { IdentityCompositionError } from '../core/identity-composition';
 import { NonceStore } from '../core/nonce-store';
 import { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, computeContentDigest } from '../core/http-profile';
 
@@ -91,7 +92,18 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
-    if (!await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, 'assertionMethod')) {
+    // A `keyid` that is not an `assertionMethod` of the DID is an untrusted input, so it is a
+    // rejection (`false`), not an exception.
+    let signatureValid: boolean;
+    try {
+      signatureValid = await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, 'assertionMethod');
+    } catch (error) {
+      if (error instanceof IdentityCompositionError) {
+        continue;
+      }
+      throw error;
+    }
+    if (!signatureValid) {
       continue;
     }
 

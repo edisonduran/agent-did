@@ -81,7 +81,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run Python interop evidence path
-        run: python -m pytest sdk-python/tests/test_interop_vectors.py -q
+        run: python -m pytest sdk-python/tests/test_interop_vectors.py sdk-python/tests/test_http_verification_vectors.py -q
 
   live-roundtrip:
     name: Live TS <-> Python round trip
