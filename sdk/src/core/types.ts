@@ -88,6 +88,14 @@ export type VerificationRelationship =
 
 export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
 
+/**
+ * Kinds of signed artifact whose required verification relationship RFC-001 §6.2.1.3 fixes:
+ * `assertion` (signed payloads, receipts, attestations and other claims), `http_request` (HTTP message
+ * signatures), `delegation` (issuing a delegation of authority), `invocation` (exercising a delegated
+ * capability) and `authentication` (proving control of the DID, e.g. in a challenge).
+ */
+export type SignedArtifactKind = 'assertion' | 'http_request' | 'delegation' | 'invocation' | 'authentication';
+
 export type IdentityCompositionErrorReason =
   | 'key_purpose_violation'
   | 'rotation_window_closed'

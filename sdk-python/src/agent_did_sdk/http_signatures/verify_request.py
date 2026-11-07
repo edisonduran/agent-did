@@ -22,6 +22,7 @@ from ..core.http_signatures import (
     parse_signature_header,
     parse_signature_input_header,
 )
+from ..core.identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT
 from ..core.nonce_store import NonceStore
 from ..core.types import (
     HttpSignatureRejection,
@@ -132,7 +133,9 @@ async def verify_agent_did_http_request(
             failures.append(("signed_component_missing", True))
             continue
 
-        outcome = await verify_signature(signature_agent, signature_base, signature.hex(), key_id, "assertionMethod")
+        outcome = await verify_signature(
+            signature_agent, signature_base, signature.hex(), key_id, REQUIRED_RELATIONSHIP_BY_ARTIFACT["http_request"]
+        )
         if outcome != "valid":
             if outcome == "did_resolution_failed":
                 failures.append(("did_resolution_failed", True))

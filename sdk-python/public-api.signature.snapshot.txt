@@ -411,6 +411,9 @@ class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source
   attr wba_document_source: DIDDocumentSource | None
   attr webvh_document_source: DIDDocumentSource | None
 
+## REQUIRED_RELATIONSHIP_BY_ARTIFACT
+value REQUIRED_RELATIONSHIP_BY_ARTIFACT = mappingproxy({'assertion': 'assertionMethod', 'http_request': 'assertionMethod', 'delegation': 'capabilityDelegation', 'invocation': 'capabilityInvocation', 'authentication': 'authentication'})
+
 ## ResolverCacheStats
 class ResolverCacheStats(hits: 'int', misses: 'int', size: 'int') -> None
   attr hits: int
@@ -459,6 +462,9 @@ class S3CompatibleDIDDocumentSourceConfig(bucket: 'str', endpoint: 'str | None' 
   attr reference_to_write_url: Callable[[str, str], str] | None
   attr store_method: str
 
+## SIGNED_ARTIFACT_KINDS
+value SIGNED_ARTIFACT_KINDS = ('assertion', 'http_request', 'delegation', 'invocation', 'authentication')
+
 ## SIGNING_VERIFICATION_PURPOSES
 value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
 
@@ -480,6 +486,9 @@ class SignatureInput(components: 'list[str]', params: 'list[tuple[str, Signature
   attr components: list[str]
   attr params: list[tuple[str, SignatureParamValue]]
   def get(self, name: 'str') -> 'SignatureParamValue | None'
+
+## SignedArtifactKind
+value SignedArtifactKind = typing.Literal['assertion', 'http_request', 'delegation', 'invocation', 'authentication']
 
 ## SigningVerificationPurpose
 value SigningVerificationPurpose = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation']
@@ -631,6 +640,9 @@ def parse_signature_header(value: 'str') -> 'dict[str, bytes]'
 
 ## parse_signature_input_header
 def parse_signature_input_header(value: 'str') -> 'dict[str, SignatureInput]'
+
+## required_relationship_for
+def required_relationship_for(artifact: 'SignedArtifactKind') -> 'SigningVerificationPurpose'
 
 ## serialize_signature_input
 def serialize_signature_input(signature_input: 'SignatureInput') -> 'str'

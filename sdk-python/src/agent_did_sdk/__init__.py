@@ -25,12 +25,15 @@ from .core.identity import (
 )
 from .core.identity_composition import (
     DID_VERIFICATION_RELATIONSHIPS,
+    REQUIRED_RELATIONSHIP_BY_ARTIFACT,
+    SIGNED_ARTIFACT_KINDS,
     SIGNING_VERIFICATION_PURPOSES,
     IdentityCompositionError,
     assert_key_purpose,
     assert_signing_purpose,
     get_key_relationships,
     get_relationship_key_ids,
+    required_relationship_for,
 )
 from .core.nonce_store import InMemoryNonceStore, NonceStore
 from .core.signer import AgentSigner, LocalKeySigner
@@ -53,6 +56,7 @@ from .core.types import (
     IdentityCompositionErrorReason,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
+    SignedArtifactKind,
     SignHttpRequestParams,
     SigningVerificationPurpose,
     UpdateAgentDocumentParams,
@@ -105,6 +109,7 @@ __all__ = [
     "CreateDidWebvhOptions",
     "VerificationRelationship",
     "SigningVerificationPurpose",
+    "SignedArtifactKind",
     "IdentityCompositionErrorReason",
     "CreateAgentParams",
     "CreateAgentResult",
@@ -125,6 +130,9 @@ __all__ = [
     "IdentityCompositionError",
     "DID_VERIFICATION_RELATIONSHIPS",
     "SIGNING_VERIFICATION_PURPOSES",
+    "SIGNED_ARTIFACT_KINDS",
+    "REQUIRED_RELATIONSHIP_BY_ARTIFACT",
+    "required_relationship_for",
     "assert_key_purpose",
     "assert_signing_purpose",
     "get_key_relationships",

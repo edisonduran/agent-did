@@ -284,6 +284,11 @@ SigningVerificationPurpose = Literal[
     "capabilityDelegation",
     "capabilityInvocation",
 ]
+# Kinds of signed artifact whose required verification relationship RFC-001 §6.2.1.3 fixes:
+# "assertion" (signed payloads, receipts, attestations and other claims), "http_request" (HTTP message
+# signatures), "delegation" (issuing a delegation of authority), "invocation" (exercising a delegated
+# capability) and "authentication" (proving control of the DID, e.g. in a challenge).
+SignedArtifactKind = Literal["assertion", "http_request", "delegation", "invocation", "authentication"]
 IdentityCompositionErrorReason = Literal[
     "key_purpose_violation",
     "rotation_window_closed",

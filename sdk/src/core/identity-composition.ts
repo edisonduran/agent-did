@@ -1,6 +1,7 @@
 import {
   AgentDIDDocument,
   IdentityCompositionErrorReason,
+  SignedArtifactKind,
   SigningVerificationPurpose,
   VerificationRelationship
 } from './types';
@@ -46,6 +47,37 @@ export const SIGNING_VERIFICATION_PURPOSES: readonly SigningVerificationPurpose[
   'capabilityDelegation',
   'capabilityInvocation'
 ];
+
+/** Every `SignedArtifactKind`, in the order RFC-001 §6.2.1.3 lists them. */
+export const SIGNED_ARTIFACT_KINDS: readonly SignedArtifactKind[] = Object.freeze([
+  'assertion',
+  'http_request',
+  'delegation',
+  'invocation',
+  'authentication'
+] as const);
+
+/**
+ * The verification relationship a signing key must be listed under for each kind of signed artifact
+ * (RFC-001 §6.2.1.3). A key listed only under another relationship is rejected for that artifact with
+ * `key_purpose_violation`, even if it is valid for a different one; `keyAgreement` never signs.
+ */
+export const REQUIRED_RELATIONSHIP_BY_ARTIFACT: Readonly<Record<SignedArtifactKind, SigningVerificationPurpose>> =
+  Object.freeze({
+    assertion: 'assertionMethod',
+    http_request: 'assertionMethod',
+    delegation: 'capabilityDelegation',
+    invocation: 'capabilityInvocation',
+    authentication: 'authentication'
+  });
+
+/** Returns the verification relationship required for `artifact`; throws `TypeError` for an unknown kind. */
+export function requiredRelationshipFor(artifact: SignedArtifactKind): SigningVerificationPurpose {
+  if (!Object.prototype.hasOwnProperty.call(REQUIRED_RELATIONSHIP_BY_ARTIFACT, artifact)) {
+    throw new TypeError(`Unknown signed artifact kind: ${String(artifact)}`);
+  }
+  return REQUIRED_RELATIONSHIP_BY_ARTIFACT[artifact];
+}
 
 export function getRelationshipKeyIds(
   didDoc: AgentDIDDocument,

@@ -51,7 +51,7 @@ from ..webvh.documents import (
     normalize_did_path_segment,
 )
 from .http_security import HttpTargetValidationOptions
-from .identity_composition import IdentityCompositionError
+from .identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT, IdentityCompositionError
 from .nonce_store import InMemoryNonceStore, NonceStore
 from .signer import AgentSigner, LocalKeySigner
 from .time_utils import normalize_timestamp_to_iso
@@ -492,7 +492,7 @@ class AgentDidClient:
         payload: str,
         signature: str,
         key_id: str | None = None,
-        required_purpose: VerificationRelationship = "assertionMethod",
+        required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
         """Verify that *signature* was produced by *did* for *payload*."""
         try:
@@ -508,7 +508,7 @@ class AgentDidClient:
         payload: str,
         signature: str,
         key_id: str,
-        required_purpose: VerificationRelationship = "assertionMethod",
+        required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
         """Verify a historical signature against any key (including deactivated) in the DID document."""
         try:

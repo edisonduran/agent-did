@@ -75,7 +75,19 @@ await client.rotateControllerKey(document.id, { newControllerSigner: recoverySig
 
 While commitments are in force the key in `controllerSigner` can no longer sign log entries, so operations on such a DID (`updateDidDocument`, `rotateVerificationMethod`, `revokeDid`) need the committed key as `controllerSigner`. It protects only if committed before the compromise. `DidWebvhMetadata` gains `nextKeyHashes`; `client.getDidWebvhControllerKeys(did)` returns the active keys and the commitments.
 
-## 7. EVM profile (`@agentdid/evm`)
+## 7. New: required verification relationship per artifact kind (optional)
+
+Nothing changes for code that verifies payloads or HTTP requests: the defaults are still `assertionMethod`, now read from `REQUIRED_RELATIONSHIP_BY_ARTIFACT`. If you verify other signed artifacts, pass the relationship RFC-001 §6.2.1.3 requires for them instead of the default:
+
+```ts
+import { AgentIdentity, requiredRelationshipFor } from '@agentdid/sdk';
+
+await AgentIdentity.verifySignature(issuerDid, payload, signature, keyId, requiredRelationshipFor('delegation'));
+```
+
+A key listed only under `assertionMethod` is rejected for a delegation with `key_purpose_violation`. Documents created by the SDK list the agent key under `authentication` and `assertionMethod` only, so a DID that issues delegations needs its key listed under `capabilityDelegation`.
+
+## 8. EVM profile (`@agentdid/evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
@@ -88,3 +100,4 @@ While commitments are in force the key in `controllerSigner` can no longer sign 
 - [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
 - [ ] Code around `verifyHttpRequestSignature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`webvh.nextUpdateKeys`); it only helps if done before a compromise.
+- [ ] Verifiers of delegations, invocations or authentication challenges pass `requiredRelationshipFor(...)` instead of the `assertionMethod` default.

@@ -49,7 +49,7 @@ import {
 } from '../lifecycle/documents';
 import { verifyWithActiveKeys, verifyWithHistoricalKey } from '../verification/signature';
 import { SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
-import { IdentityCompositionError } from './identity-composition';
+import { IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
 
@@ -469,7 +469,7 @@ export class AgentDidClient {
     payload: string,
     signature: string,
     keyId?: string,
-    requiredPurpose: VerificationRelationship = 'assertionMethod'
+    requiredPurpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion
   ): Promise<boolean> {
     let verificationChain: AgentDIDDocument[];
     try {
@@ -492,7 +492,7 @@ export class AgentDidClient {
     payload: string,
     signature: string,
     keyId: string,
-    requiredPurpose: VerificationRelationship = 'assertionMethod'
+    requiredPurpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion
   ): Promise<boolean> {
     let verificationChain: AgentDIDDocument[];
     try {
