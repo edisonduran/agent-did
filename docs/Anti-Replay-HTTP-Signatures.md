@@ -69,39 +69,32 @@ The nonce is recorded only after the signature verifies, so forged requests cann
 
 Step 5 uses a `NonceStore`. By default it is a process-wide `InMemoryNonceStore`, which is correct for a single verifier instance. It refuses new nonces when full rather than evicting live ones.
 
-When several instances verify requests for the same agents, pass a shared store:
+When several instances verify requests for the same agents, pass a shared store. Tested reference implementations for Redis are in [`sdk/examples/redis-nonce-store.js`](../sdk/examples/redis-nonce-store.js) and [`sdk-python/examples/redis_nonce_store.py`](../sdk-python/examples/redis_nonce_store.py). Copy them into your service; they are not part of the SDK packages, so the SDKs have no Redis dependency.
 
 ```typescript
-import { createClient } from 'redis';
-import { NonceStore } from '@agentdid/sdk';
+const { createClient } = require('redis');
+const { createRedisNonceStore } = require('./redis-nonce-store');
 
-const redis = createClient();
+const redis = createClient({ url: process.env.REDIS_URL });
 await redis.connect();
 
-const redisNonceStore: NonceStore = {
-  async checkAndStore(key, expiresAt) {
-    // Atomic: set only if absent, expire at the signature's `expires`.
-    return (await redis.set(`agent-did:nonce:${key}`, '1', { NX: true, EXAT: expiresAt })) === 'OK';
-  }
-};
-
-await AgentIdentity.verifyHttpRequestSignature({ method, url, body, headers, nonceStore: redisNonceStore });
+await client.verifyHttpRequestSignature({ method, url, body, headers, nonceStore: createRedisNonceStore(redis) });
 ```
 
 ```python
 import redis.asyncio as redis
 
-class RedisNonceStore:
-    def __init__(self, client: redis.Redis) -> None:
-        self._client = client
-
-    async def check_and_store(self, key: str, expires_at: int) -> bool:
-        return bool(await self._client.set(f"agent-did:nonce:{key}", 1, nx=True, exat=expires_at))
-
-await AgentIdentity.verify_http_request_signature(VerifyHttpRequestSignatureParams(
-    method=method, url=url, body=body, headers=headers, nonce_store=RedisNonceStore(redis.Redis()),
+nonce_store = RedisNonceStore(redis.from_url(os.environ["REDIS_URL"]))
+await client.verify_http_request_signature(VerifyHttpRequestSignatureParams(
+    method=method, url=url, body=body, headers=headers, nonce_store=nonce_store,
 ))
 ```
+
+Any shared store must meet the `NonceStore` contract. The reference implementations have tests for each point, and you can run the same checks against your own store:
+
+- **Atomic.** `checkAndStore` is one conditional write (`SET key value NX EXAT ...`), never a read followed by a write. Of concurrent submissions of one key exactly one resolves `true`.
+- **Keeps the key through the second `expires` inclusive.** The verifier accepts a request while `now <= expires`, and Redis `EXAT t` removes the key at the start of second `t`, so the expiry is `expires + 1`. With `EXAT expires`, a request replayed in the last second of its life is accepted.
+- **Fails closed.** If the store is unreachable, `checkAndStore` rejects, `verifyHttpRequestSignature` rejects with it, and the request must be refused. Never accept a request because the store is down.
 
 ## Recommended expiration windows
 

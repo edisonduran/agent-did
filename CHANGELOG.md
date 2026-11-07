@@ -10,6 +10,10 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- Tested reference `NonceStore` for Redis, for several verifier instances: `sdk/examples/redis-nonce-store.js` and `sdk-python/examples/redis_nonce_store.py` (copy them into your service; the SDK packages gain no Redis dependency). Tests run them and `InMemoryNonceStore` against one `NonceStore` contract (atomic, kept through the second `expires` inclusive, fails closed) with a fake Redis that has `SET NX EXAT` semantics. The Redis snippet of the anti-replay guide used `EXAT expires`, which let a request replayed in the last second of its life through; the guide now uses `EXAT expires + 1` and states the contract.
+
 ### Changed
 
 - The default HTTP client of the SDK's document sources (TypeScript fetch, Python httpx client) now resolves the host name before each request and refuses it when any resolved address is not globally routable; an unresolvable name is refused. A caller-supplied `fetchFn` / `http_client` keeps its own policy. The connection is made to the address that was validated (the name is resolved once, TLS still verifies the original host name), so DNS rebinding after the check cannot redirect the request. The default TypeScript client now uses `node:http`/`node:https` for named hosts, so it is Node.js only and returns a minimal fetch-like response (`ok`, `status`, `headers`, `text()`, `json()`).
