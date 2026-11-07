@@ -12,6 +12,7 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Documentation
 
+- **Training material moved to `docs/archive/`**: the two SDK courses (Spanish and English), the 2-hour practical course and the training manual were written against earlier release candidates and quote stale figures. Each now carries a historical banner, their relative links were fixed, and `docs/INDEX.md` and the README list them as archived. The live documentation set is RFC-001, the compliance checklist, the external conformance matrix, SECURITY, the threat model, QUICKSTART and the migration guides.
 - `SECURITY.md` §2 now names the release-candidate line as the supported one (it listed the `v0.2.x` / `v0.1.x` lines) and states that the pre-1.0 `0.x` releases are not supported. The README and QUICKSTART no longer say that a plain `npm install @agentdid/sdk` resolves the `0.x` release (the npm `latest` tag follows the release candidates; `pip` still resolves `0.1.0` without a pin) and tell readers to pin the version.
 - The default `NonceStore` is documented as **per process** in the README, QUICKSTART, both SDK READMEs and the anti-replay guide: with several verifier instances a replayed request is accepted by an instance that has not seen it, so a shared store must be passed.
 

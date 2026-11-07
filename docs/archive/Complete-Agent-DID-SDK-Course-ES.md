@@ -1,3 +1,5 @@
+> **Historical document (archived by rc.5 work, 2026-11).** Training material retained for context only: it was written against earlier release candidates, so code, API names and claims (including "MUST 11/11" figures) may be stale. Current sources of truth: [INDEX](../INDEX.md), [QUICKSTART](../../QUICKSTART.md), [RFC-001](../RFC-001-Agent-DID-Specification.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # Curso Completo: Agent-DID SDK — De Cero a Experto
 
 **Autor del proyecto:** Edison Munoz  
@@ -7,7 +9,7 @@
 **Audiencia objetivo:** Mixta (desarrolladores, comunidad Web3/blockchain, comunidad IA/ML)  
 **Duración estimada:** ~10 horas (7 módulos + ejercicios)
 
-> Nota de estado (2026-05-08): este curso sigue en revisión. Las secciones fundacionales de los Módulos 1, 2 y 4 fueron actualizadas para el pivot de ADR-001 y ya enseñan la ruta canónica con `did:webvh`. Algunos ejercicios, answer keys y walkthroughs tardíos todavía conservan material histórico de `did:agent` / Polygon para una pasada posterior de limpieza. Para la ruta web-native vigente, usar [../QUICKSTART.md](../QUICKSTART.md), [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) y [RELEASE-1.0-CRITERIA.md](RELEASE-1.0-CRITERIA.md).
+> Nota de estado (2026-05-08): este curso sigue en revisión. Las secciones fundacionales de los Módulos 1, 2 y 4 fueron actualizadas para el pivot de ADR-001 y ya enseñan la ruta canónica con `did:webvh`. Algunos ejercicios, answer keys y walkthroughs tardíos todavía conservan material histórico de `did:agent` / Polygon para una pasada posterior de limpieza. Para la ruta web-native vigente, usar [../QUICKSTART.md](../../QUICKSTART.md), [RFC-001-Agent-DID-Specification.md](../RFC-001-Agent-DID-Specification.md) y [RELEASE-1.0-CRITERIA.md](../RELEASE-1.0-CRITERIA.md).
 
 ---
 
@@ -4481,7 +4483,7 @@ await contract.waitForDeployment();
 | 1 | "¿En qué se diferencia de did:ethr o did:web?" | Agent-DID agrega metadatos de agente IA (model hash, system prompt hash, capabilities), protección de IP, y gobernanza de flotas. did:ethr es solo identidad genérica. |
 | 2 | "¿Por qué no usan ZKPs?" | Está en el roadmap Phase 3 (F3-03) para verificación de capabilities sin revelar contenido. Actualmente usamos hashes para protección de IP. |
 | 3 | "¿Cómo escala?" | Mínimo on-chain (solo registro y revocación), documentos off-chain escalables horizontalmente. Un registro son ~200 bytes on-chain, el documento completo puede estar en IPFS. |
-| 4 | "¿Funciona con LangChain/CrewAI?" | Sí. La integración con LangChain ya está implementada en [../integrations/langchain/README.md](../integrations/langchain/README.md), CrewAI ya tiene una integración Python funcional en [../integrations/crewai/README.md](../integrations/crewai/README.md), Semantic Kernel ya tiene una integración Python funcional en [../integrations/semantic-kernel/README.md](../integrations/semantic-kernel/README.md), y Microsoft Agent Framework ya tiene una integración Python funcional en [../integrations/microsoft-agent-framework/README.md](../integrations/microsoft-agent-framework/README.md). El SDK sigue siendo framework-agnostic. Azure AI Agent Service sigue como track planificado separado. |
+| 4 | "¿Funciona con LangChain/CrewAI?" | Sí. La integración con LangChain ya está implementada en [../integrations/langchain/README.md](../../integrations/langchain/README.md), CrewAI ya tiene una integración Python funcional en [../integrations/crewai/README.md](../../integrations/crewai/README.md), Semantic Kernel ya tiene una integración Python funcional en [../integrations/semantic-kernel/README.md](../../integrations/semantic-kernel/README.md), y Microsoft Agent Framework ya tiene una integración Python funcional en [../integrations/microsoft-agent-framework/README.md](../../integrations/microsoft-agent-framework/README.md). El SDK sigue siendo framework-agnostic. Azure AI Agent Service sigue como track planificado separado. |
 | 5 | "¿Hay auditoría del contrato?" | El análisis estático automatizado con Slither/Mythril ya está completado (F1-05) y se ejecuta en CI. F3-04 verificación formal de terceros está planificada para mainnet. El contrato son 157 líneas con zero dependencias — la superficie de auditoría es mínima. |
 | 6 | "¿Qué blockchain usan?" | Cualquier cadena EVM compatible (Ethereum, Polygon, Arbitrum, etc.). La implementación de referencia usa Polygon por costos de gas más bajos. |
 | 7 | "¿Cómo revoco si pierdo las claves?" | Delegados de revocación pre-autorizados. Si el owner pierde acceso, un delegado puede revocar. Por eso es crítico configurar delegados ANTES de que ocurra el incidente. |

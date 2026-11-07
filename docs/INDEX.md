@@ -95,16 +95,6 @@ This index is the fast path through the repository documentation.
 | [F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md](F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md) | Contributors, Reviewers | Stable | Review checklist for Microsoft Agent Framework behavior. |
 | [F2-09-Microsoft-Agent-Framework-Parity-Matrix.md](F2-09-Microsoft-Agent-Framework-Parity-Matrix.md) | Contributors, Reviewers | Stable | Matrix of feature coverage and parity expectations. |
 
-## Training and Narrative Material
-
-| Document | Audience | Status | Purpose |
-|---|---|---|---|
-| [Complete-Agent-DID-SDK-Course-EN.md](Complete-Agent-DID-SDK-Course-EN.md) | Users, Contributors | Draft | Long-form English training course for the SDK and RFC. |
-| [Complete-Agent-DID-SDK-Course-ES.md](Complete-Agent-DID-SDK-Course-ES.md) | Users, Contributors | Draft | Long-form Spanish training course for the SDK and RFC. |
-| [RFC-001-2h-Practical-Course.md](RFC-001-2h-Practical-Course.md) | Users, Contributors | Draft | Practical workshop-style learning material for RFC-001. |
-| [RFC-001-Training-Manual.md](RFC-001-Training-Manual.md) | Users, Contributors | Draft | Training manual for onboarding and internal teaching. |
-
-
 ## Notes
 
 - If a live document becomes obsolete and the team decides not to keep it current, it should be relabeled as historical in both the document and this index.
@@ -132,3 +122,7 @@ Moved out of the live set by M-21. Nothing here is a source of truth; each file 
 | [Strategic-Assessment-Agent-DID-ES.md](archive/Strategic-Assessment-Agent-DID-ES.md) | Users, Contributors, Reviewers | Historical | Spanish strategic framing of the project and its positioning. |
 | [agent-did-due-diligence-2026-03-29.md](archive/agent-did-due-diligence-2026-03-29.md) | Contributors, Reviewers | Historical | Dated due-diligence snapshot retained for review history. |
 | [Seguridad-de-Agentes-de-IA-Firma-Digital.md](archive/Seguridad-de-Agentes-de-IA-Firma-Digital.md) | Contributors, Reviewers | Historical | Early research report on AI-agent digital signatures (Spanish), formerly at the repository root. |
+| [Complete-Agent-DID-SDK-Course-EN.md](archive/Complete-Agent-DID-SDK-Course-EN.md) | Users, Contributors | Historical | Long-form English training course for the SDK and RFC. |
+| [Complete-Agent-DID-SDK-Course-ES.md](archive/Complete-Agent-DID-SDK-Course-ES.md) | Users, Contributors | Historical | Long-form Spanish training course for the SDK and RFC. |
+| [RFC-001-2h-Practical-Course.md](archive/RFC-001-2h-Practical-Course.md) | Users, Contributors | Historical | Practical workshop-style learning material for RFC-001. |
+| [RFC-001-Training-Manual.md](archive/RFC-001-Training-Manual.md) | Users, Contributors | Historical | Training manual for onboarding and internal teaching. |
