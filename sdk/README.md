@@ -170,7 +170,7 @@ const valid = await AgentIdentity.verifyHistoricalSignature(
 
 ## Anti-Replay (HTTP Signatures)
 
-Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: they cover `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `Signature-Agent`, and carry `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
+Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: they cover `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `Signature-Agent`, and carry `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. **The default store is per process: with more than one verifier instance (replicas, serverless, Kubernetes) a replayed request is accepted by any instance that has not seen it, so pass a shared `nonceStore`.** CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
 
 ## Specification
 
@@ -181,6 +181,7 @@ This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edison
 ## Current Limitations
 
 - Default resolver is in-memory (not persistent) — use production resolver for real deployments
+- Default replay store (`InMemoryNonceStore`) is per process — use a shared `NonceStore` when more than one instance verifies HTTP signatures
 - Optional EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
 - EVM timestamps consumed as Unix-string, SDK normalizes to ISO-8601
 

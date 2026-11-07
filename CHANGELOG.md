@@ -10,9 +10,15 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Documentation
+
+- `SECURITY.md` §2 now names the release-candidate line as the supported one (it listed the `v0.2.x` / `v0.1.x` lines) and states that the pre-1.0 `0.x` releases are not supported. The README and QUICKSTART no longer say that a plain `npm install @agentdid/sdk` resolves the `0.x` release (the npm `latest` tag follows the release candidates; `pip` still resolves `0.1.0` without a pin) and tell readers to pin the version.
+- The default `NonceStore` is documented as **per process** in the README, QUICKSTART, both SDK READMEs and the anti-replay guide: with several verifier instances a replayed request is accepted by an instance that has not seen it, so a shared store must be passed.
+
 ### Added
 
 - `fixtures/http-verification-vectors.json`: shared HTTP verification vectors for RFC-001 §6.5 (53 vectors: accepted requests, including no query, an explicit default port, extra covered components and a re-serialized `Signature-Input`, and rejected requests for each rule: foreign or missing `tag`, `alg`, `nonce`, `created`, `expires`, `keyid`, a `keyid` under another DID or outside `assertionMethod`, expired and not-yet-valid signatures, lifetime above the cap, each required component dropped, a `Content-Digest` that does not match, a tampered signature, a request that differs from the signed one and a replayed nonce). Each rejected vector differs from the valid request by one change, so a verifier that skips one rule fails exactly that vector. `scripts/regenerate-http-verification-vectors.js` rebuilds the file deterministically (test-only keys). Both SDKs run it (`sdk/tests/HttpVerificationVectors.test.ts`, `sdk-python/tests/test_http_verification_vectors.py`) in `npm run interop:check` and the cross-SDK interop workflow. These are self-written vectors: they prove the SDKs agree, not conformance with an external reference.
+- `CI — Version Consistency` workflow and `npm run check:version-consistency`: fails when a live document names a release version that the manifests do not declare, calls an unpublished release "published" (checked against the release tags), or when the nine manifests of the release train disagree.
 
 ### Fixed
 
