@@ -39,6 +39,7 @@ from ..verification.signature import verify_with_active_keys, verify_with_histor
 from ..webvh.adapter import (
     create_did_webvh_log,
     deactivate_did_webvh_log,
+    did_webvh_update_key_for,
     resolve_did_webvh_log,
     update_did_webvh_log,
 )
@@ -61,6 +62,7 @@ from .types import (
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
+    DidWebvhControllerKeys,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     UpdateAgentDocumentParams,
@@ -250,12 +252,14 @@ class AgentDidClient:
         controller key (the log's only ``updateKeys`` entry).
         """
         controller_private_key: str | None = None
+        next_update_keys: list[str] | None = None
         if params.webvh is not None and params.webvh.domain.strip():
             options = self._require_webvh_create_options(params)
             domain = options.domain.strip()
             path_segments = list(options.path_segments or [])
             controller_did = options.controller_did.strip()
             controller_signer = options.controller_signer
+            next_update_keys = options.next_update_keys
         else:
             # Only the implicit local profile bootstraps a controller. An explicitly supplied
             # controller DID must be published by its owner; the SDK never fabricates it.
@@ -273,7 +277,11 @@ class AgentDidClient:
         )
 
         created = await create_did_webvh_log(
-            domain=domain, path_segments=path_segments, document=template, signer=controller_signer
+            domain=domain,
+            path_segments=path_segments,
+            document=template,
+            signer=controller_signer,
+            next_update_keys=next_update_keys,
         )
         document = AgentDIDDocument.model_validate(created.state)
         self._did_webvh_log_store[document.id] = created.log
@@ -355,7 +363,71 @@ class AgentDidClient:
             log=log, signer=signer, document=document.model_dump(by_alias=True, exclude_none=True)
         )
         self._did_webvh_log_store[did] = updated.log
+        # With pre-rotation active the signer was a committed key and is now the active controller key.
+        if await did_webvh_update_key_for(signer) in updated.metadata.update_keys:
+            self._did_webvh_signer_store[did] = signer
         return AgentDIDDocument.model_validate(updated.state)
+
+    async def rotate_controller_key(
+        self,
+        did: str,
+        new_controller_signer: AgentSigner,
+        *,
+        next_update_keys: list[str] | None = None,
+        controller_signer: AgentSigner | None = None,
+    ) -> DidWebvhControllerKeys:
+        """Rotate the controller key of a did:webvh DID: append a log entry whose ``updateKeys`` is
+        *new_controller_signer*'s key.
+
+        This is the recovery path after a compromise of the controller key, and it only works if the DID
+        committed to a successor (pre-rotation: ``CreateDidWebvhOptions.next_update_keys`` at creation, or a
+        previous rotation that set ``next_update_keys``).
+
+        * Pre-rotation active: *new_controller_signer* must be a committed key and signs the entry; the key
+          that was active can no longer sign.
+        * Not active: the current controller signer (*controller_signer*, or the one retained in this process)
+          signs, and *next_update_keys* may start pre-rotation.
+
+        Commit to the following key in *next_update_keys*, or the key you rotate to stays the only valid next key.
+        An empty list ends pre-rotation.
+        """
+        if not did.startswith("did:webvh:"):
+            raise ValueError(f"did:webvh DID is required to rotate the controller key: {did}")
+        log = self._did_webvh_log_store.get(did)
+        if log is None:
+            raise ValueError(
+                f"No did:webvh log for {did} in this process; import it with import_did_webvh_history first"
+            )
+        current = await resolve_did_webvh_log(log, did=did)
+        signer = (
+            new_controller_signer
+            if current.metadata.next_key_hashes
+            else controller_signer or self._did_webvh_signer_store.get(did)
+        )
+        if signer is None:
+            raise ValueError(f"A controller signer is required to change {did}: pass controller_signer")
+        new_key = await did_webvh_update_key_for(new_controller_signer)
+        updated = await update_did_webvh_log(
+            log=log, signer=signer, update_keys=[new_key], next_update_keys=next_update_keys
+        )
+        self._did_webvh_log_store[did] = updated.log
+        self._did_webvh_signer_store[did] = new_controller_signer
+        return DidWebvhControllerKeys(
+            update_keys=list(updated.metadata.update_keys), next_key_hashes=list(updated.metadata.next_key_hashes)
+        )
+
+    async def get_did_webvh_controller_keys(self, did: str) -> DidWebvhControllerKeys:
+        """The controller keys of a did:webvh DID, from its verified log (including pre-rotation commitments)."""
+        log = self._did_webvh_log_store.get(did)
+        if not did.startswith("did:webvh:") or log is None:
+            raise ValueError(
+                f"No did:webvh log for {did} in this process; import it with import_did_webvh_history first"
+            )
+        resolved = await resolve_did_webvh_log(log, did=did)
+        return DidWebvhControllerKeys(
+            update_keys=list(resolved.metadata.update_keys),
+            next_key_hashes=list(resolved.metadata.next_key_hashes),
+        )
 
     async def _resolve_active_verification_chain(self, did: str) -> list[AgentDIDDocument]:
         chain = await self.resolve_controller_chain(did) if did.startswith("did:webvh:") else [await self.resolve(did)]

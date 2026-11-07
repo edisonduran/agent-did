@@ -6,7 +6,9 @@ import {
   AgentDIDDocument,
   CreateAgentParams,
   CreateAgentResult,
+  DidWebvhControllerKeys,
   DidWebvhLifecycleOptions,
+  RotateControllerKeyOptions,
   RotateVerificationMethodResult,
   UpdateAgentDocumentParams,
   VerifyHttpRequestSignatureParams,
@@ -27,6 +29,7 @@ import { AgentRegistry } from '../registry/types';
 import {
   createDidWebvhLog,
   deactivateDidWebvhLog,
+  didWebvhUpdateKeyFor,
   resolveDidWebvhLog,
   updateDidWebvhLog
 } from '../webvh/adapter';
@@ -250,6 +253,7 @@ export class AgentDidClient {
     let controllerDid: string;
     let controllerSigner: AgentSigner;
     let controllerPrivateKey: string | undefined;
+    let nextUpdateKeys: string[] | undefined;
 
     if (params.webvh?.domain?.trim()) {
       const options = this.requireWebvhCreateOptions(params);
@@ -257,6 +261,7 @@ export class AgentDidClient {
       pathSegments = options.pathSegments ?? [];
       controllerDid = options.controllerDid.trim();
       controllerSigner = options.controllerSigner;
+      nextUpdateKeys = options.nextUpdateKeys;
     } else {
       // Only the implicit local profile bootstraps a controller. An explicitly supplied
       // controller DID must be published by its owner; the SDK never fabricates it.
@@ -275,7 +280,13 @@ export class AgentDidClient {
       publicKeyBytes: agent.publicKeyBytes
     });
 
-    const created = await createDidWebvhLog({ domain, pathSegments, document: template, signer: controllerSigner });
+    const created = await createDidWebvhLog({
+      domain,
+      pathSegments,
+      document: template,
+      signer: controllerSigner,
+      ...(nextUpdateKeys !== undefined ? { nextUpdateKeys } : {})
+    });
     const document = cloneDocument(created.state as unknown as AgentDIDDocument);
     this.didWebvhLogStore.set(document.id, created.log);
     this.didWebvhSignerStore.set(document.id, controllerSigner);
@@ -361,6 +372,10 @@ export class AgentDidClient {
     const { log, signer } = this.requireDidWebvhLifecycle(did, controllerSigner);
     const updated = await updateDidWebvhLog({ log, signer, document: document as unknown as Record<string, unknown> });
     this.didWebvhLogStore.set(did, updated.log);
+    // With pre-rotation active the signer was a committed key and is now the active controller key.
+    if (updated.metadata.updateKeys.includes(await didWebvhUpdateKeyFor(signer))) {
+      this.didWebvhSignerStore.set(did, signer);
+    }
     return cloneDocument(updated.state as unknown as AgentDIDDocument);
   }
 
@@ -623,6 +638,56 @@ export class AgentDidClient {
       verificationMethodId: rotated.verificationMethodId,
       agentPrivateKey: rotated.agentPrivateKey
     };
+  }
+
+  /**
+   * Rotates the controller key of a did:webvh DID: appends a log entry whose `updateKeys` is
+   * `newControllerSigner`'s key. This is the recovery path after a compromise of the controller key,
+   * and it only works if the DID committed to a successor (pre-rotation: `webvh.nextUpdateKeys` at
+   * creation, or a previous rotation that set `nextUpdateKeys`).
+   *
+   * - Pre-rotation active: `newControllerSigner` must be a committed key and signs the entry; the key
+   *   that was active can no longer sign.
+   * - Not active: the current controller signer (`options.controllerSigner`, or the one retained in this
+   *   process) signs, and `nextUpdateKeys` may start pre-rotation.
+   *
+   * Commit to the following key in `nextUpdateKeys`, or the key you rotate to stays the only valid next key.
+   */
+  public async rotateControllerKey(did: string, options: RotateControllerKeyOptions): Promise<DidWebvhControllerKeys> {
+    if (!did.startsWith('did:webvh:')) {
+      throw new Error(`did:webvh DID is required to rotate the controller key: ${did}`);
+    }
+    const log = this.didWebvhLogStore.get(did);
+    if (!log) {
+      throw new Error(`No did:webvh log for ${did} in this process; import it with importDidWebvhHistory first`);
+    }
+    const current = await resolveDidWebvhLog(log, { did });
+    const signer = current.metadata.nextKeyHashes.length > 0
+      ? options.newControllerSigner
+      : options.controllerSigner ?? this.didWebvhSignerStore.get(did);
+    if (!signer) {
+      throw new Error(`A controller signer is required to change ${did}: pass options.controllerSigner`);
+    }
+    const newKey = await didWebvhUpdateKeyFor(options.newControllerSigner);
+    const updated = await updateDidWebvhLog({
+      log,
+      signer,
+      updateKeys: [newKey],
+      ...(options.nextUpdateKeys !== undefined ? { nextUpdateKeys: options.nextUpdateKeys } : {})
+    });
+    this.didWebvhLogStore.set(did, updated.log);
+    this.didWebvhSignerStore.set(did, options.newControllerSigner);
+    return { updateKeys: [...updated.metadata.updateKeys], nextKeyHashes: [...updated.metadata.nextKeyHashes] };
+  }
+
+  /** The controller keys of a did:webvh DID, from its verified log (including pre-rotation commitments). */
+  public async getDidWebvhControllerKeys(did: string): Promise<DidWebvhControllerKeys> {
+    const log = this.didWebvhLogStore.get(did);
+    if (!did.startsWith('did:webvh:') || !log) {
+      throw new Error(`No did:webvh log for ${did} in this process; import it with importDidWebvhHistory first`);
+    }
+    const { metadata } = await resolveDidWebvhLog(log, { did });
+    return { updateKeys: [...metadata.updateKeys], nextKeyHashes: [...metadata.nextKeyHashes] };
   }
 
   public getDocumentHistory(did: string): AgentDocumentHistoryEntry[] {

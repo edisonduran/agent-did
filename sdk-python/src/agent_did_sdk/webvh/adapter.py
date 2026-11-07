@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 import jsoncanon
 from did_webvh.core.file_utils import AsyncTextReader, AsyncTextReadError
+from did_webvh.core.hash_utils import DEFAULT_HASH, HashInfo
 from did_webvh.core.proof import di_jcs_canonicalize_input
 from did_webvh.core.resolver import DidResolver, HistoryResolver, ResolutionError
 from did_webvh.core.state import DocumentState, InvalidDocumentState
@@ -74,6 +75,10 @@ class DidWebvhMetadata:
     updated: str
     scid: str
     update_keys: list[str] = field(default_factory=list)
+    next_key_hashes: list[str] = field(default_factory=list)
+    """Pre-rotation commitments (``nextKeyHashes``) in force after this version: while non-empty, the next
+    entry must be signed by a key whose hash is listed here, and the current ``update_keys`` can no longer
+    sign. Empty when pre-rotation is not active."""
     deactivated: bool = False
     ttl: str = _DEFAULT_TTL
     """Cache TTL in seconds; the did:webvh default (3600) when the log does not set one."""
@@ -102,12 +107,16 @@ async def create_did_webvh_log(
     document: dict[str, Any],
     signer: AgentSigner,
     path_segments: list[str] | None = None,
+    next_update_keys: list[str] | None = None,
     created: str | None = None,
 ) -> DidWebvhLogResult:
     """Create a v1.0 log whose only update key is *signer*'s key.
 
     Every occurrence of ``{DID}`` in *document* is replaced with the generated DID.
     *domain* is a lowercase ASCII fully qualified host name, optionally with ``:port``.
+    *next_update_keys* are public keys (Ed25519 multikeys) the next entry will be signed with: only their
+    hashes are written to the log (``nextKeyHashes``, pre-rotation), so keep the private keys offline, away
+    from *signer*. They must not include the current update key.
     """
     host, port = _validate_domain(domain)
     segments = list(path_segments or [])
@@ -117,6 +126,7 @@ async def create_did_webvh_log(
         _validate_version_time(created, "created", timedelta(0))
 
     update_key = await did_webvh_update_key_for(signer)
+    next_key_hashes = _next_key_hashes_for(next_update_keys, [update_key]) or []
     domain_component = f"{host}%3A{port}" if port else host
     template_did = ":".join(["did:webvh", _SCID_PLACEHOLDER, domain_component, *segments])
     if not isinstance(document, dict):
@@ -130,7 +140,7 @@ async def create_did_webvh_log(
                 "scid": _SCID_PLACEHOLDER,
                 "updateKeys": [update_key],
                 "portable": False,
-                "nextKeyHashes": [],
+                "nextKeyHashes": next_key_hashes,
                 "watchers": [],
                 "witness": {},
                 "deactivated": False,
@@ -153,21 +163,28 @@ async def update_did_webvh_log(
     signer: AgentSigner,
     document: dict[str, Any] | None = None,
     update_keys: list[str] | None = None,
+    next_update_keys: list[str] | None = None,
     updated: str | None = None,
 ) -> DidWebvhLogResult:
     """Append a controller-signed entry.
 
     *document* is the complete next DID document; when omitted the current
-    document is carried over. *update_keys* replaces the active update keys.
+    document is carried over. *update_keys* replaces the active update keys; while pre-rotation is active
+    they must all be committed in ``nextKeyHashes`` and default to the signer's key. *next_update_keys* are
+    the public keys for the pre-rotation commitment of the NEXT entry: omitted, the commitments in force stay
+    as they are; an empty list ends pre-rotation. They must not include any of the update keys this entry sets.
     """
     entries = _parse_log(log)
     current = await resolve_did_webvh_log(log)
-    signer_key = await _assert_authorized_signer(signer, current.metadata)
     if update_keys is not None:
         if not update_keys:
             raise DidWebvhError("invalidInput", "update_keys must not be empty; use deactivate_did_webvh_log instead")
         for key in update_keys:
             _validate_update_key(key)
+    signer_key, effective_update_keys = await _authorize_signer(signer, current.metadata, update_keys)
+    next_key_hashes = _next_key_hashes_for(
+        next_update_keys, effective_update_keys if effective_update_keys is not None else current.metadata.update_keys
+    )
     if updated is not None:
         _validate_version_time(updated, "updated", _MAX_FUTURE_SKEW)
     if document is not None and document.get("id") != current.did:
@@ -178,8 +195,10 @@ async def update_did_webvh_log(
 
     last_state = await _load_last_state(log)
     params_update: dict[str, Any] = {}
-    if update_keys is not None:
-        params_update["updateKeys"] = list(update_keys)
+    if effective_update_keys is not None:
+        params_update["updateKeys"] = list(effective_update_keys)
+    if next_key_hashes is not None:
+        params_update["nextKeyHashes"] = next_key_hashes
     params_update["watchers"] = last_state.watchers or []
 
     try:
@@ -194,13 +213,14 @@ async def deactivate_did_webvh_log(*, log: str, signer: AgentSigner) -> DidWebvh
     """Append a controller-signed deactivation entry (``deactivated: true``)."""
     entries = _parse_log(log)
     current = await resolve_did_webvh_log(log)
-    signer_key = await _assert_authorized_signer(signer, current.metadata)
+    # While pre-rotation is active the deactivation is signed by a committed key, which becomes the update key.
+    signer_key, effective_update_keys = await _authorize_signer(signer, current.metadata, None)
 
     last_state = await _load_last_state(log)
     try:
         state = last_state.create_next(
             params_update={
-                "updateKeys": list(current.metadata.update_keys),
+                "updateKeys": list(effective_update_keys or current.metadata.update_keys),
                 "nextKeyHashes": [],
                 "deactivated": True,
             }
@@ -271,6 +291,7 @@ async def resolve_did_webvh_log(
         updated=state.timestamp_raw,
         scid=state.scid,
         update_keys=list(state.update_keys),
+        next_key_hashes=list(state.next_key_hashes or []),
         deactivated=state.deactivated,
         ttl=str(ttl) if ttl is not None else _DEFAULT_TTL,
     )
@@ -341,13 +362,58 @@ async def _sign_state(state: DocumentState, signer: AgentSigner, update_key: str
     state.proofs.append(proof)
 
 
-async def _assert_authorized_signer(signer: AgentSigner, metadata: DidWebvhMetadata) -> str:
+async def _authorize_signer(
+    signer: AgentSigner, metadata: DidWebvhMetadata, requested_update_keys: list[str] | None
+) -> tuple[str, list[str] | None]:
+    """Decide whether *signer* may append the next entry, and with which ``updateKeys``.
+
+    Without pre-rotation, the signer must be in the active ``updateKeys``. With pre-rotation active
+    (``nextKeyHashes`` non-empty) the rule inverts, as in did:webvh v1.0: the entry must set ``updateKeys`` to
+    keys whose hashes were committed, it is signed by one of them, and the keys that were active before can no
+    longer sign. That is what makes the commitment a recovery path after a compromise of the active key.
+    Returns the signer key and the ``updateKeys`` the entry must carry (None: the entry keeps the active ones).
+    """
     if metadata.deactivated:
         raise DidWebvhError("invalidInput", "did:webvh DID is deactivated")
     signer_key = await did_webvh_update_key_for(signer)
-    if signer_key not in metadata.update_keys:
-        raise DidWebvhError("unauthorized", "Signer key is not in the active did:webvh updateKeys")
-    return signer_key
+    if not metadata.next_key_hashes:
+        if signer_key not in metadata.update_keys:
+            raise DidWebvhError("unauthorized", "Signer key is not in the active did:webvh updateKeys")
+        return signer_key, requested_update_keys
+
+    update_keys = requested_update_keys if requested_update_keys is not None else [signer_key]
+    if signer_key not in update_keys:
+        raise DidWebvhError("invalidInput", "While pre-rotation is active, updateKeys must include the signing key")
+    for key in update_keys:
+        if _next_key_hash(key) not in metadata.next_key_hashes:
+            raise DidWebvhError(
+                "unauthorized",
+                "Pre-rotation is active: updateKeys may only contain keys committed in nextKeyHashes, "
+                "and the active keys can no longer sign",
+            )
+    return signer_key, update_keys
+
+
+def _next_key_hash(multikey: str) -> str:
+    """``nextKeyHashes`` entry for an Ed25519 multikey: base58btc multihash of SHA-256 over the multikey text."""
+    return str(HashInfo.from_name(DEFAULT_HASH).formatted_hash(multikey.encode("utf-8")))
+
+
+def _next_key_hashes_for(next_update_keys: list[str] | None, active_keys: list[str]) -> list[str] | None:
+    """Hash pre-rotation keys. None means "no change"; the keys must be new, never an active one."""
+    if next_update_keys is None:
+        return None
+    for key in next_update_keys:
+        _validate_update_key(key)
+    if len(set(next_update_keys)) != len(next_update_keys):
+        raise DidWebvhError("invalidInput", "next_update_keys must not repeat a key")
+    if any(key in active_keys for key in next_update_keys):
+        raise DidWebvhError(
+            "invalidInput",
+            "next_update_keys must not include a key that is active in the same entry: "
+            "pre-rotation commits to NEW keys",
+        )
+    return [_next_key_hash(key) for key in next_update_keys]
 
 
 def _parse_log(log: str) -> list[dict[str, Any]]:

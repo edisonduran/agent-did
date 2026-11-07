@@ -53,6 +53,10 @@ interface WebvhVectors {
   inputs: {
     controllerPrivateKeyHex: string;
     rotatedControllerPrivateKeyHex: string;
+    /** Pre-rotation: the key committed at creation (only its hash is in the genesis entry). */
+    nextControllerPrivateKeyHex: string;
+    /** Pre-rotation: the key the committed key commits to in turn. */
+    followingControllerPrivateKeyHex: string;
     unauthorizedPrivateKeyHex: string;
     domain: string;
     pathSegments: string[];
@@ -70,6 +74,8 @@ interface WebvhVectors {
 const INPUTS: WebvhVectors['inputs'] = {
   controllerPrivateKeyHex: '9b'.repeat(32),
   rotatedControllerPrivateKeyHex: '4c'.repeat(32),
+  nextControllerPrivateKeyHex: 'a3'.repeat(32),
+  followingControllerPrivateKeyHex: '5d'.repeat(32),
   unauthorizedPrivateKeyHex: 'e7'.repeat(32),
   domain: 'agents.example.com',
   pathSegments: ['fleet', 'support-bot'],
@@ -161,7 +167,26 @@ async function generateDeterministic(inputs: WebvhVectors['inputs']) {
     updated: inputs.rotated,
   });
 
-  return { created, updated, rotated, rotatedController };
+  // Pre-rotation: the genesis entry commits to the hash of `next`; only `next` can sign the following entry,
+  // and that entry commits to `following` in turn.
+  const next = new LocalKeySigner(inputs.nextControllerPrivateKeyHex);
+  const following = new LocalKeySigner(inputs.followingControllerPrivateKeyHex);
+  const committed = await createDidWebvhLog({
+    domain: inputs.domain,
+    pathSegments: inputs.pathSegments,
+    document: inputs.document,
+    signer: controller,
+    nextUpdateKeys: [await didWebvhUpdateKeyFor(next)],
+    created: inputs.created,
+  });
+  const preRotated = await updateDidWebvhLog({
+    log: committed.log,
+    signer: next,
+    nextUpdateKeys: [await didWebvhUpdateKeyFor(following)],
+    updated: inputs.updated,
+  });
+
+  return { created, updated, rotated, rotatedController, committed, preRotated, following };
 }
 
 /** A genesis entry that declares a witness. Agent-DID does not support witnesses yet, so both SDKs must reject it. */
@@ -189,8 +214,9 @@ async function witnessDeclaredLog(inputs: WebvhVectors['inputs']): Promise<strin
 }
 
 async function generateVectors(): Promise<WebvhVectors> {
-  const { created, updated, rotated, rotatedController } = await generateDeterministic(INPUTS);
+  const { created, updated, rotated, rotatedController, committed, preRotated, following } = await generateDeterministic(INPUTS);
   const deactivated = await deactivateDidWebvhLog({ log: rotated.log, signer: rotatedController });
+  const preRotationDeactivated = await deactivateDidWebvhLog({ log: preRotated.log, signer: following });
   const libraryVersion = JSON.parse(
     fs.readFileSync(path.join(__dirname, '..', 'node_modules', 'didwebvh-ts', 'package.json'), 'utf8')
   ).version as string;
@@ -202,8 +228,17 @@ async function generateVectors(): Promise<WebvhVectors> {
     regenerate: 'WRITE_WEBVH_VECTORS=1 npm --prefix sdk test -- WebvhVectors.test.ts',
     generator: { library: 'didwebvh-ts', version: libraryVersion },
     inputs: INPUTS,
-    deterministic: [vector('create', created), vector('update-document', updated), vector('rotate-update-keys', rotated)],
-    resolveOnly: [vector('deactivate-with-rotated-key', deactivated)],
+    deterministic: [
+      vector('create', created),
+      vector('update-document', updated),
+      vector('rotate-update-keys', rotated),
+      vector('prerotation-create', committed),
+      vector('prerotation-rotate', preRotated),
+    ],
+    resolveOnly: [
+      vector('deactivate-with-rotated-key', deactivated),
+      vector('prerotation-deactivate', preRotationDeactivated),
+    ],
     negative: [
       {
         name: 'tampered-state',
@@ -240,6 +275,18 @@ async function generateVectors(): Promise<WebvhVectors> {
         name: 'rotated-out-signer',
         reason: 'entry after rotation signed by the previous controller key',
         log: await resignLine(deactivated.log, 3, INPUTS.controllerPrivateKeyHex),
+      },
+      {
+        name: 'prerotation-signed-by-active-key',
+        reason: 'entry after a pre-rotation commitment signed by the key that was active before, not by a committed key',
+        log: await resignLine(preRotated.log, 1, INPUTS.controllerPrivateKeyHex),
+      },
+      {
+        name: 'prerotation-swapped-update-keys',
+        reason: 'updateKeys of a pre-rotated entry replaced by a key that was never committed',
+        log: mutateLine(preRotated.log, 1, (entry) => {
+          entry.parameters.updateKeys = [entry.parameters.updateKeys[0].replace(/.$/u, (c: string) => (c === 'a' ? 'b' : 'a'))];
+        }),
       },
       {
         name: 'version-time-not-increasing',
@@ -285,8 +332,8 @@ describe('did:webvh cross-SDK log vectors', () => {
 
   it('reproduces the deterministic logs byte for byte', async () => {
     const vectors = VECTORS as WebvhVectors;
-    const { created, updated, rotated } = await generateDeterministic(vectors.inputs);
-    const produced = [created, updated, rotated];
+    const { created, updated, rotated, committed, preRotated } = await generateDeterministic(vectors.inputs);
+    const produced = [created, updated, rotated, committed, preRotated];
     expect(vectors.deterministic).toHaveLength(produced.length);
     vectors.deterministic.forEach((vector, index) => {
       expect(produced[index].log).toBe(vector.log);

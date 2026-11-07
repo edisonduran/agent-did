@@ -146,7 +146,7 @@ Items the maintainers track as security-relevant work, in addition to the public
 - Keep the dedicated `cross-sdk-interop` CI workflow green and extend it further when third-party fixture coverage becomes available.
 - Done: property-based / fuzz tests for the HTTP signature parsers and DID log resolution (M-14).
 - Done: STRIDE threat model of the end-to-end flow in [`docs/Threat-Model.md`](docs/Threat-Model.md) (M-15). RFC-001 §8.1 summarizes it.
-- Consider exposing did:webvh pre-rotation (`nextKeyHashes`), the only in-protocol recovery from controller key compromise (see the threat model).
+- Done: did:webvh pre-rotation (`nextKeyHashes`) is exposed in both SDKs, the only in-protocol recovery from controller key compromise (see the threat model). It is opt-in and protects only if committed before the compromise.
 - If the deferred EVM profile is ever re-scoped into active development, stand up a public testnet deployment of `AgentRegistry` with a published address and verification instructions as a separate gate.
 - Engage an external auditor before any maintainer-recommended mainnet deployment.
 

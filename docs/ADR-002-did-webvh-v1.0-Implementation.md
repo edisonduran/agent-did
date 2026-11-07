@@ -111,7 +111,7 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
    - has its own create scenarios resolved by the TS and Python reference resolvers.
 
    README conformance claims are made only after this job is green.
-7. **Scope for `1.0.0-rc.3`.** v1.0 create, update, deactivate and resolve, plus `updateKeys` rotation. Pre-rotation, witnesses, watchers and portability are deferred to after 1.0, but the adapter must not prevent them.
+7. **Scope for `1.0.0-rc.3`.** v1.0 create, update, deactivate and resolve, plus `updateKeys` rotation. Pre-rotation, witnesses, watchers and portability are deferred to after 1.0, but the adapter must not prevent them. *Update (rc.5): pre-rotation was exposed after all, because it is the only in-protocol recovery from controller key compromise: `nextUpdateKeys` at creation, `rotateControllerKey`, and `nextKeyHashes` in the resolution metadata, in both SDKs. Witnesses, watchers and portability remain deferred.*
 
 ## Implementation status
 

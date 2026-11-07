@@ -374,7 +374,25 @@ class TestDidWebvhCrossSdkVectors:
             updated=inputs["rotated"],
         )
 
-        produced = [created, updated, rotated]
+        # Pre-rotation: the genesis entry commits to the hash of `next`; only `next` can sign the following entry.
+        next_controller = LocalKeySigner(inputs["nextControllerPrivateKeyHex"])
+        following_controller = LocalKeySigner(inputs["followingControllerPrivateKeyHex"])
+        committed = await create_did_webvh_log(
+            domain=inputs["domain"],
+            path_segments=inputs["pathSegments"],
+            document=inputs["document"],
+            signer=controller,
+            next_update_keys=[await did_webvh_update_key_for(next_controller)],
+            created=inputs["created"],
+        )
+        pre_rotated = await update_did_webvh_log(
+            log=committed.log,
+            signer=next_controller,
+            next_update_keys=[await did_webvh_update_key_for(following_controller)],
+            updated=inputs["updated"],
+        )
+
+        produced = [created, updated, rotated, committed, pre_rotated]
         assert len(_VECTORS["deterministic"]) == len(produced)
         for result, vector in zip(produced, _VECTORS["deterministic"]):
             assert result.log == vector["log"], vector["name"]
@@ -400,6 +418,7 @@ class TestDidWebvhCrossSdkVectors:
             "updated": resolved.metadata.updated,
             "scid": resolved.metadata.scid,
             "updateKeys": resolved.metadata.update_keys,
+            "nextKeyHashes": resolved.metadata.next_key_hashes,
             "deactivated": resolved.metadata.deactivated,
             "ttl": resolved.metadata.ttl,
         } == expected

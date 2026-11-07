@@ -29,6 +29,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 - Added informative §8.1 "Security considerations by flow", summarizing the interoperability-relevant points of [Threat-Model.md](Threat-Model.md). No normative or wire-format change.
 - §7.2 lists the new HTTP verification vectors (`fixtures/http-verification-vectors.json`) and states three conventions the vectors rely on (salt written as hex text, bytes signed by `signMessage`, rejection instead of an exception for a `keyid` outside `assertionMethod`). No wire-format change.
+- New §6.6 item 8: optional did:webvh pre-rotation (`nextKeyHashes`). While commitments are in force the next entry is signed only by a committed key, whose `updateKeys` it sets, and the previously active key can no longer sign. §10 item 6 and the threat model state that it protects only if committed before the compromise. This is what did:webvh v1.0 and both reference libraries already define; no wire-format change, and DIDs that do not use it are unaffected.
 - §6.5 items 1 and 2 state what the reference verifiers already required or now require: `Content-Digest` is exactly the single `sha-256` member, and the covered components must start with the seven required ones in order (before, the verifier accepted any order). The signer already emits this form, so signed bytes do not change.
 
 ---

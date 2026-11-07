@@ -29,6 +29,7 @@ DID_VERIFICATION_RELATIONSHIPS
 DIDDocumentSource
 didKeyFromPublicKey
 DIDResolver
+DidWebvhControllerKeys
 DidWebvhError
 DidWebvhErrorCode
 DidWebvhLifecycleOptions
@@ -74,6 +75,7 @@ ProductionResolverProfileConfig
 ResolverCacheStats
 ResolverResolutionEvent
 ResolverResolutionStage
+RotateControllerKeyOptions
 RotateVerificationMethodResult
 S3CompatibleDIDDocumentSource
 S3CompatibleDIDDocumentSourceConfig

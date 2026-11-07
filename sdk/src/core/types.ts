@@ -39,6 +39,35 @@ export interface CreateDidWebvhOptions {
    */
   controllerSigner: import('./signer').AgentSigner;
   pathSegments?: string[];
+  /**
+   * Pre-rotation: public keys (Ed25519 multikeys) that will sign the DID's NEXT log entry. Only their
+   * hashes go into the log (`nextKeyHashes`). From then on the key in `controllerSigner` can no longer sign
+   * log entries: a compromised controller key cannot rotate or deactivate the DID, and the holder of one of
+   * these keys can. Keep their private keys offline. Rotate with `rotateControllerKey`.
+   */
+  nextUpdateKeys?: string[];
+}
+
+/** Options of `AgentDidClient.rotateControllerKey`. */
+export interface RotateControllerKeyOptions {
+  /** The key that becomes the DID's active `updateKeys` entry. With pre-rotation active it must be a committed key and it signs the entry. */
+  newControllerSigner: import('./signer').AgentSigner;
+  /**
+   * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Omitted: the
+   * commitments in force stay as they are, so the key you just rotated to stays the only valid next key.
+   * An empty array ends pre-rotation. Must not include `newControllerSigner`'s key.
+   */
+  nextUpdateKeys?: string[];
+  /** Signer of the current `updateKeys`, when pre-rotation is NOT active (otherwise `newControllerSigner` signs). Defaults to the signer retained in this process. */
+  controllerSigner?: import('./signer').AgentSigner;
+}
+
+/** The controller keys of a did:webvh DID, from its verified log. */
+export interface DidWebvhControllerKeys {
+  /** Keys that may sign the next entry (when `nextKeyHashes` is empty) or that signed the last one. */
+  updateKeys: string[];
+  /** Pre-rotation commitments in force. While non-empty, only a key with one of these hashes can sign the next entry. */
+  nextKeyHashes: string[];
 }
 
 /** Options for lifecycle operations that append to a did:webvh log. */

@@ -28,6 +28,7 @@ class AgentDIDDocument(*, context: list[str], id: str, controller: str, created:
 class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def create_agent(self, controller_signer: 'AgentSigner', network: 'str', params: 'CreateAgentParams') -> 'CreateAgentResult'
   def export_did_webvh_history(self, did: 'str') -> 'str'
+  def get_did_webvh_controller_keys(self, did: 'str') -> 'DidWebvhControllerKeys'
   def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
   def import_did_webvh_history(self, did_log: 'str') -> 'AgentDIDDocument'
   def load_did_webvh_history_from_file(self, file_path: 'str | Path') -> 'AgentDIDDocument'
@@ -36,6 +37,7 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def resolve_controller_chain(self, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
   def restore_did_webvh_history_from_source(self, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
   def revoke_did(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
+  def rotate_controller_key(self, did: 'str', new_controller_signer: 'AgentSigner', *, next_update_keys: 'list[str] | None' = None, controller_signer: 'AgentSigner | None' = None) -> 'DidWebvhControllerKeys'
   def rotate_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'RotateVerificationMethodResult'
   def save_did_webvh_history_to_file(self, did: 'str', file_path: 'str | Path') -> 'Path'
   def set_registry(self, registry: 'AgentRegistry') -> 'None'
@@ -215,10 +217,11 @@ class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, 
   member model_config = {'populate_by_name': True}
 
 ## CreateDidWebvhOptions
-class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_signer: Any, path_segments: list[str] | None = None) -> None
+class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_signer: Any, path_segments: list[str] | None = None, next_update_keys: list[str] | None = None) -> None
   attr controller_did: str
   attr controller_signer: Any
   attr domain: str
+  attr next_update_keys: list[str] | None
   attr path_segments: list[str] | None
   member model_config = {'arbitrary_types_allowed': True, 'extra': 'forbid'}
 
@@ -236,6 +239,11 @@ class DIDResolver(*args, **kwargs)
 
 ## DID_VERIFICATION_RELATIONSHIPS
 value DID_VERIFICATION_RELATIONSHIPS = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement')
+
+## DidWebvhControllerKeys
+class DidWebvhControllerKeys(update_keys: 'list[str]', next_key_hashes: 'list[str]') -> None
+  attr next_key_hashes: list[str]
+  attr update_keys: list[str]
 
 ## DidWebvhError
 class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
