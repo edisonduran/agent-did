@@ -43,6 +43,9 @@ InMemoryDIDResolver
 InMemoryNonceStore
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
+KeyAtTimeRejection
+KeyAtTimeResult
+KeyAtTimeUncertainty
 LocalKeySigner
 MetadataCommitmentSalts
 NonceStore
@@ -73,12 +76,15 @@ VerificationMethod
 VerificationRelationship
 VerifyHttpRequestSignatureParams
 VerifyHttpRequestSignatureResult
+VerifySignatureAtTimeRejection
+VerifySignatureAtTimeResult
 WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig
 assert_key_purpose
 assert_signing_purpose
 build_signature_base
 canonicalize_json
+check_did_webvh_key_at_time
 create_metadata_commitment
 decode_public_key_multibase
 did_key_from_public_key

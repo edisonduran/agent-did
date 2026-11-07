@@ -256,6 +256,19 @@ A protocol that defines a signed artifact not listed here MUST state which of th
 
 Documents created by the reference SDKs list the agent key under `authentication` and `assertionMethod`. A DID that issues delegations or invokes capabilities needs its key listed under `capabilityDelegation` or `capabilityInvocation`, otherwise verifiers following this section reject those artifacts. The SDKs add those relationships only on request (`additionalVerificationRelationships` / `additional_verification_relationships` at creation, accepting `capabilityDelegation` and `capabilityInvocation`); without it the document is the same as in earlier releases. When the agent key is rotated, the new key joins each of those relationships that listed a key the rotation deactivates.
 
+#### 6.2.2 Key Validity at a Stated Time
+
+A signed artifact can state when it was signed (for example `issued_at` in a delegation). That time is asserted by the signer: whoever holds a key, including a key that was later retired or compromised, can state any earlier time. A verifier that checks a signature against the DID state at a stated time MUST therefore evaluate it as follows, using a verified did:webvh log (§8.1 item 2):
+
+1. The state at the stated time is the last log entry whose `versionTime` is not after it. If there is none, the key is **not authorized** (`did_not_yet_created`). If that entry deactivates the DID, the key is **not authorized** (`did_deactivated`).
+2. In that state the key MUST exist with a public key (`key_not_found`), MUST NOT carry a `deactivated` time at or before the stated time (`key_deactivated`), and MUST be listed under the relationship §6.2.1.3 requires (`key_purpose_violation`). Otherwise it is **not authorized**. A stated time that is not an RFC 3339 date-time is **not authorized** (`invalid_stated_time`).
+3. If a later change ends the key's authorization (a later entry removes the key, deactivates it, takes it out of the required relationship, or deactivates the DID, or the key's own `deactivated` time is after the stated time), the result is **indeterminate** (`key_retired_after_stated_time` or `did_deactivated_after_stated_time`), unless the verifier holds trusted time evidence that the signature existed before that change (for example an RFC 3161 timestamp it has verified). With such evidence earlier than the change, the key is **authorized**.
+4. Otherwise the key is **authorized**.
+
+A verifier MUST NOT accept an indeterminate result as authorized, and MUST NOT treat the stated time, a log `versionTime` or a document `created`/`updated` value as trusted time evidence. When no verified log is available for the DID, the result is indeterminate (`history_unavailable`). Comparisons use millisecond precision; sub-millisecond digits are truncated.
+
+Other delegation formats draw the same line for the same reason (for example the `KEY_AMBIGUOUS` outcome of APS `AuthorityDelegationV1`, draft-pidlisnyi-aps §3.4); this section does not claim conformance with them. Conforming SDKs expose the check as `checkDidWebvhKeyAtTime` / `check_did_webvh_key_at_time` and `verifySignatureAtTime` / `verify_signature_at_time`. The shared vectors are in `fixtures/key-at-time-vectors.json`.
+
 ### 6.3 Evolution
 
 1. The DID remains stable.
@@ -343,7 +356,7 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | DID Resolution (6.2) | `AgentIdentity.resolve(did)` |
 | Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
 | Verification Relationship Binding (6.2.1) | `assertKeyPurpose(...)` / `assert_key_purpose(...)`, default `assertionMethod` |
-| Historical Signature Verification (6.2b) | `AgentIdentity.verifyHistoricalSignature(did, payload, signature, keyId)` |
+| Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime })`, `checkDidWebvhKeyAtTime(log, ...)`. `verifyHistoricalSignature` is deprecated: it accepts a retired key without any time check |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
 | Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
 | Revocation (6.4) | `revokeDid(did)` |
@@ -400,7 +413,7 @@ The full STRIDE analysis is in [Threat-Model.md](Threat-Model.md). Implementers 
 2. **Verify the whole log.** A `did:webvh` log MUST be verified in full (SCID, `entryHash` chain, proofs, `updateKeys` authorization) before any of its state is used. An integrity failure MUST NOT fall back to another resolution source.
 3. **Freshness is not authenticated.** A log host can serve an older valid prefix or withhold new entries. Verifiers SHOULD bound resolver cache lifetime; for emergency revocation, see the `max_emergency_propagation_window` in the A2A composition contract.
 4. **Replay state is the verifier's.** Verifiers MUST record `(keyid, nonce)` until `expires` after the signature verifies, in a store shared by all verifier instances.
-5. **Time is signer-asserted.** `created` and log `versionTime` are not trusted timestamps; do not infer "signed before compromise" from them alone.
+5. **Time is signer-asserted.** `created` and log `versionTime` are not trusted timestamps; do not infer "signed before compromise" from them alone. A key retired after the time an artifact states gives an indeterminate result unless trusted time evidence is available (§6.2.2).
 6. **Controller key custody.** Compromise of the controller key allows an attacker to rotate or deactivate the identity. The only in-protocol recovery is pre-rotation (§6.6 item 8), and only if the DID committed to successor keys before the compromise; without it there is none. Protect the active key with an HSM or KMS and keep the committed keys offline.
 7. **Commitment salts** are secrets of the controller; leaking one re-enables guessing of the committed value.
 

@@ -1,0 +1,289 @@
+{
+  "formatVersion": 1,
+  "description": "RFC-001 §6.2.2: key checks at a stated time against a did:webvh log. Log \"rotated\": (1) key-1 under authentication, assertionMethod and capabilityDelegation; (2) key-1 leaves capabilityDelegation; (3) key-1 deactivated, key-2 added. Log \"deactivated\" adds (4) a deactivation. A key authorized at the stated time and retired later is indeterminate unless trustedTimeNotAfter is earlier than the retirement. TEST-ONLY keys.",
+  "regenerate": "WRITE_KEY_AT_TIME_VECTORS=1 npm --prefix sdk test -- KeyAtTimeVectors.test.ts",
+  "inputs": {
+    "controllerPrivateKeyHex": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+    "key1PrivateKeyHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "key2PrivateKeyHex": "2222222222222222222222222222222222222222222222222222222222222222",
+    "domain": "agents.example.com",
+    "pathSegments": [
+      "fleet",
+      "time-bot"
+    ],
+    "created": "2026-01-01T00:00:00Z",
+    "delegationRemoved": "2026-01-02T00:00:00Z",
+    "rotated": "2026-01-03T00:00:00Z",
+    "payload": "agent-did:key-at-time-vector:v1"
+  },
+  "did": "did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot",
+  "logs": {
+    "rotated": "{\"versionId\":\"1-QmenmgwT26xWqeqjvU99eAPpwsCwCrGzP7sQwGgWmsjmcz\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P\",\"updateKeys\":[\"z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-01T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"],\"capabilityDelegation\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z5vnXCSCJFqqYSMWFDTchCYmXDKDZZVT6f17hfMruUqxzLEikQqVfojJoReBRuvYk1eUFWgm26yF9iZ5Q7aNfdesS\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmUwzbFtqAVwrc8P6JWQu7MQ6rujyiqGhVoHKYzxYisU3Q\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-02T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5A3W9kg848vTkBuZRWE32Lszmk4RZNrUWrwzU9q2oqmWCRN6ishCYk5epTTZVRUgeHxvMy89SXpXFMeQ7fHW1rSn\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmPygW5KQiYad6oXs2yJ9FGZd1tr5QonApQsBGxTQ87egb\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-03T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\",\"deactivated\":\"2026-01-03T00:00:00Z\"},{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MkqGC3nWZhYieEVTVDKW5v588CiGfsDSmRVG9ZwwWTvLSK\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z5bhfZMvhX6Ypu5z89U7TXnzjohRD532kU1U19ryNgxzYADJEgSspwag4kBw4nAhcFGsQf39Tristrj4FFcoQPjN1\",\"proofPurpose\":\"assertionMethod\"}]}\n",
+    "deactivated": "{\"versionId\":\"1-QmenmgwT26xWqeqjvU99eAPpwsCwCrGzP7sQwGgWmsjmcz\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P\",\"updateKeys\":[\"z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-01T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"],\"capabilityDelegation\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z5vnXCSCJFqqYSMWFDTchCYmXDKDZZVT6f17hfMruUqxzLEikQqVfojJoReBRuvYk1eUFWgm26yF9iZ5Q7aNfdesS\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmUwzbFtqAVwrc8P6JWQu7MQ6rujyiqGhVoHKYzxYisU3Q\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-02T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5A3W9kg848vTkBuZRWE32Lszmk4RZNrUWrwzU9q2oqmWCRN6ishCYk5epTTZVRUgeHxvMy89SXpXFMeQ7fHW1rSn\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmPygW5KQiYad6oXs2yJ9FGZd1tr5QonApQsBGxTQ87egb\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-03T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\",\"deactivated\":\"2026-01-03T00:00:00Z\"},{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MkqGC3nWZhYieEVTVDKW5v588CiGfsDSmRVG9ZwwWTvLSK\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z5bhfZMvhX6Ypu5z89U7TXnzjohRD532kU1U19ryNgxzYADJEgSspwag4kBw4nAhcFGsQf39Tristrj4FFcoQPjN1\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-QmeQDXUg24BDnibkcZEeGuud8FFrDRABaYfDBLmc3Xa4Cm\",\"versionTime\":\"2026-11-07T14:19:57Z\",\"parameters\":{\"updateKeys\":[\"z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\"],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"created\":\"2026-01-01T00:00:00Z\",\"updated\":\"2026-01-03T00:00:00Z\",\"agentMetadata\":{\"name\":\"time-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\"},\"verificationMethod\":[{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MktULudTtAsAhRegYPiZ6631RV3viv12qd4GQF8z1xB22S\",\"deactivated\":\"2026-01-03T00:00:00Z\"},{\"id\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\",\"type\":\"Ed25519VerificationKey2020\",\"controller\":\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot\",\"publicKeyMultibase\":\"z6MkqGC3nWZhYieEVTVDKW5v588CiGfsDSmRVG9ZwwWTvLSK\"}],\"authentication\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\"],\"assertionMethod\":[\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-1\",\"did:webvh:QmX2itNXLWnLhcPCRPeeRX4RKLtqyqGCMPsZycznaDV25P:agents.example.com:fleet:time-bot#key-2\"]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh#z6Mkr63RvbFAA3jigzUeQrfzqu2qFPJnqh95zqHHUkU7RQjh\",\"created\":\"2026-11-07T14:19:57Z\",\"proofValue\":\"z3a3Q11p9cDcYusvKDyKbad1vMrksbzs47WUTQGoewhUjp3nsDyNtVgRYqBop6zEdCAcuBnm5BSawiy4CRMjkChD7\",\"proofPurpose\":\"assertionMethod\"}]}\n"
+  },
+  "signatures": {
+    "key-1": "57a68d0362990dd9b94dc6236cebcac4cd0bb7ca3b2b430b99c3685f1359e6f696b8e9ac7203d8b576d3c4d20d36b1672b968f8b13599b6f32f2d0dc20589304",
+    "key-2": "43027aa1e12dafd3a710d0e37f22963d0b59dfdcfeb6a2bf49666ace429e6f21229a8ae4091f04360cad6f82ddaf6fbdf71a6ac1a713293f9933979671df4301"
+  },
+  "vectors": [
+    {
+      "id": "before-genesis",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2025-12-31T23:59:59Z",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "did_not_yet_created",
+        "foundIn": [],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "retired-later-no-evidence",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-01T12:00:00Z",
+      "expected": {
+        "status": "indeterminate",
+        "reason": "key_retired_after_stated_time",
+        "boundaryVersionNumber": 3,
+        "boundaryTime": "2026-01-03T00:00:00Z",
+        "signature": "indeterminate"
+      }
+    },
+    {
+      "id": "retired-later-evidence-before-boundary",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-01T12:00:00Z",
+      "trustedTimeNotAfter": "2026-01-02T23:59:59.999Z",
+      "expected": {
+        "status": "authorized",
+        "basis": "time_evidence",
+        "signature": "valid"
+      }
+    },
+    {
+      "id": "retired-later-evidence-at-boundary",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-01T12:00:00Z",
+      "trustedTimeNotAfter": "2026-01-03T00:00:00Z",
+      "expected": {
+        "status": "indeterminate",
+        "reason": "key_retired_after_stated_time",
+        "boundaryVersionNumber": 3,
+        "boundaryTime": "2026-01-03T00:00:00Z",
+        "signature": "indeterminate"
+      }
+    },
+    {
+      "id": "retired-later-bad-signature",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-01T12:00:00Z",
+      "trustedTimeNotAfter": "2026-01-02T00:00:00Z",
+      "wrongSignature": true,
+      "expected": {
+        "status": "authorized",
+        "basis": "time_evidence",
+        "signature": "invalid",
+        "signatureReason": "signature_invalid"
+      }
+    },
+    {
+      "id": "deactivated-before-stated-time",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-04T00:00:00Z",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "key_deactivated",
+        "foundIn": [
+          "assertionMethod"
+        ],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "delegation-removed-later",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "capabilityDelegation",
+      "statedTime": "2026-01-01T12:00:00Z",
+      "expected": {
+        "status": "indeterminate",
+        "reason": "key_retired_after_stated_time",
+        "boundaryVersionNumber": 2,
+        "boundaryTime": "2026-01-02T00:00:00Z",
+        "signature": "indeterminate"
+      }
+    },
+    {
+      "id": "delegation-removed-before-stated-time",
+      "log": "rotated",
+      "key": "key-1",
+      "requiredPurpose": "capabilityDelegation",
+      "statedTime": "2026-01-02T12:00:00Z",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "key_purpose_violation",
+        "foundIn": [
+          "authentication",
+          "assertionMethod"
+        ],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "key-agreement-never-signs",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "keyAgreement",
+      "statedTime": "2026-01-03T12:00:00Z",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "key_purpose_violation",
+        "foundIn": [
+          "authentication",
+          "assertionMethod"
+        ],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "key-added-after-stated-time",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-02T12:00:00Z",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "key_not_found",
+        "foundIn": [],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "offset-stated-time-before-rotation",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03T01:00:00+02:00",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "key_not_found",
+        "foundIn": [],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "stated-time-equals-entry-time",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03T00:00:00Z",
+      "expected": {
+        "status": "authorized",
+        "basis": "no_later_change",
+        "signature": "valid"
+      }
+    },
+    {
+      "id": "current-key-no-later-change",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03T12:00:00Z",
+      "expected": {
+        "status": "authorized",
+        "basis": "no_later_change",
+        "signature": "valid"
+      }
+    },
+    {
+      "id": "current-key-bad-signature",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03T12:00:00Z",
+      "wrongSignature": true,
+      "expected": {
+        "status": "authorized",
+        "basis": "no_later_change",
+        "signature": "invalid",
+        "signatureReason": "signature_invalid"
+      }
+    },
+    {
+      "id": "invalid-stated-time",
+      "log": "rotated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03 12:00:00",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "invalid_stated_time",
+        "foundIn": [],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    },
+    {
+      "id": "did-deactivated-later",
+      "log": "deactivated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03T12:00:00Z",
+      "expected": {
+        "status": "indeterminate",
+        "reason": "did_deactivated_after_stated_time",
+        "boundaryVersionNumber": 4,
+        "boundaryTime": "2026-11-07T14:19:57Z",
+        "signature": "indeterminate"
+      }
+    },
+    {
+      "id": "did-deactivated-later-evidence-before",
+      "log": "deactivated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-01-03T12:00:00Z",
+      "trustedTimeNotAfter": "2026-01-04T00:00:00Z",
+      "expected": {
+        "status": "authorized",
+        "basis": "time_evidence",
+        "signature": "valid"
+      }
+    },
+    {
+      "id": "did-deactivated-before-stated-time",
+      "log": "deactivated",
+      "key": "key-2",
+      "requiredPurpose": "assertionMethod",
+      "statedTime": "2026-11-07T14:19:57Z",
+      "expected": {
+        "status": "not_authorized",
+        "reason": "did_deactivated",
+        "foundIn": [
+          "authentication",
+          "assertionMethod"
+        ],
+        "signature": "invalid",
+        "signatureReason": "key_not_authorized"
+      }
+    }
+  ]
+}

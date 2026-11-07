@@ -13,6 +13,8 @@ import {
   UpdateAgentDocumentParams,
   VerifyHttpRequestSignatureParams,
   VerifyHttpRequestSignatureResult,
+  VerifySignatureAtTimeOptions,
+  VerifySignatureAtTimeResult,
   VerificationRelationship
 } from './types';
 import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash';
@@ -49,6 +51,7 @@ import {
   nextDocumentTimestamp
 } from '../lifecycle/documents';
 import { verifyWithActiveKeys, verifyWithHistoricalKey } from '../verification/signature';
+import { checkDidWebvhKeyAtTime, signatureResultForKey } from '../verification/key-at-time';
 import { SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
 import { IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
@@ -489,8 +492,11 @@ export class AgentDidClient {
   /**
    * Verifies a historical signature against deactivated (rotated-out) keys.
    * Unlike verifySignature(), this searches ALL verification methods including
-   * those with a `deactivated` timestamp, enabling audit trail verification
-   * for signatures created before a key rotation.
+   * those with a `deactivated` timestamp.
+   *
+   * @deprecated It accepts a retired key with no time check, so it cannot tell a signature made before the
+   * key was retired from one forged afterwards. Use `verifySignatureAtTime` (RFC-001 §6.2.2). Scheduled for
+   * removal before `v1.0.0`.
    */
   public async verifyHistoricalSignature(
     did: string,
@@ -507,6 +513,43 @@ export class AgentDidClient {
     }
 
     return verifyWithHistoricalKey(verificationChain[0], payload, signature, keyId, requiredPurpose);
+  }
+
+  /**
+   * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), using the
+   * DID's did:webvh log as created or imported in this client (`importDidWebvhHistory`).
+   *
+   * - `valid`: the signature verifies and the key was authorized for `requiredPurpose` at `statedTime`, with no
+   *   later change that retires it, or with `trustedTimeNotAfter` earlier than that change.
+   * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, or the log fails
+   *   verification.
+   * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
+   *   time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+   *
+   * The stated time is asserted by the signer. Unlike `verifyHistoricalSignature`, a retired key is never
+   * accepted on the signer's word alone.
+   */
+  public async verifySignatureAtTime(
+    did: string,
+    payload: string,
+    signature: string,
+    keyId: string,
+    options: VerifySignatureAtTimeOptions
+  ): Promise<VerifySignatureAtTimeResult> {
+    const log = did.startsWith('did:webvh:') ? this.didWebvhLogStore.get(did) : undefined;
+    if (log === undefined) {
+      return { status: 'indeterminate', key: { status: 'indeterminate', keyId, reason: 'history_unavailable' } };
+    }
+    let key;
+    try {
+      key = await checkDidWebvhKeyAtTime(log, { ...options, did, keyId });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw error;
+      }
+      return { status: 'invalid', reason: 'did_resolution_failed' };
+    }
+    return signatureResultForKey(key, payload, signature);
   }
 
   /**

@@ -159,15 +159,22 @@ const sig = await identity.signMessage('payload', kmsSigner);
 
 When `signer` is provided, `result.agentPrivateKey` is empty string — the private key never leaves the signer.
 
-## Historical Signature Verification
+## Signatures at a Stated Time
 
-After key rotation, old keys are marked `deactivated` (ISO timestamp) but kept in the document. Use `verifyHistoricalSignature` to verify signatures made with rotated keys:
+After key rotation, old keys are marked `deactivated` but kept in the log. To check a signature against the key the DID had at the time the signed artifact states (RFC-001 §6.2.2), use the DID's did:webvh log:
 
 ```ts
-const valid = await AgentIdentity.verifyHistoricalSignature(
-  did, payload, signatureHex, `${did}#key-1`
-);
+await client.importDidWebvhHistory(didLog); // not needed for DIDs created by this client
+const result = await client.verifySignatureAtTime(did, payload, signatureHex, `${did}#key-1`, {
+  statedTime: '2026-01-02T10:00:00Z',            // from the artifact; asserted by the signer
+  // trustedTimeNotAfter: '2026-01-02T10:00:05Z' // only from evidence you trust, e.g. a verified RFC 3161 token
+});
+if (result.status !== 'valid') { /* 'invalid' or 'indeterminate': reject */ }
 ```
+
+The stated time is the signer's claim, so a key retired after it gives `indeterminate` unless you pass trusted time evidence earlier than the retirement. `checkDidWebvhKeyAtTime(log, { keyId, statedTime })` returns the same key check, with the public key, without verifying a signature.
+
+`verifyHistoricalSignature` is **deprecated**: it accepts any retired key still in the document, with no time check, so it also accepts signatures forged with a compromised key after it was retired. It is scheduled for removal before `v1.0.0`.
 
 ## Anti-Replay (HTTP Signatures)
 

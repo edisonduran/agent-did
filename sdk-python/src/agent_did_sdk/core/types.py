@@ -279,6 +279,84 @@ class VerifyHttpRequestSignatureResult:
     reason: HttpSignatureRejection | None = None
 
 
+KeyAtTimeStatus = Literal["authorized", "not_authorized", "indeterminate"]
+KeyAtTimeRejection = Literal[
+    "invalid_stated_time",
+    "did_not_yet_created",
+    "did_deactivated",
+    "key_not_found",
+    "key_deactivated",
+    "key_purpose_violation",
+]
+"""Why a key was not authorized at the stated time (RFC-001 §6.2.2).
+
+* ``invalid_stated_time``: the stated time is not an RFC 3339 date-time.
+* ``did_not_yet_created``: the stated time is before the first entry of the DID log.
+* ``did_deactivated``: the DID was already deactivated at the stated time.
+* ``key_not_found``: the DID document at the stated time has no such key (or it has no public key).
+* ``key_deactivated``: the key was already deactivated at the stated time.
+* ``key_purpose_violation``: the key was not listed under the required relationship at the stated time.
+"""
+KeyAtTimeUncertainty = Literal[
+    "key_retired_after_stated_time",
+    "did_deactivated_after_stated_time",
+    "history_unavailable",
+]
+"""Why a key check at a stated time could not be decided (RFC-001 §6.2.2).
+
+The stated time is asserted by the signer, so it cannot place a signature on either side of a later change.
+
+* ``key_retired_after_stated_time``: the key was authorized at the stated time, but a later log entry retires
+  it (removed, deactivated or moved out of the required relationship) and no trusted time evidence places the
+  signature before that entry.
+* ``did_deactivated_after_stated_time``: same, for a later deactivation of the DID.
+* ``history_unavailable``: no verified did:webvh log is available for the DID, so its state at the stated time
+  cannot be established.
+"""
+
+
+@dataclass(frozen=True)
+class KeyAtTimeResult:
+    """Result of a key check at a stated time. Test ``result.status``; treat ``indeterminate`` as not accepted.
+
+    ``authorized`` means the key was authorized at the stated time and either nothing later retires it
+    (``basis == "no_later_change"``) or trusted time evidence places the signature before the first entry that
+    does (``basis == "time_evidence"``).
+    """
+
+    status: KeyAtTimeStatus
+    key_id: str
+    reason: KeyAtTimeRejection | KeyAtTimeUncertainty | None = None
+    public_key_multibase: str | None = None
+    """The key at the stated time (``authorized``, and ``indeterminate`` when it was authorized then)."""
+    version_id: str | None = None
+    """``authorized``: the log version in effect at the stated time."""
+    basis: Literal["no_later_change", "time_evidence"] | None = None
+    found_in: tuple[VerificationRelationship, ...] = ()
+    """``not_authorized``: relationships listing the key at the stated time (empty when it was not there)."""
+    boundary_version_id: str | None = None
+    """``indeterminate``: the first log entry that retires the key or deactivates the DID, when there is one."""
+    boundary_time: str | None = None
+    """``indeterminate``: when the key stopped being authorized (log ``versionTime`` or the key's ``deactivated``)."""
+
+
+VerifySignatureAtTimeRejection = Literal["did_resolution_failed", "key_not_authorized", "signature_invalid"]
+
+
+@dataclass(frozen=True)
+class VerifySignatureAtTimeResult:
+    """Result of ``verify_signature_at_time``. ``valid`` only when the signature verifies and the key was
+    authorized at the stated time. Treat ``indeterminate`` as not accepted.
+
+    ``reason`` (for ``invalid``): ``did_resolution_failed`` (the stored did:webvh log failed verification),
+    ``key_not_authorized`` (see ``key.reason``) or ``signature_invalid``.
+    """
+
+    status: Literal["valid", "invalid", "indeterminate"]
+    reason: VerifySignatureAtTimeRejection | None = None
+    key: KeyAtTimeResult | None = None
+
+
 # ---------------------------------------------------------------------------
 # Document history
 # ---------------------------------------------------------------------------

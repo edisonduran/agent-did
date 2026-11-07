@@ -186,7 +186,11 @@ class AgentIdentity:
         key_id: str,
         required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
-        """Deprecated: use the same method on an ``AgentDidClient``; removed in 2.0."""
+        """Deprecated: accepts a retired key with no time check.
+
+        Use ``verify_signature_at_time`` on an ``AgentDidClient`` (RFC-001 §6.2.2). Scheduled for removal before
+        ``v1.0.0``.
+        """
         return await cls._default_client.verify_historical_signature(did, payload, signature, key_id, required_purpose)
 
     @classmethod

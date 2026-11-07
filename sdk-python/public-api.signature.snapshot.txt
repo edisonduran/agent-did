@@ -56,6 +56,7 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def verify_http_request_signature(self, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
   def verify_http_request_signature_detailed(self, params: 'VerifyHttpRequestSignatureParams') -> 'VerifyHttpRequestSignatureResult'
   def verify_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
+  def verify_signature_at_time(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str', *, stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', trusted_time_not_after: 'str | None' = None) -> 'VerifySignatureAtTimeResult'
 
 ## AgentDidClientOptions
 class AgentDidClientOptions(resolver: 'DIDResolver | None' = None, registry: 'AgentRegistry | None' = None, nonce_store: 'NonceStore | None' = None, clock: 'Callable[[], datetime] | None' = None, webvh_domain: 'str' = 'agents.local') -> None
@@ -346,6 +347,24 @@ class JsonRpcDIDDocumentSourceConfig(endpoint: 'str | None' = None, endpoints: '
   attr http_security: HttpTargetValidationOptions | None
   attr method: str
 
+## KeyAtTimeRejection
+value KeyAtTimeRejection = typing.Literal['invalid_stated_time', 'did_not_yet_created', 'did_deactivated', 'key_not_found', 'key_deactivated', 'key_purpose_violation']
+
+## KeyAtTimeResult
+class KeyAtTimeResult(status: 'KeyAtTimeStatus', key_id: 'str', reason: 'KeyAtTimeRejection | KeyAtTimeUncertainty | None' = None, public_key_multibase: 'str | None' = None, version_id: 'str | None' = None, basis: "Literal['no_later_change', 'time_evidence'] | None" = None, found_in: 'tuple[VerificationRelationship, ...]' = (), boundary_version_id: 'str | None' = None, boundary_time: 'str | None' = None) -> None
+  attr basis: Literal['no_later_change', 'time_evidence'] | None
+  attr boundary_time: str | None
+  attr boundary_version_id: str | None
+  attr found_in: tuple[VerificationRelationship, ...]
+  attr key_id: str
+  attr public_key_multibase: str | None
+  attr reason: KeyAtTimeRejection | KeyAtTimeUncertainty | None
+  attr status: KeyAtTimeStatus
+  attr version_id: str | None
+
+## KeyAtTimeUncertainty
+value KeyAtTimeUncertainty = typing.Literal['key_retired_after_stated_time', 'did_deactivated_after_stated_time', 'history_unavailable']
+
 ## LocalKeySigner
 class LocalKeySigner(private_key_hex: 'str') -> 'None'
   staticmethod generate() -> 'tuple[LocalKeySigner, str]'
@@ -572,6 +591,15 @@ class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejecti
   attr ok: bool
   attr reason: HttpSignatureRejection | None
 
+## VerifySignatureAtTimeRejection
+value VerifySignatureAtTimeRejection = typing.Literal['did_resolution_failed', 'key_not_authorized', 'signature_invalid']
+
+## VerifySignatureAtTimeResult
+class VerifySignatureAtTimeResult(status: "Literal['valid', 'invalid', 'indeterminate']", reason: 'VerifySignatureAtTimeRejection | None' = None, key: 'KeyAtTimeResult | None' = None) -> None
+  attr key: KeyAtTimeResult | None
+  attr reason: VerifySignatureAtTimeRejection | None
+  attr status: Literal['valid', 'invalid', 'indeterminate']
+
 ## WebvhDIDDocumentSource
 class WebvhDIDDocumentSource(config: 'WebvhDIDDocumentSourceConfig | None' = None) -> 'None'
   def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
@@ -596,6 +624,9 @@ def build_signature_base(request: 'HttpRequestLike', signature_input: 'Signature
 
 ## canonicalize_json
 def canonicalize_json(value: 'object') -> 'str'
+
+## check_did_webvh_key_at_time
+def check_did_webvh_key_at_time(log: 'str', *, key_id: 'str', stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', did: 'str | None' = None, trusted_time_not_after: 'str | None' = None) -> 'KeyAtTimeResult'
 
 ## create_metadata_commitment
 def create_metadata_commitment(value: 'str', salt_hex: 'str') -> 'str'

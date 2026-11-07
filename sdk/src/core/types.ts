@@ -310,3 +310,103 @@ export type HttpSignatureRejection =
 export type VerifyHttpRequestSignatureResult =
   | { ok: true }
   | { ok: false; reason: HttpSignatureRejection };
+
+/**
+ * Why a key was not authorized at the stated time (RFC-001 §6.2.2):
+ * - `invalid_stated_time`: the stated time is not an RFC 3339 date-time.
+ * - `did_not_yet_created`: the stated time is before the first entry of the DID log.
+ * - `did_deactivated`: the DID was already deactivated at the stated time.
+ * - `key_not_found`: the DID document at the stated time has no such key (or it has no public key).
+ * - `key_deactivated`: the key was already deactivated at the stated time.
+ * - `key_purpose_violation`: the key was not listed under the required relationship at the stated time.
+ */
+export type KeyAtTimeRejection =
+  | 'invalid_stated_time'
+  | 'did_not_yet_created'
+  | 'did_deactivated'
+  | 'key_not_found'
+  | 'key_deactivated'
+  | 'key_purpose_violation';
+
+/**
+ * Why a key check at a stated time could not be decided (RFC-001 §6.2.2). The stated time is asserted by the
+ * signer, so it cannot place a signature on either side of a later change:
+ * - `key_retired_after_stated_time`: the key was authorized at the stated time, but a later log entry retires
+ *   it (removed, deactivated or moved out of the required relationship) and no trusted time evidence places
+ *   the signature before that entry.
+ * - `did_deactivated_after_stated_time`: same, for a later deactivation of the DID.
+ * - `history_unavailable`: no verified did:webvh log is available for the DID, so its state at the stated
+ *   time cannot be established.
+ */
+export type KeyAtTimeUncertainty =
+  | 'key_retired_after_stated_time'
+  | 'did_deactivated_after_stated_time'
+  | 'history_unavailable';
+
+/**
+ * Result of a key check at a stated time. `authorized` means the key was authorized at the stated time and,
+ * either nothing later retires it (`basis: 'no_later_change'`), or trusted time evidence places the signature
+ * before the first entry that does (`basis: 'time_evidence'`). Treat `indeterminate` as not accepted.
+ */
+export type KeyAtTimeResult =
+  | {
+      status: 'authorized';
+      keyId: string;
+      publicKeyMultibase: string;
+      /** The log version in effect at the stated time. */
+      versionId: string;
+      basis: 'no_later_change' | 'time_evidence';
+    }
+  | {
+      status: 'not_authorized';
+      keyId: string;
+      reason: KeyAtTimeRejection;
+      /** Relationships listing the key at the stated time (empty when it was not there). */
+      foundIn: VerificationRelationship[];
+    }
+  | {
+      status: 'indeterminate';
+      keyId: string;
+      reason: KeyAtTimeUncertainty;
+      /** The key at the stated time, when it was authorized then. */
+      publicKeyMultibase?: string;
+      /** The first log entry that retires the key or deactivates the DID, when there is one. */
+      boundaryVersionId?: string;
+      /** When the key stopped being authorized (log `versionTime` or the key's `deactivated`). */
+      boundaryTime?: string;
+    };
+
+export interface CheckKeyAtTimeOptions {
+  /** Verification method id, e.g. `did:webvh:...#key-1`. */
+  keyId: string;
+  /** The signing time the artifact states (RFC 3339). It is asserted by the signer, not trusted. */
+  statedTime: string;
+  /** Defaults to `REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion` (`assertionMethod`). */
+  requiredPurpose?: VerificationRelationship;
+  /** When set, the log must belong to this DID. */
+  did?: string;
+  /**
+   * Trusted evidence (for example a verified RFC 3161 timestamp) that the signature existed no later than this
+   * time (RFC 3339). Only the caller can vouch for it; the SDK does not verify timestamp tokens. Without it, a
+   * key retired after the stated time is never `authorized`.
+   */
+  trustedTimeNotAfter?: string;
+}
+
+export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' | 'did'>;
+
+/**
+ * Result of `verifySignatureAtTime`. `valid` only when the signature verifies and the key was authorized at
+ * the stated time. Treat `indeterminate` as not accepted.
+ * - `did_resolution_failed`: the stored did:webvh log failed verification.
+ * - `key_not_authorized`: the key was not authorized at the stated time (see `key.reason`).
+ * - `signature_invalid`: the signature does not verify with the key.
+ */
+export type VerifySignatureAtTimeResult =
+  | { status: 'valid'; key: Extract<KeyAtTimeResult, { status: 'authorized' }> }
+  | {
+      status: 'invalid';
+      reason: 'did_resolution_failed' | 'key_not_authorized' | 'signature_invalid';
+      key?: KeyAtTimeResult;
+    }
+  | { status: 'indeterminate'; key: Extract<KeyAtTimeResult, { status: 'indeterminate' }> };
