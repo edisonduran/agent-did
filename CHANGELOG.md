@@ -10,6 +10,15 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Documentation
+
+- `SECURITY.md` §2 now names the release-candidate line as the supported one (it listed the `v0.2.x` / `v0.1.x` lines) and states that the pre-1.0 `0.x` releases are not supported. The README and QUICKSTART no longer say that a plain `npm install @agentdid/sdk` resolves the `0.x` release (the npm `latest` tag follows the release candidates; `pip` still resolves `0.1.0` without a pin) and tell readers to pin the version.
+- The default `NonceStore` is documented as **per process** in the README, QUICKSTART, both SDK READMEs and the anti-replay guide: with several verifier instances a replayed request is accepted by an instance that has not seen it, so a shared store must be passed.
+
+### Added
+
+- `CI — Version Consistency` workflow and `npm run check:version-consistency`: fails when a live document names a release version that the manifests do not declare, calls an unpublished release "published" (checked against the release tags), or when the nine manifests of the release train disagree.
+
 ### Changed
 
 - The default HTTP client of the SDK's document sources (TypeScript fetch, Python httpx client) now resolves the host name before each request and refuses it when any resolved address is not globally routable; an unresolvable name is refused. A caller-supplied `fetchFn` / `http_client` keeps its own policy. The connection is made to the address that was validated (the name is resolved once, TLS still verifies the original host name), so DNS rebinding after the check cannot redirect the request. The default TypeScript client now uses `node:http`/`node:https` for named hosts, so it is Node.js only and returns a minimal fetch-like response (`ok`, `status`, `headers`, `text()`, `json()`).

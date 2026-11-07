@@ -56,6 +56,7 @@
     "python:smoke:webvh-external": "cd sdk-python && python scripts/webvh_external_smoke.py",
     "conformance:rfc001": "node scripts/conformance-rfc001.js",
     "check:jsonld-context": "node scripts/check-jsonld-context.js",
+    "check:version-consistency": "node scripts/check-version-consistency.js",
     "check:integration-governance": "node scripts/check-integration-governance.js",
     "test:python": "npm run python:test"
   },

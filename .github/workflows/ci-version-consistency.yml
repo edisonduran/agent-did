@@ -1,0 +1,53 @@
+name: CI — Version Consistency
+
+# Fails when the live docs (README, QUICKSTART, SECURITY, package READMEs, release criteria) state a
+# release version that the package manifests do not declare, or when the manifests of the release
+# train disagree with each other. See scripts/check-version-consistency.js for the rules.
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ci-version-consistency.yml'
+      - 'scripts/check-version-consistency.js'
+      - '**/*.md'
+      - '**/package.json'
+      - '**/pyproject.toml'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-version-consistency.yml'
+      - 'scripts/check-version-consistency.js'
+      - '**/*.md'
+      - '**/package.json'
+      - '**/pyproject.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: version-consistency-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  versions:
+    name: Docs and manifests name the same release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository (with tags)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The check compares "published" claims with the release tags.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Check version consistency
+        run: node scripts/check-version-consistency.js
