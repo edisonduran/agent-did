@@ -22,6 +22,15 @@ That means:
 - remaining repo changes before `v1.0.0` should be limited to bugfixes, documentation corrections, packaging, CI hardening, and release operations
 - if a public-contract change is still required, maintainers should cut another prerelease rather than slipping a breaking change into the active RC
 
+### Wire freeze
+
+From `1.0.0-rc.5` to `v1.0.0` the **signed and hashed bytes do not change**: the HTTP signature base and profile (RFC-001 §6.5), the canonicalization behind `documentRef` (JCS), the salted commitment URIs, the did:webvh log format and entry hashing, and the DID document shape. Documents, logs and signatures produced by `1.0.0-rc.5` must verify under `v1.0.0`, and the other way round.
+
+- **Allowed without a new release candidate:** documentation, tests, CI, packaging, bug fixes that change neither the signed or hashed bytes nor what a conforming verifier accepts or rejects, and additive optional APIs.
+- **Needs a new release candidate** (with a CHANGELOG entry and migration guides): any change to signed or hashed bytes, any change in what a conforming verifier accepts or rejects, and any breaking API change. Verifier-side defaults count: `1.0.0-rc.5` itself tightened some (component order, signature lifetime cap), and that is why it was an RC, not a patch.
+- **Mechanical check:** `fixtures/wire-freeze.json` pins the SHA-256 of the shared fixtures that define those bytes, and the `CI — Wire Freeze` workflow (`npm run check:wire-freeze`) fails when one changes. Re-pinning is a deliberate act that needs the explanation above in the pull request, like regenerating an API snapshot.
+- **Not a wire change:** new optional did:webvh parameters that DIDs opt into (for example pre-rotation), as long as DIDs that do not use them are unaffected.
+
 ## Versioning Expectations
 
 ### Strict Semantic Versioning (Post 1.0.0)

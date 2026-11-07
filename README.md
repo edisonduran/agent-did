@@ -301,13 +301,14 @@ By default the audit gate is strict: any unmatched finding at severity `Low` or 
 - SDK release checklist: [docs/SDK-Release-Checklist.md](docs/SDK-Release-Checklist.md)
 - LangChain Python technical plan: [docs/archive/F1-03-LangChain-Python-Technical-Plan.md](docs/archive/F1-03-LangChain-Python-Technical-Plan.md)
 - Resolver HA runbook: [docs/RFC-001-Resolver-HA-Runbook.md](docs/RFC-001-Resolver-HA-Runbook.md)
-- Complete SDK course (7 modules, Spanish): [docs/Complete-Agent-DID-SDK-Course-ES.md](docs/Complete-Agent-DID-SDK-Course-ES.md)
-- Complete SDK course (7 modules, English): [docs/Complete-Agent-DID-SDK-Course-EN.md](docs/Complete-Agent-DID-SDK-Course-EN.md)
-- 2-hour practical course: [docs/RFC-001-2h-Practical-Course.md](docs/RFC-001-2h-Practical-Course.md)
-- Training manual: [docs/RFC-001-Training-Manual.md](docs/RFC-001-Training-Manual.md)
+- Complete SDK course (7 modules, Spanish) (historical, written against earlier RCs): [docs/archive/Complete-Agent-DID-SDK-Course-ES.md](docs/archive/Complete-Agent-DID-SDK-Course-ES.md)
+- Complete SDK course (7 modules, English) (historical, written against earlier RCs): [docs/archive/Complete-Agent-DID-SDK-Course-EN.md](docs/archive/Complete-Agent-DID-SDK-Course-EN.md)
+- 2-hour practical course (historical, written against earlier RCs): [docs/archive/RFC-001-2h-Practical-Course.md](docs/archive/RFC-001-2h-Practical-Course.md)
+- Training manual (historical, written against earlier RCs): [docs/archive/RFC-001-Training-Manual.md](docs/archive/RFC-001-Training-Manual.md)
 - Strategic assessment & roadmap (Spanish): [docs/archive/Strategic-Assessment-Agent-DID-ES.md](docs/archive/Strategic-Assessment-Agent-DID-ES.md)
 - Strategic assessment & roadmap (English): [docs/archive/Strategic-Assessment-Agent-DID-EN.md](docs/archive/Strategic-Assessment-Agent-DID-EN.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Governance (decisions, merge and release rights, becoming a maintainer): [GOVERNANCE.md](GOVERNANCE.md)
 
 ## Roadmap
 
