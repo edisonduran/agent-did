@@ -21,7 +21,7 @@ Install (requires Node.js 22.12+):
 npm install @agentdid/sdk@next
 ```
 
-`@next` selects the `1.0.0-rc.4` release candidate; without it npm may install an older release whose DIDs and HTTP signatures do not interoperate with `1.0.0-rc.4`.
+`@next` selects the newest release candidate (currently `1.0.0-rc.4`). Pin the version in production: the `0.x` releases do not interoperate with the release candidates.
 
 Save this as `quickstart.js` and run `node quickstart.js`:
 
@@ -131,5 +131,6 @@ This quickstart validates the local signing lifecycle. For the canonical deploym
 
 - Read [docs/RFC-001-Agent-DID-Specification.md](docs/RFC-001-Agent-DID-Specification.md) first if you want the canonical `did:webvh` pattern rather than the minimal local flow.
 - Open [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) for the live browser demo gallery.
+- **Production warning:** `verifyHttpRequestSignature` / `verify_http_request_signature` remember nonces in an **in-memory, per-process** store by default. With more than one verifier instance (replicas, serverless functions, Kubernetes) a replayed request is accepted by any instance that has not seen it. Pass a shared `nonceStore` / `nonce_store` (Redis example in [docs/Anti-Replay-HTTP-Signatures.md](docs/Anti-Replay-HTTP-Signatures.md)) before you deploy.
 - Read [docs/Anti-Replay-HTTP-Signatures.md](docs/Anti-Replay-HTTP-Signatures.md) before deploying signed HTTP calls in production.
 - Read [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md) for pre-1.0 compatibility expectations.

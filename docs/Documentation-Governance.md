@@ -34,6 +34,8 @@ They must align with the canonical sources above and must not invent a conflicti
 
 If two live documents disagree, the conflict must be resolved in the same PR instead of leaving both versions in circulation.
 
+Release versions are checked mechanically: `npm run check:version-consistency` (CI — Version Consistency) fails when a live document names a release that the package manifests do not declare, when it calls an unpublished release "published", or when the manifests of the release train disagree with each other. When a doc gains a new statement about the current version, add a rule for it in `scripts/check-version-consistency.js`.
+
 ## Update Triggers
 
 Update the relevant live documentation when a change affects any of the following:
