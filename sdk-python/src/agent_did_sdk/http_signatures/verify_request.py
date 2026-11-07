@@ -6,7 +6,7 @@ TypeScript parity: ``sdk/src/http-signatures/verify-request.ts``.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime
 
 from ..core.http_profile import (
@@ -27,6 +27,11 @@ from ..core.types import VerificationRelationship, VerifyHttpRequestSignaturePar
 
 # (did, payload, signature_hex, key_id, purpose) -> valid?
 VerifySignatureFn = Callable[[str, str, str, str, VerificationRelationship], Awaitable[bool]]
+
+
+def _starts_with_components(components: Sequence[str], required: Sequence[str]) -> bool:
+    """RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow."""
+    return len(components) >= len(required) and all(c == r for c, r in zip(components, required))
 
 
 async def verify_agent_did_http_request(
@@ -77,7 +82,7 @@ async def verify_agent_did_http_request(
             or not nonce
             or not isinstance(key_id, str)
             or not key_id.startswith(f"{signature_agent}#")
-            or not all(c in signature_input.components for c in AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
+            or not _starts_with_components(signature_input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
             or abs(now_seconds - created) > max_skew
             or expires < created
             or expires - created > max_lifetime
