@@ -1,3 +1,5 @@
+> **Historical document (archived by rc.5 work, 2026-11).** Training material retained for context only: it was written against earlier release candidates, so code, API names and claims (including "MUST 11/11" figures) may be stale. Current sources of truth: [INDEX](../INDEX.md), [QUICKSTART](../../QUICKSTART.md), [RFC-001](../RFC-001-Agent-DID-Specification.md), [External Conformance Matrix](../External-Conformance-Matrix.md).
+
 # RFC-001 Agent-DID — Training Manual
 
 ## About This Manual
