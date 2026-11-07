@@ -55,7 +55,27 @@ await client.verifyHttpRequestSignature({
 
 `client.verifyHttpRequestSignatureDetailed(params)` returns `{ ok: true }` or `{ ok: false, reason }` (`HttpSignatureRejection`). `verifyHttpRequestSignature` is unchanged and still returns a boolean; nothing needs to change. If you adopt the detailed method, test `result.ok`: the result object is truthy for a rejection too. See [docs/Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md) for the reasons.
 
-## 6. EVM profile (`@agentdid/evm`)
+## 6. New: did:webvh pre-rotation (optional)
+
+Nothing changes for DIDs that do not use it. To be able to recover a DID after a compromise of its controller key, commit at creation to keys that will sign the next log entry, and keep their private keys offline:
+
+```ts
+const { document } = await identity.create({
+  /* ... */
+  didMethod: 'webvh',
+  webvh: {
+    domain, controllerDid, controllerSigner,
+    nextUpdateKeys: [encodePublicKeyMultibase(await recoverySigner.getPublicKey())],
+  },
+});
+
+// After a compromise: the committed key takes the DID back and commits to the following key.
+await client.rotateControllerKey(document.id, { newControllerSigner: recoverySigner, nextUpdateKeys: [nextRecoveryKey] });
+```
+
+While commitments are in force the key in `controllerSigner` can no longer sign log entries, so operations on such a DID (`updateDidDocument`, `rotateVerificationMethod`, `revokeDid`) need the committed key as `controllerSigner`. It protects only if committed before the compromise. `DidWebvhMetadata` gains `nextKeyHashes`; `client.getDidWebvhControllerKeys(did)` returns the active keys and the commitments.
+
+## 7. EVM profile (`@agentdid/evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
@@ -67,3 +87,4 @@ await client.verifyHttpRequestSignature({
 - [ ] Third-party signers with a lifetime above 300 s are covered by `maxSignatureLifetimeSeconds`.
 - [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
 - [ ] Code around `verifyHttpRequestSignature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
+- [ ] Decide whether your controller DIDs should commit to recovery keys (`webvh.nextUpdateKeys`); it only helps if done before a compromise.

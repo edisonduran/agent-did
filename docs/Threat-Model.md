@@ -129,7 +129,7 @@ An agent presents an Agent Card whose key material is a member of its DID docume
 | **R** | Controller denies revoking, or a revoked agent denies acting before. | Signed entries. | Timestamps are signer-asserted. |
 | **I** | Rotation reveals key history. | History is public by design. | Inherent. |
 | **D** | Attacker triggers false revocation by corrupting the stored log. | A stored log that fails verification makes `resolve` fail instead of reporting the DID as active, and instead of reporting it revoked. | Availability suffers; no silent downgrade. |
-| **E** | **Controller key compromised.** | Revocation requires the controller key, so the attacker can lock the owner out or rotate to their own keys. | **Unrecoverable without pre-rotation.** Pre-rotation (`nextKeyHashes`) is a did:webvh feature the SDK does not expose today. Protect the controller key with an HSM or KMS (O1). |
+| **E** | **Controller key compromised.** | Revocation requires the controller key, so the attacker can lock the owner out or rotate to their own keys. | **Recoverable only if pre-rotation was in force before the compromise** (RFC-001 §6.6 item 8; `webvh.nextUpdateKeys` at creation, `rotateControllerKey` afterwards): the compromised key can no longer sign and the holder of a committed key takes the DID back. **Unrecoverable otherwise**, and an attacker holding the active key of a DID without commitments can start pre-rotation with their own keys. Keep committed keys offline and protect the active key with an HSM or KMS (O1). |
 | **E** | Agent key compromised. | Controller rotates or revokes; verifiers reject the revoked key once they see the new log. | **Propagation delay.** The contract bounds it by `max_emergency_propagation_window` (proposed 1 h) and a 24 h default overlap (hard ceiling 7 d) for planned rotation. Cache TTL beyond that window is a verifier misconfiguration. |
 | **E** | Signatures made by a key before it was revoked. | Historical verification works from retained deactivated keys. | Persistence of history is the operator's. Without a trusted timestamp, "signed before revocation" is a claim by the signer. |
 
@@ -137,7 +137,7 @@ An agent presents an Agent Card whose key material is a member of its DID docume
 
 These are the residual risks that matter most, in priority order.
 
-1. **Controller key compromise has no in-protocol recovery** (§7). Expose pre-rotation or document a procedure; until then it is an operator control (HSM/KMS).
+1. **Controller key compromise is recoverable only for DIDs that committed to pre-rotation keys in advance** (§7). The SDKs expose pre-rotation (`nextUpdateKeys`, `rotateControllerKey` / `rotate_controller_key`), but it is opt-in: DIDs created without it have no in-protocol recovery and rely on an operator control (HSM/KMS). Committed keys held on the same host as the active key add nothing.
 2. **Rollback and withholding by a log host** (§4). Operator mitigation only: bounded TTL, mirrors.
 3. **Signer-asserted time** (§5, §7). No trusted timestamp, so post-compromise forgery of `created` cannot be excluded.
 4. **Replay protection is per process by default** (§5). Shared `NonceStore` is mandatory for multi-instance verifiers.

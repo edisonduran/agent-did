@@ -58,6 +58,21 @@ class CreateDidWebvhOptions(BaseModel):
     controller_did: str
     controller_signer: Any  # AgentSigner (controller key, did:webvh updateKeys)
     path_segments: list[str] | None = None
+    next_update_keys: list[str] | None = None
+    """Pre-rotation: public keys (Ed25519 multikeys) that will sign the DID's NEXT log entry. Only their hashes
+    go into the log (``nextKeyHashes``). From then on the key in ``controller_signer`` can no longer sign log
+    entries: a compromised controller key cannot rotate or deactivate the DID, and the holder of one of these
+    keys can. Keep their private keys offline. Rotate with ``AgentDidClient.rotate_controller_key``."""
+
+
+@dataclass(frozen=True)
+class DidWebvhControllerKeys:
+    """The controller keys of a did:webvh DID, from its verified log."""
+
+    update_keys: list[str]
+    """Keys that may sign the next entry (when ``next_key_hashes`` is empty) or that signed the last one."""
+    next_key_hashes: list[str]
+    """Pre-rotation commitments in force. While non-empty, only a key with one of these hashes can sign."""
 
 
 # ---------------------------------------------------------------------------

@@ -73,7 +73,27 @@ await client.verify_http_request_signature(
 
 `await client.verify_http_request_signature_detailed(params)` returns a `VerifyHttpRequestSignatureResult` with `ok` and, for a rejection, `reason` (`HttpSignatureRejection`). `verify_http_request_signature` is unchanged and still returns a `bool`; nothing needs to change. If you adopt the detailed method, test `result.ok`: the result object is truthy for a rejection too. See [docs/Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md) for the reasons.
 
-## 7. EVM profile (`agent_did_sdk.evm`)
+## 7. New: did:webvh pre-rotation (optional)
+
+Nothing changes for DIDs that do not use it. To be able to recover a DID after a compromise of its controller key, commit at creation to keys that will sign the next log entry, and keep their private keys offline:
+
+```python
+created = await identity.create(CreateAgentParams(
+    ...,
+    did_method="webvh",
+    webvh=CreateDidWebvhOptions(
+        domain=domain, controller_did=controller_did, controller_signer=controller_signer,
+        next_update_keys=[encode_public_key_multibase(await recovery_signer.get_public_key())],
+    ),
+))
+
+# After a compromise: the committed key takes the DID back and commits to the following key.
+await client.rotate_controller_key(created.document.id, recovery_signer, next_update_keys=[next_recovery_key])
+```
+
+While commitments are in force the key in `controller_signer` can no longer sign log entries, so operations on such a DID (`update_did_document`, `rotate_verification_method`, `revoke_did`) need the committed key as `controller_signer`. It protects only if committed before the compromise. `DidWebvhMetadata` gains `next_key_hashes`; `client.get_did_webvh_controller_keys(did)` returns the active keys and the commitments.
+
+## 8. EVM profile (`agent_did_sdk.evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
@@ -85,3 +105,4 @@ await client.verify_http_request_signature(
 - [ ] Third-party signers with a lifetime above 300 s are covered by `max_signature_lifetime_seconds`.
 - [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
 - [ ] Code around `verify_http_request_signature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
+- [ ] Decide whether your controller DIDs should commit to recovery keys (`next_update_keys`); it only helps if done before a compromise.

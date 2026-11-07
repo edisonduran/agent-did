@@ -19,6 +19,7 @@ import {
   createDID,
   deactivateDID,
   defaultVerifier,
+  deriveNextKeyHash,
   prepareDataForSigning,
   resolveDIDFromLog,
   updateDID,
@@ -58,6 +59,12 @@ export interface DidWebvhMetadata {
   updated: string;
   scid: string;
   updateKeys: string[];
+  /**
+   * Pre-rotation commitments (`nextKeyHashes`) in force after this version: while non-empty, the next
+   * entry must be signed by a key whose hash is listed here, and the current `updateKeys` can no longer
+   * sign. Empty when pre-rotation is not active.
+   */
+  nextKeyHashes: string[];
   deactivated: boolean;
   /** Cache TTL in seconds; the did:webvh default (3600) when the log does not set one. */
   ttl: string;
@@ -82,6 +89,12 @@ export interface CreateDidWebvhLogParams {
   document: Record<string, unknown>;
   /** Controller signer; its key becomes the only entry in `updateKeys`. */
   signer: AgentSigner;
+  /**
+   * Public keys (Ed25519 multikeys) the next entry will be signed with. Only their hashes are written to the
+   * log (`nextKeyHashes`, pre-rotation): keep the private keys offline, away from the signer in `signer`.
+   * Must not include the current update key.
+   */
+  nextUpdateKeys?: string[];
   /** Optional `versionTime` of the genesis entry (UTC, second precision). Defaults to now. */
   created?: string;
 }
@@ -91,8 +104,17 @@ export interface UpdateDidWebvhLogParams {
   signer: AgentSigner;
   /** Complete next DID document. When omitted, the current document is carried over. */
   document?: Record<string, unknown>;
-  /** Replacement `updateKeys` (Ed25519 multikeys), e.g. for controller key rotation. */
+  /**
+   * Replacement `updateKeys` (Ed25519 multikeys), e.g. for controller key rotation. While pre-rotation is
+   * active they must all be committed in `nextKeyHashes`, and they default to the signer's key.
+   */
   updateKeys?: string[];
+  /**
+   * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Omitted: the
+   * commitments in force stay as they are. An empty array ends pre-rotation. Must not include any of the
+   * `updateKeys` this entry sets.
+   */
+  nextUpdateKeys?: string[];
   /** Optional `versionTime` for the new entry (UTC, second precision). Defaults to now. */
   updated?: string;
 }
@@ -145,12 +167,14 @@ export async function createDidWebvhLog(params: CreateDidWebvhLogParams): Promis
   }
 
   const updateKey = await didWebvhUpdateKeyFor(params.signer);
+  const nextKeyHashes = await nextKeyHashesFor(params.nextUpdateKeys, [updateKey]);
   const result = await runLibraryOperation(() =>
     createDID({
       address: params.domain,
       paths: pathSegments.length > 0 ? pathSegments : undefined,
       didDocument: params.document as unknown as DIDDocument,
       updateKeys: [updateKey],
+      ...(nextKeyHashes !== undefined ? { nextKeyHashes } : {}),
       signer: toLibrarySigner(params.signer, updateKey),
       created: params.created,
       verifier: defaultVerifier,
@@ -163,13 +187,14 @@ export async function createDidWebvhLog(params: CreateDidWebvhLogParams): Promis
 export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promise<DidWebvhLogResult> {
   const log = parseLog(params.log);
   const current = await resolveDidWebvhLog(params.log);
-  const signerKey = await assertAuthorizedSigner(params.signer, current.metadata);
   if (params.updateKeys !== undefined) {
     if (params.updateKeys.length === 0) {
       throw new DidWebvhError('invalidInput', 'updateKeys must not be empty; use deactivateDidWebvhLog instead');
     }
     params.updateKeys.forEach(validateUpdateKey);
   }
+  const { signerKey, updateKeys } = await authorizeSigner(params.signer, current.metadata, params.updateKeys);
+  const nextKeyHashes = await nextKeyHashesFor(params.nextUpdateKeys, updateKeys ?? current.metadata.updateKeys);
   if (params.updated !== undefined) {
     validateVersionTime(params.updated, 'updated', MAX_FUTURE_SKEW_MS);
   }
@@ -179,7 +204,8 @@ export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promis
       log,
       signer: toLibrarySigner(params.signer, signerKey),
       didDocument: params.document as unknown as DIDDocument | undefined,
-      updateKeys: params.updateKeys,
+      updateKeys,
+      ...(nextKeyHashes !== undefined ? { nextKeyHashes } : {}),
       updated: params.updated,
       verifier: defaultVerifier,
       fetch: noNetworkFetch,
@@ -192,12 +218,14 @@ export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promis
 export async function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams): Promise<DidWebvhLogResult> {
   const log = parseLog(params.log);
   const current = await resolveDidWebvhLog(params.log);
-  const signerKey = await assertAuthorizedSigner(params.signer, current.metadata);
+  // While pre-rotation is active the deactivation is signed by a committed key, which becomes the update key.
+  const { signerKey, updateKeys } = await authorizeSigner(params.signer, current.metadata, undefined);
 
   const result = await runLibraryOperation(() =>
     deactivateDID({
       log,
       signer: toLibrarySigner(params.signer, signerKey),
+      ...(updateKeys !== undefined ? { updateKeys } : {}),
       verifier: defaultVerifier,
       fetch: noNetworkFetch,
     })
@@ -272,6 +300,7 @@ export async function resolveDidWebvhLog(
     updated: requireString(meta.updated, 'updated'),
     scid: requireString(meta.scid, 'scid'),
     updateKeys: Array.isArray(meta.updateKeys) ? [...(meta.updateKeys as string[])] : [],
+    nextKeyHashes: Array.isArray(meta.nextKeyHashes) ? [...(meta.nextKeyHashes as string[])] : [],
     deactivated: meta.deactivated === true,
     ttl: meta.ttl !== undefined && meta.ttl !== null ? String(meta.ttl) : DEFAULT_TTL,
   };
@@ -296,15 +325,65 @@ function toLibrarySigner(signer: AgentSigner, updateKey: string): Signer {
   };
 }
 
-async function assertAuthorizedSigner(signer: AgentSigner, metadata: DidWebvhMetadata): Promise<string> {
+/**
+ * Decides whether `signer` may append the next entry, and with which `updateKeys`.
+ *
+ * Without pre-rotation, the signer must be in the active `updateKeys`. With pre-rotation active
+ * (`nextKeyHashes` non-empty) the rule inverts, as in did:webvh v1.0: the entry must set `updateKeys` to
+ * keys whose hashes were committed, it is signed by one of them, and the keys that were active before can
+ * no longer sign. That is what makes the commitment a recovery path after a compromise of the active key.
+ * Returns the `updateKeys` the entry must carry, or undefined when the entry keeps the active ones.
+ */
+async function authorizeSigner(
+  signer: AgentSigner,
+  metadata: DidWebvhMetadata,
+  requestedUpdateKeys: string[] | undefined
+): Promise<{ signerKey: string; updateKeys: string[] | undefined }> {
   if (metadata.deactivated) {
     throw new DidWebvhError('invalidInput', 'did:webvh DID is deactivated');
   }
   const signerKey = await didWebvhUpdateKeyFor(signer);
-  if (!metadata.updateKeys.includes(signerKey)) {
-    throw new DidWebvhError('unauthorized', 'Signer key is not in the active did:webvh updateKeys');
+  if (metadata.nextKeyHashes.length === 0) {
+    if (!metadata.updateKeys.includes(signerKey)) {
+      throw new DidWebvhError('unauthorized', 'Signer key is not in the active did:webvh updateKeys');
+    }
+    return { signerKey, updateKeys: requestedUpdateKeys };
   }
-  return signerKey;
+
+  const updateKeys = requestedUpdateKeys ?? [signerKey];
+  if (!updateKeys.includes(signerKey)) {
+    throw new DidWebvhError('invalidInput', 'While pre-rotation is active, updateKeys must include the signing key');
+  }
+  for (const key of updateKeys) {
+    if (!metadata.nextKeyHashes.includes(await deriveNextKeyHash(key))) {
+      throw new DidWebvhError(
+        'unauthorized',
+        'Pre-rotation is active: updateKeys may only contain keys committed in nextKeyHashes, and the active keys can no longer sign'
+      );
+    }
+  }
+  return { signerKey, updateKeys };
+}
+
+/** Hashes pre-rotation keys. `undefined` means "no change"; the keys must be new, never an active one. */
+async function nextKeyHashesFor(
+  nextUpdateKeys: string[] | undefined,
+  activeKeys: string[]
+): Promise<string[] | undefined> {
+  if (nextUpdateKeys === undefined) {
+    return undefined;
+  }
+  nextUpdateKeys.forEach(validateUpdateKey);
+  if (new Set(nextUpdateKeys).size !== nextUpdateKeys.length) {
+    throw new DidWebvhError('invalidInput', 'nextUpdateKeys must not repeat a key');
+  }
+  if (nextUpdateKeys.some((key) => activeKeys.includes(key))) {
+    throw new DidWebvhError(
+      'invalidInput',
+      'nextUpdateKeys must not include a key that is active in the same entry: pre-rotation commits to NEW keys'
+    );
+  }
+  return Promise.all(nextUpdateKeys.map((key) => deriveNextKeyHash(key)));
 }
 
 async function runLibraryOperation<T>(operation: () => Promise<T>): Promise<T> {

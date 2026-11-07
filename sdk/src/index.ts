@@ -21,6 +21,8 @@ export {
   CreateAgentResult,
   CreateDidWebvhOptions,
   DidWebvhLifecycleOptions,
+  DidWebvhControllerKeys,
+  RotateControllerKeyOptions,
   MetadataCommitmentSalts,
   SignHttpRequestParams,
   UpdateAgentDocumentParams,
