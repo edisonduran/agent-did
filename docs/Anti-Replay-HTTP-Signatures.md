@@ -101,7 +101,11 @@ When a request carries several signatures, the reason is the one of the first si
 
 ## Replay protection: `NonceStore`
 
-Step 5 uses a `NonceStore`. By default it is a process-wide `InMemoryNonceStore`, which is correct for a single verifier instance. It refuses new nonces when full rather than evicting live ones.
+Step 5 uses a `NonceStore`.
+
+> **WARNING: the default store is per process.** By default it is a process-wide `InMemoryNonceStore`, which is correct only for a single verifier instance (and is lost on restart). With replicas, serverless functions or Kubernetes, a replayed request is accepted by any instance that has not seen its nonce. Pass a shared store, as below, before you run more than one instance.
+
+The in-memory store refuses new nonces when full rather than evicting live ones.
 
 When several instances verify requests for the same agents, pass a shared store:
 

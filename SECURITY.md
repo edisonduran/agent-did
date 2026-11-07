@@ -47,16 +47,16 @@ We follow a **coordinated disclosure** model with a **fix coordinated to severit
 
 ## 2. Supported Versions
 
-Until Agent-DID reaches v1.0, security fixes are applied to the **latest published version** of each package. We do not yet maintain LTS branches.
+Until Agent-DID reaches v1.0, security fixes are applied to the **latest published release candidate** of each package. We do not yet maintain LTS branches.
 
 | Package | Channel | Currently supported |
 |---|---|---|
-| `@agentdid/sdk` | npm | latest published (`v0.2.x` line) |
-| `agent-did-sdk` | PyPI | latest published (`v0.1.x` line) |
+| `@agentdid/sdk`, `@agentdid/langchain` | npm | latest published (`1.0.0-rc.4` line) |
+| `agent-did-sdk` and the Python integrations | PyPI | latest published (`1.0.0rc4` line) |
 | Deferred EVM profile material | repo `contracts/` | `main` branch (optional profile only; no public testnet or mainnet deployment claimed) |
 | Framework integrations | repo `integrations/*/` | `main` branch |
 
-Older versions may receive backports for critical issues at maintainer discretion. The deprecation and breaking-change policy is documented in [`docs/DEPRECATION-POLICY.md`](docs/DEPRECATION-POLICY.md).
+The `0.x` releases (`@agentdid/sdk` 0.2.0, `agent-did-sdk` 0.1.0) predate the 1.0 profile and are not supported: their DIDs and HTTP signatures do not interoperate with the release candidates (see the migration guides). Older release candidates are not supported either; upgrade to the latest one. Backports may be made at maintainer discretion. The deprecation and breaking-change policy is documented in [`docs/DEPRECATION-POLICY.md`](docs/DEPRECATION-POLICY.md).
 
 ---
 
