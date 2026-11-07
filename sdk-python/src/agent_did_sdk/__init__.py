@@ -24,6 +24,7 @@ from .core.identity import (
     ProductionResolverProfileConfig,
 )
 from .core.identity_composition import (
+    ADDITIONAL_VERIFICATION_RELATIONSHIPS,
     DID_VERIFICATION_RELATIONSHIPS,
     REQUIRED_RELATIONSHIP_BY_ARTIFACT,
     SIGNED_ARTIFACT_KINDS,
@@ -44,6 +45,7 @@ from .core.time_utils import (
     unix_string_to_iso,
 )
 from .core.types import (
+    AdditionalVerificationRelationship,
     AgentDIDDocument,
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
@@ -110,6 +112,7 @@ __all__ = [
     "VerificationRelationship",
     "SigningVerificationPurpose",
     "SignedArtifactKind",
+    "AdditionalVerificationRelationship",
     "IdentityCompositionErrorReason",
     "CreateAgentParams",
     "CreateAgentResult",
@@ -131,6 +134,7 @@ __all__ = [
     "DID_VERIFICATION_RELATIONSHIPS",
     "SIGNING_VERIFICATION_PURPOSES",
     "SIGNED_ARTIFACT_KINDS",
+    "ADDITIONAL_VERIFICATION_RELATIONSHIPS",
     "REQUIRED_RELATIONSHIP_BY_ARTIFACT",
     "required_relationship_for",
     "assert_key_purpose",

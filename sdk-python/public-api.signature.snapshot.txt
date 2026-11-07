@@ -1,10 +1,16 @@
 # Public API signature snapshot for agent-did-sdk
 
+## ADDITIONAL_VERIFICATION_RELATIONSHIPS
+value ADDITIONAL_VERIFICATION_RELATIONSHIPS = ('capabilityDelegation', 'capabilityInvocation')
+
 ## AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 value AGENT_DID_HTTP_SIGNATURE_COMPONENTS = ('@method', '@authority', '@path', '@query', 'content-digest', 'date', 'signature-agent')
 
 ## AGENT_DID_HTTP_SIGNATURE_TAG
 value AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did'
+
+## AdditionalVerificationRelationship
+value AdditionalVerificationRelationship = typing.Literal['capabilityDelegation', 'capabilityInvocation']
 
 ## AgentDIDDocument
 class AgentDIDDocument(*, context: list[str], id: str, controller: str, created: str, updated: str, agentMetadata: agent_did_sdk.core.types.AgentMetadata, complianceCertifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None, verificationMethod: list[agent_did_sdk.core.types.VerificationMethod], authentication: list[str], assertionMethod: list[str] | None = None, capabilityDelegation: list[str] | None = None, capabilityInvocation: list[str] | None = None, keyAgreement: list[str] | None = None) -> None
@@ -193,7 +199,8 @@ class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_tok
   attr token: str | None
 
 ## CreateAgentParams
-class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None, additional_verification_relationships: list[typing.Literal['capabilityDelegation', 'capabilityInvocation']] | None = None) -> None
+  attr additional_verification_relationships: list[AdditionalVerificationRelationship] | None
   attr capabilities: list[str] | None
   attr core_model: str
   attr core_model_salt: str | None

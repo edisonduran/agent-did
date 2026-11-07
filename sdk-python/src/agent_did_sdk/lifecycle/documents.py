@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 from nacl.signing import SigningKey
 
+from ..core.identity_composition import ADDITIONAL_VERIFICATION_RELATIONSHIPS
 from ..core.time_utils import normalize_timestamp_to_iso
 from ..core.types import AgentDIDDocument, UpdateAgentDocumentParams, VerificationMethod
 from ..crypto.hash import create_metadata_commitment
@@ -103,6 +104,27 @@ def build_updated_document(
     )
 
 
+def _carried_capability_relationships(existing: AgentDIDDocument, new_vm_id: str) -> dict[str, list[str] | None]:
+    """``capabilityDelegation`` / ``capabilityInvocation`` lists for a rotated document.
+
+    The new key joins each list that names a key this rotation deactivates, so an agent that could delegate
+    or invoke still can. A list that names no active key (for example only another party's key) is left as it is.
+    """
+    active_key_ids = {vm.id for vm in existing.verification_method if not vm.deactivated}
+    current: dict[str, list[str] | None] = {
+        "capabilityDelegation": existing.capability_delegation,
+        "capabilityInvocation": existing.capability_invocation,
+    }
+    carried: dict[str, list[str] | None] = {}
+    for relationship in ADDITIONAL_VERIFICATION_RELATIONSHIPS:
+        key_ids = current[relationship]
+        if key_ids and any(key_id in active_key_ids for key_id in key_ids):
+            carried[relationship] = list(dict.fromkeys([*key_ids, new_vm_id]))
+        else:
+            carried[relationship] = key_ids
+    return carried
+
+
 def build_rotated_document(did: str, existing: AgentDIDDocument, updated: str) -> tuple[AgentDIDDocument, str, str]:
     """Deactivate every current key and add a fresh Ed25519 key as the active one.
 
@@ -144,8 +166,7 @@ def build_rotated_document(did: str, existing: AgentDIDDocument, updated: str) -
             "verificationMethod": all_vms,
             "authentication": [vm_id],
             "assertionMethod": list(dict.fromkeys([*(existing.assertion_method or []), vm_id])),
-            "capabilityDelegation": existing.capability_delegation,
-            "capabilityInvocation": existing.capability_invocation,
+            **_carried_capability_relationships(existing, vm_id),
             "keyAgreement": existing.key_agreement,
         }
     )

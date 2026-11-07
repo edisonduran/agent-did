@@ -1,4 +1,5 @@
 import {
+  AdditionalVerificationRelationship,
   AgentDIDDocument,
   IdentityCompositionErrorReason,
   SignedArtifactKind,
@@ -47,6 +48,15 @@ export const SIGNING_VERIFICATION_PURPOSES: readonly SigningVerificationPurpose[
   'capabilityDelegation',
   'capabilityInvocation'
 ];
+
+/**
+ * The relationships `CreateAgentParams.additionalVerificationRelationships` accepts, in the order they are
+ * written to a document.
+ */
+export const ADDITIONAL_VERIFICATION_RELATIONSHIPS: readonly AdditionalVerificationRelationship[] = Object.freeze([
+  'capabilityDelegation',
+  'capabilityInvocation'
+] as const);
 
 /** Every `SignedArtifactKind`, in the order RFC-001 §6.2.1.3 lists them. */
 export const SIGNED_ARTIFACT_KINDS: readonly SignedArtifactKind[] = Object.freeze([

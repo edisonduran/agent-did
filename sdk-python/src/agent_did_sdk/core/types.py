@@ -107,6 +107,11 @@ class AgentDIDDocument(BaseModel):
 # Params / Results
 # ---------------------------------------------------------------------------
 
+# Relationships a document created by the SDK can list the agent key under, besides ``authentication`` and
+# ``assertionMethod`` (see ``CreateAgentParams.additional_verification_relationships``, RFC-001 §6.2.1.3).
+AdditionalVerificationRelationship = Literal["capabilityDelegation", "capabilityInvocation"]
+
+
 class CreateAgentParams(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -124,6 +129,14 @@ class CreateAgentParams(BaseModel):
     signer: Any | None = None  # AgentSigner — optional external signer for production mode
     did_method: Literal["agent", "webvh"] = "webvh"
     webvh: CreateDidWebvhOptions | None = None
+    additional_verification_relationships: list[AdditionalVerificationRelationship] | None = None
+    """Relationships to list the agent key under besides ``authentication`` and ``assertionMethod``.
+
+    RFC-001 §6.2.1.3: ``capabilityDelegation`` for an agent that issues delegations of authority,
+    ``capabilityInvocation`` for one that exercises capabilities delegated to it. Duplicates are ignored and
+    any other value raises ``ValueError``. Omitted or empty, the document is the same as in earlier releases.
+    Key rotation carries these relationships over to the new key.
+    """
 
 
 class MetadataCommitmentSalts(BaseModel):

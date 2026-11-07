@@ -44,6 +44,7 @@ from ..webvh.adapter import (
     update_did_webvh_log,
 )
 from ..webvh.documents import (
+    additional_relationship_entries,
     build_agent_document_template,
     build_bootstrap_controller_template,
     compute_document_reference,
@@ -158,6 +159,8 @@ class AgentDidClient:
     ) -> CreateAgentResult:
         """Create a new Agent-DID document (passport) in this client's state."""
         did_method = params.did_method or "webvh"
+        # Reject an unsupported relationship before generating keys or touching any store
+        additional_relationship_entries(params.additional_verification_relationships, "")
         timestamp = self._now_iso_timestamp()
         # The creator is identified by its Ed25519 key, never by an EVM address
         controller_key_did = did_key_from_public_key(await controller_signer.get_public_key())
@@ -222,6 +225,7 @@ class AgentDidClient:
                 "verificationMethod": [vm.model_dump(by_alias=True, exclude_none=True)],
                 "authentication": [verification_method_id],
                 "assertionMethod": [verification_method_id],
+                **additional_relationship_entries(params.additional_verification_relationships, verification_method_id),
             }
         )
 
@@ -274,6 +278,7 @@ class AgentDidClient:
             timestamp=timestamp,
             agent_metadata=agent_metadata,
             public_key_bytes=public_key_bytes,
+            additional_verification_relationships=params.additional_verification_relationships,
         )
 
         created = await create_did_webvh_log(

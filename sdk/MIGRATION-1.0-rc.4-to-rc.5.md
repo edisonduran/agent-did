@@ -85,7 +85,13 @@ import { AgentIdentity, requiredRelationshipFor } from '@agentdid/sdk';
 await AgentIdentity.verifySignature(issuerDid, payload, signature, keyId, requiredRelationshipFor('delegation'));
 ```
 
-A key listed only under `assertionMethod` is rejected for a delegation with `key_purpose_violation`. Documents created by the SDK list the agent key under `authentication` and `assertionMethod` only, so a DID that issues delegations needs its key listed under `capabilityDelegation`.
+A key listed only under `assertionMethod` is rejected for a delegation with `key_purpose_violation`. Documents created by the SDK list the agent key under `authentication` and `assertionMethod`. An agent that issues delegations (or invokes delegated capabilities) opts in at creation; the key is then also listed under those relationships, and key rotation carries them over to the new key:
+
+```ts
+await identity.create({ ...params, additionalVerificationRelationships: ['capabilityDelegation'] });
+```
+
+Without the option the document is the same as before.
 
 ## 8. EVM profile (`@agentdid/evm`)
 
@@ -101,3 +107,4 @@ A key listed only under `assertionMethod` is rejected for a delegation with `key
 - [ ] Code around `verifyHttpRequestSignature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`webvh.nextUpdateKeys`); it only helps if done before a compromise.
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `requiredRelationshipFor(...)` instead of the `assertionMethod` default.
+- [ ] Agents that issue delegations or invoke capabilities are created with `additionalVerificationRelationships`.

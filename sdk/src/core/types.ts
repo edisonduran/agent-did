@@ -89,6 +89,12 @@ export type VerificationRelationship =
 export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
 
 /**
+ * Relationships a document created by the SDK can list the agent key under, besides `authentication` and
+ * `assertionMethod` (see `CreateAgentParams.additionalVerificationRelationships`, RFC-001 §6.2.1.3).
+ */
+export type AdditionalVerificationRelationship = 'capabilityDelegation' | 'capabilityInvocation';
+
+/**
  * Kinds of signed artifact whose required verification relationship RFC-001 §6.2.1.3 fixes:
  * `assertion` (signed payloads, receipts, attestations and other claims), `http_request` (HTTP message
  * signatures), `delegation` (issuing a delegation of authority), `invocation` (exercising a delegated
@@ -143,6 +149,14 @@ export interface CreateAgentParams {
    * When provided, `controllerDid` must be published by its owner; the SDK does not fabricate it.
    */
   webvh?: CreateDidWebvhOptions;
+  /**
+   * Relationships to list the agent key under besides `authentication` and `assertionMethod`
+   * (RFC-001 §6.2.1.3): `capabilityDelegation` for an agent that issues delegations of authority,
+   * `capabilityInvocation` for one that exercises capabilities delegated to it. Duplicates are ignored and
+   * any other value throws `TypeError`. Omitted or empty, the document is the same as in earlier releases.
+   * Key rotation carries these relationships over to the new key.
+   */
+  additionalVerificationRelationships?: AdditionalVerificationRelationship[];
 }
 
 /**

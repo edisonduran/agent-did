@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 
 from .types import (
+    AdditionalVerificationRelationship,
     AgentDIDDocument,
     IdentityCompositionErrorReason,
     SignedArtifactKind,
@@ -28,6 +29,12 @@ SIGNING_VERIFICATION_PURPOSES: tuple[SigningVerificationPurpose, ...] = (
     "capabilityInvocation",
 )
 
+# The relationships CreateAgentParams.additional_verification_relationships accepts, in the order they are
+# written to a document.
+ADDITIONAL_VERIFICATION_RELATIONSHIPS: tuple[AdditionalVerificationRelationship, ...] = (
+    "capabilityDelegation",
+    "capabilityInvocation",
+)
 
 # Every SignedArtifactKind, in the order RFC-001 §6.2.1.3 lists them.
 SIGNED_ARTIFACT_KINDS: tuple[SignedArtifactKind, ...] = (

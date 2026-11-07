@@ -34,6 +34,7 @@ import {
   updateDidWebvhLog
 } from '../webvh/adapter';
 import {
+  additionalRelationshipEntries,
   buildAgentDocumentTemplate,
   buildBootstrapControllerTemplate,
   cloneDocument,
@@ -163,6 +164,8 @@ export class AgentDidClient {
     params: CreateAgentParams
   ): Promise<CreateAgentResult> {
     const didMethod = params.didMethod || 'webvh';
+    // Reject an unsupported relationship before generating keys or touching any store
+    additionalRelationshipEntries(params.additionalVerificationRelationships, '');
     const timestamp = this.nowIsoTimestamp();
     // The creator is identified by its Ed25519 key, never by an EVM address
     const controllerKeyDid = didKeyFromPublicKey(await controllerSigner.getPublicKey());
@@ -223,7 +226,8 @@ export class AgentDidClient {
         publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes)
       }],
       authentication: [verificationMethodId],
-      assertionMethod: [verificationMethodId]
+      assertionMethod: [verificationMethodId],
+      ...additionalRelationshipEntries(params.additionalVerificationRelationships, verificationMethodId)
     };
 
     this.resolver.registerDocument(document);
@@ -277,7 +281,8 @@ export class AgentDidClient {
       controllerDid,
       timestamp: agent.timestamp,
       agentMetadata: agent.agentMetadata,
-      publicKeyBytes: agent.publicKeyBytes
+      publicKeyBytes: agent.publicKeyBytes,
+      additionalVerificationRelationships: params.additionalVerificationRelationships
     });
 
     const created = await createDidWebvhLog({

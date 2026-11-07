@@ -254,7 +254,7 @@ A key listed under one relationship MUST NOT be accepted for an artifact kind th
 
 A protocol that defines a signed artifact not listed here MUST state which of these kinds it is before an Agent-DID verifier accepts it. Conforming SDKs MUST expose this table as one public constant (`REQUIRED_RELATIONSHIP_BY_ARTIFACT` with the lookup `requiredRelationshipFor` / `required_relationship_for`) and MUST use it wherever they choose a default relationship. The shared vectors are in `fixtures/verification-relationship-vectors.json`.
 
-Documents created by the reference SDKs list the agent key under `authentication` and `assertionMethod` only. A DID that issues delegations or invokes capabilities needs its key listed under `capabilityDelegation` or `capabilityInvocation`; until then, verifiers following this section reject those artifacts.
+Documents created by the reference SDKs list the agent key under `authentication` and `assertionMethod`. A DID that issues delegations or invokes capabilities needs its key listed under `capabilityDelegation` or `capabilityInvocation`, otherwise verifiers following this section reject those artifacts. The SDKs add those relationships only on request (`additionalVerificationRelationships` / `additional_verification_relationships` at creation, accepting `capabilityDelegation` and `capabilityInvocation`); without it the document is the same as in earlier releases. When the agent key is rotated, the new key joins each of those relationships that listed a key the rotation deactivates.
 
 ### 6.3 Evolution
 

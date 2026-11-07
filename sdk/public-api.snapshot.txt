@@ -1,4 +1,6 @@
 # Public API snapshot for @agentdid/sdk
+ADDITIONAL_VERIFICATION_RELATIONSHIPS
+AdditionalVerificationRelationship
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
 AgentDidClient

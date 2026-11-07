@@ -103,7 +103,13 @@ from agent_did_sdk import AgentIdentity, required_relationship_for
 await AgentIdentity.verify_signature(issuer_did, payload, signature, key_id, required_relationship_for("delegation"))
 ```
 
-A key listed only under `assertionMethod` is rejected for a delegation with `key_purpose_violation`. Documents created by the SDK list the agent key under `authentication` and `assertionMethod` only, so a DID that issues delegations needs its key listed under `capabilityDelegation`.
+A key listed only under `assertionMethod` is rejected for a delegation with `key_purpose_violation`. Documents created by the SDK list the agent key under `authentication` and `assertionMethod`. An agent that issues delegations (or invokes delegated capabilities) opts in at creation; the key is then also listed under those relationships, and key rotation carries them over to the new key:
+
+```python
+await identity.create(CreateAgentParams(**params, additional_verification_relationships=["capabilityDelegation"]))
+```
+
+Without the option the document is the same as before.
 
 ## 9. EVM profile (`agent_did_sdk.evm`)
 
@@ -119,3 +125,4 @@ A key listed only under `assertionMethod` is rejected for a delegation with `key
 - [ ] Code around `verify_http_request_signature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`next_update_keys`); it only helps if done before a compromise.
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `required_relationship_for(...)` instead of the `assertionMethod` default.
+- [ ] Agents that issue delegations or invoke capabilities are created with `additional_verification_relationships`.
