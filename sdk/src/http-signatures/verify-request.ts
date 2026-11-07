@@ -11,6 +11,7 @@ import {
   parseSignatureInputHeader,
   SignatureInput
 } from '../core/http-signatures';
+import { IdentityCompositionError } from '../core/identity-composition';
 import { NonceStore } from '../core/nonce-store';
 import { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, computeContentDigest } from '../core/http-profile';
 
@@ -25,6 +26,11 @@ export interface VerifyRequestDeps {
   ) => Promise<boolean>;
   nonceStore: NonceStore;
   now: Date;
+}
+
+/** RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow. */
+function startsWithComponents(components: readonly string[], required: readonly string[]): boolean {
+  return required.every((component, index) => components[index] === component);
 }
 
 export async function verifyAgentDidHttpRequest(
@@ -75,7 +81,7 @@ export async function verifyAgentDidHttpRequest(
       typeof nonce !== 'string' || nonce.length === 0 ||
       typeof keyId !== 'string' ||
       !keyId.startsWith(`${signatureAgent}#`) ||
-      !AGENT_DID_HTTP_SIGNATURE_COMPONENTS.every((component) => input.components.includes(component)) ||
+      !startsWithComponents(input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS) ||
       Math.abs(now - created) > maxSkew ||
       expires < created ||
       expires - created > maxLifetime ||
@@ -91,7 +97,18 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
-    if (!await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, 'assertionMethod')) {
+    // A `keyid` that is not an `assertionMethod` of the DID is an untrusted input, so it is a
+    // rejection (`false`), not an exception.
+    let signatureValid: boolean;
+    try {
+      signatureValid = await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, 'assertionMethod');
+    } catch (error) {
+      if (error instanceof IdentityCompositionError) {
+        continue;
+      }
+      throw error;
+    }
+    if (!signatureValid) {
       continue;
     }
 

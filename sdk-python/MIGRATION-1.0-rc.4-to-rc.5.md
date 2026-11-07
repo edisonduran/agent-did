@@ -63,7 +63,13 @@ await client.verify_http_request_signature(
 )
 ```
 
-## 5. EVM profile (`agent_did_sdk.evm`)
+## 5. HTTP signature verification enforces the component order and never raises for an unbound key
+
+- `verify_http_request_signature` now requires the signature to cover `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"` **in this order**, as RFC-001 §6.5 item 2 states; additional components may only follow. Before, any order (and any position of extra components) was accepted. Signatures from the SDK's own signer already use this order, so they are unaffected. A third-party signer that lists the components in another order must change its `Signature-Input`.
+- A signed request whose `keyid` is not an `assertionMethod` key of the `Signature-Agent` DID (a fragment the document does not have, or a key listed only under `keyAgreement`) is now rejected: `verify_http_request_signature` returns `False`. In rc.4 it raised `IdentityCompositionError`. Remove any `except` clause that only handled that case; keep the check on the returned value.
+- `Content-Digest` must be exactly `sha-256=:<base64>:`. A dictionary with further algorithms is rejected, as before; RFC-001 §6.5 item 1 now says so.
+
+## 6. EVM profile (`agent_did_sdk.evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
@@ -73,3 +79,5 @@ await client.verify_http_request_signature(
 - [ ] Internal endpoints set `http_security=HttpTargetValidationOptions(allow_private_targets=True)`.
 - [ ] Any `http_security` passed to the Bearer source is the policy you want, now that it takes effect.
 - [ ] Third-party signers with a lifetime above 300 s are covered by `max_signature_lifetime_seconds`.
+- [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
+- [ ] Code around `verify_http_request_signature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
