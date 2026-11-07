@@ -65,6 +65,40 @@ headers = await identity.sign_http_request(SignHttpRequestParams(
 
 The nonce is recorded only after the signature verifies, so forged requests cannot consume other clients' nonces.
 
+## Why a request was rejected
+
+`verifyHttpRequestSignature` / `verify_http_request_signature` return a boolean. To log or answer with the reason, call `verifyHttpRequestSignatureDetailed` / `verify_http_request_signature_detailed` on an `AgentDidClient`; it returns `{ ok: true }` or `{ ok: false, reason }` (Python: `result.ok`, `result.reason`). Always test `result.ok`: the result object is truthy for a rejection too.
+
+```typescript
+const result = await client.verifyHttpRequestSignatureDetailed({ method, url, body, headers });
+if (!result.ok) {
+  log.warn({ reason: result.reason }, 'rejected agent request');
+  return respond(401);
+}
+```
+
+| `reason` | Meaning |
+|---|---|
+| `missing_headers` | `Signature`, `Signature-Input` or `Signature-Agent` is absent |
+| `malformed_headers` | the signature headers do not parse, or no signature has a matching label |
+| `digest_mismatch` | `Content-Digest` is absent, or is not exactly the SHA-256 of the body |
+| `tag_mismatch` | `tag` is not `agent-did` (for example another profile's signature) |
+| `alg_unsupported` | `alg` is not `ed25519` |
+| `params_missing` | `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type |
+| `keyid_not_bound` | `keyid` is not a key of the `Signature-Agent` DID |
+| `components_missing` / `components_order` | a required covered component is absent / the required components are not first and in order |
+| `created_skew` | `created` is further from now than the allowed skew |
+| `expires_before_created` | `expires` is earlier than `created` |
+| `lifetime_exceeded` | `expires - created` is above the lifetime cap |
+| `expired` | now is after `expires` |
+| `signed_component_missing` | a covered component has no value in the request (for example no `Date`) |
+| `did_resolution_failed` | the `Signature-Agent` DID has no active verification chain: unknown, revoked, deactivated, inactive controller or a resolver failure. The SDK does not tell an outage from a revocation |
+| `keyid_not_authorized` | `keyid` is not an `assertionMethod` key of the DID document |
+| `signature_invalid` | the signature does not verify, or the key is no longer active |
+| `nonce_replayed` | the `(keyid, nonce)` pair was already seen |
+
+When a request carries several signatures, the reason is the one of the first signature with `tag="agent-did"`. The reasons are part of the shared vectors (`fixtures/http-verification-vectors.json`), so both SDKs report the same reason for the same request. Do not return the reason to the caller of your API: it tells an attacker which rule to work around. Log it.
+
 ## Replay protection: `NonceStore`
 
 Step 5 uses a `NonceStore`. By default it is a process-wide `InMemoryNonceStore`, which is correct for a single verifier instance. It refuses new nonces when full rather than evicting live ones.

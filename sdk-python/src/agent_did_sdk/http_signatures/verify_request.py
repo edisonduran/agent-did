@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime
+from typing import Literal
 
 from ..core.http_profile import (
     AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
@@ -21,12 +22,25 @@ from ..core.http_signatures import (
     parse_signature_header,
     parse_signature_input_header,
 )
-from ..core.identity_composition import IdentityCompositionError
 from ..core.nonce_store import NonceStore
-from ..core.types import VerificationRelationship, VerifyHttpRequestSignatureParams
+from ..core.types import (
+    HttpSignatureRejection,
+    VerificationRelationship,
+    VerifyHttpRequestSignatureParams,
+    VerifyHttpRequestSignatureResult,
+)
 
-# (did, payload, signature_hex, key_id, purpose) -> valid?
-VerifySignatureFn = Callable[[str, str, str, str, VerificationRelationship], Awaitable[bool]]
+SignatureCheckOutcome = Literal["valid", "invalid", "key_not_authorized", "did_resolution_failed"]
+"""What the injected cryptographic check found."""
+
+# (did, payload, signature_hex, key_id, purpose) -> outcome
+VerifySignatureFn = Callable[[str, str, str, str, VerificationRelationship], Awaitable[SignatureCheckOutcome]]
+
+_OK = VerifyHttpRequestSignatureResult(ok=True)
+
+
+def _reject(reason: HttpSignatureRejection) -> VerifyHttpRequestSignatureResult:
+    return VerifyHttpRequestSignatureResult(ok=False, reason=reason)
 
 
 def _starts_with_components(components: Sequence[str], required: Sequence[str]) -> bool:
@@ -40,19 +54,19 @@ async def verify_agent_did_http_request(
     verify_signature: VerifySignatureFn,
     nonce_store: NonceStore,
     now: datetime,
-) -> bool:
+) -> VerifyHttpRequestSignatureResult:
     headers = {key.lower(): value for key, value in params.headers.items()}
     signature_agent = headers.get("signature-agent")
     if not headers.get("signature") or not headers.get("signature-input") or not signature_agent:
-        return False
+        return _reject("missing_headers")
     if headers.get("content-digest") != compute_content_digest(params.body):
-        return False
+        return _reject("digest_mismatch")
 
     try:
         inputs = parse_signature_input_header(headers["signature-input"])
         signatures = parse_signature_header(headers["signature"])
     except HttpSignatureError:
-        return False
+        return _reject("malformed_headers")
 
     now_seconds = int(now.timestamp())
     max_skew = params.max_created_skew_seconds if params.max_created_skew_seconds is not None else 300
@@ -62,51 +76,78 @@ async def verify_agent_did_http_request(
     store = params.nonce_store if params.nonce_store is not None else nonce_store
     request = HttpRequestLike(method=params.method.upper(), url=params.url, headers=headers)
 
+    # The reason reported is the first one of a signature with the Agent-DID tag, else the first one.
+    failures: list[tuple[HttpSignatureRejection, bool]] = []
+
     for label, signature_input in inputs.items():
         signature = signatures.get(label)
         if signature is None:
+            failures.append(("malformed_headers", False))
+            continue
+        if signature_input.get("tag") != AGENT_DID_HTTP_SIGNATURE_TAG:
+            failures.append(("tag_mismatch", False))
             continue
 
         created = signature_input.get("created")
         expires = signature_input.get("expires")
         nonce = signature_input.get("nonce")
         key_id = signature_input.get("keyid")
+        if signature_input.get("alg") != "ed25519":
+            failures.append(("alg_unsupported", True))
+            continue
         if (
-            signature_input.get("tag") != AGENT_DID_HTTP_SIGNATURE_TAG
-            or signature_input.get("alg") != "ed25519"
-            or not isinstance(created, int)
+            not isinstance(created, int)
             or isinstance(created, bool)
             or not isinstance(expires, int)
             or isinstance(expires, bool)
             or not isinstance(nonce, str)
             or not nonce
             or not isinstance(key_id, str)
-            or not key_id.startswith(f"{signature_agent}#")
-            or not _starts_with_components(signature_input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
-            or abs(now_seconds - created) > max_skew
-            or expires < created
-            or expires - created > max_lifetime
-            or now_seconds > expires
         ):
+            failures.append(("params_missing", True))
+            continue
+        if not key_id.startswith(f"{signature_agent}#"):
+            failures.append(("keyid_not_bound", True))
+            continue
+        if not _starts_with_components(signature_input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS):
+            all_covered = all(c in signature_input.components for c in AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
+            failures.append(("components_order" if all_covered else "components_missing", True))
+            continue
+        if abs(now_seconds - created) > max_skew:
+            failures.append(("created_skew", True))
+            continue
+        if expires < created:
+            failures.append(("expires_before_created", True))
+            continue
+        if expires - created > max_lifetime:
+            failures.append(("lifetime_exceeded", True))
+            continue
+        if now_seconds > expires:
+            failures.append(("expired", True))
             continue
 
         try:
             signature_base = build_signature_base(request, signature_input)
         except HttpSignatureError:
+            failures.append(("signed_component_missing", True))
             continue
 
-        # A `keyid` that is not an `assertionMethod` of the DID is an untrusted input, so it is a
-        # rejection (`False`), not an exception.
-        try:
-            signature_valid = await verify_signature(
-                signature_agent, signature_base, signature.hex(), key_id, "assertionMethod"
-            )
-        except IdentityCompositionError:
-            continue
-        if not signature_valid:
+        outcome = await verify_signature(signature_agent, signature_base, signature.hex(), key_id, "assertionMethod")
+        if outcome != "valid":
+            if outcome == "did_resolution_failed":
+                failures.append(("did_resolution_failed", True))
+            elif outcome == "key_not_authorized":
+                failures.append(("keyid_not_authorized", True))
+            else:
+                failures.append(("signature_invalid", True))
             continue
 
         # Record the nonce only for a valid signature, so forged requests cannot burn nonces.
-        return await store.check_and_store(f"{key_id} {nonce}", expires)
+        if await store.check_and_store(f"{key_id} {nonce}", expires):
+            return _OK
+        return _reject("nonce_replayed")
 
-    return False
+    tagged = [reason for reason, is_tagged in failures if is_tagged]
+    if tagged:
+        return _reject(tagged[0])
+    return _reject(failures[0][0] if failures else "malformed_headers")

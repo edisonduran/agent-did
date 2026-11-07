@@ -69,7 +69,11 @@ await client.verify_http_request_signature(
 - A signed request whose `keyid` is not an `assertionMethod` key of the `Signature-Agent` DID (a fragment the document does not have, or a key listed only under `keyAgreement`) is now rejected: `verify_http_request_signature` returns `False`. In rc.4 it raised `IdentityCompositionError`. Remove any `except` clause that only handled that case; keep the check on the returned value.
 - `Content-Digest` must be exactly `sha-256=:<base64>:`. A dictionary with further algorithms is rejected, as before; RFC-001 §6.5 item 1 now says so.
 
-## 6. EVM profile (`agent_did_sdk.evm`)
+## 6. New: the reason of a rejected HTTP signature (optional)
+
+`await client.verify_http_request_signature_detailed(params)` returns a `VerifyHttpRequestSignatureResult` with `ok` and, for a rejection, `reason` (`HttpSignatureRejection`). `verify_http_request_signature` is unchanged and still returns a `bool`; nothing needs to change. If you adopt the detailed method, test `result.ok`: the result object is truthy for a rejection too. See [docs/Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md) for the reasons.
+
+## 7. EVM profile (`agent_did_sdk.evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 

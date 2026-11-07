@@ -77,6 +77,7 @@ Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` lo
 | Verify message signatures | `AgentIdentity.verifySignature(did, payload, sig)` | ✅ |
 | Enforce key purpose binding | `assertKeyPurpose(keyId, didDoc, purpose)` | ✅ |
 | Verify HTTP signatures | `AgentIdentity.verifyHttpRequestSignature(params)` | ✅ |
+| Verify HTTP signatures, with the reason of a rejection | `client.verifyHttpRequestSignatureDetailed(params)` | ✅ |
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
 | Revoke DID | `AgentIdentity.revokeDid(did)` | ✅ |
 | Update document | `AgentIdentity.updateDidDocument(did, patch)` | ✅ |

@@ -46,6 +46,7 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def use_production_resolver_from_json_rpc(self, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
   def verify_historical_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
   def verify_http_request_signature(self, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
+  def verify_http_request_signature_detailed(self, params: 'VerifyHttpRequestSignatureParams') -> 'VerifyHttpRequestSignatureResult'
   def verify_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
 
 ## AgentDidClientOptions
@@ -282,6 +283,9 @@ class HttpRequestLike(method: 'str', url: 'str', headers: 'Mapping[str, str | Se
 
 ## HttpSignatureError
 class HttpSignatureError(...)
+
+## HttpSignatureRejection
+value HttpSignatureRejection = typing.Literal['missing_headers', 'malformed_headers', 'digest_mismatch', 'tag_mismatch', 'alg_unsupported', 'params_missing', 'keyid_not_bound', 'components_missing', 'components_order', 'created_skew', 'expires_before_created', 'lifetime_exceeded', 'expired', 'signed_component_missing', 'did_resolution_failed', 'keyid_not_authorized', 'signature_invalid', 'nonce_replayed']
 
 ## HttpTargetValidationOptions
 class HttpTargetValidationOptions(*, allow_private_targets: 'bool' = False) -> 'None'
@@ -538,6 +542,11 @@ class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | Non
   attr nonce_store: Any | None
   attr url: str
   member model_config = {'arbitrary_types_allowed': True}
+
+## VerifyHttpRequestSignatureResult
+class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejection | None' = None) -> None
+  attr ok: bool
+  attr reason: HttpSignatureRejection | None
 
 ## WebvhDIDDocumentSource
 class WebvhDIDDocumentSource(config: 'WebvhDIDDocumentSourceConfig | None' = None) -> 'None'
