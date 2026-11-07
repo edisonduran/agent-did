@@ -123,9 +123,20 @@ result = await client.verify_signature_at_time(did, payload, signature, key_id, 
 
 A key retired after `stated_time` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trusted_time_not_after` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verify_historical_signature` must decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
 
-## 10. EVM profile (`agent_did_sdk.evm`)
+## 10. Breaking: the EVM adapter is a separate package (`agent-did-evm`)
 
-`AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
+`agent_did_sdk.evm` and the `[evm]` extra are gone. The adapter moved, with the `AgentRegistry` contract, to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) ([ADR-004](../docs/ADR-004-EVM-Profile-Satellite.md)) and is published as `agent-did-evm`. The classes and functions are the same:
+
+```diff
+- pip install "agent-did-sdk[evm]"
++ pip install --pre agent-did-evm
+- from agent_did_sdk.evm import EvmAgentRegistry, EvmAgentRegistryAdapterConfig, Web3AgentRegistryContractClient
++ from agent_did_evm import EvmAgentRegistry, EvmAgentRegistryAdapterConfig, Web3AgentRegistryContractClient
+```
+
+`agent-did-sdk` no longer pulls `web3`, not even in `[dev]`.
+
+`AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID; see the `agent-did-evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
 ## Checklist
 
@@ -139,3 +150,4 @@ A key retired after `stated_time` gives `indeterminate`, not `valid`: the stated
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `required_relationship_for(...)` instead of the `assertionMethod` default.
 - [ ] Agents that issue delegations or invoke capabilities are created with `additional_verification_relationships`.
 - [ ] Calls to `verify_historical_signature` are replaced with `verify_signature_at_time`, and `indeterminate` is handled as not accepted.
+- [ ] Code that imports `agent_did_sdk.evm` installs `agent-did-evm` and imports `agent_did_evm` instead.

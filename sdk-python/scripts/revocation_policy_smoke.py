@@ -1,145 +1,83 @@
+"""Revocation policy smoke on the canonical did:webvh path (RFC-001 §6.6).
+
+Only the controller's update key can revoke or change a DID; a third party's key cannot, and neither can a
+registry record on its own. After a controller-signed deactivation, no further change is accepted.
+
+TypeScript parity: ``scripts/revocation-policy-smoke.js``.
+"""
+
 from __future__ import annotations
 
+import asyncio
 import sys
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from eth_account import Account
-from eth_account.messages import encode_typed_data
-from smoke_utils import (
-    CONTRACTS_DIR,
-    NPM_COMMAND,
-    load_contract_abi,
-    load_contract_bytecode,
-    run,
-    spawn_hardhat_node,
-    stop_process_tree,
-    wait_for_hardhat_node,
-)
-from web3 import HTTPProvider, Web3
-
-# Well-known Hardhat development account #0 (the deployer, hence the registrar).
-HARDHAT_ACCOUNT_0_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+from agent_did_sdk import AgentDidClient, AgentDidClientOptions, LocalKeySigner
+from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
+from agent_did_sdk.core.types import CreateAgentParams, UpdateAgentDocumentParams
+from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 
 
-def wait_for_tx(web3: Web3, tx_hash: bytes) -> None:
-    web3.eth.wait_for_transaction_receipt(tx_hash)
-
-
-def expect_revert(action, expected_message: str) -> None:
+async def expect_rejected(action: Callable[[], Awaitable[Any]], label: str) -> None:
     try:
-        action()
-    except Exception as exc:  # noqa: BLE001
-        if expected_message not in str(exc):
-            raise RuntimeError(
-                f"Unexpected revert message. Expected to include '{expected_message}', got: {exc}"
-            ) from exc
+        await action()
+    except Exception:  # noqa: BLE001 - any rejection counts
         return
-    raise RuntimeError(f"Expected revert with message containing: {expected_message}")
+    raise RuntimeError(f"{label} must be rejected")
 
 
-def register_attested(web3: Web3, contract, did: str, owner: str) -> None:
-    controller = f"did:ethr:{owner}"
-    deadline = web3.eth.get_block("latest")["timestamp"] + 3600
-    message = {
-        "types": {
-            "EIP712Domain": [
-                {"name": "name", "type": "string"},
-                {"name": "version", "type": "string"},
-                {"name": "chainId", "type": "uint256"},
-                {"name": "verifyingContract", "type": "address"},
-            ],
-            "Registration": [
-                {"name": "did", "type": "string"},
-                {"name": "controller", "type": "string"},
-                {"name": "documentRef", "type": "string"},
-                {"name": "owner", "type": "address"},
-                {"name": "deadline", "type": "uint256"},
-            ],
-        },
-        "primaryType": "Registration",
-        "domain": {
-            "name": "AgentRegistry",
-            "version": "1",
-            "chainId": web3.eth.chain_id,
-            "verifyingContract": contract.address,
-        },
-        "message": {
-            "did": did,
-            "controller": controller,
-            "documentRef": "",
-            "owner": owner,
-            "deadline": deadline,
-        },
-    }
-    signature = Account.sign_message(encode_typed_data(full_message=message), HARDHAT_ACCOUNT_0_KEY).signature
-    attestation = (owner, deadline, signature)
-    wait_for_tx(
-        web3,
-        contract.functions.registerAgentAttested(did, controller, "", attestation).transact({"from": owner}),
+async def main() -> int:
+    registry = InMemoryAgentRegistry()
+    client = AgentDidClient(AgentDidClientOptions(registry=registry))
+    attacker = LocalKeySigner.generate()[0]
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client))
+
+    result = await identity.create(
+        CreateAgentParams(
+            name="PolicySmokeBot",
+            core_model="gpt-4o-mini",
+            system_prompt="You are a revocation policy smoke test.",
+        )
+    )
+    did = result.document.id
+    payload = "policy-smoke"
+    signature = await identity.sign_message(payload, result.agent_private_key)
+
+    async def still_valid() -> None:
+        if not await client.verify_signature(did, payload, signature):
+            raise RuntimeError("DID must stay active")
+
+    print("[smoke] A third party cannot revoke, rotate or update the DID...")
+    await expect_rejected(lambda: client.revoke_did(did, controller_signer=attacker), "revocation by a third-party key")
+    await expect_rejected(
+        lambda: client.rotate_verification_method(did, controller_signer=attacker), "key rotation by a third-party key"
+    )
+    await expect_rejected(
+        lambda: client.update_did_document(
+            did, UpdateAgentDocumentParams(description="hijacked"), controller_signer=attacker
+        ),
+        "update by a third-party key",
+    )
+    await still_valid()
+
+    print("[smoke] A registry record alone does not revoke a did:webvh DID...")
+    await registry.revoke(did)
+    await still_valid()
+
+    print("[smoke] The controller revokes; nothing changes the DID afterwards...")
+    await client.revoke_did(did)
+    if await client.verify_signature(did, payload, signature):
+        raise RuntimeError("DID must be revoked by its controller")
+    await expect_rejected(lambda: client.rotate_verification_method(did), "key rotation after deactivation")
+    await expect_rejected(
+        lambda: client.update_did_document(did, UpdateAgentDocumentParams(description="revived")),
+        "update after deactivation",
     )
 
-
-def main() -> int:
-    node_process = spawn_hardhat_node()
-    try:
-        wait_for_hardhat_node(node_process)
-
-        run([NPM_COMMAND, "run", "build"], CONTRACTS_DIR)
-        web3 = Web3(HTTPProvider("http://127.0.0.1:8545"))
-        abi = load_contract_abi()
-        bytecode = load_contract_bytecode()
-        deployment = web3.eth.contract(abi=abi, bytecode=bytecode)
-        deployment_hash = deployment.constructor().transact({"from": web3.eth.accounts[0]})
-        deployment_receipt = web3.eth.wait_for_transaction_receipt(deployment_hash)
-        deployed_address = deployment_receipt.contractAddress
-        contract = web3.eth.contract(address=Web3.to_checksum_address(deployed_address), abi=abi)
-
-        owner = web3.eth.accounts[1]
-        delegate = web3.eth.accounts[2]
-        new_owner = web3.eth.accounts[3]
-
-        did_one = "did:agent:polygon:0xpolicy1"
-        register_attested(web3, contract, did_one, owner)
-
-        expect_revert(lambda: contract.functions.revokeAgent(did_one).transact({"from": delegate}), "not authorized")
-
-        wait_for_tx(
-            web3,
-            contract.functions.setRevocationDelegate(did_one, delegate, True).transact({"from": owner}),
-        )
-
-        if not contract.functions.isRevocationDelegate(did_one, delegate).call():
-            raise RuntimeError("Delegate should be authorized after setRevocationDelegate")
-
-        wait_for_tx(web3, contract.functions.revokeAgent(did_one).transact({"from": delegate}))
-        if not contract.functions.isRevoked(did_one).call():
-            raise RuntimeError("DID should be revoked by authorized delegate")
-
-        did_two = "did:agent:polygon:0xpolicy2"
-        register_attested(web3, contract, did_two, owner)
-        wait_for_tx(
-            web3,
-            contract.functions.transferAgentOwnership(did_two, new_owner).transact({"from": owner}),
-        )
-
-        expect_revert(
-            lambda: contract.functions.setRevocationDelegate(did_two, delegate, True).transact({"from": owner}),
-            "only owner",
-        )
-
-        wait_for_tx(
-            web3,
-            contract.functions.setRevocationDelegate(did_two, delegate, True).transact({"from": new_owner}),
-        )
-        wait_for_tx(web3, contract.functions.revokeAgent(did_two).transact({"from": delegate}))
-
-        if not contract.functions.isRevoked(did_two).call():
-            raise RuntimeError("DID should be revoked after ownership transfer + delegation")
-
-        print("✅ Revocation policy smoke completed successfully")
-        return 0
-    finally:
-        stop_process_tree(node_process)
+    print("Revocation policy smoke completed successfully")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(asyncio.run(main()))

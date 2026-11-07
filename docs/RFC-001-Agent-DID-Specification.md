@@ -182,7 +182,7 @@ graph TD
 
 - **Default profile:** `did:webvh` over web-hosted DID history and documents, with controller recursion and VC-backed organizational evidence.
 - **Compatibility profile:** Other DID methods such as `did:web`, `did:key`, or `did:ethr`, provided the verifier can still resolve the document and enforce the semantics of this RFC.
-- **Optional EVM profile:** Additional anchoring, registry, or smart-account behavior for environments that require on-chain immutability. See `docs/RFC-001-EVM-Profile.md`.
+- **Optional EVM profile:** Additional anchoring, registry, or smart-account behavior for environments that require on-chain immutability. Defined in `RFC-001-EVM-Profile.md`, maintained with its contract and adapters in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm).
 - **Recommended production resolution profile:** Use method-appropriate HTTPS, IPFS, and/or JSON-RPC sources with multiple endpoints/gateways, TTL cache, resolution telemetry, and transient error failover.
 - **HA operational guide:** see `docs/RFC-001-Resolver-HA-Runbook.md` for SLO, alerts, and resilience drills.
 
@@ -324,7 +324,7 @@ The reference SDK (TypeScript/Python) must expose at minimum:
 
 ### 7.1 Reference Contract/Registry (EVM)
 
-The optional EVM deployment profile is defined in `docs/RFC-001-EVM-Profile.md`. It is not part of the minimum conformance floor for core RFC-001.
+The optional EVM deployment profile is defined in `RFC-001-EVM-Profile.md` in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). It is not part of the minimum conformance floor for core RFC-001.
 
 ### 7.2 Interoperability Fixtures
 
@@ -361,7 +361,7 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
 | Revocation (6.4) | `revokeDid(did)` |
 | Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
-| Optional EVM Integration (5.3) | `EthersAgentRegistryContractClient` + `EvmAgentRegistry` |
+| Optional EVM Integration (5.3) | `@agentdid/evm` / `agent-did-evm` (`EvmAgentRegistry`), in `edisonduran/agent-did-evm` |
 
 ### 7.4 Minimum End-to-End Flow (Onboarding)
 
@@ -374,11 +374,9 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 Executable examples:
 
 - `sdk/examples/quickstart.js`
-- `evm/examples/e2e-smoke.js`
+- `scripts/e2e-smoke.js` and `sdk-python/scripts/e2e_smoke.py` (`npm run smoke:e2e`)
 
-Optional EVM profile example:
-
-- `evm/examples/evm-registry-wiring.ts`
+The optional EVM profile examples are in `edisonduran/agent-did-evm`.
 
 Recommended full validation command:
 

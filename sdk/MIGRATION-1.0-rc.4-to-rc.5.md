@@ -105,9 +105,11 @@ const result = await client.verifySignatureAtTime(did, payload, signature, keyId
 
 A key retired after `statedTime` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trustedTimeNotAfter` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verifyHistoricalSignature` must decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
 
-## 9. EVM profile (`@agentdid/evm`)
+## 9. EVM profile (`@agentdid/evm`): moved to its own repository
 
-`AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
+The EVM profile (the `AgentRegistry` contract and `@agentdid/evm`) now lives in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) ([ADR-004](../docs/ADR-004-EVM-Profile-Satellite.md)). The npm package keeps its name, so nothing changes in your imports. `@agentdid/sdk` never depended on it.
+
+`AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
 ## Checklist
 
@@ -121,3 +123,4 @@ A key retired after `statedTime` gives `indeterminate`, not `valid`: the stated 
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `requiredRelationshipFor(...)` instead of the `assertionMethod` default.
 - [ ] Agents that issue delegations or invoke capabilities are created with `additionalVerificationRelationships`.
 - [ ] Calls to `verifyHistoricalSignature` are replaced with `verifySignatureAtTime`, and `indeterminate` is handled as not accepted.
+- [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.

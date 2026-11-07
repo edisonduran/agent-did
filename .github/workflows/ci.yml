@@ -11,7 +11,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'sdk/**'
-      - 'contracts/**'
       - 'scripts/**'
   pull_request:
     paths:
@@ -20,7 +19,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'sdk/**'
-      - 'contracts/**'
       - 'scripts/**'
   workflow_dispatch:
   # Daily run on main keeps the C-QA-8 green window evidence-based.
@@ -52,7 +50,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             sdk/package-lock.json
-            contracts/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -65,9 +62,6 @@ jobs:
 
       - name: Check TypeScript public API signature snapshot
         run: npm --prefix sdk run api:signature:check
-
-      - name: Install contract dependencies
-        run: npm --prefix contracts ci
 
       - name: Run TypeScript SDK tests with coverage gate
         run: npm --prefix sdk test -- --coverage --runInBand

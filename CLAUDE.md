@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Agent-DID: an identity layer for AI agents (W3C DID/VC, `did:webvh` as the canonical path, Ed25519, HTTP Message Signatures). The repo is a monorepo holding the spec, two SDKs that must stay in parity, six framework integrations and deferred EVM contracts. Current train: `1.0.0-rc.4` published (breaking RC: did:webvh v1.0, RFC 9421, JCS; rc.4 changes the SDK API, not the wire).
+Agent-DID: an identity layer for AI agents (W3C DID/VC, `did:webvh` as the canonical path, Ed25519, HTTP Message Signatures). The repo is a monorepo holding the spec, two SDKs that must stay in parity and six framework integrations. The deferred EVM profile (contracts, `@agentdid/evm`, `agent-did-evm`) lives in `edisonduran/agent-did-evm`. Current train: `1.0.0-rc.4` published (breaking RC: did:webvh v1.0, RFC 9421, JCS; rc.4 changes the SDK API, not the wire).
 
 Maintainers may keep session-specific context in `CLAUDE.local.md`, which is gitignored. Read it when present.
 
@@ -14,7 +14,6 @@ Maintainers may keep session-specific context in `CLAUDE.local.md`, which is git
 | `integrations/{langchain-python,crewai,semantic-kernel,microsoft-agent-framework,a2a}/` | Python integrations |
 | `fixtures/interop-vectors.json` | Cross-SDK contract; both SDKs must verify it |
 | `scripts/` | Conformance (`conformance-rfc001.js`), smokes, governance checks |
-| `contracts/` | Solidity/Hardhat, EVM profile, **deferred outside core 1.0** |
 | `docs/` | RFC-001 (spec), release criteria, governance, F1-/F2- design docs |
 | `_bmad/`, `_bmad-output/`, `.agents/` | BMAD method tooling, not product code |
 

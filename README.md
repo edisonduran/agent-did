@@ -15,7 +15,6 @@
 [![CI — Semantic Kernel](https://github.com/edisonduran/agent-did/actions/workflows/ci-semantic-kernel.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-semantic-kernel.yml)
 [![CI — Microsoft Agent Framework](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml)
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
-[![Contract Audit](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/contract-audit.yml)
 [![Release Candidate](https://img.shields.io/badge/status-1.0.0--rc.4-yellow)](docs/RELEASE-1.0-CRITERIA.md)
 [![External conformance](https://img.shields.io/badge/external%20conformance-see%20matrix-informational)](docs/External-Conformance-Matrix.md)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -170,27 +169,18 @@ Includes the same core lifecycle primitives as the TypeScript SDK:
 - Revocation, document update, key rotation, and history
 - Dedicated Python CI with lint, type-check, coverage, conformance, and smoke tests
 
-### 2) Optional EVM Profile Material (`contracts/`)
+### 2) Optional EVM Profile (separate repository)
 
-The Solidity contract remains in the repository as deferred profile material. It is not part of the core `1.0.0` release gate and should only be wired in deployments that explicitly need the optional EVM/on-chain profile.
-
-`AgentRegistry` contract with:
-
-- DID registration and revocation
-- On-chain document reference (`documentRef`)
-- Formal revocation access policy:
-	- revocation by `owner` or DID-authorized delegate
-	- explicit delegation (`setRevocationDelegate`)
-	- ownership transfer (`transferAgentOwnership`)
+The deferred EVM/on-chain profile is not part of the core `1.0.0` release. Its `AgentRegistry` contract and the adapters `@agentdid/evm` (npm) and `agent-did-evm` (PyPI) live in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm), moved there with their history in `1.0.0-rc.5` (see [docs/ADR-004-EVM-Profile-Satellite.md](docs/ADR-004-EVM-Profile-Satellite.md)).
 
 ### 3) Validation and Drills (`scripts/`)
 
 - Full conformance: `npm run conformance:rfc001`
-- E2E SDK + contract: `npm run smoke:e2e`
+- E2E on `did:webvh` (create, sign, verify, revoke, verify fails, also from the published logs): `npm run smoke:e2e`
 - Resolver high-availability drill: `npm run smoke:ha`
 - External `did:webvh` smoke with repo-managed public defaults: `npm run smoke:webvh-external` / `npm run python:smoke:webvh-external`
 - JSON-RPC resolution smoke: `npm run smoke:rpc`
-- Revocation policy smoke: `npm run smoke:policy`
+- Revocation policy smoke (only the controller can revoke or change a `did:webvh` DID): `npm run smoke:policy`
 
 ## Integrations
 
@@ -280,15 +270,7 @@ npm run python:conformance
 
 These `npm` commands are convenience wrappers only; the Python SDK remains Python-native in local development and CI.
 
-If you are working on the smart contract security track, run:
-
-```bash
-npm run audit:contracts
-```
-
-This command generates Slither and Mythril reports under `contracts/reports/security` and requires a running Docker daemon.
-
-By default the audit gate is strict: any unmatched finding at severity `Low` or higher fails the command. You can raise the threshold with `AUDIT_FAIL_ON_SEVERITY=medium|high|critical` for exploratory runs.
+Contract work (Solidity, Slither/Mythril audit) happens in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm).
 
 ## Key Documentation
 
@@ -322,16 +304,16 @@ RFC-001 is implemented; its external conformance is tracked in the [External Con
 | F1-02 | Translate README and key docs to English | Done (README + course + strategic assessment) |
 | F1-03 | LangChain integration for Agent-DID identity | Done |
 | F1-04 | Prepare optional DIF / `did:webvh` companion-note material | Post-1.0 / optional |
-| F1-05 | Automated smart contract audit (Slither/Mythril) | Done |
+| F1-05 | Automated smart contract audit (Slither/Mythril) | Done (now in [agent-did-evm](https://github.com/edisonduran/agent-did-evm)) |
 | F1-06 | CI/CD pipeline with GitHub Actions | Done |
 
-The repository now includes a GitHub Actions workflow at `.github/workflows/ci.yml` that installs the root, SDK, and contract workspaces and runs `npm run conformance:rfc001` on pushes, pull requests, and manual dispatches.
+The repository now includes a GitHub Actions workflow at `.github/workflows/ci.yml` that installs the root and SDK workspaces and runs `npm run conformance:rfc001` on pushes, pull requests, and manual dispatches.
 
 LangChain JS validation runs in the dedicated workflow at `.github/workflows/ci-langchain-js.yml`, which builds `sdk/` and tests `integrations/langchain` separately from the core TypeScript/conformance pipeline.
 
 Current CI split in GitHub Actions:
 
-- `CI — TypeScript SDK & RFC-001 Conformance`: Node/TypeScript pipeline for the root workspace, `sdk/`, `contracts/`, and RFC-001 conformance/smoke coverage.
+- `CI — TypeScript SDK & RFC-001 Conformance`: Node/TypeScript pipeline for the root workspace, `sdk/`, and RFC-001 conformance/smoke coverage.
 - `CI — LangChain JS Integration`: dedicated Node validation for `integrations/langchain/` against the local `sdk/`.
 - `CI — Python SDK & RFC-001 Conformance`: Python-native quality gates for `sdk-python/`, including conformance and Python smoke coverage on the primary runtime.
 - `CI — LangChain Python Integration`: dedicated validation for `integrations/langchain-python/`.
@@ -342,15 +324,10 @@ Current CI split in GitHub Actions:
 - `CI — Google A2A Integration`: dedicated validation for `integrations/a2a/` with DID-enriched AgentCards, JSON-RPC signing, and mutual authentication tests.
 - `CI — Integration Governance`: validates the required parity/checklist artifacts that must stay aligned with supported integrations.
 - `CI — CycloneDX SBOM`: generates per-package SBOM artifacts for the core SDKs and shipped integrations, uploaded on each run as `sbom-*` workflow artifacts.
-- `Contract Audit`: Slither/Mythril security audit pipeline for `contracts/`.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.
 
-Smart contract audit automation is available through `npm run audit:contracts` and the dedicated GitHub Actions workflow at `.github/workflows/contract-audit.yml`, which runs Slither and Mythril and uploads the resulting reports as CI artifacts.
-
-The audit runner preserves the raw JSON reports, classifies only exact known-noise matches in the generated summary, and applies a severity-aware gate to unmatched findings.
-
-Initial triage of the current contract findings is documented in [docs/F1-05-Contract-Audit-Triage.md](docs/F1-05-Contract-Audit-Triage.md). Formal external audit (F3-04) is deferred together with the EVM profile.
+Smart contract audit automation (Slither and Mythril) and its triage notes moved with the contract to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). Formal external audit (F3-04) is deferred together with the EVM profile.
 
 The LangChain integration is available in [integrations/langchain/README.md](integrations/langchain/README.md).
 

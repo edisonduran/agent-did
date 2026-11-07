@@ -45,7 +45,8 @@ This index is the fast path through the repository documentation.
 | [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) | Users, Contributors, Reviewers | Stable | Canonical Agent-DID specification, version `1.0-rc.4`: the `1.0` release contract, with pinned normative references and lifecycle authorization. |
 | [ADR-002-did-webvh-v1.0-Implementation.md](ADR-002-did-webvh-v1.0-Implementation.md) | Contributors, Reviewers | Accepted | Decision record for implementing `did:webvh` v1.0 (M-02): evaluation of the DIF reference implementations, prototype results, and the proposed adapter-based adoption. |
 | [ADR-003-JSON-LD-Context-and-agentMetadata.md](ADR-003-JSON-LD-Context-and-agentMetadata.md) | Contributors, Reviewers | Accepted | Decision record for the `https://agent-did.org/v1` JSON-LD context (published as `contexts/v1.jsonld`, pinned by hash) and for keeping `agentMetadata` in the DID document (M-19). |
-| [RFC-001-EVM-Profile.md](RFC-001-EVM-Profile.md) | Contributors, Reviewers | Draft | Optional deployment profile for EVM anchoring, contract policy, and smart-account behavior on top of core RFC-001. |
+| [ADR-004-EVM-Profile-Satellite.md](ADR-004-EVM-Profile-Satellite.md) | Contributors, Reviewers | Accepted | Decision record for moving the deferred EVM profile (contracts, `@agentdid/evm`, `agent_did_sdk.evm`) to `edisonduran/agent-did-evm` with its history, and replacing the Hardhat smokes with `did:webvh` smokes. |
+| [RFC-001-EVM-Profile.md](RFC-001-EVM-Profile.md) | Contributors, Reviewers | Moved | Pointer: the optional EVM profile now lives in `edisonduran/agent-did-evm`. Was: optional deployment profile for EVM anchoring, contract policy, and smart-account behavior on top of core RFC-001. |
 | [RFC-001-A2A-Identity-Composition-Contract.md](RFC-001-A2A-Identity-Composition-Contract.md) | Contributors, Reviewers | Draft | Defines the A2A Agent Card and per-request signing composition contract co-drafted with APS. |
 | [RFC-001-Compliance-Checklist.md](RFC-001-Compliance-Checklist.md) | Contributors, Reviewers | Stable | Tracks RFC conformance claims against implemented behavior. |
 | [External-Conformance-Matrix.md](External-Conformance-Matrix.md) | Users, Contributors, Reviewers | Stable | Conformance with external specifications (did:webvh, RFC 9421, RFC 8785, RFC 9530, RFC 8941, DID Core), each row linked to the CI job that proves it. |
@@ -56,7 +57,6 @@ This index is the fast path through the repository documentation.
 | [S1-3-Adversarial-Review-Crypto-Signing.md](S1-3-Adversarial-Review-Crypto-Signing.md) | Contributors, Reviewers | Historical | Sprint 1 adversarial review of the signing surfaces (2026-05-08), with a post-rc.3 addendum. |
 | [SDK-Release-Checklist.md](SDK-Release-Checklist.md) | Contributors | Stable | Release checklist for published SDK packages. |
 | [PHILOSOPHY.md](PHILOSOPHY.md) | Users, Contributors, Reviewers | Stable | Design philosophy and scope boundaries for the project. |
-| [F1-05-Contract-Audit-Triage.md](F1-05-Contract-Audit-Triage.md) | Contributors, Reviewers | Stable | Governs how automated contract audit findings are triaged. |
 
 ## LangChain Governance and Design
 

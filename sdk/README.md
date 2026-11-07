@@ -89,30 +89,13 @@ Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` lo
 | Presigned/object-storage adapter | `PresignedHttpDIDDocumentSource` | ✅ |
 | S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
-| EVM registry adapter (optional package `@agentdid/evm`) | `EvmAgentRegistry` + `EthersAgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 
 By default, `verifySignature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
 ## Optional EVM Registry Integration
 
-The core SDK has no EVM dependency. If a deployment explicitly needs the deferred EVM profile, install the optional adapter (`npm install @agentdid/evm ethers`) and connect it to a real on-chain `AgentRegistry` contract:
-
-```ts
-import { EthersAgentRegistryContractClient, EvmAgentRegistry } from '@agentdid/evm';
-import { ethers } from 'ethers';
-
-const provider = new ethers.JsonRpcProvider('http://localhost:8545');
-const signer = new ethers.Wallet(PRIVATE_KEY, provider);
-const contract = new ethers.Contract(REGISTRY_ADDRESS, ABI, signer);
-
-const client = new EthersAgentRegistryContractClient(contract);
-const registry = new EvmAgentRegistry(client);
-
-AgentIdentity.setRegistry(registry);
-```
-
-See full example: [`evm/examples/evm-registry-wiring.ts`](https://github.com/edisonduran/agent-did/blob/main/evm/examples/evm-registry-wiring.ts)
+The core SDK has no EVM dependency. The optional adapter `@agentdid/evm` (`EvmAgentRegistry`, an `AgentRegistry` backed by the on-chain `AgentRegistry` contract) is maintained with the contract in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm); see its README for the wiring.
 
 ## Production Resolver
 

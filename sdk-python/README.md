@@ -28,7 +28,7 @@ For development:
 pip install -e ".[dev]"
 ```
 
-The optional EVM registry adapter is not part of the core install: `pip install "agent-did-sdk[evm]"`.
+The optional EVM registry adapter is a separate package, `agent-did-evm`, maintained in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). Up to `1.0.0rc4` it shipped here as `agent_did_sdk.evm` (extra `[evm]`).
 
 ### Platform support
 
@@ -98,7 +98,6 @@ Since `1.0.0rc3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log 
 | Presigned/object-storage adapter | `PresignedHttpDIDDocumentSource` | ✅ |
 | S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
-| EVM registry adapter | `EvmAgentRegistry` + `Web3AgentRegistryContractClient` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 
 By default, `verify_signature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
@@ -112,31 +111,11 @@ By default, `verify_signature` and HTTP signature verification require the signi
 | `core.time_utils` | ISO-8601 ↔ Unix timestamp utilities |
 | `crypto.hash` | SHA-256 hashing with `hash://` URI format |
 | `registry.*` | Agent registry (in-memory) |
-| `evm.*` | Optional EVM registry adapter and Web3 client (`agent-did-sdk[evm]`) |
 | `resolver.*` | DID resolver (in-memory, filesystem source, HTTP source, bearer/authenticated HTTP source, presigned/object-storage source, S3-compatible source, AWS SigV4 S3 source, JSON-RPC source, universal) |
 
 ## Optional EVM Registry Integration
 
-If a deployment explicitly needs the deferred EVM profile, install `agent-did-sdk[evm]` and connect the SDK to a real on-chain `AgentRegistry` contract:
-
-```python
-from web3 import HTTPProvider, Web3
-
-from agent_did_sdk import AgentIdentity
-from agent_did_sdk.evm import EvmAgentRegistry, EvmAgentRegistryAdapterConfig, Web3AgentRegistryContractClient
-
-provider = Web3(HTTPProvider("http://127.0.0.1:8545"))
-contract = provider.eth.contract(address=REGISTRY_ADDRESS, abi=ABI)
-
-registry = EvmAgentRegistry(
-    EvmAgentRegistryAdapterConfig(
-        contract_client=Web3AgentRegistryContractClient(contract),
-        await_transaction_confirmation=True,
-    )
-)
-
-AgentIdentity.set_registry(registry)
-```
+The core SDK has no EVM dependency. The optional adapter `agent-did-evm` (`import agent_did_evm`) is maintained with the on-chain `AgentRegistry` contract in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm); see its README for the wiring.
 
 See full example: `examples/evm_registry_wiring.py`
 
@@ -198,10 +177,7 @@ python scripts/conformance_rfc001.py
 Operational smokes:
 
 ```bash
-cd contracts
-npm ci
-
-cd ../sdk-python
+cd sdk-python
 python scripts/rpc_resolver_smoke.py
 python scripts/resolver_ha_smoke.py
 python scripts/revocation_policy_smoke.py
