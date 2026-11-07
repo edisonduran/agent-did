@@ -12,6 +12,7 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Documentation
 
+- **`GOVERNANCE.md`**: who decides, how normative changes go through an `[RFC]` issue and land in both SDKs, merge and release rules, the project assets that need more than one administrator, and how to become a maintainer. It says plainly that there is one maintainer today and that the goal is two. Linked from the README, CONTRIBUTING and `docs/INDEX.md`.
 - `SECURITY.md` §2 now names the release-candidate line as the supported one (it listed the `v0.2.x` / `v0.1.x` lines) and states that the pre-1.0 `0.x` releases are not supported. The README and QUICKSTART no longer say that a plain `npm install @agentdid/sdk` resolves the `0.x` release (the npm `latest` tag follows the release candidates; `pip` still resolves `0.1.0` without a pin) and tell readers to pin the version.
 - The default `NonceStore` is documented as **per process** in the README, QUICKSTART, both SDK READMEs and the anti-replay guide: with several verifier instances a replayed request is accepted by an instance that has not seen it, so a shared store must be passed.
 
