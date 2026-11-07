@@ -212,7 +212,7 @@ graph TD
 
 Signature verification is not complete when the public key is merely present in `verificationMethod`. A verifier MUST confirm that the key ID is also listed in the DID verification relationship required by the action being verified.
 
-The default signing purpose for Agent-DID payloads and HTTP signatures is `assertionMethod`. Other signing flows MAY require `authentication`, `capabilityDelegation`, or `capabilityInvocation`. A key listed only under `keyAgreement` MUST NOT be accepted for signing or proof verification.
+The default signing purpose for Agent-DID payloads and HTTP signatures is `assertionMethod`. Other signing flows require `authentication`, `capabilityDelegation`, or `capabilityInvocation` as fixed per artifact kind in §6.2.1.3. A key listed only under `keyAgreement` MUST NOT be accepted for signing or proof verification.
 
 When a key exists in the DID document but is not authorized for the requested purpose, SDKs MUST raise or surface a deterministic `key_purpose_violation` reason and, where practical, include the relationships where the key was found.
 
@@ -237,6 +237,24 @@ Successful RFC-001 verification proves that the caller identity, controller chai
 Implementations MAY pair Agent-DID verification with a separate signed execution receipt or trace attestation layer. A decision-provenance layer MAY include artifacts such as the tool name, canonicalized input hash, model/prompt/policy version references, trace or span identifiers, timestamps/nonces, and hashes of retrieved context or prior tool outputs.
 
 Raw chain-of-thought capture is out of scope for RFC-001. Implementations that need stronger replayability or compliance evidence SHOULD prefer stable, minimal execution receipts over mandatory disclosure of full internal reasoning text.
+
+#### 6.2.1.3 Required Relationship per Artifact Kind
+
+The verification relationship of §6.2.1 depends on what the signature is for, not on who verifies it. A verifier MUST require the relationship in this table for each kind of signed artifact:
+
+| Artifact kind | What it covers | Required relationship |
+|---|---|---|
+| `assertion` | Signed payloads, receipts, attestations, credentials and other claims made by the DID subject | `assertionMethod` |
+| `http_request` | HTTP message signatures (§6.5) | `assertionMethod` |
+| `delegation` | Issuing a delegation of authority to another party (for example a capability or an APS `AuthorityDelegationV1`) | `capabilityDelegation` |
+| `invocation` | Exercising a capability that was delegated to the DID subject | `capabilityInvocation` |
+| `authentication` | Proving control of the DID, for example in a challenge-response | `authentication` |
+
+A key listed under one relationship MUST NOT be accepted for an artifact kind that requires another, even when the signature itself is valid. In particular, a key listed only under `assertionMethod` MUST NOT be accepted for issuing a delegation, and a key listed only under `capabilityDelegation` MUST NOT be accepted for an assertion. The rejection reason is `key_purpose_violation` with `requiredPurpose` set to the relationship in the table (§6.2.1.1). `keyAgreement` never appears in the table and never signs.
+
+A protocol that defines a signed artifact not listed here MUST state which of these kinds it is before an Agent-DID verifier accepts it. Conforming SDKs MUST expose this table as one public constant (`REQUIRED_RELATIONSHIP_BY_ARTIFACT` with the lookup `requiredRelationshipFor` / `required_relationship_for`) and MUST use it wherever they choose a default relationship. The shared vectors are in `fixtures/verification-relationship-vectors.json`.
+
+Documents created by the reference SDKs list the agent key under `authentication` and `assertionMethod`. A DID that issues delegations or invokes capabilities needs its key listed under `capabilityDelegation` or `capabilityInvocation`, otherwise verifiers following this section reject those artifacts. The SDKs add those relationships only on request (`additionalVerificationRelationships` / `additional_verification_relationships` at creation, accepting `capabilityDelegation` and `capabilityInvocation`); without it the document is the same as in earlier releases. When the agent key is rotated, the new key joins each of those relationships that listed a key the rotation deactivates.
 
 ### 6.3 Evolution
 

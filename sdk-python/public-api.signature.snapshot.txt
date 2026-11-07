@@ -1,10 +1,16 @@
 # Public API signature snapshot for agent-did-sdk
 
+## ADDITIONAL_VERIFICATION_RELATIONSHIPS
+value ADDITIONAL_VERIFICATION_RELATIONSHIPS = ('capabilityDelegation', 'capabilityInvocation')
+
 ## AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 value AGENT_DID_HTTP_SIGNATURE_COMPONENTS = ('@method', '@authority', '@path', '@query', 'content-digest', 'date', 'signature-agent')
 
 ## AGENT_DID_HTTP_SIGNATURE_TAG
 value AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did'
+
+## AdditionalVerificationRelationship
+value AdditionalVerificationRelationship = typing.Literal['capabilityDelegation', 'capabilityInvocation']
 
 ## AgentDIDDocument
 class AgentDIDDocument(*, context: list[str], id: str, controller: str, created: str, updated: str, agentMetadata: agent_did_sdk.core.types.AgentMetadata, complianceCertifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None, verificationMethod: list[agent_did_sdk.core.types.VerificationMethod], authentication: list[str], assertionMethod: list[str] | None = None, capabilityDelegation: list[str] | None = None, capabilityInvocation: list[str] | None = None, keyAgreement: list[str] | None = None) -> None
@@ -193,7 +199,8 @@ class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_tok
   attr token: str | None
 
 ## CreateAgentParams
-class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None) -> None
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None, additional_verification_relationships: list[typing.Literal['capabilityDelegation', 'capabilityInvocation']] | None = None) -> None
+  attr additional_verification_relationships: list[AdditionalVerificationRelationship] | None
   attr capabilities: list[str] | None
   attr core_model: str
   attr core_model_salt: str | None
@@ -411,6 +418,9 @@ class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source
   attr wba_document_source: DIDDocumentSource | None
   attr webvh_document_source: DIDDocumentSource | None
 
+## REQUIRED_RELATIONSHIP_BY_ARTIFACT
+value REQUIRED_RELATIONSHIP_BY_ARTIFACT = mappingproxy({'assertion': 'assertionMethod', 'http_request': 'assertionMethod', 'delegation': 'capabilityDelegation', 'invocation': 'capabilityInvocation', 'authentication': 'authentication'})
+
 ## ResolverCacheStats
 class ResolverCacheStats(hits: 'int', misses: 'int', size: 'int') -> None
   attr hits: int
@@ -459,6 +469,9 @@ class S3CompatibleDIDDocumentSourceConfig(bucket: 'str', endpoint: 'str | None' 
   attr reference_to_write_url: Callable[[str, str], str] | None
   attr store_method: str
 
+## SIGNED_ARTIFACT_KINDS
+value SIGNED_ARTIFACT_KINDS = ('assertion', 'http_request', 'delegation', 'invocation', 'authentication')
+
 ## SIGNING_VERIFICATION_PURPOSES
 value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
 
@@ -480,6 +493,9 @@ class SignatureInput(components: 'list[str]', params: 'list[tuple[str, Signature
   attr components: list[str]
   attr params: list[tuple[str, SignatureParamValue]]
   def get(self, name: 'str') -> 'SignatureParamValue | None'
+
+## SignedArtifactKind
+value SignedArtifactKind = typing.Literal['assertion', 'http_request', 'delegation', 'invocation', 'authentication']
 
 ## SigningVerificationPurpose
 value SigningVerificationPurpose = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation']
@@ -631,6 +647,9 @@ def parse_signature_header(value: 'str') -> 'dict[str, bytes]'
 
 ## parse_signature_input_header
 def parse_signature_input_header(value: 'str') -> 'dict[str, SignatureInput]'
+
+## required_relationship_for
+def required_relationship_for(artifact: 'SignedArtifactKind') -> 'SigningVerificationPurpose'
 
 ## serialize_signature_input
 def serialize_signature_input(signature_input: 'SignatureInput') -> 'str'

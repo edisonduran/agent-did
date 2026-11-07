@@ -5,6 +5,7 @@
  * Python parity: `agent_did_sdk.http_signatures.verify_request`.
  */
 import { bytesToHex } from '@noble/hashes/utils';
+import { REQUIRED_RELATIONSHIP_BY_ARTIFACT } from '../core/identity-composition';
 import {
   HttpSignatureRejection,
   VerificationRelationship,
@@ -143,7 +144,7 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
-    const outcome = await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, 'assertionMethod');
+    const outcome = await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, REQUIRED_RELATIONSHIP_BY_ARTIFACT.http_request);
     if (outcome !== 'valid') {
       fail(
         outcome === 'did_resolution_failed' ? 'did_resolution_failed'

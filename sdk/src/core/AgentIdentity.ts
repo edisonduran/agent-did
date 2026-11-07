@@ -13,6 +13,7 @@ import {
   VerificationRelationship
 } from './types';
 import { AgentSigner } from './signer';
+import { REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import {
   buildSignatureBase,
   serializeSignature,
@@ -174,12 +175,12 @@ export class AgentIdentity {
   }
 
   /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
-  public static async verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose: VerificationRelationship = 'assertionMethod'): Promise<boolean> {
+  public static async verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion): Promise<boolean> {
     return AgentIdentity.defaultClient.verifySignature(did, payload, signature, keyId, requiredPurpose);
   }
 
   /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
-  public static async verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose: VerificationRelationship = 'assertionMethod'): Promise<boolean> {
+  public static async verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion): Promise<boolean> {
     return AgentIdentity.defaultClient.verifyHistoricalSignature(did, payload, signature, keyId, requiredPurpose);
   }
 

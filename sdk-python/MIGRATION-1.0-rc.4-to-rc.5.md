@@ -93,7 +93,25 @@ await client.rotate_controller_key(created.document.id, recovery_signer, next_up
 
 While commitments are in force the key in `controller_signer` can no longer sign log entries, so operations on such a DID (`update_did_document`, `rotate_verification_method`, `revoke_did`) need the committed key as `controller_signer`. It protects only if committed before the compromise. `DidWebvhMetadata` gains `next_key_hashes`; `client.get_did_webvh_controller_keys(did)` returns the active keys and the commitments.
 
-## 8. EVM profile (`agent_did_sdk.evm`)
+## 8. New: required verification relationship per artifact kind (optional)
+
+Nothing changes for code that verifies payloads or HTTP requests: the defaults are still `assertionMethod`, now read from `REQUIRED_RELATIONSHIP_BY_ARTIFACT`. If you verify other signed artifacts, pass the relationship RFC-001 §6.2.1.3 requires for them instead of the default:
+
+```python
+from agent_did_sdk import AgentIdentity, required_relationship_for
+
+await AgentIdentity.verify_signature(issuer_did, payload, signature, key_id, required_relationship_for("delegation"))
+```
+
+A key listed only under `assertionMethod` is rejected for a delegation with `key_purpose_violation`. Documents created by the SDK list the agent key under `authentication` and `assertionMethod`. An agent that issues delegations (or invokes delegated capabilities) opts in at creation; the key is then also listed under those relationships, and key rotation carries them over to the new key:
+
+```python
+await identity.create(CreateAgentParams(**params, additional_verification_relationships=["capabilityDelegation"]))
+```
+
+Without the option the document is the same as before.
+
+## 9. EVM profile (`agent_did_sdk.evm`)
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID. The EVM profile is deferred outside core 1.0; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
@@ -106,3 +124,5 @@ While commitments are in force the key in `controller_signer` can no longer sign
 - [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
 - [ ] Code around `verify_http_request_signature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`next_update_keys`); it only helps if done before a compromise.
+- [ ] Verifiers of delegations, invocations or authentication challenges pass `required_relationship_for(...)` instead of the `assertionMethod` default.
+- [ ] Agents that issue delegations or invoke capabilities are created with `additional_verification_relationships`.

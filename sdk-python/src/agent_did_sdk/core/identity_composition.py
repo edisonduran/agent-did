@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from types import MappingProxyType
 
 from .types import (
+    AdditionalVerificationRelationship,
     AgentDIDDocument,
     IdentityCompositionErrorReason,
+    SignedArtifactKind,
     SigningVerificationPurpose,
     VerificationRelationship,
 )
@@ -25,6 +28,43 @@ SIGNING_VERIFICATION_PURPOSES: tuple[SigningVerificationPurpose, ...] = (
     "capabilityDelegation",
     "capabilityInvocation",
 )
+
+# The relationships CreateAgentParams.additional_verification_relationships accepts, in the order they are
+# written to a document.
+ADDITIONAL_VERIFICATION_RELATIONSHIPS: tuple[AdditionalVerificationRelationship, ...] = (
+    "capabilityDelegation",
+    "capabilityInvocation",
+)
+
+# Every SignedArtifactKind, in the order RFC-001 §6.2.1.3 lists them.
+SIGNED_ARTIFACT_KINDS: tuple[SignedArtifactKind, ...] = (
+    "assertion",
+    "http_request",
+    "delegation",
+    "invocation",
+    "authentication",
+)
+
+# The verification relationship a signing key must be listed under for each kind of signed artifact
+# (RFC-001 §6.2.1.3). A key listed only under another relationship is rejected for that artifact with
+# key_purpose_violation, even if it is valid for a different one; keyAgreement never signs.
+REQUIRED_RELATIONSHIP_BY_ARTIFACT: Mapping[SignedArtifactKind, SigningVerificationPurpose] = MappingProxyType(
+    {
+        "assertion": "assertionMethod",
+        "http_request": "assertionMethod",
+        "delegation": "capabilityDelegation",
+        "invocation": "capabilityInvocation",
+        "authentication": "authentication",
+    }
+)
+
+
+def required_relationship_for(artifact: SignedArtifactKind) -> SigningVerificationPurpose:
+    """Return the verification relationship required for ``artifact``; raise ``ValueError`` for an unknown kind."""
+    try:
+        return REQUIRED_RELATIONSHIP_BY_ARTIFACT[artifact]
+    except (KeyError, TypeError):
+        raise ValueError(f"Unknown signed artifact kind: {artifact!r}") from None
 
 
 class IdentityCompositionError(ValueError):

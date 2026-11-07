@@ -5,6 +5,7 @@
  */
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex } from '@noble/hashes/utils';
+import { ADDITIONAL_VERIFICATION_RELATIONSHIPS } from '../core/identity-composition';
 import { AgentDIDDocument, UpdateAgentDocumentParams, VerificationMethod } from '../core/types';
 import { createMetadataCommitment } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
@@ -56,6 +57,30 @@ export function buildUpdatedDocument(
   };
 }
 
+type CapabilityRelationshipLists = Partial<Pick<AgentDIDDocument, 'capabilityDelegation' | 'capabilityInvocation'>>;
+
+/**
+ * `capabilityDelegation` / `capabilityInvocation` lists for a rotated document: the new key joins each one
+ * that lists a key this rotation deactivates, so an agent that could delegate or invoke still can. A list
+ * that names no active key (for example only another party's key) is left as it is.
+ */
+function carriedCapabilityRelationships(
+  existing: AgentDIDDocument,
+  newVerificationMethodId: string
+): CapabilityRelationshipLists {
+  const activeKeyIds = new Set(
+    existing.verificationMethod.filter((method) => !method.deactivated).map((method) => method.id)
+  );
+  const carried: CapabilityRelationshipLists = {};
+  for (const relationship of ADDITIONAL_VERIFICATION_RELATIONSHIPS) {
+    const keyIds = existing[relationship];
+    if (keyIds?.some((keyId) => activeKeyIds.has(keyId))) {
+      carried[relationship] = Array.from(new Set([...keyIds, newVerificationMethodId]));
+    }
+  }
+  return carried;
+}
+
 /** Deactivates every current key and adds a fresh Ed25519 key as the active one. */
 export function buildRotatedDocument(
   did: string,
@@ -87,7 +112,8 @@ export function buildRotatedDocument(
       updated,
       verificationMethod: [...deactivatedMethods, newVerificationMethod],
       authentication: [verificationMethodId],
-      assertionMethod: Array.from(new Set([...(existing.assertionMethod || []), verificationMethodId]))
+      assertionMethod: Array.from(new Set([...(existing.assertionMethod || []), verificationMethodId])),
+      ...carriedCapabilityRelationships(existing, verificationMethodId)
     },
     verificationMethodId,
     agentPrivateKey: bytesToHex(privateKeyBytes)

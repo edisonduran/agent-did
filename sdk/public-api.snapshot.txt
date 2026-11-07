@@ -1,4 +1,6 @@
 # Public API snapshot for @agentdid/sdk
+ADDITIONAL_VERIFICATION_RELATIONSHIPS
+AdditionalVerificationRelationship
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
 AgentDidClient
@@ -72,6 +74,8 @@ PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
 ProductionJsonRpcResolverProfileConfig
 ProductionResolverProfileConfig
+REQUIRED_RELATIONSHIP_BY_ARTIFACT
+requiredRelationshipFor
 ResolverCacheStats
 ResolverResolutionEvent
 ResolverResolutionStage
@@ -82,6 +86,8 @@ S3CompatibleDIDDocumentSourceConfig
 serializeSignatureInput
 SignatureInput
 SignatureParamValue
+SIGNED_ARTIFACT_KINDS
+SignedArtifactKind
 SignHttpRequestParams
 SIGNING_VERIFICATION_PURPOSES
 SigningVerificationPurpose

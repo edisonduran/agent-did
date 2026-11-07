@@ -43,6 +43,7 @@ from .http_signatures import (
     serialize_signature,
     serialize_signature_input,
 )
+from .identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT
 from .signer import AgentSigner
 from .types import (
     AgentDIDDocument,
@@ -171,7 +172,7 @@ class AgentIdentity:
         payload: str,
         signature: str,
         key_id: str | None = None,
-        required_purpose: VerificationRelationship = "assertionMethod",
+        required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
         """Deprecated: use the same method on an ``AgentDidClient``; removed in 2.0."""
         return await cls._default_client.verify_signature(did, payload, signature, key_id, required_purpose)
@@ -183,7 +184,7 @@ class AgentIdentity:
         payload: str,
         signature: str,
         key_id: str,
-        required_purpose: VerificationRelationship = "assertionMethod",
+        required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
         """Deprecated: use the same method on an ``AgentDidClient``; removed in 2.0."""
         return await cls._default_client.verify_historical_signature(did, payload, signature, key_id, required_purpose)

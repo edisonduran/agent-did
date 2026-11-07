@@ -2,7 +2,13 @@
  * Pure helpers that build the documents and history derived from did:webvh logs.
  * No state and no I/O: `AgentDidClient` owns the stores and calls these.
  */
-import { AgentDIDDocument, AgentDocumentHistoryAction, AgentDocumentHistoryEntry } from '../core/types';
+import {
+  AdditionalVerificationRelationship,
+  AgentDIDDocument,
+  AgentDocumentHistoryAction,
+  AgentDocumentHistoryEntry
+} from '../core/types';
+import { ADDITIONAL_VERIFICATION_RELATIONSHIPS } from '../core/identity-composition';
 import { generateAgentMetadataHash, generateCanonicalDocumentHash } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
 import { DID_WEBVH_PLACEHOLDER } from './adapter';
@@ -22,12 +28,42 @@ export function normalizeDidPathSegment(value: string): string {
   return normalized || 'agent';
 }
 
+/**
+ * The extra relationship entries for a new agent key (`CreateAgentParams.additionalVerificationRelationships`),
+ * in a fixed order so the document does not depend on the order of the request. Throws `TypeError` for a
+ * value that is not an `AdditionalVerificationRelationship`.
+ */
+export function additionalRelationshipEntries(
+  requested: readonly AdditionalVerificationRelationship[] | undefined,
+  verificationMethodId: string
+): Partial<Record<AdditionalVerificationRelationship, string[]>> {
+  if (requested === undefined) {
+    return {};
+  }
+  if (!Array.isArray(requested)) {
+    throw new TypeError('additionalVerificationRelationships must be an array');
+  }
+  for (const relationship of requested) {
+    if (!ADDITIONAL_VERIFICATION_RELATIONSHIPS.includes(relationship)) {
+      throw new TypeError(
+        `Unsupported additional verification relationship: ${String(relationship)} (allowed: ${ADDITIONAL_VERIFICATION_RELATIONSHIPS.join(', ')})`
+      );
+    }
+  }
+  return Object.fromEntries(
+    ADDITIONAL_VERIFICATION_RELATIONSHIPS.filter((relationship) => requested.includes(relationship)).map(
+      (relationship) => [relationship, [verificationMethodId]]
+    )
+  );
+}
+
 /** Genesis document of an agent, with the did:webvh placeholder in place of the DID. */
 export function buildAgentDocumentTemplate(params: {
   controllerDid: string;
   timestamp: string;
   agentMetadata: AgentDIDDocument['agentMetadata'];
   publicKeyBytes: Uint8Array;
+  additionalVerificationRelationships?: readonly AdditionalVerificationRelationship[];
 }): Record<string, unknown> {
   const verificationMethodId = `${DID_WEBVH_PLACEHOLDER}#key-1`;
   return {
@@ -44,7 +80,8 @@ export function buildAgentDocumentTemplate(params: {
       publicKeyMultibase: encodePublicKeyMultibase(params.publicKeyBytes)
     }],
     authentication: [verificationMethodId],
-    assertionMethod: [verificationMethodId]
+    assertionMethod: [verificationMethodId],
+    ...additionalRelationshipEntries(params.additionalVerificationRelationships, verificationMethodId)
   };
 }
 

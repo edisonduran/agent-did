@@ -8,9 +8,16 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from typing import Any
 
-from ..core.types import AgentDIDDocument, AgentDocumentHistoryAction, AgentDocumentHistoryEntry
+from ..core.identity_composition import ADDITIONAL_VERIFICATION_RELATIONSHIPS
+from ..core.types import (
+    AdditionalVerificationRelationship,
+    AgentDIDDocument,
+    AgentDocumentHistoryAction,
+    AgentDocumentHistoryEntry,
+)
 from ..crypto.hash import generate_agent_metadata_hash, generate_canonical_document_hash
 from ..crypto.multibase import encode_public_key_multibase
 from .adapter import DID_WEBVH_PLACEHOLDER
@@ -27,12 +34,38 @@ def normalize_did_path_segment(value: str) -> str:
     return normalized or "agent"
 
 
+def additional_relationship_entries(
+    requested: Sequence[AdditionalVerificationRelationship] | None, verification_method_id: str
+) -> dict[str, list[str]]:
+    """The extra relationship entries for a new agent key (``additional_verification_relationships``).
+
+    They come in a fixed order so the document does not depend on the order of the request. Raises
+    ``ValueError`` for a value that is not an ``AdditionalVerificationRelationship``.
+    """
+    if requested is None:
+        return {}
+    if isinstance(requested, str) or not isinstance(requested, Sequence):
+        raise ValueError("additional_verification_relationships must be a list")
+    for relationship in requested:
+        if relationship not in ADDITIONAL_VERIFICATION_RELATIONSHIPS:
+            raise ValueError(
+                f"Unsupported additional verification relationship: {relationship!r} "
+                f"(allowed: {', '.join(ADDITIONAL_VERIFICATION_RELATIONSHIPS)})"
+            )
+    return {
+        relationship: [verification_method_id]
+        for relationship in ADDITIONAL_VERIFICATION_RELATIONSHIPS
+        if relationship in requested
+    }
+
+
 def build_agent_document_template(
     *,
     controller_did: str,
     timestamp: str,
     agent_metadata: dict[str, Any],
     public_key_bytes: bytes,
+    additional_verification_relationships: Sequence[AdditionalVerificationRelationship] | None = None,
 ) -> dict[str, Any]:
     """Genesis document of an agent, with the did:webvh placeholder in place of the DID."""
     verification_method_id = f"{DID_WEBVH_PLACEHOLDER}#key-1"
@@ -53,6 +86,7 @@ def build_agent_document_template(
         ],
         "authentication": [verification_method_id],
         "assertionMethod": [verification_method_id],
+        **additional_relationship_entries(additional_verification_relationships, verification_method_id),
     }
 
 
