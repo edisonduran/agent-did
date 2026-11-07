@@ -57,6 +57,7 @@
     "conformance:rfc001": "node scripts/conformance-rfc001.js",
     "check:jsonld-context": "node scripts/check-jsonld-context.js",
     "check:version-consistency": "node scripts/check-version-consistency.js",
+    "check:wire-freeze": "node scripts/check-wire-freeze.js",
     "check:integration-governance": "node scripts/check-integration-governance.js",
     "test:python": "npm run python:test"
   },

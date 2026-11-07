@@ -159,6 +159,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 - [ ] **C-REL-2** — Public feedback window of **≥1 week** on the RC, announced on GitHub Discussions.
 - [ ] **C-REL-3** — `v1.0.0` tag only after every criterion above is met.
 - [ ] **C-REL-4** — Release note and README status update coordinated with the tag. Broad public announcement is optional and should follow the visibility gates in `docs/archive/Estrategia-Divulgacion-2-Semanas-Agent-DID.md`.
+- [ ] **C-REL-5** — Wire freeze held from `1.0.0-rc.5` to `v1.0.0`: signed and hashed bytes unchanged. _Evidence to collect:_ `fixtures/wire-freeze.json` (pinned at the `rc.5` cut) matches at the `v1.0.0` tag, `CI — Wire Freeze` green; rules in [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md).
 
 ### 2.11 Roadmap Consistency
 

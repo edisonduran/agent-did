@@ -1,0 +1,45 @@
+name: CI — Wire Freeze
+
+# Fails when a shared fixture that defines signed or hashed bytes differs from the digest pinned in
+# fixtures/wire-freeze.json. See scripts/check-wire-freeze.js and docs/DEPRECATION-POLICY.md ("Wire freeze").
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ci-wire-freeze.yml'
+      - 'scripts/check-wire-freeze.js'
+      - 'fixtures/**'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-wire-freeze.yml'
+      - 'scripts/check-wire-freeze.js'
+      - 'fixtures/**'
+  workflow_dispatch:
+
+concurrency:
+  group: wire-freeze-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  freeze:
+    name: Wire fixtures match the pinned digests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Check the wire freeze
+        run: node scripts/check-wire-freeze.js
