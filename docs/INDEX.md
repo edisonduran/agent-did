@@ -40,6 +40,7 @@ This index is the fast path through the repository documentation.
 |---|---|---|---|
 | [INDEX.md](INDEX.md) | Users, Contributors, Reviewers | Stable | Entry point for navigating the docs set. |
 | [Documentation-Governance.md](Documentation-Governance.md) | Contributors, Reviewers | Stable | Defines canonical sources of truth and live-document update rules. |
+| [../GOVERNANCE.md](../GOVERNANCE.md) | Users, Contributors, Reviewers | Stable | Who decides, who can merge and release, how normative changes are made and how to become a maintainer. Describes the single-maintainer reality and the two-maintainer goal. |
 | [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) | Users, Contributors, Reviewers | Stable | Explains RC freeze, post-`1.0` SemVer, and compatibility expectations for the published packages. |
 | [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md) | Users, Contributors, Reviewers | Stable | Canonical Agent-DID specification, version `1.0-rc.4`: the `1.0` release contract, with pinned normative references and lifecycle authorization. |
 | [ADR-002-did-webvh-v1.0-Implementation.md](ADR-002-did-webvh-v1.0-Implementation.md) | Contributors, Reviewers | Accepted | Decision record for implementing `did:webvh` v1.0 (M-02): evaluation of the DIF reference implementations, prototype results, and the proposed adapter-based adoption. |

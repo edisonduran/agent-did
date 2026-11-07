@@ -6,6 +6,8 @@ Thank you for considering contributing to Agent-DID! We are building the foundat
 
 ---
 
+> Decisions, merge and release rights, and how to become a maintainer are described in [GOVERNANCE.md](GOVERNANCE.md).
+
 ## How Can I Contribute?
 
 ### 1. Review the Specification
