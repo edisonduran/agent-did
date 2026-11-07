@@ -16,7 +16,9 @@ interface HttpVector {
   maxCreatedSkewSeconds?: number;
   maxSignatureLifetimeSeconds?: number;
   expected?: boolean;
+  reason?: string;
   expectedSequence?: boolean[];
+  expectedReasons?: Array<string | null>;
 }
 
 interface HttpVectorSet {
@@ -109,7 +111,7 @@ describe('HTTP verification vectors (RFC-001 §6.5)', () => {
     const now = vector.now ?? fixture.clock;
     const { client, nonceStore } = await clientAt(now);
     const verify = () =>
-      client.verifyHttpRequestSignature({
+      client.verifyHttpRequestSignatureDetailed({
         ...vector.request,
         headers: vector.headers,
         maxCreatedSkewSeconds: vector.maxCreatedSkewSeconds,
@@ -118,13 +120,29 @@ describe('HTTP verification vectors (RFC-001 §6.5)', () => {
       });
 
     if (vector.expectedSequence) {
-      const verdicts: boolean[] = [];
+      const results = [];
       for (let i = 0; i < vector.expectedSequence.length; i += 1) {
-        verdicts.push(await verify());
+        results.push(await verify());
       }
-      expect(verdicts).toEqual(vector.expectedSequence);
-    } else {
-      await expect(verify()).resolves.toBe(vector.expected);
+      expect(results.map((result) => result.ok)).toEqual(vector.expectedSequence);
+      expect(results.map((result) => (result.ok ? null : result.reason))).toEqual(vector.expectedReasons);
+      return;
     }
+
+    const result = await verify();
+    expect(result.ok).toBe(vector.expected);
+    expect(result.ok ? undefined : result.reason).toBe(vector.reason);
+
+    // The boolean method gives the same verdict (fresh client: its nonce store is not shared).
+    const fresh = await clientAt(now);
+    await expect(
+      fresh.client.verifyHttpRequestSignature({
+        ...vector.request,
+        headers: vector.headers,
+        maxCreatedSkewSeconds: vector.maxCreatedSkewSeconds,
+        maxSignatureLifetimeSeconds: vector.maxSignatureLifetimeSeconds,
+        nonceStore: fresh.nonceStore
+      })
+    ).resolves.toBe(vector.expected);
   });
 });

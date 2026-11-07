@@ -15,7 +15,7 @@ from nacl.signing import SigningKey
 
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
 from ..crypto.multibase import did_key_from_public_key, encode_public_key_multibase
-from ..http_signatures.verify_request import verify_agent_did_http_request
+from ..http_signatures.verify_request import SignatureCheckOutcome, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
     build_rotated_document,
@@ -50,6 +50,7 @@ from ..webvh.documents import (
     normalize_did_path_segment,
 )
 from .http_security import HttpTargetValidationOptions
+from .identity_composition import IdentityCompositionError
 from .nonce_store import InMemoryNonceStore, NonceStore
 from .signer import AgentSigner, LocalKeySigner
 from .time_utils import normalize_timestamp_to_iso
@@ -66,6 +67,7 @@ from .types import (
     VerificationMethod,
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
+    VerifyHttpRequestSignatureResult,
 )
 
 
@@ -376,16 +378,41 @@ class AgentDidClient:
         ``created``, ``expires``, ``nonce``, a ``keyid`` under the ``Signature-Agent`` DID), a matching
         ``Content-Digest``, and a signature by an active ``assertionMethod`` key. The nonce is then
         recorded in ``nonce_store`` (default: this client's :class:`InMemoryNonceStore`), so a
-        replayed request is rejected. Returns ``False`` on any failure.
+        replayed request is rejected. Returns ``False`` on any failure; use
+        :meth:`verify_http_request_signature_detailed` to learn why.
         """
+        return (await self.verify_http_request_signature_detailed(params)).ok
+
+    async def verify_http_request_signature_detailed(
+        self, params: VerifyHttpRequestSignatureParams
+    ) -> VerifyHttpRequestSignatureResult:
+        """Same verification as :meth:`verify_http_request_signature`, returning the reason of a rejection
+        (see ``HttpSignatureRejection``). Test ``result.ok``: the result object is truthy for a rejection too."""
         return await verify_agent_did_http_request(
             params,
-            verify_signature=lambda did, payload, signature, key_id, purpose: self.verify_signature(
-                did, payload, signature, key_id, required_purpose=purpose
-            ),
+            verify_signature=self._check_signature,
             nonce_store=self._nonce_store,
             now=self._clock(),
         )
+
+    async def _check_signature(
+        self,
+        did: str,
+        payload: str,
+        signature: str,
+        key_id: str,
+        required_purpose: VerificationRelationship,
+    ) -> SignatureCheckOutcome:
+        """``verify_signature`` that tells apart the ways a verification can fail."""
+        try:
+            verification_chain = await self._resolve_active_verification_chain(did)
+        except Exception:
+            return "did_resolution_failed"
+        try:
+            valid = verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
+        except IdentityCompositionError:
+            return "key_not_authorized"
+        return "valid" if valid else "invalid"
 
     async def verify_signature(
         self,

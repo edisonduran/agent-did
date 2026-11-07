@@ -31,6 +31,7 @@ HttpDIDDocumentSource
 HttpDIDDocumentSourceConfig
 HttpRequestLike
 HttpSignatureError
+HttpSignatureRejection
 HttpTargetValidationOptions
 IdentityCompositionError
 IdentityCompositionErrorReason
@@ -65,6 +66,7 @@ VerifiableCredentialLink
 VerificationMethod
 VerificationRelationship
 VerifyHttpRequestSignatureParams
+VerifyHttpRequestSignatureResult
 WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig
 assert_key_purpose

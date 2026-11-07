@@ -204,3 +204,58 @@ export interface VerifyHttpRequestSignatureParams {
    */
   nonceStore?: import('./nonce-store').NonceStore;
 }
+
+/**
+ * Why `verifyHttpRequestSignatureDetailed` rejected a request. When the request carries several
+ * signatures, the reason is the one of the first signature that has `tag="agent-did"` (else the
+ * first signature).
+ *
+ * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
+ * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
+ * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
+ * - `alg_unsupported`: the `alg` parameter is not `ed25519`.
+ * - `params_missing`: `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type.
+ * - `keyid_not_bound`: `keyid` is not a key of the `Signature-Agent` DID.
+ * - `components_missing`: a required covered component is absent.
+ * - `components_order`: the required components are all covered but not first and in order.
+ * - `created_skew`: `created` is further from now than `maxCreatedSkewSeconds`.
+ * - `expires_before_created`: `expires` is earlier than `created`.
+ * - `lifetime_exceeded`: `expires - created` is greater than `maxSignatureLifetimeSeconds`.
+ * - `expired`: now is after `expires`.
+ * - `signed_component_missing`: a covered component has no value in the request (for example no `Date`).
+ * - `did_resolution_failed`: the `Signature-Agent` DID has no active verification chain: unknown,
+ *   revoked, deactivated, inactive controller, or the resolver failed. The SDK does not tell a
+ *   resolver outage from a revocation; treat this reason as "could not establish the key".
+ * - `keyid_not_authorized`: `keyid` is not an `assertionMethod` key of the DID document (a fragment
+ *   the document does not have, or a key listed only under another relationship).
+ * - `signature_invalid`: the signature does not verify, or the key is no longer active.
+ * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
+ */
+export type HttpSignatureRejection =
+  | 'missing_headers'
+  | 'malformed_headers'
+  | 'digest_mismatch'
+  | 'tag_mismatch'
+  | 'alg_unsupported'
+  | 'params_missing'
+  | 'keyid_not_bound'
+  | 'components_missing'
+  | 'components_order'
+  | 'created_skew'
+  | 'expires_before_created'
+  | 'lifetime_exceeded'
+  | 'expired'
+  | 'signed_component_missing'
+  | 'did_resolution_failed'
+  | 'keyid_not_authorized'
+  | 'signature_invalid'
+  | 'nonce_replayed';
+
+/**
+ * Result of `verifyHttpRequestSignatureDetailed`. Always test `result.ok`: the object itself is
+ * truthy for a rejection too, which is why `verifyHttpRequestSignature` keeps returning a boolean.
+ */
+export type VerifyHttpRequestSignatureResult =
+  | { ok: true }
+  | { ok: false; reason: HttpSignatureRejection };
