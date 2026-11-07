@@ -308,6 +308,7 @@ By default the audit gate is strict: any unmatched finding at severity `Low` or 
 - Strategic assessment & roadmap (Spanish): [docs/archive/Strategic-Assessment-Agent-DID-ES.md](docs/archive/Strategic-Assessment-Agent-DID-ES.md)
 - Strategic assessment & roadmap (English): [docs/archive/Strategic-Assessment-Agent-DID-EN.md](docs/archive/Strategic-Assessment-Agent-DID-EN.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Governance (decisions, merge and release rights, becoming a maintainer): [GOVERNANCE.md](GOVERNANCE.md)
 
 ## Roadmap
 

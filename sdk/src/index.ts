@@ -25,7 +25,9 @@ export {
   SignHttpRequestParams,
   UpdateAgentDocumentParams,
   RotateVerificationMethodResult,
-  VerifyHttpRequestSignatureParams
+  VerifyHttpRequestSignatureParams,
+  VerifyHttpRequestSignatureResult,
+  HttpSignatureRejection
 } from './core/types';
 
 export {

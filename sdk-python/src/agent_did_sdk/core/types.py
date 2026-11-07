@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -193,6 +194,61 @@ class VerifyHttpRequestSignatureParams(BaseModel):
     """Maximum lifetime of a signature (``expires - created``), in seconds (default: 300)."""
     nonce_store: Any | None = None
     """Replay store (``NonceStore``). Defaults to a process-wide ``InMemoryNonceStore``."""
+
+
+HttpSignatureRejection = Literal[
+    "missing_headers",
+    "malformed_headers",
+    "digest_mismatch",
+    "tag_mismatch",
+    "alg_unsupported",
+    "params_missing",
+    "keyid_not_bound",
+    "components_missing",
+    "components_order",
+    "created_skew",
+    "expires_before_created",
+    "lifetime_exceeded",
+    "expired",
+    "signed_component_missing",
+    "did_resolution_failed",
+    "keyid_not_authorized",
+    "signature_invalid",
+    "nonce_replayed",
+]
+"""Why ``verify_http_request_signature_detailed`` rejected a request. When the request carries several
+signatures, the reason is the one of the first signature that has ``tag="agent-did"`` (else the first).
+
+* ``missing_headers``: ``Signature``, ``Signature-Input`` or ``Signature-Agent`` is absent.
+* ``malformed_headers``: ``Signature`` / ``Signature-Input`` do not parse, or no signature has a matching label.
+* ``digest_mismatch``: ``Content-Digest`` is absent or is not exactly the SHA-256 of the body.
+* ``tag_mismatch``: the ``tag`` parameter is not ``agent-did`` (for example another profile's signature).
+* ``alg_unsupported``: the ``alg`` parameter is not ``ed25519``.
+* ``params_missing``: ``created``, ``expires``, ``nonce`` or ``keyid`` is absent or has the wrong type.
+* ``keyid_not_bound``: ``keyid`` is not a key of the ``Signature-Agent`` DID.
+* ``components_missing``: a required covered component is absent.
+* ``components_order``: the required components are all covered but not first and in order.
+* ``created_skew``: ``created`` is further from now than ``max_created_skew_seconds``.
+* ``expires_before_created``: ``expires`` is earlier than ``created``.
+* ``lifetime_exceeded``: ``expires - created`` is greater than ``max_signature_lifetime_seconds``.
+* ``expired``: now is after ``expires``.
+* ``signed_component_missing``: a covered component has no value in the request (for example no ``Date``).
+* ``did_resolution_failed``: the ``Signature-Agent`` DID has no active verification chain: unknown, revoked,
+  deactivated, inactive controller, or the resolver failed. The SDK does not tell a resolver outage from a
+  revocation; treat this reason as "could not establish the key".
+* ``keyid_not_authorized``: ``keyid`` is not an ``assertionMethod`` key of the DID document.
+* ``signature_invalid``: the signature does not verify, or the key is no longer active.
+* ``nonce_replayed``: the ``(keyid, nonce)`` pair was already seen.
+"""
+
+
+@dataclass(frozen=True)
+class VerifyHttpRequestSignatureResult:
+    """Result of ``verify_http_request_signature_detailed``. Always test ``result.ok``: the object itself
+    is truthy for a rejection too, which is why ``verify_http_request_signature`` keeps returning a bool."""
+
+    ok: bool
+    reason: HttpSignatureRejection | None = None
 
 
 # ---------------------------------------------------------------------------

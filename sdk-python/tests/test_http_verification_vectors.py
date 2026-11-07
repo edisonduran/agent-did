@@ -13,7 +13,11 @@ import pytest
 
 from agent_did_sdk.core.client import AgentDidClient, AgentDidClientOptions
 from agent_did_sdk.core.nonce_store import InMemoryNonceStore
-from agent_did_sdk.core.types import AgentDIDDocument, VerifyHttpRequestSignatureParams
+from agent_did_sdk.core.types import (
+    AgentDIDDocument,
+    VerifyHttpRequestSignatureParams,
+    VerifyHttpRequestSignatureResult,
+)
 from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 
@@ -108,6 +112,19 @@ async def _client_at(now: int) -> tuple[AgentDidClient, InMemoryNonceStore]:
     return client, nonce_store
 
 
+def _params(vector: dict[str, Any], nonce_store: InMemoryNonceStore) -> VerifyHttpRequestSignatureParams:
+    request = vector["request"]
+    return VerifyHttpRequestSignatureParams(
+        method=request["method"],
+        url=request["url"],
+        body=request["body"],
+        headers=vector["headers"],
+        max_created_skew_seconds=vector.get("maxCreatedSkewSeconds"),
+        max_signature_lifetime_seconds=vector.get("maxSignatureLifetimeSeconds"),
+        nonce_store=nonce_store,
+    )
+
+
 def test_fixture_format() -> None:
     assert FIXTURE["formatVersion"] == 1
     ids = [vector["id"] for vector in FIXTURE["vectors"]]
@@ -120,22 +137,19 @@ async def test_http_verification_vector(vector: dict[str, Any]) -> None:
     now = vector.get("now", FIXTURE["clock"])
     client, nonce_store = await _client_at(now)
 
-    async def verify() -> bool:
-        request = vector["request"]
-        return await client.verify_http_request_signature(
-            VerifyHttpRequestSignatureParams(
-                method=request["method"],
-                url=request["url"],
-                body=request["body"],
-                headers=vector["headers"],
-                max_created_skew_seconds=vector.get("maxCreatedSkewSeconds"),
-                max_signature_lifetime_seconds=vector.get("maxSignatureLifetimeSeconds"),
-                nonce_store=nonce_store,
-            )
-        )
+    async def verify() -> VerifyHttpRequestSignatureResult:
+        return await client.verify_http_request_signature_detailed(_params(vector, nonce_store))
 
     if "expectedSequence" in vector:
-        verdicts = [await verify() for _ in vector["expectedSequence"]]
-        assert verdicts == vector["expectedSequence"]
-    else:
-        assert await verify() is vector["expected"]
+        results = [await verify() for _ in vector["expectedSequence"]]
+        assert [result.ok for result in results] == vector["expectedSequence"]
+        assert [result.reason for result in results] == vector["expectedReasons"]
+        return
+
+    result = await verify()
+    assert result.ok is vector["expected"]
+    assert result.reason == vector.get("reason")
+
+    # The boolean method gives the same verdict (fresh client: its nonce store is not shared).
+    fresh, fresh_store = await _client_at(now)
+    assert await fresh.verify_http_request_signature(_params(vector, fresh_store)) is vector["expected"]

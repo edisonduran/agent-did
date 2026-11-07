@@ -48,6 +48,7 @@ from .core.types import (
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
+    HttpSignatureRejection,
     IdentityCompositionErrorReason,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
@@ -58,6 +59,7 @@ from .core.types import (
     VerificationMethod,
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
+    VerifyHttpRequestSignatureResult,
 )
 from .crypto.hash import (
     canonicalize_json,
@@ -110,6 +112,8 @@ __all__ = [
     "RotateVerificationMethodResult",
     "SignHttpRequestParams",
     "VerifyHttpRequestSignatureParams",
+    "VerifyHttpRequestSignatureResult",
+    "HttpSignatureRejection",
     "AgentDocumentHistoryAction",
     "AgentDocumentHistoryEntry",
     # did:webvh v1.0 errors (log verification, unauthorized controller signer)

@@ -47,6 +47,7 @@ HttpDIDDocumentSource
 HttpDIDDocumentSourceConfig
 HttpRequestLike
 HttpSignatureError
+HttpSignatureRejection
 HttpTargetValidationOptions
 IdentityCompositionError
 IdentityCompositionErrorDetails
@@ -91,4 +92,5 @@ VerifiableCredentialLink
 VerificationMethod
 VerificationRelationship
 VerifyHttpRequestSignatureParams
+VerifyHttpRequestSignatureResult
 verifyMetadataCommitment

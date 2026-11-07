@@ -10,6 +10,7 @@ import {
   RotateVerificationMethodResult,
   UpdateAgentDocumentParams,
   VerifyHttpRequestSignatureParams,
+  VerifyHttpRequestSignatureResult,
   VerificationRelationship
 } from './types';
 import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash';
@@ -44,7 +45,8 @@ import {
   nextDocumentTimestamp
 } from '../lifecycle/documents';
 import { verifyWithActiveKeys, verifyWithHistoricalKey } from '../verification/signature';
-import { verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
+import { SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
+import { IdentityCompositionError } from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
 
@@ -397,15 +399,50 @@ export class AgentDidClient {
    * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
    * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
    * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
-   * request is rejected. Returns `false` on any failure.
+   * request is rejected. Returns `false` on any failure; use `verifyHttpRequestSignatureDetailed`
+   * to learn why.
    */
   public async verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean> {
+    return (await this.verifyHttpRequestSignatureDetailed(params)).ok;
+  }
+
+  /**
+   * Same verification as `verifyHttpRequestSignature`, returning the reason of a rejection
+   * (see `HttpSignatureRejection`). Test `result.ok`: the result object is truthy for a rejection too.
+   */
+  public async verifyHttpRequestSignatureDetailed(
+    params: VerifyHttpRequestSignatureParams
+  ): Promise<VerifyHttpRequestSignatureResult> {
     return verifyAgentDidHttpRequest(params, {
       verifySignature: (did, payload, signature, keyId, purpose) =>
-        this.verifySignature(did, payload, signature, keyId, purpose),
+        this.checkSignature(did, payload, signature, keyId, purpose),
       nonceStore: this.nonceStore,
       now: this.clock()
     });
+  }
+
+  /** `verifySignature` that tells apart the ways a verification can fail. */
+  private async checkSignature(
+    did: string,
+    payload: string,
+    signature: string,
+    keyId: string,
+    requiredPurpose: VerificationRelationship
+  ): Promise<SignatureCheckOutcome> {
+    let verificationChain: AgentDIDDocument[];
+    try {
+      verificationChain = await this.resolveActiveVerificationChain(did);
+    } catch {
+      return 'did_resolution_failed';
+    }
+    try {
+      return verifyWithActiveKeys(verificationChain[0], payload, signature, keyId, requiredPurpose) ? 'valid' : 'invalid';
+    } catch (error) {
+      if (error instanceof IdentityCompositionError) {
+        return 'key_not_authorized';
+      }
+      throw error;
+    }
   }
 
   /**
