@@ -255,8 +255,8 @@ Raw chain-of-thought capture is out of scope for RFC-001. Implementations that n
 
 Agents sign HTTP requests with RFC 9421 HTTP Message Signatures using the following profile:
 
-1. The request MUST carry `Signature-Agent` (the agent's DID), `Date`, and `Content-Digest` (RFC 9530, `sha-256`).
-2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`. Additional components MAY follow.
+1. The request MUST carry `Signature-Agent` (the agent's DID), `Date`, and `Content-Digest` (RFC 9530, `sha-256`). The `Content-Digest` value is exactly `sha-256=:<base64 of SHA-256(body)>:`: a verifier MUST reject a field with any other form, including a dictionary that adds further algorithms.
+2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`. Additional components MAY follow. A verifier MUST reject a signature whose covered components start with anything else (a missing, reordered or preceded component).
 3. The signature parameters MUST include `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `keyid` MUST be a verification method of the `Signature-Agent` DID.
 4. The signature base MUST be built as defined in RFC 9421 §2.5. Verifiers MUST rebuild it from the received request, with the `"@signature-params"` line re-serialized from the parsed `Signature-Input`.
 5. Verifiers MUST reject the signature unless: the profile in items 2 and 3 is present; `created` is within the allowed clock skew; `now <= expires`; `Content-Digest` matches the body; and the signature verifies with an active key listed under `assertionMethod` in the resolved DID document.
@@ -302,10 +302,17 @@ To validate verification compatibility between implementations, maintain version
 
 Current fixture reference:
 
-- `fixtures/interop-vectors.json` (message and HTTP signatures)
+- `fixtures/interop-vectors.json` (message and HTTP signatures: one valid request per DID method)
+- `fixtures/http-verification-vectors.json` (the §6.5 verification rules: accepted requests and rejected requests, each rejected one differing from the valid request by a single change)
 - `fixtures/canonical-document-reference.json` (`documentRef` computation)
 - `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)
-- `sdk/tests/InteropVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`
+- `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
+
+Conventions the shared vectors rely on, stated here so that an independent implementation does not have to infer them:
+
+- A commitment salt carried as text is the lowercase hexadecimal encoding of its bytes (64 characters for the required 32 bytes); the HMAC key is the decoded bytes (§4.3).
+- `signMessage` signs the UTF-8 bytes of the payload, and signatures are carried as lowercase hexadecimal.
+- A verifier returns a rejection, never an exception, for a request whose `keyid` is not an `assertionMethod` key of the `Signature-Agent` DID document.
 
 ### 7.3 Quick Mapping: RFC → SDK
 
