@@ -60,8 +60,8 @@
     "structured-headers": "^2.1.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.29.0",
+    "@babel/core": "^8.1.0",
+    "@babel/preset-env": "^8.0.7",
     "@types/jest": "^30.0.0",
     "babel-jest": "^30.2.0",
     "fast-check": "^4.10.2",
