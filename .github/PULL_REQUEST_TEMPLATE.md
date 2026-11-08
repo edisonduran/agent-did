@@ -13,7 +13,6 @@
 - [ ] I ran `npm run conformance:rfc001` from the repository root, or this change does not affect conformance-covered behavior.
 - [ ] If I changed `integrations/langchain`, I ran `npm run test:langchain` from the repository root.
 - [ ] If I changed `sdk-python/`, I ran the canonical Python validation workflow documented in `sdk-python/README.md`.
-- [ ] If I changed `contracts/` or audit automation, I ran `npm run audit:contracts` with Docker available.
 - [ ] I added or updated tests where the change affects executable behavior.
 
 ## Documentation and Governance

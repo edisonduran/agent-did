@@ -100,7 +100,7 @@ They are consumed by:
 | HTTP DID document source | `HttpDIDDocumentSource` | `HttpDIDDocumentSource` | ✅ | SSRF-sensitive paths covered in tests. |
 | JSON-RPC DID document source | `JsonRpcDIDDocumentSource` | `JsonRpcDIDDocumentSource` | ✅ | Failover and validation present in both SDKs. |
 | In-memory registry | `InMemoryAgentRegistry` | `InMemoryAgentRegistry` | ✅ | Same lifecycle semantics. |
-| EVM registry adapter | `EvmAgentRegistry` + ethers client | `EvmAgentRegistry` + web3 client | ✅ | Client library differs, capability family is equivalent. |
+| EVM registry adapter (moved to `edisonduran/agent-did-evm` in rc.5) | `@agentdid/evm`: `EvmAgentRegistry` + ethers client | `agent-did-evm`: `EvmAgentRegistry` + web3 client | ✅ | Client library differs, capability family is equivalent. |
 | Time normalization | `normalizeTimestampToIso` | `normalize_timestamp_to_iso` | ✅ | Canonical UTC millisecond format now aligned. |
 | Canonical document hashing | `generateCanonicalDocumentHash` (internal helper path) | `generate_canonical_document_hash` (internal helper path) | ✅ | RFC 8785 (JCS) in both SDKs; `documentRef` agreement and RFC 8785 reference vectors enforced by shared fixtures (`canonical-document-reference.json`, `jcs-vectors.json`). |
 | Resolution integrity (`documentRef`) | `UniversalResolverClient` + `DocumentIntegrityError` | `UniversalResolverClient` + `DocumentIntegrityError` | ✅ | Both verify `id` and the `hash://sha256/` reference, never fall back on integrity failures, and reject other schemes unless `unverifiedDocumentRefSchemes` / `unverified_document_ref_schemes` opts in. |

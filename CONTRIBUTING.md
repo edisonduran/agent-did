@@ -47,7 +47,7 @@ The following surfaces are treated as comparatively stable unless a correctness 
 4. Run conformance: `npm run conformance:rfc001` from the project root.
 5. If you touch the LangChain integration, also run `npm run test:langchain` from the project root.
 6. If you touch `sdk-python/`, also run the canonical Python workflow in `sdk-python/README.md`.
-7. If you touch the Solidity contract or audit automation, also run `npm run audit:contracts` with Docker running.
+7. Contract and EVM adapter changes go to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm).
 8. If your change affects delivered status, roadmap closure, CI coverage, maturity claims, or integration scope, update all impacted live documents in the same PR.
 9. Use the documentation checklist in this file when a PR changes project status, roadmap items, integration maturity, or training content.
 10. Commit with a descriptive message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(sdk): add batch DID resolution`).
@@ -104,16 +104,14 @@ The project follows a 3-phase roadmap. Items marked with **🔓 Open** are activ
 | F1-02 | Translate README and key docs to English | Documentation | ✅ Done |
 | F1-03 | **LangChain integration** — inject Agent-DID identity into agent chains | Integration | ✅ Done |
 | F1-04 | **Prepare optional DIF / `did:webvh` companion-note material** | Standards | Post-1.0 / optional |
-| F1-05 | **Automated smart contract audit** (Slither/Mythril) | Security | ✅ Done |
+| F1-05 | **Automated smart contract audit** (Slither/Mythril) | Security | ✅ Done (now in `agent-did-evm`) |
 | F1-06 | **CI/CD pipeline** with GitHub Actions (build + test + conformance per PR) | DevOps | ✅ Done |
 
 GitHub Actions now installs the repository workspaces and runs the RFC-001 conformance suite from `.github/workflows/ci.yml` on pushes, pull requests, and manual dispatches.
 
 The same workflow also installs and tests the LangChain integration package in `integrations/langchain`.
 
-Smart contract static audit automation is available through `.github/workflows/contract-audit.yml`, which runs Slither and Mythril via Docker and publishes the generated reports as workflow artifacts.
-
-Current audit triage notes are available in [docs/F1-05-Contract-Audit-Triage.md](docs/F1-05-Contract-Audit-Triage.md). Formal third-party review is still tracked separately under F3-04.
+Smart contract static audit automation (Slither and Mythril) and its triage notes moved with the contract to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). Formal third-party review is still tracked separately under F3-04.
 
 The implemented LangChain package lives in [integrations/langchain/README.md](integrations/langchain/README.md).
 
@@ -163,9 +161,6 @@ cd sdk && npm test
 
 # Run LangChain integration tests
 cd .. && npm run test:langchain
-
-# Run contract audit automation
-npm run audit:contracts
 
 # Run full conformance
 npm run conformance:rfc001

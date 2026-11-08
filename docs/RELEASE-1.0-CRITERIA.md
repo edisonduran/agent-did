@@ -27,9 +27,9 @@ The old path assumed `did:agent` might need to become a new DID method. That is 
 | `agent-did-microsoft-agent-framework` | — | 1.0.0rc4 | 1.0.0 | PyPI |
 | `agent-did-a2a` | — | 1.0.0rc4 | 1.0.0 | PyPI |
 
-`@agentdid/evm` (`1.0.0-rc.4`) is also published, as an optional package outside the core `1.0.0` set (see section 2.4).
+`@agentdid/evm` (`1.0.0-rc.4`) was also published from this repository, as an optional package outside the core `1.0.0` set. From `1.0.0-rc.5` it is released from [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) together with the Python adapter `agent-did-evm` (see section 2.4).
 
-The Solidity contracts and EVM deployment material are **out of scope for core `1.0.0`**. Existing contract work is retained as deferred research/profile material, but there is no EVM package, testnet, deployed-address, or ABI gate for the core web-native release. If a concrete need appears later, the maintainers will reopen the topic as a separate scope decision after `1.0.0`.
+The Solidity contracts and EVM deployment material are **out of scope for core `1.0.0`**. They live in the separate repository `edisonduran/agent-did-evm`, and there is no EVM package, testnet, deployed-address, or ABI gate for the core web-native release. If a concrete need appears later, the maintainers will reopen the topic as a separate scope decision after `1.0.0`.
 
 **RFC-001** must simultaneously transition from `Public Review v1` (Draft) to `Stable`.
 
@@ -110,7 +110,7 @@ Current recommendation for the normalized `v1.0.0` branch state:
 
 ### 2.4 Deferred EVM / On-Chain Profile
 
-Core `1.0.0` excludes any EVM/on-chain profile. The Solidity contracts remain in the repository as deferred profile material only. There are no ABI-freeze, public testnet, deployed-address, audit-triage, or contract-upgrade gates for the core release.
+Core `1.0.0` excludes any EVM/on-chain profile. The Solidity contracts and both EVM adapters moved to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) in `1.0.0-rc.5` ([ADR-004](ADR-004-EVM-Profile-Satellite.md)). There are no ABI-freeze, public testnet, deployed-address, audit-triage, or contract-upgrade gates for the core release.
 
 If future user demand creates a concrete EVM/on-chain need, the project will evaluate it after `1.0.0` as a separate profile with its own scope, versioning, security review, and release gates.
 

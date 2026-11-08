@@ -1,129 +1,76 @@
+"""End-to-end smoke on the canonical did:webvh path (RFC-001 MUST-09).
+
+Create an agent, sign, verify, revoke with a controller-signed deactivation entry, and check that the signature
+no longer verifies, both in the client that revoked and in a fresh verifier that only has the published logs
+(agent and controller).
+
+TypeScript parity: ``scripts/e2e-smoke.js``.
+"""
+
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 
-from eth_account import Account
-from eth_account.messages import encode_typed_data
-from smoke_utils import (
-    CONTRACTS_DIR,
-    NPM_COMMAND,
-    load_contract_abi,
-    load_contract_bytecode,
-    reset_agent_identity_state,
-    run,
-    spawn_hardhat_node,
-    stop_process_tree,
-    wait_for_hardhat_node,
-)
-from web3 import HTTPProvider, Web3
-
-from agent_did_sdk import AgentIdentity, AgentIdentityConfig, LocalKeySigner
+from agent_did_sdk import AgentDidClient, LocalKeySigner
+from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.types import CreateAgentParams
-from agent_did_sdk.evm import (
-    REGISTRATION_ATTESTATION_TYPES,
-    registration_attestation_domain,
-    registration_attestation_message,
-)
-from agent_did_sdk.evm.evm_registry import EvmAgentRegistry
-from agent_did_sdk.evm.evm_types import (
-    EvmAgentRegistryAdapterConfig,
-    RegistrationAttestation,
-    RegistrationAttestationRequest,
-)
-from agent_did_sdk.evm.web3_client import Web3AgentRegistryContractClient
-from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
+from agent_did_sdk.webvh.adapter import resolve_did_webvh_log
 
-# Well-known Hardhat development account #0 (the deployer, hence the initial registrar).
-HARDHAT_ACCOUNT_0_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+def check(condition: bool, message: str) -> None:
+    if not condition:
+        raise RuntimeError(message)
 
 
 async def main() -> int:
-    node_process = spawn_hardhat_node()
-    try:
-        wait_for_hardhat_node(node_process)
+    client = AgentDidClient()
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client))
 
-        print("[smoke] Building contracts...")
-        run([NPM_COMMAND, "run", "build"], CONTRACTS_DIR)
-
-        provider = Web3(HTTPProvider("http://127.0.0.1:8545"))
-        provider.eth.default_account = provider.eth.accounts[1]
-        abi = load_contract_abi()
-        bytecode = load_contract_bytecode()
-        deployment = provider.eth.contract(abi=abi, bytecode=bytecode)
-
-        print("[smoke] Deploying AgentRegistry on localhost...")
-        tx_hash = deployment.constructor().transact({"from": provider.eth.accounts[0]})
-        receipt = provider.eth.wait_for_transaction_receipt(tx_hash)
-        deployed_address = receipt.contractAddress
-        contract = provider.eth.contract(address=Web3.to_checksum_address(deployed_address), abi=abi)
-
-        owner_address = provider.eth.default_account
-
-        async def attest(request: RegistrationAttestationRequest) -> RegistrationAttestation:
-            deadline = provider.eth.get_block("latest")["timestamp"] + 3600
-            typed_data = {
-                "types": {
-                    "EIP712Domain": [
-                        {"name": "name", "type": "string"},
-                        {"name": "version", "type": "string"},
-                        {"name": "chainId", "type": "uint256"},
-                        {"name": "verifyingContract", "type": "address"},
-                    ],
-                    **REGISTRATION_ATTESTATION_TYPES,
-                },
-                "primaryType": "Registration",
-                "domain": registration_attestation_domain(provider.eth.chain_id, contract.address),
-                "message": registration_attestation_message(request, owner_address, deadline),
-            }
-            signed = Account.sign_message(encode_typed_data(full_message=typed_data), HARDHAT_ACCOUNT_0_KEY)
-            return RegistrationAttestation(owner=owner_address, deadline=deadline, signature=bytes(signed.signature))
-
-        reset_agent_identity_state()
-        registry = EvmAgentRegistry(
-            EvmAgentRegistryAdapterConfig(
-                contract_client=Web3AgentRegistryContractClient(contract),
-                await_transaction_confirmation=False,
-                attestation_provider=attest,
-            )
+    print("[smoke] Creating a did:webvh agent...")
+    result = await identity.create(
+        CreateAgentParams(
+            name="E2ESmokeBot",
+            core_model="gpt-4o-mini",
+            system_prompt="You are an end-to-end smoke test.",
         )
+    )
+    did = result.document.id
+    check(did.startswith("did:webvh:"), f"expected a did:webvh DID, got {did}")
 
-        AgentIdentity.set_registry(registry)
-        AgentIdentity.set_resolver(InMemoryDIDResolver())
+    print("[smoke] Signing and verifying a payload...")
+    payload = json.dumps({"action": "transfer", "amount": 10})
+    signature = await identity.sign_message(payload, result.agent_private_key)
+    check(await client.verify_signature(did, payload, signature), "signature must verify before revocation")
+    check(not await client.verify_signature(did, payload + " ", signature), "a tampered payload must not verify")
 
-        identity = AgentIdentity(
-            AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], network="localhost")
-        )
-        result = await identity.create(
-            CreateAgentParams(
-                name="SmokeBot",
-                core_model="gpt-4o-mini",
-                system_prompt="You are a smoke test bot",
-                did_method="agent",
-            )
-        )
+    # A verifier resolves the whole controller chain, so it needs the controller's published log too.
+    print("[smoke] Verifying from the published logs only...")
+    controller_log = client.export_did_webvh_history(result.document.controller)
+    published_before = client.export_did_webvh_history(did)
+    verifier_before = AgentDidClient()
+    await verifier_before.import_did_webvh_history(controller_log)
+    await verifier_before.import_did_webvh_history(published_before)
+    check(await verifier_before.verify_signature(did, payload, signature), "a fresh verifier must accept it")
 
-        record = await registry.get_record(result.document.id)
-        if record is None or record.did != result.document.id:
-            raise RuntimeError("Expected DID to be registered on the local contract")
+    print("[smoke] Revoking with a controller-signed deactivation entry...")
+    await client.revoke_did(did)
+    published_after = client.export_did_webvh_history(did)
+    resolved = await resolve_did_webvh_log(published_after, did=did)
+    check(resolved.metadata.deactivated, "the log must end in a deactivation entry")
+    check(not await client.verify_signature(did, payload, signature), "signature must not verify after revocation")
 
-        payload = "approve:smoke:1"
-        signature = await identity.sign_message(payload, result.agent_private_key)
+    verifier_after = AgentDidClient()
+    await verifier_after.import_did_webvh_history(controller_log)
+    await verifier_after.import_did_webvh_history(published_after)
+    check(
+        not await verifier_after.verify_signature(did, payload, signature),
+        "a fresh verifier with the published log must reject it",
+    )
 
-        valid_before_revocation = await AgentIdentity.verify_signature(result.document.id, payload, signature)
-        if not valid_before_revocation:
-            raise RuntimeError("Expected signature to be valid before revocation")
-
-        await AgentIdentity.revoke_did(result.document.id)
-
-        valid_after_revocation = await AgentIdentity.verify_signature(result.document.id, payload, signature)
-        if valid_after_revocation:
-            raise RuntimeError("Expected signature to be invalid after revocation")
-
-        print("✅ E2E smoke test completed successfully")
-        return 0
-    finally:
-        stop_process_tree(node_process)
+    print("E2E smoke test completed successfully")
+    return 0
 
 
 if __name__ == "__main__":

@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import httpx
-import pytest
 
-from agent_did_sdk.evm.web3_client import Web3AgentRegistryContractClient
 from agent_did_sdk.resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 from agent_did_sdk.resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
 
@@ -46,18 +44,3 @@ class TestJsonRpcSourceSSRF:
         result = await source.get_by_reference("hash://sha256/abc")
         assert result is None
 
-
-class TestWeb3ClientInvalidShape:
-    async def test_invalid_response_raises(self) -> None:
-        class FakeContract:
-            class functions:
-                @staticmethod
-                def getAgentRecord(did: str):  # noqa: N802
-                    class CallableResult:
-                        def call(self):
-                            return 42
-                    return CallableResult()
-
-        client = Web3AgentRegistryContractClient(FakeContract())
-        with pytest.raises(ValueError, match="Invalid contract response"):
-            await client.get_agent_record("did:agent:test:1")

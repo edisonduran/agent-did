@@ -28,7 +28,7 @@ const errors = [];
 const fail = (message) => errors.push(message);
 
 // --- Manifests --------------------------------------------------------------------------------
-const NPM_PACKAGES = ['sdk/package.json', 'integrations/langchain/package.json', 'evm/package.json'];
+const NPM_PACKAGES = ['sdk/package.json', 'integrations/langchain/package.json'];
 const PYTHON_PACKAGES = [
   'sdk-python/pyproject.toml',
   'integrations/a2a/pyproject.toml',
@@ -93,7 +93,7 @@ const RC_PY = '1\\.0\\.0rc(\\d+)';
 
 const LIVE_DOCS = [
   'README.md', 'QUICKSTART.md', 'SECURITY.md', 'CONTRIBUTING.md',
-  'sdk/README.md', 'sdk-python/README.md', 'evm/README.md',
+  'sdk/README.md', 'sdk-python/README.md',
   'integrations/langchain/README.md', 'integrations/langchain-python/README.md', 'integrations/crewai/README.md',
   'integrations/semantic-kernel/README.md', 'integrations/microsoft-agent-framework/README.md', 'integrations/a2a/README.md',
   'docs/RELEASE-1.0-CRITERIA.md', 'docs/INDEX.md'

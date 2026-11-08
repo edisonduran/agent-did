@@ -32,6 +32,11 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 - `verifyHistoricalSignature` / `verify_historical_signature` (`AgentDidClient` and the `AgentIdentity` facade): it accepts any retired key still in the DID document, with no time check, so it cannot tell a signature made before the key was retired from one forged afterwards. Use `verifySignatureAtTime` / `verify_signature_at_time`. Its behavior is unchanged in this release; it is scheduled for removal before `v1.0.0`.
 
+### Removed
+
+- **The EVM profile moved to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm)** with its git history ([ADR-004](docs/ADR-004-EVM-Profile-Satellite.md)): `contracts/` (the `AgentRegistry` contract and its Slither/Mythril audit automation), `evm/` (`@agentdid/evm`, same npm name) and the Python adapter. **Breaking for Python:** `agent_did_sdk.evm` and the `[evm]` extra are removed from `agent-did-sdk`; install `agent-did-evm` and import `agent_did_evm` (same classes). `agent-did-sdk` no longer depends on `web3`, not even in `[dev]`. The core release train and the version check now cover eight packages.
+- The Hardhat-based `smoke:e2e` and `smoke:policy` (and `sdk-python/scripts/e2e_smoke.py`, `revocation_policy_smoke.py`) are replaced by `did:webvh` smokes with the same names, which RFC-001 conformance keeps running: create, sign, verify, revoke with a controller-signed deactivation entry and check the signature fails, also for a verifier that only has the published logs (MUST-09); a third party's key cannot revoke, rotate or update a DID and a registry record alone does not revoke it (SHOULD-04). The core CI no longer installs the contract workspace.
+
 ### Fixed
 
 - `verifyHttpRequestSignature` / `verify_http_request_signature` raised `IdentityCompositionError` instead of returning `false` when the `keyid` of a signed request is not an `assertionMethod` key of the `Signature-Agent` DID (for example a fragment the document does not have, or a key listed only under `keyAgreement`). The request is now rejected. Found by the new vectors.

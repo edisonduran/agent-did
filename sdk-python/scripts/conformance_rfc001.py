@@ -5,7 +5,9 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from agent_did_sdk import AgentDidClient, AgentDidClientOptions
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.time_utils import iso_to_unix_string, normalize_timestamp_to_iso
@@ -398,34 +400,46 @@ async def evaluate_interop_should() -> CheckResult:
     return CheckResult("SHOULD-03", "PASS" if results and all(results) else "FAIL")
 
 
-def evaluate_contract_policy_should() -> CheckResult:
-    contract_path = Path(__file__).resolve().parents[2] / "contracts" / "src" / "AgentRegistry.sol"
-    if not contract_path.exists():
-        return CheckResult("SHOULD-04", "UNKNOWN")
+async def evaluate_revocation_policy_should() -> CheckResult:
+    """SHOULD-04 on the canonical did:webvh path: only the controller's update key can revoke or change a DID.
 
-    contract_source = contract_path.read_text(encoding="utf-8")
-    required_controls = [
-        "mapping(string => mapping(address => bool)) private revocationDelegates;",
-        (
-            "function setRevocationDelegate(string calldata did, address delegate, "
-            "bool authorized) external whenNotPaused {"
-        ),
-        (
-            "function transferAgentOwnership(string calldata did, address newOwner) "
-            "external whenNotPaused {"
-        ),
-        (
-            "function isRevocationDelegate(string calldata did, address delegate) "
-            "external view returns (bool) {"
-        ),
-        "require(_isAuthorizedRevoker(did, msg.sender), \"not authorized\");",
-        "require(record.owner == msg.sender, \"only owner\");",
-        "return record.owner == actor || revocationDelegates[did][actor];",
-    ]
-    return CheckResult(
-        "SHOULD-04",
-        "PASS" if all(control in contract_source for control in required_controls) else "FAIL",
+    A third party's key cannot revoke, rotate or update it, a registry record alone does not revoke it, and
+    nothing changes it after the controller-signed deactivation. (The EVM profile's contract-level policy is
+    checked in edisonduran/agent-did-evm.)
+    """
+    registry = InMemoryAgentRegistry()
+    client = AgentDidClient(AgentDidClientOptions(registry=registry))
+    attacker = LocalKeySigner.generate()[0]
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client))
+    created = await identity.create(
+        CreateAgentParams(name="PolicyConformanceBot", core_model="m", system_prompt="p")
     )
+    did = created.document.id
+    signature = await identity.sign_message("policy", created.agent_private_key)
+
+    async def rejected(action: Any) -> bool:
+        try:
+            await action()
+        except Exception:  # noqa: BLE001 - any rejection counts
+            return True
+        return False
+
+    checks = [
+        await rejected(lambda: client.revoke_did(did, controller_signer=attacker)),
+        await rejected(lambda: client.rotate_verification_method(did, controller_signer=attacker)),
+        await rejected(
+            lambda: client.update_did_document(
+                did, UpdateAgentDocumentParams(description="hijacked"), controller_signer=attacker
+            )
+        ),
+        await client.verify_signature(did, "policy", signature),
+    ]
+    await registry.revoke(did)
+    checks.append(await client.verify_signature(did, "policy", signature))
+    await client.revoke_did(did)
+    checks.append(not await client.verify_signature(did, "policy", signature))
+    checks.append(await rejected(lambda: client.rotate_verification_method(did)))
+    return CheckResult("SHOULD-04", "PASS" if all(checks) else "FAIL")
 
 
 async def evaluate_should_controls(document) -> list[CheckResult]:
@@ -437,7 +451,7 @@ async def evaluate_should_controls(document) -> list[CheckResult]:
         await evaluate_universal_resolver_should(document),
         CheckResult("SHOULD-02", "PASS" if should_02_ok else "FAIL"),
         await evaluate_interop_should(),
-        evaluate_contract_policy_should(),
+        await evaluate_revocation_policy_should(),
     ]
 
 

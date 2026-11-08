@@ -1,5 +1,5 @@
 # Dependabot configuration.
-# - evm/ and contracts/ are deferred outside core 1.0 and are intentionally not tracked.
+# - The EVM profile (contracts and adapters) lives in edisonduran/agent-did-evm.
 # - Major bumps of crypto/encoding deps and TypeScript are applied manually (wire/parity impact).
 version: 2
 updates:
