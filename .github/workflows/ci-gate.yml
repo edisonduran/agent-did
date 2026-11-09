@@ -1,0 +1,88 @@
+# Single required check for main.
+#
+# Every other pull-request workflow has path filters, so requiring any of them would
+# block pull requests that don't trigger it. This workflow runs on every pull request,
+# waits for the other check runs on the head commit to finish, and fails if any of them
+# failed. Branch protection requires only the "CI gate" check.
+#
+# If you re-run a failed job and it passes, re-run this workflow too: its result is
+# computed once, when the other checks finish.
+
+name: CI gate
+
+on:
+  pull_request:
+
+permissions:
+  checks: read
+
+concurrency:
+  group: ci-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: CI gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Wait for the other checks and require them to pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SELF: CI gate
+        run: |
+          set -euo pipefail
+
+          # One line per check (latest attempt per check suite and name):
+          # name <TAB> status <TAB> conclusion
+          snapshot() {
+            gh api --paginate "repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
+              --jq '.check_runs[]' \
+            | jq -s -r --arg self "$SELF" '
+                map(select(.name != $self))
+                | group_by([.check_suite.id, .name])
+                | map(max_by(.id))
+                | sort_by(.name)
+                | .[]
+                | [.name, .status, (.conclusion // "")]
+                | @tsv'
+          }
+
+          # The other workflows start from the same event; give them time to register.
+          sleep 60
+
+          deadline=$((SECONDS + 70 * 60))
+          previous="(none yet)"
+          while true; do
+            current="$(snapshot)"
+            pending="$(awk -F'\t' '$2 != "completed"' <<<"$current")"
+            # Done when nothing is pending and two polls 30 s apart agree, so a
+            # workflow that registered late is not missed.
+            if [ -z "$pending" ] && [ "$current" = "$previous" ]; then
+              break
+            fi
+            if [ "$SECONDS" -gt "$deadline" ]; then
+              echo "::error::Timed out waiting for checks:"
+              printf '%s\n' "$pending"
+              exit 1
+            fi
+            previous="$current"
+            sleep 30
+          done
+
+          if [ -z "$current" ]; then
+            echo "No other checks ran for this pull request."
+            exit 0
+          fi
+
+          printf '%s\n' "$current" | awk -F'\t' '{ printf "%-12s %s\n", ($3 == "" ? $2 : $3), $1 }'
+
+          failed="$(awk -F'\t' '$3 != "success" && $3 != "skipped" && $3 != "neutral"' <<<"$current")"
+          if [ -n "$failed" ]; then
+            echo "::error::Checks that did not pass:"
+            printf '%s\n' "$failed" | cut -f1,3
+            exit 1
+          fi
+          echo "All $(wc -l <<<"$current") checks passed or were skipped."
