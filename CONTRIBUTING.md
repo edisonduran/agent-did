@@ -53,6 +53,8 @@ The following surfaces are treated as comparatively stable unless a correctness 
 10. Commit with a descriptive message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(sdk): add batch DID resolution`).
 11. Open a Pull Request against `main`.
 
+Each CI workflow runs only when its paths change, so branch protection requires a single check, **CI gate** (`.github/workflows/ci-gate.yml`). It runs on every pull request, waits for the other checks on the head commit to finish, and fails if any of them failed. If you re-run a failed job and it passes, re-run the CI gate workflow too.
+
 #### Assigned Issues and PR Scope
 
 If an issue is already assigned to another contributor, please coordinate in the issue before opening a competing PR. Maintainers may close PRs that do not match the assigned scope, modify unrelated files or sections, or introduce visible regressions.
