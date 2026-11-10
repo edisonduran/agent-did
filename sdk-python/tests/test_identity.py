@@ -680,70 +680,86 @@ class TestAgentIdentityRotateKey:
         )
         assert new_key.deactivated is None
 
-    async def test_verify_historical_signature_after_rotation(self, identity: AgentIdentity) -> None:
+    @staticmethod
+    def _version_times(did: str) -> list[str]:
+        log = AgentIdentity.get_default_client().export_did_webvh_history(did)
+        return [json.loads(line)["versionTime"] for line in log.splitlines() if line.strip()]
+
+    async def test_rotated_out_key_is_indeterminate_before_the_rotation(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
             name="HistoryBot", core_model="m", system_prompt="p",
         ))
+        did = result.document.id
         payload = "approve:historical:1"
-        old_key_id = f"{result.document.id}#key-1"
+        old_key_id = f"{did}#key-1"
         old_sig = await identity.sign_message(payload, result.agent_private_key)
 
-        await AgentIdentity.rotate_verification_method(result.document.id)
+        await AgentIdentity.rotate_verification_method(did)
+        created_at, rotated_at = self._version_times(did)
 
-        # Active verification should fail (old key no longer in authentication)
-        active_valid = await AgentIdentity.verify_signature(
-            result.document.id, payload, old_sig, old_key_id,
+        # The old key is no longer active.
+        assert await AgentIdentity.verify_signature(did, payload, old_sig, old_key_id) is False
+
+        # The stated time is the signer's claim, so a key retired after it is not accepted on that claim alone.
+        client = AgentIdentity.get_default_client()
+        at_creation = await client.verify_signature_at_time(did, payload, old_sig, old_key_id, stated_time=created_at)
+        assert at_creation.status == "indeterminate"
+        assert at_creation.key is not None
+        assert at_creation.key.reason == "key_retired_after_stated_time"
+
+        # Trusted evidence that the signature existed before the rotation entry makes it valid.
+        with_evidence = await client.verify_signature_at_time(
+            did, payload, old_sig, old_key_id, stated_time=created_at, trusted_time_not_after=created_at
         )
-        assert active_valid is False
+        assert with_evidence.status == "valid"
 
-        # Historical verification should succeed
-        historical_valid = await AgentIdentity.verify_historical_signature(
-            result.document.id, payload, old_sig, old_key_id,
+        # At or after the rotation the old key is no longer authorized.
+        after_rotation = await client.verify_signature_at_time(
+            did, payload, old_sig, old_key_id, stated_time=rotated_at
         )
-        assert historical_valid is True
+        assert (after_rotation.status, after_rotation.reason) == ("invalid", "key_not_authorized")
 
-    async def test_verify_historical_unknown_key_fails(self, identity: AgentIdentity) -> None:
+    async def test_key_at_time_unknown_key_is_invalid(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
             name="UnknownKey", core_model="m", system_prompt="p",
         ))
-        fake_sig = "00" * 64
-        with pytest.raises(IdentityCompositionError) as exc:
-            await AgentIdentity.verify_historical_signature(
-                result.document.id, "payload", fake_sig, f"{result.document.id}#key-999",
-            )
-        assert exc.value.reason == "key_purpose_violation"
-        assert exc.value.found_in == []
+        did = result.document.id
+        (created_at,) = self._version_times(did)
+        checked = await AgentIdentity.get_default_client().verify_signature_at_time(
+            did, "payload", "00" * 64, f"{did}#key-999", stated_time=created_at
+        )
+        assert (checked.status, checked.reason) == ("invalid", "key_not_authorized")
+        assert checked.key is not None
+        assert checked.key.reason == "key_not_found"
 
-    async def test_preserve_historical_verification_after_three_did_webvh_rotation_cycles(
+    async def test_oldest_key_after_three_did_webvh_rotation_cycles(
         self,
         identity: AgentIdentity,
     ) -> None:
         result = await identity.create(CreateAgentParams(
             name="ThreeCycleBot", core_model="m", system_prompt="p",
         ))
+        did = result.document.id
         payload = "approve:historical:three-cycle"
-        oldest_key_id = f"{result.document.id}#key-1"
+        oldest_key_id = f"{did}#key-1"
         oldest_sig = await identity.sign_message(payload, result.agent_private_key)
 
-        assert result.document.id.startswith("did:webvh:")
+        assert did.startswith("did:webvh:")
 
-        await AgentIdentity.rotate_verification_method(result.document.id)
-        await AgentIdentity.rotate_verification_method(result.document.id)
-        third_rotation = await AgentIdentity.rotate_verification_method(result.document.id)
+        await AgentIdentity.rotate_verification_method(did)
+        await AgentIdentity.rotate_verification_method(did)
+        third_rotation = await AgentIdentity.rotate_verification_method(did)
 
         assert third_rotation.verification_method_id.endswith("#key-4")
         assert third_rotation.document.authentication == [third_rotation.verification_method_id]
         assert len(third_rotation.document.verification_method) == 4
 
-        active_valid = await AgentIdentity.verify_signature(
-            result.document.id, payload, oldest_sig, oldest_key_id,
+        created_at = self._version_times(did)[0]
+        assert await AgentIdentity.verify_signature(did, payload, oldest_sig, oldest_key_id) is False
+        at_creation = await AgentIdentity.get_default_client().verify_signature_at_time(
+            did, payload, oldest_sig, oldest_key_id, stated_time=created_at, trusted_time_not_after=created_at
         )
-        historical_valid = await AgentIdentity.verify_historical_signature(
-            result.document.id, payload, oldest_sig, oldest_key_id,
-        )
-
-        assert active_valid is False
-        assert historical_valid is True
+        assert at_creation.status == "valid"
 
 
 class TestSignerAbstraction:

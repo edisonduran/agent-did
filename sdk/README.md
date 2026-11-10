@@ -157,7 +157,7 @@ if (result.status !== 'valid') { /* 'invalid' or 'indeterminate': reject */ }
 
 The stated time is the signer's claim, so a key retired after it gives `indeterminate` unless you pass trusted time evidence earlier than the retirement. `checkDidWebvhKeyAtTime(log, { keyId, statedTime })` returns the same key check, with the public key, without verifying a signature.
 
-`verifyHistoricalSignature` is **deprecated**: it accepts any retired key still in the document, with no time check, so it also accepts signatures forged with a compromised key after it was retired. It is scheduled for removal before `v1.0.0`.
+`verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted any retired key still in the document, with no time check, so it also accepted signatures forged with a compromised key after it was retired.
 
 ## Anti-Replay (HTTP Signatures)
 

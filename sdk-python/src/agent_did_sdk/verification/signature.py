@@ -48,27 +48,3 @@ def verify_with_active_keys(
             continue
     return False
 
-
-def verify_with_historical_key(
-    doc: AgentDIDDocument,
-    payload: str,
-    signature: str,
-    key_id: str,
-    required_purpose: VerificationRelationship,
-) -> bool:
-    """Verify against *key_id* even if it was rotated out (audit-trail verification)."""
-    assert_signing_purpose(required_purpose, doc, key_id)
-    assert_key_purpose(key_id, doc, required_purpose)
-
-    message_bytes = payload.encode("utf-8")
-    sig_bytes = bytes.fromhex(signature)
-
-    candidate = next((m for m in doc.verification_method if m.id == key_id and m.public_key_multibase), None)
-    if candidate is None or not candidate.public_key_multibase:
-        return False
-
-    try:
-        VerifyKey(decode_public_key_multibase(candidate.public_key_multibase)).verify(message_bytes, sig_bytes)
-        return True
-    except Exception:
-        return False

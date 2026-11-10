@@ -991,7 +991,13 @@ describe('AgentIdentity Core Module', () => {
     expect(newKey?.deactivated).toBeUndefined();
   });
 
-  it('should verify historical signatures after key rotation', async () => {
+  const versionTimes = (did: string): string[] =>
+    AgentIdentity.exportDidWebvhHistory(did)
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => (JSON.parse(line) as { versionTime: string }).versionTime);
+
+  it('treats a rotated-out key as indeterminate at a stated time before the rotation', async () => {
     const { document, agentPrivateKey: oldPrivateKey } = await agentIdentity.create({
       name: 'HistoryBot',
       coreModel: 'test',
@@ -1003,19 +1009,30 @@ describe('AgentIdentity Core Module', () => {
     const oldSignature = await agentIdentity.signMessage(payload, oldPrivateKey);
 
     await AgentIdentity.rotateVerificationMethod(document.id);
+    const [createdAt, rotatedAt] = versionTimes(document.id);
 
-    // verifySignature should fail (old key no longer active)
-    const activeValid = await AgentIdentity.verifySignature(document.id, payload, oldSignature, oldKeyId);
-    expect(activeValid).toBe(false);
+    // The old key is no longer active.
+    expect(await AgentIdentity.verifySignature(document.id, payload, oldSignature, oldKeyId)).toBe(false);
 
-    // verifyHistoricalSignature should succeed (old key still in document)
-    const historicalValid = await AgentIdentity.verifyHistoricalSignature(
-      document.id, payload, oldSignature, oldKeyId
-    );
-    expect(historicalValid).toBe(true);
+    // The stated time is the signer's claim, so a key retired after it is not accepted on that claim alone.
+    const client = AgentIdentity.getDefaultClient();
+    const atCreation = await client.verifySignatureAtTime(document.id, payload, oldSignature, oldKeyId, { statedTime: createdAt });
+    expect(atCreation.status).toBe('indeterminate');
+    expect(atCreation.key).toMatchObject({ status: 'indeterminate', reason: 'key_retired_after_stated_time' });
+
+    // Trusted evidence that the signature existed before the rotation entry makes it valid.
+    const withEvidence = await client.verifySignatureAtTime(document.id, payload, oldSignature, oldKeyId, {
+      statedTime: createdAt,
+      trustedTimeNotAfter: createdAt
+    });
+    expect(withEvidence.status).toBe('valid');
+
+    // At or after the rotation the old key is no longer authorized.
+    const afterRotation = await client.verifySignatureAtTime(document.id, payload, oldSignature, oldKeyId, { statedTime: rotatedAt });
+    expect(afterRotation).toMatchObject({ status: 'invalid', reason: 'key_not_authorized' });
   });
 
-  it('should preserve historical verification after three did:webvh rotation cycles', async () => {
+  it('checks the oldest key after three did:webvh rotation cycles', async () => {
     const { document, agentPrivateKey: oldestPrivateKey } = await agentIdentity.create({
       name: 'ThreeCycleBot',
       coreModel: 'test',
@@ -1035,34 +1052,29 @@ describe('AgentIdentity Core Module', () => {
     expect(thirdRotation.document.authentication).toEqual([`${document.id}#key-4`]);
     expect(thirdRotation.document.verificationMethod).toHaveLength(4);
 
-    const activeValid = await AgentIdentity.verifySignature(document.id, payload, oldestSignature, oldestKeyId);
-    const historicalValid = await AgentIdentity.verifyHistoricalSignature(
-      document.id,
-      payload,
-      oldestSignature,
-      oldestKeyId
-    );
-
-    expect(activeValid).toBe(false);
-    expect(historicalValid).toBe(true);
+    const [createdAt] = versionTimes(document.id);
+    const client = AgentIdentity.getDefaultClient();
+    expect(await AgentIdentity.verifySignature(document.id, payload, oldestSignature, oldestKeyId)).toBe(false);
+    const atCreation = await client.verifySignatureAtTime(document.id, payload, oldestSignature, oldestKeyId, {
+      statedTime: createdAt,
+      trustedTimeNotAfter: createdAt
+    });
+    expect(atCreation.status).toBe('valid');
   });
 
-  it('should reject historical verification with unknown key id', async () => {
+  it('rejects a key check at a stated time with an unknown key id', async () => {
     const { document } = await agentIdentity.create({
       name: 'UnknownKeyBot',
       coreModel: 'test',
       systemPrompt: 'test'
     });
+    const [createdAt] = versionTimes(document.id);
 
-    const payload = 'test-payload';
-    const fakeSignature = '00'.repeat(64);
-
-    await expect(AgentIdentity.verifyHistoricalSignature(
-      document.id, payload, fakeSignature, `${document.id}#key-999`
-    )).rejects.toMatchObject({
-      reason: 'key_purpose_violation',
-      foundIn: []
-    });
+    const result = await AgentIdentity.getDefaultClient().verifySignatureAtTime(
+      document.id, 'test-payload', '00'.repeat(64), `${document.id}#key-999`, { statedTime: createdAt }
+    );
+    expect(result).toMatchObject({ status: 'invalid', reason: 'key_not_authorized' });
+    expect(result.key).toMatchObject({ status: 'not_authorized', reason: 'key_not_found' });
   });
 
   it('should keep auditable history for create, update, rotate, revoke lifecycle', async () => {
