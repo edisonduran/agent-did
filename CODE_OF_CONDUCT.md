@@ -37,7 +37,7 @@ Enforcement decisions are made at maintainer discretion based on the severity, c
 
 ## Reporting
 
-To report Code of Conduct violations, contact the maintainers at [agent.ai.did@gmail.com](mailto:agent.ai.did@gmail.com) with the subject prefix `[CODE OF CONDUCT]`.
+To report Code of Conduct violations, contact the maintainers at [conduct@agent-did.org](mailto:conduct@agent-did.org) with the subject prefix `[CODE OF CONDUCT]`.
 
 Include as much context as you can:
 

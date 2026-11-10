@@ -204,7 +204,7 @@ When opening an issue, use one of these tags in the title:
 
 See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community expectations and enforcement.
 
-If you witness behavior that violates the Code of Conduct, report it privately to [agent.ai.did@gmail.com](mailto:agent.ai.did@gmail.com) with the subject prefix `[CODE OF CONDUCT]`.
+If you witness behavior that violates the Code of Conduct, report it privately to [conduct@agent-did.org](mailto:conduct@agent-did.org) with the subject prefix `[CODE OF CONDUCT]`.
 
 If you need to report a security vulnerability instead, use the private workflow in [SECURITY.md](SECURITY.md) rather than opening a public issue.
 
