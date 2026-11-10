@@ -30,7 +30,7 @@ interface ResolvableVector {
   deactivated?: boolean;
   log: string;
   /** What both adapters must return when resolving `log`. */
-  resolved: { document: Record<string, unknown>; metadata: Record<string, unknown> };
+  resolved: { document: Record<string, unknown>; metadata: Record<string, unknown>; versionNumber: number };
 }
 
 function vector(name: string, result: DidWebvhLogResult): ResolvableVector {
@@ -40,7 +40,7 @@ function vector(name: string, result: DidWebvhLogResult): ResolvableVector {
     versionId: result.metadata.versionId,
     ...(result.metadata.deactivated ? { deactivated: true } : {}),
     log: result.log,
-    resolved: { document: result.document, metadata: { ...result.metadata } },
+    resolved: { document: result.document, metadata: { ...result.metadata }, versionNumber: result.versionNumber },
   };
 }
 
@@ -349,6 +349,7 @@ describe('did:webvh cross-SDK log vectors', () => {
     expect(resolved.metadata.deactivated).toBe(vector.deactivated === true);
     expect(resolved.document).toEqual(vector.resolved.document);
     expect({ ...resolved.metadata }).toEqual(vector.resolved.metadata);
+    expect(resolved.versionNumber).toBe(vector.resolved.versionNumber);
   });
 
   it.each(NEGATIVE)('rejects %s', async (_name, log) => {

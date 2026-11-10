@@ -1,0 +1,88 @@
+name: CI — W3C DID Core Test Suite
+
+# DID documents created by both SDKs are run through the W3C DID Working Group test suite
+# (w3c/did-test-suite, pinned in fixtures/did-core-test-suite.json): suites did-core-properties,
+# did-identifier and did-production, plus a negative control the suite must reject (WP-7).
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ci-did-core-test-suite.yml'
+      - 'fixtures/did-core-test-suite.json'
+      - 'scripts/did-core-test-suite/**'
+      - 'sdk/src/**'
+      - 'sdk/package.json'
+      - 'sdk/package-lock.json'
+      - 'sdk-python/src/**'
+      - 'sdk-python/scripts/emit_did_documents.py'
+      - 'sdk-python/pyproject.toml'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-did-core-test-suite.yml'
+      - 'fixtures/did-core-test-suite.json'
+      - 'scripts/did-core-test-suite/**'
+      - 'sdk/src/**'
+      - 'sdk/package.json'
+      - 'sdk/package-lock.json'
+      - 'sdk-python/src/**'
+      - 'sdk-python/scripts/emit_did_documents.py'
+      - 'sdk-python/pyproject.toml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * *'
+
+concurrency:
+  group: did-core-suite-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  did-core:
+    name: W3C DID Core test suite on documents from both SDKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read pinned suite commit
+        id: suite
+        run: echo "commit=$(jq -r .commit fixtures/did-core-test-suite.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout w3c/did-test-suite
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: w3c/did-test-suite
+          ref: ${{ steps.suite.outputs.commit }}
+          path: did-test-suite
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install SDKs
+        run: |
+          npm --prefix sdk ci
+          npm --prefix sdk run build
+          python -m pip install --upgrade pip
+          pip install -e sdk-python
+
+      - name: Run the suite on our documents
+        env:
+          DID_CORE_TEST_SUITE_DIR: ${{ github.workspace }}/did-test-suite
+        run: npm run conformance:did-core -- --prepare

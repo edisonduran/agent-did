@@ -1,0 +1,16 @@
+{
+  "description": "W3C DID Core test suite used by scripts/did-core-test-suite/run.js (WP-7). Pinned deliberately; update with a reason, never to make a run pass.",
+  "repository": "https://github.com/w3c/did-test-suite",
+  "commit": "939b31d07d5b1699340ac0702ec0fa46ffcdef0a",
+  "package": "packages/did-core-test-server",
+  "suites": [
+    "suites/did-core-properties/did-core-properties.spec.js",
+    "suites/did-identifier/did-identifier.spec.js",
+    "suites/did-production/did-production.spec.js"
+  ],
+  "notApplicable": {
+    "suites/did-resolution": "Needs DID resolution results (didResolutionMetadata from a DID resolver). The SDKs return documents, not DID Resolution results.",
+    "suites/did-url-dereferencing": "Needs a DID URL dereferencer. The SDKs do not implement DID URL dereferencing.",
+    "suites/did-consumption": "Checks consumer cases that an implementation reports (a representation and what its consumer parsed from it). The SDKs are only run here as producers. Not in the suite's own suite-config.js at this commit."
+  }
+}

@@ -77,7 +77,7 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
 
     const rotated = await updateDidWebvhLog({ log: created.log, signer: K1 });
     expect(rotated.metadata.updateKeys).toEqual([await key(K1)]);
-    expect(rotated.metadata.versionNumber).toBe(2);
+    expect(rotated.versionNumber).toBe(2);
   });
 
   it('keeps the commitment when the entry does not change it, and commits to the next key when asked', async () => {
@@ -93,7 +93,7 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
     await expectCode(updateDidWebvhLog({ log: chained.log, signer: K1 }), 'unauthorized');
     const next = await updateDidWebvhLog({ log: chained.log, signer: K2, nextUpdateKeys: [await key(K3)] });
     expect(next.metadata.updateKeys).toEqual([await key(K2)]);
-    expect((await resolveDidWebvhLog(next.log)).metadata.versionNumber).toBe(4);
+    expect((await resolveDidWebvhLog(next.log)).versionNumber).toBe(4);
   });
 
   it('ends pre-rotation with an empty commitment, and the signing key is then an ordinary update key', async () => {
@@ -101,7 +101,7 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
     const ended = await updateDidWebvhLog({ log: created.log, signer: K1, nextUpdateKeys: [] });
     expect(ended.metadata.nextKeyHashes).toEqual([]);
     const ordinary = await updateDidWebvhLog({ log: ended.log, signer: K1, document: agentDocumentFor(ended.did) });
-    expect(ordinary.metadata.versionNumber).toBe(3);
+    expect(ordinary.versionNumber).toBe(3);
     await expectCode(updateDidWebvhLog({ log: ended.log, signer: K0 }), 'unauthorized');
   });
 

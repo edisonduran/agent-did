@@ -65,11 +65,11 @@ class DidWebvhMetadata:
     """Resolution metadata exposed by Agent-DID for a did:webvh log.
 
     Witness and watcher configuration are deliberately not exposed until the
-    SDK supports them (ADR-002, condition 7).
+    SDK supports them (ADR-002, condition 7). Every value is a string, list or
+    boolean, as DID Core section 7.3 requires of DID document metadata.
     """
 
     version_id: str
-    version_number: int
     version_time: str
     created: str
     updated: str
@@ -92,6 +92,8 @@ class DidWebvhLogResult:
     state: dict[str, Any]
     """The resolved version's ``state`` exactly as signed in the log (no implicit services)."""
     metadata: DidWebvhMetadata
+    version_number: int
+    """Number of the resolved version: the integer prefix of ``metadata.version_id``."""
     log: str
     """The full ``did.jsonl`` text, one entry per line, newline-terminated."""
 
@@ -284,7 +286,6 @@ async def resolve_did_webvh_log(
     ttl = state.params.get("ttl")
     metadata = DidWebvhMetadata(
         version_id=state.version_id,
-        version_number=state.version_number,
         version_time=state.timestamp_raw,
         created=serialized_meta["created"],
         # DID Core: the last update of the *resolved* version, not of the log.
@@ -296,7 +297,12 @@ async def resolve_did_webvh_log(
         ttl=str(ttl) if ttl is not None else _DEFAULT_TTL,
     )
     return DidWebvhLogResult(
-        did=str(document["id"]), document=document, state=signed_state, metadata=metadata, log=serialized
+        did=str(document["id"]),
+        document=document,
+        state=signed_state,
+        metadata=metadata,
+        version_number=state.version_number,
+        log=serialized,
     )
 
 

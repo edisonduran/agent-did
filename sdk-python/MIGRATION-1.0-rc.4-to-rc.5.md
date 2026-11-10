@@ -1,6 +1,6 @@
 # agent-did-sdk Migration Guide: 1.0.0rc4 -> 1.0.0rc5
 
-Behavior changes between `1.0.0rc4` and `1.0.0rc5`. There are no wire-format changes and no public API removals: DID documents, DID logs, hash URIs and signature bases are unchanged, and documents or signatures produced by rc4 stay valid.
+Behavior changes between `1.0.0rc4` and `1.0.0rc5`. There are no wire-format changes (the API removals are in sections 9, 10 and 11): DID documents, DID logs, hash URIs and signature bases are unchanged, and documents or signatures produced by rc4 stay valid.
 
 All changes below tighten the defaults of the SDK's HTTP handling. Code that already passes its own `http_client`, or that only talks to public HTTPS hosts and signs with the default lifetime, needs no change.
 
@@ -140,6 +140,16 @@ The Microsoft Agent Framework integration made that choice: inside the TTL, `add
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID; see the `agent-did-evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
+## 11. did:webvh adapter: `version_number` moved out of the metadata
+
+If you import `agent_did_sdk.webvh.adapter` directly (`resolve_did_webvh_log` and the log helpers; they are not exported from the package root), read the version number from the result instead of its metadata. `DidWebvhMetadata` now holds only values that DID Core section 7.3 allows in DID document metadata (strings, lists, booleans).
+
+```diff
+  result = await resolve_did_webvh_log(log)
+- result.metadata.version_number
++ result.version_number
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -153,3 +163,4 @@ The Microsoft Agent Framework integration made that choice: inside the TTL, `add
 - [ ] Agents that issue delegations or invoke capabilities are created with `additional_verification_relationships`.
 - [ ] Calls to `verify_historical_signature` are replaced with `verify_signature_at_time`, and `indeterminate` is handled as not accepted.
 - [ ] Code that imports `agent_did_sdk.evm` installs `agent-did-evm` and imports `agent_did_evm` instead.
+- [ ] Direct users of the did:webvh adapter read `result.version_number` instead of `result.metadata.version_number`.

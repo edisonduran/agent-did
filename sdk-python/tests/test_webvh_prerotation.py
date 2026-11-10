@@ -88,7 +88,7 @@ class TestPreRotation:
 
         rotated = await update_did_webvh_log(log=created.log, signer=K1)
         assert rotated.metadata.update_keys == [await key(K1)]
-        assert rotated.metadata.version_number == 2
+        assert rotated.version_number == 2
 
     async def test_keeps_the_commitment_unless_the_entry_changes_it(self) -> None:
         created = await create_committed()
@@ -103,7 +103,7 @@ class TestPreRotation:
         await expect_code(update_did_webvh_log(log=chained.log, signer=K1), "unauthorized")
         nxt = await update_did_webvh_log(log=chained.log, signer=K2, next_update_keys=[await key(K3)])
         assert nxt.metadata.update_keys == [await key(K2)]
-        assert (await resolve_did_webvh_log(nxt.log)).metadata.version_number == 4
+        assert (await resolve_did_webvh_log(nxt.log)).version_number == 4
 
     async def test_an_empty_commitment_ends_pre_rotation(self) -> None:
         created = await create_committed()
@@ -112,7 +112,7 @@ class TestPreRotation:
         ordinary = await update_did_webvh_log(
             log=ended.log, signer=K1, document=agent_document(did=ended.did)
         )
-        assert ordinary.metadata.version_number == 3
+        assert ordinary.version_number == 3
         await expect_code(update_did_webvh_log(log=ended.log, signer=K0), "unauthorized")
 
     async def test_can_start_pre_rotation_on_a_log_that_had_none(self) -> None:

@@ -114,7 +114,7 @@ class TestDidWebvhLifecycleAuthorization:
         with pytest.raises(ValueError, match="revoked"):
             await AgentIdentity.resolve(did)
         log = await resolve_did_webvh_log(AgentIdentity.export_did_webvh_history(did))
-        assert log.metadata.version_number == 4
+        assert log.version_number == 4
         assert log.metadata.deactivated is True
 
     async def test_refuses_to_import_a_log_that_fails_verification(self, identity: AgentIdentity) -> None:
