@@ -113,7 +113,7 @@ Defaults TTL (overridables por workflow, no por encima de los topes para `irreve
 
 Reglas adicionales:
 - Cross-domain hops fuerzan re-verify (TTL = 0).
-- Dentro del TTL: si la firma fue emitida bajo la llave previa y el agente roto su llave, se acepta via `verify_historical_signature` del SDK central.
+- Dentro del TTL: si la firma no verifica contra el current key set y el mensaje trae `key_id`, se comprueba la llave contra el log did:webvh del DID en `signed_at` via `verify_signature_at_time` del SDK central (RFC-001 §6.2.2). Se acepta solo si el resultado es `valid`. `signed_at` lo declara el firmante, asi que una llave retirada despues de `signed_at` da `indeterminate` y el handoff se bloquea con `failing_gates=["key_lifecycle"]`: tras rotar su llave, el agente debe volver a firmar con la llave actual. Sin log did:webvh del DID en el cliente el resultado tambien es `indeterminate` (bloqueado).
 - Fuera del TTL: solo se acepta firma contra el current key set; si la llave previa fue revocada -> `VerificationBlockedError(failing_gates=["key_lifecycle"])`.
 
 Disposicion de bloqueo:
