@@ -33,6 +33,8 @@ _bmad-output/
 !.github/ISSUE_TEMPLATE/
 !.github/ISSUE_TEMPLATE/**
 !.github/PULL_REQUEST_TEMPLATE.md
+!.github/security/
+!.github/security/**
 # Maintainer-private context (Claude Code local memory, unpublished security plans)
 CLAUDE.local.md
 .private/

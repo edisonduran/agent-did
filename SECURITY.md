@@ -10,10 +10,13 @@ This policy describes **how to report security vulnerabilities**, **what we cons
 
 **Please do NOT open public GitHub issues for security vulnerabilities.**
 
-### Preferred channel
+### Channels
 
-- **Email**: [agent.ai.did@gmail.com](mailto:agent.ai.did@gmail.com)
-- **Subject prefix**: `[SECURITY]` followed by a short descriptor (e.g. `[SECURITY] HTTP signature replay across resolver cache`).
+- **Email**: [security@agent-did.org](mailto:security@agent-did.org)
+  - **Subject prefix**: `[SECURITY]` followed by a short descriptor (e.g. `[SECURITY] HTTP signature replay across resolver cache`).
+- **GitHub**: [report a vulnerability privately](https://github.com/edisonduran/agent-did/security/advisories/new) from the repository's Security tab. The report stays private between you and the maintainers.
+
+Either channel is fine; use the one you prefer.
 
 ### What to include
 
@@ -26,7 +29,14 @@ A useful report contains, at minimum:
 5. **Impact assessment** — what an attacker can do, under what assumptions.
 6. **Suggested mitigation** — optional, but appreciated.
 
-PGP encryption is **not** required today. If you require encrypted communication, mention it in your first email and we will agree on a key out-of-band.
+### Encrypting your report (optional)
+
+Encryption is not required. To encrypt an email report, use the project's OpenPGP key:
+
+- **Key**: [`.github/security/agent-did-security.asc`](.github/security/agent-did-security.asc) (`Agent-DID Security <security@agent-did.org>`)
+- **Fingerprint**: `9C56 A739 51F4 9EB7 F4FE  FF43 1037 7F82 E83D 3A8A`
+
+Check the fingerprint before you use the key. The key file is owned by the maintainers in `CODEOWNERS`, and the fingerprint above is the one to trust: a pull request that changes either is a change to this policy. A machine-readable summary of these contacts is in [`.github/security/security.txt`](.github/security/security.txt) (RFC 9116).
 
 ### Coordinated disclosure
 
@@ -164,7 +174,8 @@ _(This list will grow as the project matures. Be the first.)_
 
 ## 8. Contact Summary
 
-- **Reports**: [agent.ai.did@gmail.com](mailto:agent.ai.did@gmail.com) — subject prefix `[SECURITY]`
+- **Reports**: [security@agent-did.org](mailto:security@agent-did.org) (subject prefix `[SECURITY]`), or a [private report on GitHub](https://github.com/edisonduran/agent-did/security/advisories/new)
+- **OpenPGP key**: [`.github/security/agent-did-security.asc`](.github/security/agent-did-security.asc), fingerprint `9C56 A739 51F4 9EB7 F4FE  FF43 1037 7F82 E83D 3A8A`
 - **Public discussion of non-sensitive security topics**: GitHub Discussions (category `Q&A` or `Ideas`)
 - **General contribution guidance**: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Project status and governance**: [`docs/Documentation-Governance.md`](docs/Documentation-Governance.md)
