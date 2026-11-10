@@ -32,12 +32,14 @@ const INPUTS = {
   created: '2026-01-01T00:00:00Z',
   delegationRemoved: '2026-01-02T00:00:00Z',
   rotated: '2026-01-03T00:00:00Z',
+  /** Log "rotatedLate": key-1's `deactivated` is after the rotation entry's versionTime, as the SDK writes it. */
+  rotatedLateKeyDeactivated: '2026-01-03T00:00:00.500Z',
   payload: 'agent-did:key-at-time-vector:v1'
 };
 
 interface Vector {
   id: string;
-  log: 'rotated' | 'deactivated';
+  log: 'rotated' | 'deactivated' | 'rotatedLate';
   key: 'key-1' | 'key-2';
   requiredPurpose: VerificationRelationship;
   statedTime: string;
@@ -62,7 +64,7 @@ interface Fixture {
   regenerate: string;
   inputs: typeof INPUTS;
   did: string;
-  logs: { rotated: string; deactivated: string };
+  logs: { rotated: string; deactivated: string; rotatedLate: string };
   signatures: { 'key-1': string; 'key-2': string };
   vectors: Vector[];
 }
@@ -136,6 +138,23 @@ async function generate(): Promise<Fixture> {
       updated: INPUTS.rotated,
       verificationMethod: [
         method('key-1', INPUTS.key1PrivateKeyHex, { deactivated: INPUTS.rotated }),
+        method('key-2', INPUTS.key2PrivateKeyHex)
+      ],
+      authentication: ['{DID}#key-2'],
+      assertionMethod: ['{DID}#key-1', '{DID}#key-2']
+    })
+  });
+
+  // 3 (log "rotatedLate"): the same rotation with key-1's deactivated time after the entry's versionTime.
+  const rotatedLate = await updateDidWebvhLog({
+    log: delegationRemoved.log,
+    signer: controller,
+    updated: INPUTS.rotated,
+    document: fill({
+      ...base,
+      updated: INPUTS.rotatedLateKeyDeactivated,
+      verificationMethod: [
+        method('key-1', INPUTS.key1PrivateKeyHex, { deactivated: INPUTS.rotatedLateKeyDeactivated }),
         method('key-2', INPUTS.key2PrivateKeyHex)
       ],
       authentication: ['{DID}#key-2'],
@@ -227,6 +246,17 @@ async function generate(): Promise<Fixture> {
       expected: { status: 'not_authorized', reason: 'invalid_stated_time', foundIn: [], signature: 'invalid', signatureReason: 'key_not_authorized' }
     },
     {
+      id: 'retired-later-deactivated-after-entry-time',
+      log: 'rotatedLate', key: 'key-1', requiredPurpose: 'assertionMethod', statedTime: '2026-01-01T12:00:00Z',
+      expected: { status: 'indeterminate', reason: 'key_retired_after_stated_time', boundaryVersionNumber: 3, boundaryTime: INPUTS.rotated, signature: 'indeterminate' }
+    },
+    {
+      id: 'retired-later-deactivated-after-entry-time-evidence-before',
+      log: 'rotatedLate', key: 'key-1', requiredPurpose: 'assertionMethod', statedTime: '2026-01-01T12:00:00Z',
+      trustedTimeNotAfter: '2026-01-02T23:59:59.999Z',
+      expected: { status: 'authorized', basis: 'time_evidence', signature: 'valid' }
+    },
+    {
       id: 'did-deactivated-later',
       log: 'deactivated', key: 'key-2', requiredPurpose: 'assertionMethod', statedTime: '2026-01-03T12:00:00Z',
       expected: { status: 'indeterminate', reason: 'did_deactivated_after_stated_time', boundaryVersionNumber: 4, boundaryTime: deactivatedAt, signature: 'indeterminate' }
@@ -248,11 +278,11 @@ async function generate(): Promise<Fixture> {
   return {
     formatVersion: 1,
     description:
-      'RFC-001 §6.2.2: key checks at a stated time against a did:webvh log. Log "rotated": (1) key-1 under authentication, assertionMethod and capabilityDelegation; (2) key-1 leaves capabilityDelegation; (3) key-1 deactivated, key-2 added. Log "deactivated" adds (4) a deactivation. A key authorized at the stated time and retired later is indeterminate unless trustedTimeNotAfter is earlier than the retirement. TEST-ONLY keys.',
+      'RFC-001 §6.2.2: key checks at a stated time against a did:webvh log. Log "rotated": (1) key-1 under authentication, assertionMethod and capabilityDelegation; (2) key-1 leaves capabilityDelegation; (3) key-1 deactivated, key-2 added. Log "deactivated" adds (4) a deactivation. Log "rotatedLate" is "rotated" with key-1\'s deactivated time 500 ms after entry (3)\'s versionTime, as the SDK writes a rotation. A key authorized at the stated time and retired later is indeterminate unless trustedTimeNotAfter is earlier than the retirement. TEST-ONLY keys.',
     regenerate: 'WRITE_KEY_AT_TIME_VECTORS=1 npm --prefix sdk test -- KeyAtTimeVectors.test.ts',
     inputs: INPUTS,
     did,
-    logs: { rotated: rotated.log, deactivated: deactivated.log },
+    logs: { rotated: rotated.log, deactivated: deactivated.log, rotatedLate: rotatedLate.log },
     signatures: {
       'key-1': bytesToHex(ed25519.sign(payload, hexToBytes(INPUTS.key1PrivateKeyHex))),
       'key-2': bytesToHex(ed25519.sign(payload, hexToBytes(INPUTS.key2PrivateKeyHex)))
