@@ -45,29 +45,3 @@ export function verifyWithActiveKeys(
   }
   return false;
 }
-
-/** Verifies against `keyId` even if it was rotated out (audit-trail verification). */
-export function verifyWithHistoricalKey(
-  didDoc: AgentDIDDocument,
-  payload: string,
-  signature: string,
-  keyId: string,
-  requiredPurpose: VerificationRelationship
-): boolean {
-  assertSigningPurpose(requiredPurpose, didDoc, keyId);
-  assertKeyPurpose(keyId, didDoc, requiredPurpose);
-
-  const candidate = didDoc.verificationMethod.find((method) => method.id === keyId && method.publicKeyMultibase);
-  if (!candidate?.publicKeyMultibase) {
-    return false;
-  }
-  try {
-    return ed25519.verify(
-      hexToBytes(signature),
-      new TextEncoder().encode(payload),
-      decodePublicKeyMultibase(candidate.publicKeyMultibase)
-    );
-  } catch {
-    return false;
-  }
-}

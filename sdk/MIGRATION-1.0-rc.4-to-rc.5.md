@@ -93,9 +93,9 @@ await identity.create({ ...params, additionalVerificationRelationships: ['capabi
 
 Without the option the document is the same as before.
 
-## 8. New: signatures at a stated time; `verifyHistoricalSignature` deprecated
+## 8. Breaking: `verifyHistoricalSignature` is removed; use `verifySignatureAtTime`
 
-`verifyHistoricalSignature` accepts any retired key still in the document, with no time check. It keeps working in rc.5 but is deprecated and scheduled for removal before `v1.0.0`. Replace it with `verifySignatureAtTime`, which checks the key against the DID's did:webvh log at the time the artifact states (RFC-001 §6.2.2):
+`verifyHistoricalSignature` (on `AgentDidClient` and the `AgentIdentity` facade) is removed. It accepted any retired key still in the document, with no time check, so it also accepted signatures forged with a key after it was retired. Replace it with `verifySignatureAtTime`, which checks the key against the DID's did:webvh log at the time the artifact states (RFC-001 §6.2.2):
 
 ```ts
 await client.importDidWebvhHistory(didLog); // for DIDs not created by this client
@@ -103,7 +103,7 @@ const result = await client.verifySignatureAtTime(did, payload, signature, keyId
 // result.status: 'valid' | 'invalid' | 'indeterminate'
 ```
 
-A key retired after `statedTime` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trustedTimeNotAfter` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verifyHistoricalSignature` must decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
+A key retired after `statedTime` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trustedTimeNotAfter` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verifyHistoricalSignature` must now decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
 
 ## 9. EVM profile (`@agentdid/evm`): moved to its own repository
 

@@ -36,7 +36,7 @@ from ..resolver.types import (
 from ..resolver.universal import UniversalResolverClient
 from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
 from ..verification.key_at_time import check_did_webvh_key_at_time, signature_result_for_key
-from ..verification.signature import verify_with_active_keys, verify_with_historical_key
+from ..verification.signature import verify_with_active_keys
 from ..webvh.adapter import (
     DidWebvhError,
     create_did_webvh_log,
@@ -511,27 +511,6 @@ class AgentDidClient:
 
         return verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
 
-    async def verify_historical_signature(
-        self,
-        did: str,
-        payload: str,
-        signature: str,
-        key_id: str,
-        required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
-    ) -> bool:
-        """Verify a historical signature against any key (including deactivated) in the DID document.
-
-        Deprecated: it accepts a retired key with no time check, so it cannot tell a signature made before the
-        key was retired from one forged afterwards. Use ``verify_signature_at_time`` (RFC-001 §6.2.2). Scheduled
-        for removal before ``v1.0.0``.
-        """
-        try:
-            verification_chain = await self._resolve_active_verification_chain(did)
-        except Exception:
-            return False
-
-        return verify_with_historical_key(verification_chain[0], payload, signature, key_id, required_purpose)
-
     async def verify_signature_at_time(
         self,
         did: str,
@@ -554,8 +533,7 @@ class AgentDidClient:
         * ``indeterminate``: the key was retired or the DID deactivated after *stated_time* and there is no
           trusted time evidence, or this client has no did:webvh log for the DID. Do not accept it.
 
-        The stated time is asserted by the signer. Unlike ``verify_historical_signature``, a retired key is never
-        accepted on the signer's word alone.
+        The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
         """
         log = self._did_webvh_log_store.get(did) if did.startswith("did:webvh:") else None
         if log is None:

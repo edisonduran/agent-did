@@ -149,16 +149,6 @@ export declare class AgentDidClient {
      */
     verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
     /**
-     * Verifies a historical signature against deactivated (rotated-out) keys.
-     * Unlike verifySignature(), this searches ALL verification methods including
-     * those with a `deactivated` timestamp.
-     *
-     * @deprecated It accepts a retired key with no time check, so it cannot tell a signature made before the
-     * key was retired from one forged afterwards. Use `verifySignatureAtTime` (RFC-001 §6.2.2). Scheduled for
-     * removal before `v1.0.0`.
-     */
-    verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
-    /**
      * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), using the
      * DID's did:webvh log as created or imported in this client (`importDidWebvhHistory`).
      *
@@ -169,8 +159,7 @@ export declare class AgentDidClient {
      * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
      *   time evidence, or this client has no did:webvh log for the DID. Do not accept it.
      *
-     * The stated time is asserted by the signer. Unlike `verifyHistoricalSignature`, a retired key is never
-     * accepted on the signer's word alone.
+     * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
      */
     verifySignatureAtTime(did: string, payload: string, signature: string, keyId: string, options: VerifySignatureAtTimeOptions): Promise<VerifySignatureAtTimeResult>;
     /**
@@ -294,11 +283,6 @@ export declare class AgentIdentity {
     static verifyHttpRequestSignature(params: VerifyHttpRequestSignatureParams): Promise<boolean>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
-    /**
-     * @deprecated Accepts a retired key with no time check. Use `verifySignatureAtTime` on an `AgentDidClient`
-     * (RFC-001 §6.2.2). Scheduled for removal before `v1.0.0`.
-     */
-    static verifyHistoricalSignature(did: string, payload: string, signature: string, keyId: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static resolve(did: string): Promise<AgentDIDDocument>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
@@ -1478,8 +1462,6 @@ export declare function signatureResultForKey(key: KeyAtTimeResult, payload: str
 import { AgentDIDDocument, VerificationRelationship } from '../core/types';
 /** Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given). */
 export declare function verifyWithActiveKeys(didDoc: AgentDIDDocument, payload: string, signature: string, keyId: string | undefined, requiredPurpose: VerificationRelationship): boolean;
-/** Verifies against `keyId` even if it was rotated out (audit-trail verification). */
-export declare function verifyWithHistoricalKey(didDoc: AgentDIDDocument, payload: string, signature: string, keyId: string, requiredPurpose: VerificationRelationship): boolean;
 
 ## webvh/adapter.d.ts
 import type { AgentSigner } from '../core/signer';

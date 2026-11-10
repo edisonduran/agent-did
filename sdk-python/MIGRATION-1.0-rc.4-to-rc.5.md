@@ -111,9 +111,9 @@ await identity.create(CreateAgentParams(**params, additional_verification_relati
 
 Without the option the document is the same as before.
 
-## 9. New: signatures at a stated time; `verify_historical_signature` deprecated
+## 9. Breaking: `verify_historical_signature` is removed; use `verify_signature_at_time`
 
-`verify_historical_signature` accepts any retired key still in the document, with no time check. It keeps working in rc.5 but is deprecated and scheduled for removal before `v1.0.0`. Replace it with `verify_signature_at_time`, which checks the key against the DID's did:webvh log at the time the artifact states (RFC-001 §6.2.2):
+`verify_historical_signature` (on `AgentDidClient` and the `AgentIdentity` facade) is removed. It accepted any retired key still in the document, with no time check, so it also accepted signatures forged with a key after it was retired. Replace it with `verify_signature_at_time`, which checks the key against the DID's did:webvh log at the time the artifact states (RFC-001 §6.2.2):
 
 ```python
 await client.import_did_webvh_history(did_log)  # for DIDs not created by this client
@@ -121,7 +121,7 @@ result = await client.verify_signature_at_time(did, payload, signature, key_id, 
 # result.status: "valid" | "invalid" | "indeterminate"
 ```
 
-A key retired after `stated_time` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trusted_time_not_after` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verify_historical_signature` must decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
+A key retired after `stated_time` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trusted_time_not_after` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verify_historical_signature` must now decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
 
 The Microsoft Agent Framework integration made that choice: inside the TTL, `add_verified_handoff` now blocks a handoff signed with a key retired after `signed_at` (`failing_gates=["key_lifecycle"]`), where it used to accept it. After rotating its key, an upstream agent must re-sign pending handoffs with the new key.
 
