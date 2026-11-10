@@ -210,7 +210,16 @@ async def check_did_webvh_key_at_time(
                 millis=later.version_millis, time=later.version_time, did_deactivated=True, version_id=later.version_id
             )
             break
-        if not _key_in_state(later.state, key_id, required_purpose, later.version_millis).ok:
+        in_later = _key_in_state(later.state, key_id, required_purpose, later.version_millis)
+        # An entry that gives the key a ``deactivated`` time retires it, even when that time is after the entry's
+        # versionTime (the SDK's rotation writes the document clock, with milliseconds, next to a versionTime in
+        # seconds). The entry is the change, so it is the boundary.
+        newly_deactivated = (
+            in_later.ok
+            and in_later.deactivated_millis is not None
+            and in_later.deactivated_millis != at_stated_time.deactivated_millis
+        )
+        if not in_later.ok or newly_deactivated:
             boundary = _Boundary(
                 millis=later.version_millis, time=later.version_time, did_deactivated=False, version_id=later.version_id
             )

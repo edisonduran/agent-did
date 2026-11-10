@@ -200,7 +200,12 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
       boundary = { millis: entry.versionMillis, time: entry.versionTime, versionId: entry.versionId, didDeactivated: true };
       break;
     }
-    if (!keyInState(entry.state, keyId, requiredPurpose, entry.versionMillis).ok) {
+    const later = keyInState(entry.state, keyId, requiredPurpose, entry.versionMillis);
+    // An entry that gives the key a `deactivated` time retires it, even when that time is after the entry's
+    // versionTime (the SDK's rotation writes the document clock, with milliseconds, next to a versionTime in
+    // seconds). The entry is the change, so it is the boundary.
+    const newlyDeactivated = later.ok && later.deactivatedMillis !== undefined && later.deactivatedMillis !== atStatedTime.deactivatedMillis;
+    if (!later.ok || newlyDeactivated) {
       boundary = { millis: entry.versionMillis, time: entry.versionTime, versionId: entry.versionId, didDeactivated: false };
       break;
     }
