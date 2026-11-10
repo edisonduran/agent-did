@@ -5,9 +5,11 @@ Covers the acceptance criteria locked with @haroldmalikfrimpong-ops:
 - Default API + parameter shape.
 - Hard gate, fail-closed: missing signature, invalid signature, expired TTL,
   disallowed DID, cross-domain hop, irreversible action with stale verification.
-- Key-rotation race: (a) inside TTL with rotation accepted via historical sig
-  path, (b) after TTL re-verified against new key, (c) after TTL where re-verify
-  fails because previous key was revoked = blocked via
+- Key-rotation race: (a) inside TTL, a key valid at ``signed_at`` is accepted
+  via ``verify_signature_at_time``, and a key retired after ``signed_at``
+  (``indeterminate``) is blocked with ``key_lifecycle``, (b) after TTL
+  re-verified against new key, (c) after TTL where re-verify fails because
+  previous key was revoked = blocked via
   ``VerificationBlockedError(failing_gates=["key_lifecycle"])``.
 - ``on_verification_blocked`` callback semantics: ``None`` halts gracefully,
   returning a value forwards it as the verifier executor's output.
@@ -18,7 +20,9 @@ Covers the acceptance criteria locked with @haroldmalikfrimpong-ops:
 from __future__ import annotations
 
 import asyncio
+import json
 import time
+from datetime import datetime
 
 import pytest
 from agent_did_sdk import (
@@ -26,7 +30,9 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    KeyAtTimeResult,
     LocalKeySigner,
+    VerifySignatureAtTimeResult,
 )
 
 from agent_did_microsoft_agent_framework import (
@@ -104,7 +110,7 @@ def _ctx(
     cross_domain=False,
     on_verification_blocked=None,
     verify_signature=None,
-    verify_historical_signature=None,
+    verify_signature_at_time=None,
     now=None,
 ):
     return _VerifierContext(
@@ -118,7 +124,7 @@ def _ctx(
         on_verification_blocked=on_verification_blocked,
         observer=observer,
         verify_signature=verify_signature or _stub_async(True),
-        verify_historical_signature=verify_historical_signature or _stub_async(False),
+        verify_signature_at_time=verify_signature_at_time or _stub_async(_at_time("invalid")),
         now=now or time.time,
     )
 
@@ -128,6 +134,15 @@ def _stub_async(return_value):
         return return_value
 
     return _stub
+
+
+def _at_time(status, key_reason=None):
+    key_status = {"valid": "authorized", "invalid": "not_authorized", "indeterminate": "indeterminate"}[status]
+    return VerifySignatureAtTimeResult(
+        status=status,
+        reason="key_not_authorized" if status == "invalid" else None,
+        key=KeyAtTimeResult(status=key_status, key_id="did:wba:agent#key-1", reason=key_reason),
+    )
 
 
 # --- Defaults & parameter shape ---------------------------------------------------------
@@ -210,22 +225,23 @@ def test_signature_verification_requests_assertion_method_purpose() -> None:
         calls.append(("current", kwargs))
         return False
 
-    async def verify_historical_signature(*_args, **kwargs):
-        calls.append(("historical", kwargs))
-        return False
+    async def verify_signature_at_time(*_args, **kwargs):
+        calls.append(("at_time", kwargs))
+        return _at_time("invalid")
 
     verifier = build_handoff_verifier_function(
         _ctx(
             observer=observer,
             verify_signature=verify_signature,
-            verify_historical_signature=verify_historical_signature,
+            verify_signature_at_time=verify_signature_at_time,
+            now=lambda: 1767398400.5,
         )
     )
     msg = SignedHandoffMessage(
         payload="x",
         did="did:wba:agent",
         signature="00",
-        signed_at=time.time(),
+        signed_at=1767398400.123,
         key_id="did:wba:agent#key-1",
     )
 
@@ -234,7 +250,7 @@ def test_signature_verification_requests_assertion_method_purpose() -> None:
 
     assert calls == [
         ("current", {"required_purpose": "assertionMethod"}),
-        ("historical", {"required_purpose": "assertionMethod"}),
+        ("at_time", {"stated_time": "2026-01-03T00:00:00.123Z", "required_purpose": "assertionMethod"}),
     ]
 
 
@@ -314,17 +330,16 @@ def test_valid_signature_inside_ttl_forwards_inner_payload() -> None:
 # --- Key-rotation race (AC tests a/b/c) -------------------------------------------------
 
 
-def test_key_rotation_race_inside_ttl_accepted_via_historical_path() -> None:
-    """AC (a): inside TTL with rotation = accepted via historical sig path."""
+def test_key_rotation_race_inside_ttl_accepted_when_key_valid_at_signed_at() -> None:
+    """AC (a): inside TTL, the current key set rejects but the key checks valid at signed_at."""
 
-    observer, _events = _make_observer()
+    observer, events = _make_observer()
     verifier = build_handoff_verifier_function(
         _ctx(
             observer=observer,
             ttl_seconds=120,
-            # Current key set rejects (rotation already happened) but historical accepts.
             verify_signature=_stub_async(False),
-            verify_historical_signature=_stub_async(True),
+            verify_signature_at_time=_stub_async(_at_time("valid")),
             now=lambda: 100.0,
         )
     )
@@ -337,6 +352,56 @@ def test_key_rotation_race_inside_ttl_accepted_via_historical_path() -> None:
     )
     sent, _ = _run_verifier(verifier, msg)
     assert sent == ["approve"]
+    verified = next(e for e in events if e["event_type"] == "agent_did.workflow.handoff_verified")
+    assert verified["used_historical_signature"] is True
+
+
+def test_key_rotation_race_inside_ttl_key_retired_after_signed_at_is_blocked() -> None:
+    """AC (a'): signed_at is signer-asserted, so a key retired after it is indeterminate = blocked."""
+
+    observer, _events = _make_observer()
+    verifier = build_handoff_verifier_function(
+        _ctx(
+            observer=observer,
+            ttl_seconds=120,
+            verify_signature=_stub_async(False),
+            verify_signature_at_time=_stub_async(_at_time("indeterminate", "key_retired_after_stated_time")),
+            now=lambda: 100.0,
+        )
+    )
+    msg = SignedHandoffMessage(
+        payload="approve",
+        did="did:wba:agent",
+        signature="aa",
+        signed_at=50.0,
+        key_id="did:wba:agent#key-1",
+    )
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(verifier, msg)
+    assert exc.value.failing_gates == ["key_lifecycle"]
+    assert "key_retired_after_stated_time" in exc.value.enforcement_note
+
+
+def test_key_rotation_race_inside_ttl_unreadable_signed_at_is_blocked() -> None:
+    observer, _events = _make_observer()
+    verifier = build_handoff_verifier_function(
+        _ctx(
+            observer=observer,
+            verify_signature=_stub_async(False),
+            verify_signature_at_time=_stub_async(_at_time("valid")),
+            now=lambda: float("nan"),
+        )
+    )
+    msg = SignedHandoffMessage(
+        payload="approve",
+        did="did:wba:agent",
+        signature="aa",
+        signed_at=float("nan"),
+        key_id="did:wba:agent#key-1",
+    )
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(verifier, msg)
+    assert exc.value.failing_gates == ["signature"]
 
 
 def test_key_rotation_race_after_ttl_reverified_against_current_key() -> None:
@@ -349,7 +414,7 @@ def test_key_rotation_race_after_ttl_reverified_against_current_key() -> None:
             ttl_seconds=10,
             # Current key set accepts (re-signed by upstream after rotation).
             verify_signature=_stub_async(True),
-            verify_historical_signature=_stub_async(False),
+            verify_signature_at_time=_stub_async(_at_time("invalid")),
             now=lambda: 100.0,
         )
     )
@@ -373,7 +438,7 @@ def test_key_rotation_race_after_ttl_revoked_key_blocked_with_key_lifecycle_gate
             observer=observer,
             ttl_seconds=10,
             verify_signature=_stub_async(False),
-            verify_historical_signature=_stub_async(True),  # would succeed but TTL is past
+            verify_signature_at_time=_stub_async(_at_time("valid")),  # would succeed but TTL is past
             now=lambda: 100.0,
         )
     )
@@ -392,29 +457,73 @@ def test_key_rotation_race_after_ttl_revoked_key_blocked_with_key_lifecycle_gate
 # --- Real SDK key-rotation race (integration check, no mocks) ---------------------------
 
 
+def _version_epochs(did: str) -> list[float]:
+    log = AgentIdentity.get_default_client().export_did_webvh_history(did)
+    return [
+        datetime.fromisoformat(json.loads(line)["versionTime"].replace("Z", "+00:00")).timestamp()
+        for line in log.splitlines()
+        if line.strip()
+    ]
+
+
+def _real_sdk_ctx(observer, now):
+    return _VerifierContext(
+        from_executor_id="upstream",
+        to_executor_id="downstream",
+        action_class="reversible",
+        ttl_seconds=300,
+        allowed_dids=None,
+        require_signature=True,
+        cross_domain=False,
+        on_verification_blocked=None,
+        observer=observer,
+        now=now,
+    )  # SDK verifiers left at their defaults
+
+
 def test_key_rotation_race_against_real_sdk_inside_ttl(integration) -> None:
-    """End-to-end check that the verifier wires the SDK's historical path correctly."""
+    """End-to-end: a signature by a key retired after signed_at is blocked, not accepted."""
 
     identity, runtime_identity, _ = integration
+    did = runtime_identity.document.id
     payload = "real:rotation:inside_ttl"
-    old_key_id = f"{runtime_identity.document.id}#key-1"
+    old_key_id = f"{did}#key-1"
     old_sig = asyncio.run(identity.sign_message(payload, runtime_identity.agent_private_key))
 
-    asyncio.run(AgentIdentity.rotate_verification_method(runtime_identity.document.id))
+    asyncio.run(AgentIdentity.rotate_verification_method(did))
+    created_at, rotated_at = _version_epochs(did)
+    assert created_at < rotated_at
 
     observer, _events = _make_observer()
-    verifier = build_handoff_verifier_function(
-        _ctx(observer=observer, ttl_seconds=300)  # default reversible TTL
-    )
+    verifier = build_handoff_verifier_function(_real_sdk_ctx(observer, now=lambda: rotated_at + 1))
     msg = SignedHandoffMessage(
         payload=payload,
-        did=runtime_identity.document.id,
+        did=did,
         signature=old_sig,
-        signed_at=time.time(),  # fresh
+        signed_at=created_at,  # key-1 was authorized then; the rotation retires it later
         key_id=old_key_id,
     )
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(verifier, msg)
+    assert exc.value.failing_gates == ["key_lifecycle"]
+    assert "key_retired_after_stated_time" in exc.value.enforcement_note
+
+
+def test_real_sdk_inside_ttl_accepts_the_current_key(integration) -> None:
+    identity, runtime_identity, _ = integration
+    did = runtime_identity.document.id
+    payload = "real:no_rotation"
+    signature = asyncio.run(identity.sign_message(payload, runtime_identity.agent_private_key))
+
+    observer, events = _make_observer()
+    verifier = build_handoff_verifier_function(_real_sdk_ctx(observer, now=time.time))
+    msg = SignedHandoffMessage(
+        payload=payload, did=did, signature=signature, signed_at=time.time(), key_id=f"{did}#key-1"
+    )
     sent, _ = _run_verifier(verifier, msg)
-    assert sent == [payload]  # accepted via historical path
+    assert sent == [payload]
+    verified = next(e for e in events if e["event_type"] == "agent_did.workflow.handoff_verified")
+    assert verified["used_historical_signature"] is False
 
 
 # --- Callback semantics -----------------------------------------------------------------

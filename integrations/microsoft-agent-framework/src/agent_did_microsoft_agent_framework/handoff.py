@@ -14,14 +14,16 @@ Design contract (locked):
 - Cross-domain hops always force a fresh verification (TTL collapses to 0).
 - ``action_class="irreversible"`` always forces a fresh verification regardless of
   any larger TTL the caller may try to override.
-- Key-rotation race: signatures issued under a previous key remain accepted while
-  inside the action-class TTL window via the SDK's historical signature path.
-  Once the TTL elapses, the next handoff MUST re-verify against the agent's
-  current key set.
+- Key-rotation race: inside the action-class TTL window, a signature that does not
+  verify against the current key set is checked against the DID's did:webvh log at
+  ``signed_at`` (RFC-001 §6.2.2). ``signed_at`` is asserted by the signer, so a key
+  retired after it gives ``indeterminate`` and the handoff is blocked with
+  ``key_lifecycle``: the signer must re-sign with a current key. Once the TTL
+  elapses, the next handoff MUST verify against the agent's current key set.
 
 This module deliberately delegates ALL key-lifecycle logic to the central SDK
 primitives (``AgentDidClient.verify_signature`` and
-``AgentDidClient.verify_historical_signature``). It must not re-implement the
+``AgentDidClient.verify_signature_at_time``). It must not re-implement the
 key rotation state machine — when the spec converges with `aeoess/agent-passport-system`
 the SDK is the single source of truth and this helper inherits any change for free.
 """
@@ -31,9 +33,16 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Literal
 
-from agent_did_sdk import AgentDidClient, AgentIdentity, IdentityCompositionError
+from agent_did_sdk import (
+    AgentDidClient,
+    AgentIdentity,
+    IdentityCompositionError,
+    VerificationRelationship,
+    VerifySignatureAtTimeResult,
+)
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
@@ -47,6 +56,21 @@ HANDOFF_TTL_DEFAULTS: dict[ActionClass, int] = {
 }
 
 VerificationBlockedCallback = Callable[["VerificationBlockedError"], Any]
+
+
+async def _default_verify_signature_at_time(
+    did: str,
+    payload: str,
+    signature: str,
+    key_id: str,
+    *,
+    stated_time: str,
+    required_purpose: VerificationRelationship,
+) -> VerifySignatureAtTimeResult:
+    # Looked up at call time so that ``AgentIdentity.set_default_client`` is honoured.
+    return await AgentIdentity.get_default_client().verify_signature_at_time(
+        did, payload, signature, key_id, stated_time=stated_time, required_purpose=required_purpose
+    )
 
 
 @dataclass(slots=True)
@@ -102,9 +126,7 @@ class _VerifierContext:
     on_verification_blocked: VerificationBlockedCallback | None
     observer: AgentDidObserver
     verify_signature: Callable[..., Any] = field(default=AgentIdentity.verify_signature)
-    verify_historical_signature: Callable[..., Any] = field(
-        default=AgentIdentity.verify_historical_signature
-    )
+    verify_signature_at_time: Callable[..., Any] = field(default=_default_verify_signature_at_time)
     now: Callable[[], float] = field(default=time.time)
 
 
@@ -233,20 +255,20 @@ def build_handoff_verifier_function(ctx: _VerifierContext) -> Callable[..., Any]
             await _emit_block_outcome(ctx, wf_ctx, error)
             return
 
-        valid, used_historical, staleness, gate = await _run_signature_verification(ctx, message)
-        if not valid:
+        outcome = await _run_signature_verification(ctx, message)
+        if not outcome.valid:
             error = _build_block_error(
-                failing_gates=[gate],
+                failing_gates=[outcome.gate],
                 checked_did=message.did,
                 action_class=ctx.action_class,
-                enforcement_note=_block_note_for_gate(gate, ctx.ttl_seconds, message.did),
+                enforcement_note=_block_note(outcome, ctx.ttl_seconds, message.did),
             )
             await _emit_block_outcome(ctx, wf_ctx, error)
             return
 
         _emit_verified(
             ctx.observer, ctx,
-            from_did=message.did, used_historical=used_historical, staleness_seconds=staleness,
+            from_did=message.did, used_historical=outcome.used_key_at_time, staleness_seconds=outcome.staleness,
         )
         await wf_ctx.send_message(message.payload)
 
@@ -276,36 +298,58 @@ async def _emit_block_outcome(ctx: _VerifierContext, wf_ctx: Any, error: Verific
     await wf_ctx.send_message(callback_result)
 
 
-def _block_note_for_gate(gate: str, ttl_seconds: int, did: str) -> str:
-    if gate == "key_lifecycle":
+@dataclass(frozen=True, slots=True)
+class _SignatureOutcome:
+    valid: bool
+    staleness: float
+    gate: str = "signature"
+    """Meaningful only when ``valid`` is ``False``."""
+    used_key_at_time: bool = False
+    past_ttl: bool = False
+    key_at_time: VerifySignatureAtTimeResult | None = None
+
+
+def _block_note(outcome: _SignatureOutcome, ttl_seconds: int, did: str) -> str:
+    if outcome.past_ttl:
         return (
             f"Signature past action-class TTL ({ttl_seconds}s) and the previous key "
             "no longer verifies against the current key set"
         )
-    return f"Signature did not verify against the current or historical key set for {did}"
+    at_time = outcome.key_at_time
+    if at_time is not None and at_time.status == "indeterminate":
+        reason = at_time.key.reason if at_time.key is not None else None
+        return (
+            f"Signature does not verify against the current key set for {did}, and its key was retired "
+            f"after the signer-asserted signed_at or its history is unavailable ({reason}); "
+            "re-sign with a current key"
+        )
+    return f"Signature did not verify against the current key set, or against the key at signed_at, for {did}"
 
 
-async def _run_signature_verification(
-    ctx: _VerifierContext, message: SignedHandoffMessage
-) -> tuple[bool, bool, float, str]:
-    """Return ``(valid, used_historical, staleness_seconds, failing_gate)``.
+def _signed_at_rfc3339(signed_at: float) -> str:
+    moment = datetime.fromtimestamp(signed_at, tz=timezone.utc)
+    return moment.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
-    ``failing_gate`` is meaningful only when ``valid`` is ``False``.
-    """
 
+async def _run_signature_verification(ctx: _VerifierContext, message: SignedHandoffMessage) -> _SignatureOutcome:
     payload_str = message.payload if isinstance(message.payload, str) else str(message.payload)
     staleness = max(0.0, ctx.now() - message.signed_at)
 
     if staleness > ctx.ttl_seconds:
         valid = await _verify_signature_with_purpose(ctx, message, payload_str)
-        return bool(valid), False, staleness, "key_lifecycle"
+        return _SignatureOutcome(valid=valid, staleness=staleness, gate="key_lifecycle", past_ttl=True)
 
-    valid = await _verify_signature_with_purpose(ctx, message, payload_str)
-    used_historical = False
-    if not valid and message.key_id:
-        valid = await _verify_historical_signature_with_purpose(ctx, message, payload_str)
-        used_historical = bool(valid)
-    return bool(valid), used_historical, staleness, "signature"
+    if await _verify_signature_with_purpose(ctx, message, payload_str):
+        return _SignatureOutcome(valid=True, staleness=staleness)
+    if not message.key_id:
+        return _SignatureOutcome(valid=False, staleness=staleness)
+
+    # Within the TTL, a key the signer has since rotated away from is checked at signed_at.
+    at_time = await _verify_signature_at_signed_at(ctx, message, payload_str)
+    if at_time is not None and at_time.status == "valid":
+        return _SignatureOutcome(valid=True, staleness=staleness, used_key_at_time=True, key_at_time=at_time)
+    gate = "key_lifecycle" if at_time is not None and at_time.status == "indeterminate" else "signature"
+    return _SignatureOutcome(valid=False, staleness=staleness, gate=gate, key_at_time=at_time)
 
 
 async def _verify_signature_with_purpose(
@@ -326,22 +370,30 @@ async def _verify_signature_with_purpose(
         return False
 
 
-async def _verify_historical_signature_with_purpose(
+async def _verify_signature_at_signed_at(
     ctx: _VerifierContext,
     message: SignedHandoffMessage,
     payload_str: str,
-) -> bool:
+) -> VerifySignatureAtTimeResult | None:
+    """Check the signature against the DID's key state at ``signed_at`` (RFC-001 §6.2.2).
+
+    Returns ``None`` when the check cannot run (unreadable ``signed_at`` or a composition
+    error); the caller treats that as not accepted.
+    """
+
     try:
-        valid = await ctx.verify_historical_signature(
+        stated_time = _signed_at_rfc3339(message.signed_at)
+        result = await ctx.verify_signature_at_time(
             message.did,
             payload_str,
             message.signature,
             message.key_id,
+            stated_time=stated_time,
             required_purpose="assertionMethod",
         )
-        return bool(valid)
-    except IdentityCompositionError:
-        return False
+    except (IdentityCompositionError, ValueError, OverflowError, OSError):
+        return None
+    return result if isinstance(result, VerifySignatureAtTimeResult) else None
 
 
 def build_handoff_verifier_executor(
@@ -373,7 +425,7 @@ def build_handoff_verifier_executor(
     client_verifiers: dict[str, Callable[..., Any]] = (
         {
             "verify_signature": client.verify_signature,
-            "verify_historical_signature": client.verify_historical_signature,
+            "verify_signature_at_time": client.verify_signature_at_time,
         }
         if client is not None
         else {}

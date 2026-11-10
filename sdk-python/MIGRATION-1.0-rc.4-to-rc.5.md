@@ -123,6 +123,8 @@ result = await client.verify_signature_at_time(did, payload, signature, key_id, 
 
 A key retired after `stated_time` gives `indeterminate`, not `valid`: the stated time is the signer's claim. Pass `trusted_time_not_after` only from evidence you trust (for example a verified RFC 3161 timestamp). Code that accepted rotated-key signatures through `verify_historical_signature` must decide what to do with `indeterminate`; accepting it reopens the gap the new API closes.
 
+The Microsoft Agent Framework integration made that choice: inside the TTL, `add_verified_handoff` now blocks a handoff signed with a key retired after `signed_at` (`failing_gates=["key_lifecycle"]`), where it used to accept it. After rotating its key, an upstream agent must re-sign pending handoffs with the new key.
+
 ## 10. Breaking: the EVM adapter is a separate package (`agent-did-evm`)
 
 `agent_did_sdk.evm` and the `[evm]` extra are gone. The adapter moved, with the `AgentRegistry` contract, to [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) ([ADR-004](../docs/ADR-004-EVM-Profile-Satellite.md)) and is published as `agent-did-evm`. The classes and functions are the same:
