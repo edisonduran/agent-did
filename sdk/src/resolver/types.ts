@@ -14,6 +14,9 @@ export interface DIDDocumentSource {
   storeDidLogByReference?(documentRef: string, didLog: string): Promise<void>;
 }
 
+/** Default maximum number of documents in the `UniversalResolverClient` cache. */
+export const DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000;
+
 export interface UniversalResolverConfig {
   registry: AgentRegistry;
   documentSource: DIDDocumentSource;
@@ -21,6 +24,11 @@ export interface UniversalResolverConfig {
   webvhDocumentSource?: DIDDocumentSource;
   fallbackResolver?: DIDResolver;
   cacheTtlMs?: number;
+  /**
+   * Maximum documents kept in the cache. When it is full, expired entries are dropped first and
+   * then the least recently used. Default: `DEFAULT_RESOLVER_MAX_CACHE_ENTRIES` (1000).
+   */
+  maxCacheEntries?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
   /**
    * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted

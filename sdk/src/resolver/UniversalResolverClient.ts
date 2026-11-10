@@ -4,6 +4,7 @@ import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
 import { deriveDidWebvhLogUrl, resolveDidWebvhLog } from '../webvh/adapter';
 import {
+  DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
   DocumentIntegrityError,
   DIDResolver,
   ResolverResolutionEvent,
@@ -25,6 +26,7 @@ export class UniversalResolverClient implements DIDResolver {
   private readonly webvhDocumentSource;
   private readonly fallbackResolver;
   private readonly cacheTtlMs: number;
+  private readonly maxCacheEntries: number;
   private readonly onResolutionEvent;
   private readonly unverifiedDocumentRefSchemes: ReadonlySet<string>;
   private readonly cache = new Map<string, CachedDocument>();
@@ -38,6 +40,10 @@ export class UniversalResolverClient implements DIDResolver {
     this.webvhDocumentSource = config.webvhDocumentSource ?? new WebvhDIDDocumentSource();
     this.fallbackResolver = config.fallbackResolver;
     this.cacheTtlMs = config.cacheTtlMs ?? 60_000;
+    this.maxCacheEntries = config.maxCacheEntries ?? DEFAULT_RESOLVER_MAX_CACHE_ENTRIES;
+    if (!Number.isSafeInteger(this.maxCacheEntries) || this.maxCacheEntries <= 0) {
+      throw new TypeError('maxCacheEntries must be a positive integer');
+    }
     this.onResolutionEvent = config.onResolutionEvent;
     this.unverifiedDocumentRefSchemes = new Set(
       (config.unverifiedDocumentRefSchemes ?? []).map((scheme) => scheme.toLowerCase())
@@ -46,10 +52,7 @@ export class UniversalResolverClient implements DIDResolver {
 
   public registerDocument(document: AgentDIDDocument): void {
     const did = document.id;
-    this.cache.set(did, {
-      document: this.clone(document),
-      expiresAt: Date.now() + this.cacheTtlMs
-    });
+    this.cachePut(did, document, Date.now() + this.cacheTtlMs);
 
     if (this.documentSource.storeByReference) {
       const documentRef = this.computeDocumentReference(document);
@@ -65,6 +68,9 @@ export class UniversalResolverClient implements DIDResolver {
     const now = Date.now();
 
     if (cached && cached.expiresAt > now) {
+      // Most recently used goes last, so eviction drops the least recently used first.
+      this.cache.delete(did);
+      this.cache.set(did, cached);
       this.hits += 1;
       this.emitEvent({ did, stage: 'cache-hit', durationMs: Date.now() - startedAt });
       return this.clone(cached.document);
@@ -126,10 +132,7 @@ export class UniversalResolverClient implements DIDResolver {
 
     this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
 
-    this.cache.set(did, {
-      document: this.clone(resolved),
-      expiresAt: now + this.cacheTtlMs
-    });
+    this.cachePut(did, resolved, now + this.cacheTtlMs);
 
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
 
@@ -158,10 +161,7 @@ export class UniversalResolverClient implements DIDResolver {
     this.emitEvent({ did, stage: 'fallback', durationMs: Date.now() - startedAt, message: errorMessage });
 
     const fallbackDocument = await this.fallbackResolver.resolve(did);
-    this.cache.set(did, {
-      document: this.clone(fallbackDocument),
-      expiresAt: Date.now() + this.cacheTtlMs
-    });
+    this.cachePut(did, fallbackDocument, Date.now() + this.cacheTtlMs);
 
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt, message: 'fallback' });
 
@@ -194,10 +194,7 @@ export class UniversalResolverClient implements DIDResolver {
 
     this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
 
-    this.cache.set(did, {
-      document: this.clone(resolved),
-      expiresAt: now + this.cacheTtlMs
-    });
+    this.cachePut(did, resolved, now + this.cacheTtlMs);
 
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
 
@@ -265,14 +262,32 @@ export class UniversalResolverClient implements DIDResolver {
       message: `versionId=${resolved.metadata.versionId}`
     });
 
-    this.cache.set(did, {
-      document: this.clone(document),
-      expiresAt: now + this.cacheTtlMs
-    });
+    this.cachePut(did, document, now + this.cacheTtlMs);
 
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
 
     return this.clone(document);
+  }
+
+  /** Stores a copy of `document`, keeping the cache within `maxCacheEntries`. */
+  private cachePut(did: string, document: AgentDIDDocument, expiresAt: number): void {
+    this.cache.delete(did);
+    this.cache.set(did, { document: this.clone(document), expiresAt });
+    if (this.cache.size <= this.maxCacheEntries) {
+      return;
+    }
+    const now = Date.now();
+    for (const [key, entry] of this.cache) {
+      if (entry.expiresAt <= now) {
+        this.cache.delete(key);
+      }
+    }
+    for (const key of this.cache.keys()) {
+      if (this.cache.size <= this.maxCacheEntries) {
+        break;
+      }
+      this.cache.delete(key);
+    }
   }
 
   private emitEvent(event: ResolverResolutionEvent): void {

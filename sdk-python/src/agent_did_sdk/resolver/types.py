@@ -51,6 +51,10 @@ class ResolverCacheStats:
     size: int
 
 
+DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000
+"""Default maximum number of documents in the ``UniversalResolverClient`` cache."""
+
+
 @dataclass
 class UniversalResolverConfig:
     registry: AgentRegistry
@@ -59,6 +63,9 @@ class UniversalResolverConfig:
     webvh_document_source: DIDDocumentSource | None = None
     fallback_resolver: DIDResolver | None = None
     cache_ttl_ms: int = 60_000
+    max_cache_entries: int = DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
+    """Maximum documents kept in the cache. When it is full, expired entries are dropped first and
+    then the least recently used."""
     on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
     unverified_document_ref_schemes: list[str] | None = None
     """documentRef schemes (without ``://``, e.g. ``"ipfs"``) accepted without a content-hash check.

@@ -63,6 +63,8 @@ export interface ProductionResolverProfileConfig {
   wbaDocumentSource?: DIDDocumentSource;
   webvhDocumentSource?: DIDDocumentSource;
   cacheTtlMs?: number;
+  /** Maximum documents kept in the resolver cache (least recently used evicted first). Default 1000. */
+  maxCacheEntries?: number;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
   /**
    * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
@@ -76,6 +78,8 @@ export interface ProductionResolverProfileConfig {
 export interface ProductionHttpResolverProfileConfig {
   registry: AgentRegistry;
   cacheTtlMs?: number;
+  /** Maximum documents kept in the resolver cache (least recently used evicted first). Default 1000. */
+  maxCacheEntries?: number;
   referenceToUrl?: (documentRef: string) => string;
   referenceToUrls?: (documentRef: string) => string[];
   fetchFn?: (url: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; text?: () => Promise<string> }>;
@@ -88,12 +92,14 @@ export interface ProductionHttpResolverProfileConfig {
    * Each unverified resolution emits a `source-fetched` event saying so.
    */
   unverifiedDocumentRefSchemes?: string[];
-  httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+  httpSecurity?: import('./http-security').HttpSecurityOptions;
 }
 
 export interface ProductionJsonRpcResolverProfileConfig {
   registry: AgentRegistry;
   cacheTtlMs?: number;
+  /** Maximum documents kept in the resolver cache (least recently used evicted first). Default 1000. */
+  maxCacheEntries?: number;
   endpoint?: string;
   endpoints?: string[];
   method?: string;
@@ -101,7 +107,7 @@ export interface ProductionJsonRpcResolverProfileConfig {
   headers?: Record<string, string>;
   transport?: (url: string, body: string, headers: Record<string, string>) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
-  httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+  httpSecurity?: import('./http-security').HttpSecurityOptions;
 }
 
 
@@ -808,6 +814,7 @@ export class AgentDidClient {
       webvhDocumentSource: config.webvhDocumentSource,
       fallbackResolver: this.resolver,
       cacheTtlMs: config.cacheTtlMs,
+      maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent,
       unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes
     });
@@ -834,6 +841,7 @@ export class AgentDidClient {
       wbaDocumentSource: httpSource,
       webvhDocumentSource: webvhSource,
       cacheTtlMs: config.cacheTtlMs,
+      maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent,
       unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes
     });
@@ -854,6 +862,7 @@ export class AgentDidClient {
       registry: config.registry,
       documentSource: rpcSource,
       cacheTtlMs: config.cacheTtlMs,
+      maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent
     });
   }

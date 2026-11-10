@@ -38,6 +38,10 @@ class UniversalResolverClient:
         self._webvh_source = config.webvh_document_source or WebvhDIDDocumentSource()
         self._fallback = config.fallback_resolver
         self._cache_ttl_ms = config.cache_ttl_ms
+        max_entries = config.max_cache_entries
+        if isinstance(max_entries, bool) or not isinstance(max_entries, int) or max_entries <= 0:
+            raise TypeError("max_cache_entries must be a positive integer")
+        self._max_cache_entries = max_entries
         self._on_event = config.on_resolution_event
         self._unverified_schemes = frozenset(
             scheme.lower() for scheme in (config.unverified_document_ref_schemes or [])
@@ -51,7 +55,7 @@ class UniversalResolverClient:
     def register_document(self, document: AgentDIDDocument) -> None:
         did = document.id
         clone = document.model_copy(deep=True)
-        self._cache[did] = _CachedDocument(clone, self._now_ms() + self._cache_ttl_ms)
+        self._cache_put(did, clone, self._now_ms() + self._cache_ttl_ms)
 
         store_fn = getattr(self._source, "store_by_reference", None)
         if callable(store_fn):
@@ -70,6 +74,8 @@ class UniversalResolverClient:
         now = self._now_ms()
 
         if cached and cached.expires_at > now:
+            # Most recently used goes last, so eviction drops the least recently used first.
+            self._cache[did] = self._cache.pop(did)
             self._hits += 1
             self._emit(did, "cache-hit", started)
             return cached.document.model_copy(deep=True)
@@ -115,7 +121,7 @@ class UniversalResolverClient:
         self._assert_document_matches_reference(did, record.document_ref, resolved, started)
 
         self._emit(did, "source-fetched", started)
-        self._cache[did] = _CachedDocument(resolved.model_copy(deep=True), now + self._cache_ttl_ms)
+        self._cache_put(did, resolved.model_copy(deep=True), now + self._cache_ttl_ms)
         self._emit(did, "resolved", started)
         return resolved.model_copy(deep=True)
 
@@ -131,6 +137,18 @@ class UniversalResolverClient:
 
     # -- Private helpers ------------------------------------------------------
 
+    def _cache_put(self, did: str, document: AgentDIDDocument, expires_at: float) -> None:
+        """Store ``document`` (already a copy), keeping the cache within ``max_cache_entries``."""
+        self._cache.pop(did, None)
+        self._cache[did] = _CachedDocument(document, expires_at)
+        if len(self._cache) <= self._max_cache_entries:
+            return
+        now = self._now_ms()
+        for key in [key for key, entry in self._cache.items() if entry.expires_at <= now]:
+            del self._cache[key]
+        while len(self._cache) > self._max_cache_entries:
+            del self._cache[next(iter(self._cache))]
+
     async def _fallback_resolve(self, did: str, error_message: str, started: float) -> AgentDIDDocument:
         if self._fallback is None:
             self._emit(did, "error", started, message=error_message)
@@ -138,7 +156,7 @@ class UniversalResolverClient:
         self._emit(did, "fallback", started, message=error_message)
         doc = await self._fallback.resolve(did)
         clone = doc.model_copy(deep=True)
-        self._cache[did] = _CachedDocument(clone, self._now_ms() + self._cache_ttl_ms)
+        self._cache_put(did, clone, self._now_ms() + self._cache_ttl_ms)
         self._emit(did, "resolved", started, message="fallback")
         return doc.model_copy(deep=True)
 
@@ -160,7 +178,7 @@ class UniversalResolverClient:
             raise ValueError(f"Resolved document DID mismatch. Expected {did}, got {resolved.id}")
 
         self._emit(did, "source-fetched", started)
-        self._cache[did] = _CachedDocument(resolved.model_copy(deep=True), now + self._cache_ttl_ms)
+        self._cache_put(did, resolved.model_copy(deep=True), now + self._cache_ttl_ms)
         self._emit(did, "resolved", started)
         return resolved.model_copy(deep=True)
 
@@ -214,7 +232,7 @@ class UniversalResolverClient:
             ) from None
 
         self._emit(did, "source-fetched", started, message=f"versionId={resolved.metadata.version_id}")
-        self._cache[did] = _CachedDocument(document.model_copy(deep=True), now + self._cache_ttl_ms)
+        self._cache_put(did, document.model_copy(deep=True), now + self._cache_ttl_ms)
         self._emit(did, "resolved", started)
         return document.model_copy(deep=True)
 

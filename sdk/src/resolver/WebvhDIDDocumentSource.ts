@@ -1,6 +1,6 @@
 import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
-import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
+import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource, DocumentIntegrityError } from './types';
 import { DidWebvhError, resolveDidWebvhLog } from '../webvh/adapter';
 
@@ -17,14 +17,14 @@ export interface WebvhDIDDocumentSourceConfig {
   referenceToUrl?: (documentRef: string) => string;
   referenceToUrls?: (documentRef: string) => string[];
   fetchFn?: FetchLike;
-  httpSecurity?: HttpTargetValidationOptions;
+  httpSecurity?: HttpSecurityOptions;
 }
 
 export class WebvhDIDDocumentSource implements DIDDocumentSource {
   private readonly referenceToUrl: (documentRef: string) => string;
   private readonly referenceToUrls: ((documentRef: string) => string[]) | undefined;
   private readonly fetchFn: FetchLike;
-  private readonly httpSecurity: HttpTargetValidationOptions;
+  private readonly httpSecurity: HttpSecurityOptions;
 
   constructor(config: WebvhDIDDocumentSourceConfig = {}) {
     this.referenceToUrl = config.referenceToUrl || ((documentRef) => documentRef);

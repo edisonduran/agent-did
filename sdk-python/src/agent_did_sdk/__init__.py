@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from .core.client import AgentDidClient, AgentDidClientOptions
-from .core.http_security import HttpTargetValidationOptions, validate_http_target
+from .core.http_security import (
+    DEFAULT_HTTP_TIMEOUT_MS,
+    DEFAULT_MAX_RESPONSE_BYTES,
+    HttpSecurityOptions,
+    HttpTargetValidationOptions,
+    validate_http_target,
+)
 from .core.http_signatures import (
     HttpRequestLike,
     HttpSignatureError,
@@ -95,6 +101,7 @@ from .resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumen
 from .resolver.presigned_http_source import PresignedHttpDIDDocumentSource, PresignedHttpDIDDocumentSourceConfig
 from .resolver.s3_compatible_source import S3CompatibleDIDDocumentSource, S3CompatibleDIDDocumentSourceConfig
 from .resolver.types import (
+    DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
     DIDDocumentSource,
     DIDResolver,
     DocumentIntegrityError,
@@ -171,6 +178,9 @@ __all__ = [
     "LocalKeySigner",
     # Core HTTP security
     "HttpTargetValidationOptions",
+    "HttpSecurityOptions",
+    "DEFAULT_HTTP_TIMEOUT_MS",
+    "DEFAULT_MAX_RESPONSE_BYTES",
     "validate_http_target",
     # Core identity
     "AgentDidClient",
@@ -206,6 +216,7 @@ __all__ = [
     "DIDResolver",
     "DIDDocumentSource",
     "UniversalResolverConfig",
+    "DEFAULT_RESOLVER_MAX_CACHE_ENTRIES",
     "ResolverCacheStats",
     "ResolverResolutionEvent",
     "ResolverResolutionStage",

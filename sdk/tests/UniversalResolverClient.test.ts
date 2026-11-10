@@ -673,4 +673,70 @@ describe('UniversalResolverClient', () => {
       expect(fetchFn).toHaveBeenCalledWith(logUrl);
     });
   });
+
+  describe('cache bound', () => {
+    const emptyRegistry = (): AgentRegistry => ({
+      register: jest.fn(),
+      setDocumentReference: jest.fn(),
+      revoke: jest.fn(),
+      getRecord: jest.fn().mockResolvedValue(null),
+      isRevoked: jest.fn().mockResolvedValue(false)
+    });
+    const documentFor = (did: string) => ({ ...createWbaDocument(did), id: did });
+    const isCached = async (resolver: UniversalResolverClient, did: string): Promise<boolean> => {
+      const before = resolver.getCacheStats().hits;
+      await resolver.resolve(did).catch(() => undefined);
+      return resolver.getCacheStats().hits > before;
+    };
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('rejects a maxCacheEntries that is not a positive integer', () => {
+      const config = { registry: emptyRegistry(), documentSource: { getByReference: jest.fn() } };
+      expect(() => new UniversalResolverClient({ ...config, maxCacheEntries: 0 })).toThrow(TypeError);
+      expect(() => new UniversalResolverClient({ ...config, maxCacheEntries: 2.5 })).toThrow(TypeError);
+    });
+
+    it('keeps at most maxCacheEntries documents, evicting the least recently used', async () => {
+      const resolver = new UniversalResolverClient({
+        registry: emptyRegistry(),
+        documentSource: { getByReference: jest.fn() },
+        maxCacheEntries: 2
+      });
+
+      resolver.registerDocument(documentFor('did:example:a'));
+      resolver.registerDocument(documentFor('did:example:b'));
+      await resolver.resolve('did:example:a'); // a becomes the most recently used
+      resolver.registerDocument(documentFor('did:example:c'));
+
+      expect(resolver.getCacheStats().size).toBe(2);
+      expect(await isCached(resolver, 'did:example:a')).toBe(true);
+      expect(await isCached(resolver, 'did:example:c')).toBe(true);
+      expect(await isCached(resolver, 'did:example:b')).toBe(false);
+    });
+
+    it('drops expired documents before evicting live ones', async () => {
+      const now = jest.spyOn(Date, 'now').mockReturnValue(0);
+      const resolver = new UniversalResolverClient({
+        registry: emptyRegistry(),
+        documentSource: { getByReference: jest.fn() },
+        cacheTtlMs: 2000,
+        maxCacheEntries: 2
+      });
+
+      resolver.registerDocument(documentFor('did:example:a')); // expires at 2000
+      now.mockReturnValue(500);
+      resolver.registerDocument(documentFor('did:example:b')); // expires at 2500
+      now.mockReturnValue(1000);
+      await resolver.resolve('did:example:a'); // a is now the most recently used, b the least
+      now.mockReturnValue(2100);
+      resolver.registerDocument(documentFor('did:example:c'));
+
+      expect(resolver.getCacheStats().size).toBe(2);
+      expect(await isCached(resolver, 'did:example:b')).toBe(true);
+      expect(await isCached(resolver, 'did:example:c')).toBe(true);
+    });
+  });
 });

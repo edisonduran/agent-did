@@ -9,7 +9,19 @@ import socket
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
-__all__ = ["HttpTargetValidationOptions", "validate_http_target"]
+__all__ = [
+    "DEFAULT_HTTP_TIMEOUT_MS",
+    "DEFAULT_MAX_RESPONSE_BYTES",
+    "HttpSecurityOptions",
+    "HttpTargetValidationOptions",
+    "validate_http_target",
+]
+
+DEFAULT_HTTP_TIMEOUT_MS = 10_000
+"""Default deadline of a request made by the SDK's default HTTP client: 10 s."""
+
+DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024
+"""Default maximum response body accepted by the SDK's default HTTP client: 1 MiB."""
 
 
 class HttpTargetValidationOptions:
@@ -17,6 +29,39 @@ class HttpTargetValidationOptions:
 
     def __init__(self, *, allow_private_targets: bool = False) -> None:
         self.allow_private_targets = allow_private_targets
+
+
+class HttpSecurityOptions(HttpTargetValidationOptions):
+    """Policy of the SDK's default HTTP client (``create_safe_client``): target validation plus limits.
+
+    ``timeout_ms`` is the deadline for the whole request, from the DNS lookup to the last byte of
+    the body; a server that sends the body slowly cannot extend it. ``max_response_bytes`` is the
+    largest response body accepted. The client asks for an unencoded body (``Accept-Encoding:
+    identity``) and rejects a response with any other ``Content-Encoding``, so the limit applies to
+    the bytes that are parsed. A caller-supplied ``http_client`` owns its own limits.
+    TypeScript parity: ``HttpSecurityOptions`` in ``sdk/src/core/http-security.ts``.
+    """
+
+    def __init__(
+        self,
+        *,
+        allow_private_targets: bool = False,
+        timeout_ms: int = DEFAULT_HTTP_TIMEOUT_MS,
+        max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES,
+    ) -> None:
+        super().__init__(allow_private_targets=allow_private_targets)
+        for name, value in (("timeout_ms", timeout_ms), ("max_response_bytes", max_response_bytes)):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise TypeError(f"{name} must be a positive integer")
+        self.timeout_ms = timeout_ms
+        self.max_response_bytes = max_response_bytes
+
+
+def resolve_http_client_limits(options: HttpTargetValidationOptions | None) -> tuple[int, int]:
+    """``(timeout_ms, max_response_bytes)`` of ``options``, with the defaults for plain target options."""
+    if isinstance(options, HttpSecurityOptions):
+        return options.timeout_ms, options.max_response_bytes
+    return DEFAULT_HTTP_TIMEOUT_MS, DEFAULT_MAX_RESPONSE_BYTES
 
 
 _LEGACY_IPV4_RE = re.compile(r"^(0x[0-9a-f]+|\d+)(\.(0x[0-9a-f]+|\d+)){0,3}$", re.IGNORECASE)

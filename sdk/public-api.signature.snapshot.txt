@@ -12,6 +12,8 @@ export interface ProductionResolverProfileConfig {
     wbaDocumentSource?: DIDDocumentSource;
     webvhDocumentSource?: DIDDocumentSource;
     cacheTtlMs?: number;
+    /** Maximum documents kept in the resolver cache (least recently used evicted first). Default 1000. */
+    maxCacheEntries?: number;
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
     /**
      * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
@@ -24,6 +26,8 @@ export interface ProductionResolverProfileConfig {
 export interface ProductionHttpResolverProfileConfig {
     registry: AgentRegistry;
     cacheTtlMs?: number;
+    /** Maximum documents kept in the resolver cache (least recently used evicted first). Default 1000. */
+    maxCacheEntries?: number;
     referenceToUrl?: (documentRef: string) => string;
     referenceToUrls?: (documentRef: string) => string[];
     fetchFn?: (url: string) => Promise<{
@@ -41,11 +45,13 @@ export interface ProductionHttpResolverProfileConfig {
      * Each unverified resolution emits a `source-fetched` event saying so.
      */
     unverifiedDocumentRefSchemes?: string[];
-    httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+    httpSecurity?: import('./http-security').HttpSecurityOptions;
 }
 export interface ProductionJsonRpcResolverProfileConfig {
     registry: AgentRegistry;
     cacheTtlMs?: number;
+    /** Maximum documents kept in the resolver cache (least recently used evicted first). Default 1000. */
+    maxCacheEntries?: number;
     endpoint?: string;
     endpoints?: string[];
     method?: string;
@@ -57,7 +63,7 @@ export interface ProductionJsonRpcResolverProfileConfig {
         json: () => Promise<unknown>;
     }>;
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
-    httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+    httpSecurity?: import('./http-security').HttpSecurityOptions;
 }
 export interface AgentDidClientOptions {
     /** DID resolver. Defaults to a fresh in-memory resolver. */
@@ -337,6 +343,32 @@ export interface HttpTargetValidationOptions {
     /** Allow private/loopback/link-local targets (for dev/testing). Default: false */
     allowPrivateTargets?: boolean;
 }
+/** Default deadline of a request made by the SDK's default HTTP client: 10 s. */
+export declare const DEFAULT_HTTP_TIMEOUT_MS = 10000;
+/** Default maximum response body accepted by the SDK's default HTTP client: 1 MiB. */
+export declare const DEFAULT_MAX_RESPONSE_BYTES: number;
+/**
+ * Policy of the SDK's default HTTP client (`createSafeFetch`): target validation plus limits.
+ * A caller-supplied `fetchFn` owns its own limits.
+ */
+export interface HttpSecurityOptions extends HttpTargetValidationOptions {
+    /**
+     * Deadline for the whole request, from the DNS lookup to the last byte of the body, in
+     * milliseconds. A server that sends the body slowly cannot extend it. Default: `DEFAULT_HTTP_TIMEOUT_MS`.
+     */
+    timeoutMs?: number;
+    /**
+     * Largest response body accepted, in bytes. The client asks for an unencoded body
+     * (`Accept-Encoding: identity`) and rejects a response with any other `Content-Encoding`, so
+     * the limit applies to the bytes that are parsed. Default: `DEFAULT_MAX_RESPONSE_BYTES`.
+     */
+    maxResponseBytes?: number;
+}
+/** The effective limits of `options`, with the defaults applied. Throws `TypeError` for a value that is not a positive integer. */
+export declare function resolveHttpClientLimits(options?: HttpSecurityOptions): {
+    timeoutMs: number;
+    maxResponseBytes: number;
+};
 /**
  * True when `address` (an IPv4 or IPv6 literal, with or without brackets) is not globally routable.
  * Used on the addresses a host name resolves to.
@@ -477,12 +509,16 @@ export declare class InMemoryNonceStore implements NonceStore {
  *   is connected to, so a DNS answer that changes after the check (rebinding) cannot redirect the
  *   request. TLS still verifies the original host name.
  *
- * IP literals and `allowPrivateTargets` use the platform `fetch` (with redirects disabled), since
- * there is nothing to resolve or the caller opted out. Callers that supply their own `fetchFn`
- * own their redirect and DNS policy. Node.js only: it relies on `node:http`, `node:https` and
- * `node:dns`.
+ * - Every request has one deadline (`timeoutMs`) covering lookup, connection and the whole body,
+ *   and a maximum body size (`maxResponseBytes`). It asks for an unencoded body and rejects any
+ *   other `Content-Encoding`, so the size limit applies to the bytes that are parsed.
+ *
+ * IP literals and `allowPrivateTargets` use the platform `fetch` (with redirects disabled and the
+ * same limits), since there is nothing to resolve or the caller opted out. Callers that supply
+ * their own `fetchFn` own their redirect, DNS and limit policy. Node.js only: it relies on
+ * `node:http`, `node:https` and `node:dns`.
  */
-import { HttpTargetValidationOptions } from './http-security';
+import { HttpSecurityOptions, HttpTargetValidationOptions } from './http-security';
 type AnyInit = Record<string, unknown> | undefined;
 type LookupFn = (hostname: string) => Promise<Array<{
     address: string;
@@ -496,7 +532,7 @@ export interface SafeFetchResponse {
 }
 /** Resolves the host of `url` and throws unless every address is globally routable. */
 export declare function assertResolvedTargetAllowed(url: string, options?: HttpTargetValidationOptions, lookup?: LookupFn): Promise<void>;
-export declare function createSafeFetch(options?: HttpTargetValidationOptions, lookup?: LookupFn, isBlockedAddress?: (address: string) => boolean): (url: string, init?: AnyInit) => Promise<any>;
+export declare function createSafeFetch(options?: HttpSecurityOptions, lookup?: LookupFn, isBlockedAddress?: (address: string) => boolean): (url: string, init?: AnyInit) => Promise<any>;
 export {};
 
 ## core/signer.d.ts
@@ -1003,9 +1039,9 @@ export { AgentDidClient, AgentDidClientOptions } from './core/AgentDidClient';
 export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash, generateCommitmentSalt, createMetadataCommitment, verifyMetadataCommitment } from './crypto/hash';
 export { encodePublicKeyMultibase, didKeyFromPublicKey, decodePublicKeyMultibase } from './crypto/multibase';
 export { AgentSigner, LocalKeySigner } from './core/signer';
-export { validateHttpTarget, HttpTargetValidationOptions } from './core/http-security';
+export { validateHttpTarget, HttpTargetValidationOptions, HttpSecurityOptions, DEFAULT_HTTP_TIMEOUT_MS, DEFAULT_MAX_RESPONSE_BYTES } from './core/http-security';
 export { isUnixTimestampString, unixStringToIso, isoToUnixString, normalizeTimestampToIso } from './core/time';
-export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
+export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, DEFAULT_RESOLVER_MAX_CACHE_ENTRIES, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
 export { InMemoryDIDResolver } from './resolver/InMemoryDIDResolver';
 export { UniversalResolverClient } from './resolver/UniversalResolverClient';
 export { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './resolver/HttpDIDDocumentSource';
@@ -1151,7 +1187,7 @@ export declare class FilesystemDIDDocumentSource implements DIDDocumentSource {
 
 ## resolver/HttpDIDDocumentSource.d.ts
 import { AgentDIDDocument } from '../core/types';
-import { HttpTargetValidationOptions } from '../core/http-security';
+import { HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 type FetchLikeResponse = {
     ok: boolean;
@@ -1170,7 +1206,7 @@ export interface HttpDIDDocumentSourceConfig {
     referenceToUrls?: (documentRef: string) => string[];
     fetchFn?: FetchLike;
     ipfsGateways?: string[];
-    httpSecurity?: HttpTargetValidationOptions;
+    httpSecurity?: HttpSecurityOptions;
     storeMethod?: string;
     didLogStoreMethod?: string;
 }
@@ -1207,7 +1243,7 @@ export declare class InMemoryDIDResolver implements DIDResolver {
 
 ## resolver/JsonRpcDIDDocumentSource.d.ts
 import { AgentDIDDocument } from '../core/types';
-import { HttpTargetValidationOptions } from '../core/http-security';
+import { HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 type JsonRpcResponse = {
     ok: boolean;
@@ -1222,7 +1258,7 @@ export interface JsonRpcDIDDocumentSourceConfig {
     buildParams?: (documentRef: string) => unknown[];
     transport?: JsonRpcTransport;
     headers?: Record<string, string>;
-    httpSecurity?: HttpTargetValidationOptions;
+    httpSecurity?: HttpSecurityOptions;
 }
 export declare class JsonRpcDIDDocumentSource implements DIDDocumentSource {
     private readonly endpoints;
@@ -1322,6 +1358,8 @@ export interface DIDDocumentSource {
     getDidLogByReference?(documentRef: string): Promise<string | null>;
     storeDidLogByReference?(documentRef: string, didLog: string): Promise<void>;
 }
+/** Default maximum number of documents in the `UniversalResolverClient` cache. */
+export declare const DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000;
 export interface UniversalResolverConfig {
     registry: AgentRegistry;
     documentSource: DIDDocumentSource;
@@ -1329,6 +1367,11 @@ export interface UniversalResolverConfig {
     webvhDocumentSource?: DIDDocumentSource;
     fallbackResolver?: DIDResolver;
     cacheTtlMs?: number;
+    /**
+     * Maximum documents kept in the cache. When it is full, expired entries are dropped first and
+     * then the least recently used. Default: `DEFAULT_RESOLVER_MAX_CACHE_ENTRIES` (1000).
+     */
+    maxCacheEntries?: number;
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
     /**
      * documentRef schemes (without `://`, e.g. `'ipfs'`) whose documents are accepted
@@ -1371,6 +1414,7 @@ export declare class UniversalResolverClient implements DIDResolver {
     private readonly webvhDocumentSource;
     private readonly fallbackResolver;
     private readonly cacheTtlMs;
+    private readonly maxCacheEntries;
     private readonly onResolutionEvent;
     private readonly unverifiedDocumentRefSchemes;
     private readonly cache;
@@ -1391,6 +1435,8 @@ export declare class UniversalResolverClient implements DIDResolver {
      * never does.
      */
     private resolveDidWebvh;
+    /** Stores a copy of `document`, keeping the cache within `maxCacheEntries`. */
+    private cachePut;
     private emitEvent;
     private isDidWba;
     private isDidWebvh;
@@ -1404,7 +1450,7 @@ export declare class UniversalResolverClient implements DIDResolver {
 
 ## resolver/WebvhDIDDocumentSource.d.ts
 import { AgentDIDDocument } from '../core/types';
-import { HttpTargetValidationOptions } from '../core/http-security';
+import { HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 type FetchLikeResponse = {
     ok: boolean;
@@ -1417,7 +1463,7 @@ export interface WebvhDIDDocumentSourceConfig {
     referenceToUrl?: (documentRef: string) => string;
     referenceToUrls?: (documentRef: string) => string[];
     fetchFn?: FetchLike;
-    httpSecurity?: HttpTargetValidationOptions;
+    httpSecurity?: HttpSecurityOptions;
 }
 export declare class WebvhDIDDocumentSource implements DIDDocumentSource {
     private readonly referenceToUrl;
