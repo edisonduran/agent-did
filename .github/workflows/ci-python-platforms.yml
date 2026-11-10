@@ -1,0 +1,124 @@
+name: CI — Python Platform Support
+
+# Proves the platform list in sdk-python/README.md ("Platform support"). On the supported platforms
+# agent-did-sdk is installed from source and sdk-python/scripts/install_smoke.py runs against the
+# installed package. On Alpine (musl) and Windows ARM64 the install must fail because of aries-askar,
+# which did-webvh requires and which publishes no wheel or sdist there. If one of them starts to
+# install, this job fails so that the documentation is updated (WP-8, ADR-002 condition 4).
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ci-python-platforms.yml'
+      - 'sdk-python/pyproject.toml'
+      - 'sdk-python/src/**'
+      - 'sdk-python/scripts/install_smoke.py'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-python-platforms.yml'
+      - 'sdk-python/pyproject.toml'
+      - 'sdk-python/src/**'
+      - 'sdk-python/scripts/install_smoke.py'
+  workflow_dispatch:
+  schedule:
+    - cron: '29 7 * * *'
+
+concurrency:
+  group: python-platforms-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  supported:
+    name: Installs and runs on ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            label: Linux glibc x86_64
+          - os: ubuntu-24.04-arm
+            label: Linux glibc aarch64
+          - os: macos-15
+            label: macOS arm64
+          - os: windows-2025
+            label: Windows x86_64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install agent-did-sdk
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./sdk-python
+
+      - name: Smoke test the installed package
+        shell: bash
+        run: python -I sdk-python/scripts/install_smoke.py
+
+  unsupported:
+    name: Install fails as documented on ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            label: Alpine (musl)
+            alpine: true
+          - os: windows-11-arm
+            label: Windows ARM64
+            alpine: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        if: ${{ !matrix.alpine }}
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          architecture: arm64
+
+      - name: Install agent-did-sdk (must fail on aries-askar)
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.label }}
+          ALPINE: ${{ matrix.alpine }}
+        run: |
+          set +e
+          if [ "$ALPINE" = "true" ]; then
+            out=$(docker run --rm -v "$PWD/sdk-python:/src:ro" python:3.12-alpine \
+              sh -c 'cp -r /src /tmp/src && pip install --no-cache-dir --disable-pip-version-check /tmp/src' 2>&1)
+          else
+            python -c "import platform; print(platform.machine())"
+            out=$(python -m pip install --disable-pip-version-check ./sdk-python 2>&1)
+          fi
+          status=$?
+          set -e
+          echo "$out" | tail -25
+          if [ "$status" -eq 0 ]; then
+            echo "::error::agent-did-sdk now installs on $PLATFORM. Update 'Platform support' in sdk-python/README.md, README.md and QUICKSTART.md, and move $PLATFORM to the supported job."
+            exit 1
+          fi
+          if ! echo "$out" | grep -qiE 'aries[-_]askar'; then
+            echo "::error::the install on $PLATFORM failed for a reason other than aries-askar; see the output above."
+            exit 1
+          fi
+          echo "As documented: agent-did-sdk does not install on $PLATFORM because of aries-askar."

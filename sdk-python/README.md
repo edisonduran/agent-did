@@ -32,7 +32,17 @@ The optional EVM registry adapter is a separate package, `agent-did-evm`, mainta
 
 ### Platform support
 
-Since `1.0.0rc3` the SDK depends on [`did-webvh`](https://pypi.org/project/did-webvh/), which pulls the native `aries-askar` library. `aries-askar` ships wheels for Linux glibc (x86_64, aarch64), macOS and Windows x86_64 only, so the SDK does not install on Alpine (musl) images or Windows ARM64. Use a glibc-based image such as `python:3.12-slim`.
+| Platform | Status |
+|---|---|
+| Linux glibc x86_64 and aarch64 (for example Debian, Ubuntu and the `python:*-slim` images) | Supported |
+| macOS arm64 | Supported |
+| Windows x86_64 | Supported |
+| Alpine Linux (musl) | **Does not install** |
+| Windows ARM64 | **Does not install** |
+
+Since `1.0.0rc3` the SDK depends on [`did-webvh`](https://pypi.org/project/did-webvh/), the did:webvh v1.0 reference implementation, which requires the native `aries-askar` library. `aries-askar` publishes wheels for Linux glibc (x86_64, aarch64), macOS and Windows x86_64 only, and no source distribution, so `pip install agent-did-sdk` fails on Alpine and Windows ARM64. The limit comes from that upstream dependency; the SDK's own dependencies have wheels there. On containers, use a glibc-based image such as `python:3.12-slim`.
+
+The [`CI — Python Platform Support`](../.github/workflows/ci-python-platforms.yml) workflow checks this table every night: it installs the SDK and runs a smoke test on each supported platform, and requires the install to fail on the other two because of `aries-askar`, so the table is updated as soon as that changes.
 
 ## Quick Start
 

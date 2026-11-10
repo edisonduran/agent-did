@@ -76,7 +76,7 @@ Install:
 pip install agent-did-sdk==1.0.0rc4
 ```
 
-Pinning `1.0.0rc4` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc4`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md)).
+Pinning `1.0.0rc4` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc4`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [Platform support](sdk-python/README.md#platform-support)).
 
 Save this as `quickstart.py` and run `python quickstart.py`:
 
