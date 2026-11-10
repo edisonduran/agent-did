@@ -1576,7 +1576,7 @@ describe('did:webvh v1.0 lifecycle authorization', () => {
     expect(rotated.verificationMethodId).toEqual(`${document.id}#key-2`);
     await expect(AgentIdentity.resolve(document.id)).rejects.toThrow(/revoked/u);
     const log = await resolveDidWebvhLog(AgentIdentity.exportDidWebvhHistory(document.id));
-    expect(log.metadata.versionNumber).toEqual(4);
+    expect(log.versionNumber).toEqual(4);
     expect(log.metadata.deactivated).toBe(true);
   });
 

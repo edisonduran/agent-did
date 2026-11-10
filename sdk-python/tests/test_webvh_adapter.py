@@ -92,7 +92,7 @@ class TestDidWebvhAdapter:
         assert result.did == f"did:webvh:{result.metadata.scid}:agents.example.com:fleet:agent-1"
         assert result.document["id"] == result.did
         assert result.metadata.version_id.startswith("1-Qm")
-        assert result.metadata.version_number == 1
+        assert result.version_number == 1
         assert result.metadata.update_keys == [controller_key]
         assert result.metadata.deactivated is False
         assert result.metadata.ttl == "3600"
@@ -117,7 +117,7 @@ class TestDidWebvhAdapter:
         )
 
         assert updated.did == created.did
-        assert updated.metadata.version_number == 2
+        assert updated.version_number == 2
         assert updated.metadata.created == "2026-01-01T00:00:00Z"
         assert updated.metadata.updated == "2026-01-02T00:00:00Z"
         assert updated.document["agentMetadata"]["version"] == "1.1.0"
@@ -151,7 +151,7 @@ class TestDidWebvhAdapter:
             signer=new_signer,
             document={**rotated.document, "controller": "did:webvh:new-controller.example.com"},
         )
-        assert following.metadata.version_number == 3
+        assert following.version_number == 3
 
     async def test_deactivates_and_refuses_further_updates(self) -> None:
         created = await create_log()
@@ -161,7 +161,7 @@ class TestDidWebvhAdapter:
         resolved = await resolve_did_webvh_log(deactivated.log)
         assert resolved.metadata.deactivated is True
         assert resolved.document["id"] == created.did
-        assert resolved.metadata.version_number == 2
+        assert resolved.version_number == 2
 
         with pytest.raises(DidWebvhError) as excinfo:
             await update_did_webvh_log(log=deactivated.log, signer=LocalKeySigner(CONTROLLER_KEY))
@@ -412,7 +412,6 @@ class TestDidWebvhCrossSdkVectors:
         expected = vector["resolved"]["metadata"]
         assert {
             "versionId": resolved.metadata.version_id,
-            "versionNumber": resolved.metadata.version_number,
             "versionTime": resolved.metadata.version_time,
             "created": resolved.metadata.created,
             "updated": resolved.metadata.updated,
@@ -422,6 +421,7 @@ class TestDidWebvhCrossSdkVectors:
             "deactivated": resolved.metadata.deactivated,
             "ttl": resolved.metadata.ttl,
         } == expected
+        assert resolved.version_number == vector["resolved"]["versionNumber"]
 
     @pytest.mark.parametrize("vector", _VECTORS["negative"], ids=lambda vector: vector["name"])
     async def test_rejects(self, vector: dict[str, Any]) -> None:

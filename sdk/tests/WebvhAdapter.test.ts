@@ -61,7 +61,7 @@ describe('did:webvh adapter', () => {
     expect(result.did).toBe(`did:webvh:${result.metadata.scid}:agents.example.com:fleet:agent-1`);
     expect(result.document.id).toBe(result.did);
     expect(result.metadata.versionId).toMatch(/^1-Qm/u);
-    expect(result.metadata.versionNumber).toBe(1);
+    expect(result.versionNumber).toBe(1);
     expect(result.metadata.updateKeys).toEqual([controllerKey]);
     expect(result.metadata.deactivated).toBe(false);
     expect(result.metadata.ttl).toBe('3600');
@@ -90,7 +90,7 @@ describe('did:webvh adapter', () => {
     });
 
     expect(updated.did).toBe(created.did);
-    expect(updated.metadata.versionNumber).toBe(2);
+    expect(updated.versionNumber).toBe(2);
     expect(updated.metadata.created).toBe('2026-01-01T00:00:00Z');
     expect(updated.metadata.updated).toBe('2026-01-02T00:00:00Z');
     expect((updated.document.agentMetadata as { version: string }).version).toBe('1.1.0');
@@ -125,7 +125,7 @@ describe('did:webvh adapter', () => {
       signer: newSigner,
       document: { ...rotated.document, controller: 'did:webvh:new-controller.example.com' },
     });
-    expect(next.metadata.versionNumber).toBe(3);
+    expect(next.versionNumber).toBe(3);
   });
 
   it('deactivates and refuses further updates', async () => {
@@ -136,7 +136,7 @@ describe('did:webvh adapter', () => {
     const resolved = await resolveDidWebvhLog(deactivated.log);
     expect(resolved.metadata.deactivated).toBe(true);
     expect(resolved.document.id).toBe(created.did);
-    expect(resolved.metadata.versionNumber).toBe(2);
+    expect(resolved.versionNumber).toBe(2);
 
     await expect(
       updateDidWebvhLog({ log: deactivated.log, signer: new LocalKeySigner(CONTROLLER_KEY) })

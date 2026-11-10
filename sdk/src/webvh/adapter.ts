@@ -49,11 +49,11 @@ export type DidWebvhDocument = Record<string, unknown> & { id: string };
 /**
  * Resolution metadata exposed by Agent-DID for a did:webvh log. Witness and
  * watcher configuration are deliberately not exposed until the SDK supports
- * them (ADR-002, condition 7).
+ * them (ADR-002, condition 7). Every value is a string, list or boolean, as
+ * DID Core §7.3 requires of DID document metadata.
  */
 export interface DidWebvhMetadata {
   versionId: string;
-  versionNumber: number;
   versionTime: string;
   created: string;
   updated: string;
@@ -77,6 +77,8 @@ export interface DidWebvhLogResult {
   /** The resolved version's `state` exactly as signed in the log (no implicit services). */
   state: DidWebvhDocument;
   metadata: DidWebvhMetadata;
+  /** Number of the resolved version: the integer prefix of `metadata.versionId`. */
+  versionNumber: number;
   /** The full `did.jsonl` text, one entry per line, newline-terminated. */
   log: string;
 }
@@ -294,7 +296,6 @@ export async function resolveDidWebvhLog(
   }
   const metadata: DidWebvhMetadata = {
     versionId,
-    versionNumber: Number.parseInt(versionId.split('-', 1)[0], 10),
     versionTime: requireString(meta.versionTime ?? meta.updated, 'versionTime'),
     created: requireString(meta.created, 'created'),
     updated: requireString(meta.updated, 'updated'),
@@ -310,6 +311,7 @@ export async function resolveDidWebvhLog(
     document,
     state: JSON.parse(JSON.stringify(selectedEntry.state)) as DidWebvhDocument,
     metadata,
+    versionNumber: Number.parseInt(versionId.split('-', 1)[0], 10),
     log: serializeLog(log),
   };
 }

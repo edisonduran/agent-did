@@ -117,7 +117,6 @@
         },
         "metadata": {
           "versionId": "1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt",
-          "versionNumber": 1,
           "versionTime": "2026-01-01T00:00:00Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-01-01T00:00:00Z",
@@ -128,7 +127,8 @@
           "nextKeyHashes": [],
           "deactivated": false,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 1
       }
     },
     {
@@ -185,7 +185,6 @@
         },
         "metadata": {
           "versionId": "2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2",
-          "versionNumber": 2,
           "versionTime": "2026-01-02T00:00:00Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-01-02T00:00:00Z",
@@ -196,7 +195,8 @@
           "nextKeyHashes": [],
           "deactivated": false,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 2
       }
     },
     {
@@ -253,7 +253,6 @@
         },
         "metadata": {
           "versionId": "3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k",
-          "versionNumber": 3,
           "versionTime": "2026-01-03T00:00:00Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-01-03T00:00:00Z",
@@ -264,7 +263,8 @@
           "nextKeyHashes": [],
           "deactivated": false,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 3
       }
     },
     {
@@ -320,7 +320,6 @@
         },
         "metadata": {
           "versionId": "1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn",
-          "versionNumber": 1,
           "versionTime": "2026-01-01T00:00:00Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-01-01T00:00:00Z",
@@ -333,7 +332,8 @@
           ],
           "deactivated": false,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 1
       }
     },
     {
@@ -389,7 +389,6 @@
         },
         "metadata": {
           "versionId": "2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv",
-          "versionNumber": 2,
           "versionTime": "2026-01-02T00:00:00Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-01-02T00:00:00Z",
@@ -402,7 +401,8 @@
           ],
           "deactivated": false,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 2
       }
     }
   ],
@@ -462,7 +462,6 @@
         },
         "metadata": {
           "versionId": "4-QmbcJ4unLRDNkqWzwrWU6EWzYb8Bw8xtFwGoq1AmZwxCQ6",
-          "versionNumber": 4,
           "versionTime": "2026-11-07T04:25:04Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-11-07T04:25:04Z",
@@ -473,7 +472,8 @@
           "nextKeyHashes": [],
           "deactivated": true,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 4
       }
     },
     {
@@ -517,7 +517,6 @@
         },
         "metadata": {
           "versionId": "3-QmX6ZbU4hNKmH4no8YBa9jFqNFRTotMYEk41uPQGDtWTY2",
-          "versionNumber": 3,
           "versionTime": "2026-11-07T04:25:04Z",
           "created": "2026-01-01T00:00:00Z",
           "updated": "2026-11-07T04:25:04Z",
@@ -528,7 +527,8 @@
           "nextKeyHashes": [],
           "deactivated": true,
           "ttl": "3600"
-        }
+        },
+        "versionNumber": 3
       }
     }
   ],

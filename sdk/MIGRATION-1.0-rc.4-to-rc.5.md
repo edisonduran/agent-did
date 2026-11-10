@@ -1,6 +1,6 @@
 # @agentdid/sdk Migration Guide: 1.0.0-rc.4 -> 1.0.0-rc.5
 
-Behavior changes between `1.0.0-rc.4` and `1.0.0-rc.5`. There are no wire-format changes and no public API removals: DID documents, DID logs, hash URIs and signature bases are unchanged, and documents or signatures produced by rc.4 stay valid.
+Behavior changes between `1.0.0-rc.4` and `1.0.0-rc.5`. There are no wire-format changes (the API removals are in sections 8 and 10): DID documents, DID logs, hash URIs and signature bases are unchanged, and documents or signatures produced by rc.4 stay valid.
 
 All changes below tighten the defaults of the SDK's HTTP handling. Code that already passes its own `fetchFn`, or that only talks to public HTTPS hosts and signs with the default lifetime, needs no change.
 
@@ -111,6 +111,16 @@ The EVM profile (the `AgentRegistry` contract and `@agentdid/evm`) now lives in 
 
 `AgentRegistry` registration now requires an EIP-712 attestation from a registrar, so an unrelated account can no longer register someone else's DID; see the `@agentdid/evm` README for the registrar flow. `revokeAgent` also works while the registry is paused.
 
+## 10. did:webvh adapter: `versionNumber` moved out of the metadata
+
+If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and the log helpers of `webvh/adapter`; they are not exported from the package root), read the version number from the result instead of its metadata. `DidWebvhMetadata` now holds only values that DID Core §7.3 allows in DID document metadata (strings, lists, booleans).
+
+```diff
+  const result = await resolveDidWebvhLog(log);
+- result.metadata.versionNumber
++ result.versionNumber
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -124,3 +134,4 @@ The EVM profile (the `AgentRegistry` contract and `@agentdid/evm`) now lives in 
 - [ ] Agents that issue delegations or invoke capabilities are created with `additionalVerificationRelationships`.
 - [ ] Calls to `verifyHistoricalSignature` are replaced with `verifySignatureAtTime`, and `indeterminate` is handled as not accepted.
 - [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.
+- [ ] Direct users of the did:webvh adapter read `result.versionNumber` instead of `result.metadata.versionNumber`.
