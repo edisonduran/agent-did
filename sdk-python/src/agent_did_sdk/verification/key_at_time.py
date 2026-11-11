@@ -77,8 +77,6 @@ class _KeyInState:
     reason: KeyAtTimeRejection | None = None
     found_in: tuple[VerificationRelationship, ...] = ()
     public_key_multibase: str | None = None
-    deactivated_millis: int | None = None
-    deactivated: str | None = None
 
 
 def _string_list(value: object) -> list[str]:
@@ -89,10 +87,8 @@ def _relationships_of(state: dict[str, Any], key_id: str) -> tuple[VerificationR
     return tuple(r for r in DID_VERIFICATION_RELATIONSHIPS if key_id in _string_list(state.get(r)))
 
 
-def _key_in_state(
-    state: dict[str, Any], key_id: str, required_purpose: VerificationRelationship, at_millis: int
-) -> _KeyInState:
-    """Whether ``key_id`` is an authorized ``required_purpose`` key in ``state`` at ``at_millis``."""
+def _key_in_state(state: dict[str, Any], key_id: str, required_purpose: VerificationRelationship) -> _KeyInState:
+    """Whether ``key_id`` is an authorized ``required_purpose`` key in ``state``."""
     found_in = _relationships_of(state, key_id)
     methods = state.get("verificationMethod")
     method = next(
@@ -102,28 +98,14 @@ def _key_in_state(
     public_key = method.get("publicKeyMultibase") if method is not None else None
     if method is None or not isinstance(public_key, str) or not public_key:
         return _KeyInState(ok=False, reason="key_not_found", found_in=found_in)
-    deactivated_millis: int | None = None
+    # The log entry that gives a key a ``deactivated`` time retires it from that entry's versionTime. The time
+    # itself is not compared with anything: the SDK's rotation writes the document clock, with milliseconds, next
+    # to a versionTime in seconds, so the time can be later than the entry that carries it.
     if method.get("deactivated") is not None:
-        deactivated_millis = parse_rfc3339_millis(method["deactivated"])
-        # An unreadable deactivation time is treated as already deactivated (fail closed).
-        if deactivated_millis is None or deactivated_millis <= at_millis:
-            return _KeyInState(ok=False, reason="key_deactivated", found_in=found_in)
+        return _KeyInState(ok=False, reason="key_deactivated", found_in=found_in)
     if required_purpose == "keyAgreement" or required_purpose not in found_in:
         return _KeyInState(ok=False, reason="key_purpose_violation", found_in=found_in)
-    return _KeyInState(
-        ok=True,
-        public_key_multibase=public_key,
-        deactivated_millis=deactivated_millis,
-        deactivated=str(method["deactivated"]) if deactivated_millis is not None else None,
-    )
-
-
-@dataclass(frozen=True)
-class _Boundary:
-    millis: int
-    time: str
-    did_deactivated: bool
-    version_id: str | None = None
+    return _KeyInState(ok=True, public_key_multibase=public_key)
 
 
 async def check_did_webvh_key_at_time(
@@ -141,7 +123,8 @@ async def check_did_webvh_key_at_time(
     ``DidWebvhError``. Then the entry in effect at the stated time (the last one whose ``versionTime`` is not
     after it) decides ``authorized`` / ``not_authorized``, and any later entry that retires the key or deactivates
     the DID turns ``authorized`` into ``indeterminate``, unless ``trusted_time_not_after`` is earlier than that
-    entry. ``trusted_time_not_after`` is trusted evidence (for example a verified RFC 3161 timestamp) that the
+    entry. A key is retired from the ``versionTime`` of the entry that gives it a ``deactivated`` time, whatever
+    that time says. ``trusted_time_not_after`` is trusted evidence (for example a verified RFC 3161 timestamp) that the
     signature existed no later than that time; only the caller can vouch for it.
     """
     evidence_millis: int | None = None
@@ -190,42 +173,20 @@ async def check_did_webvh_key_at_time(
             reason="did_deactivated",
             found_in=_relationships_of(current.state, key_id),
         )
-    at_stated_time = _key_in_state(current.state, key_id, required_purpose, stated_millis)
+    at_stated_time = _key_in_state(current.state, key_id, required_purpose)
     if not at_stated_time.ok:
         return KeyAtTimeResult(
             status="not_authorized", key_id=key_id, reason=at_stated_time.reason, found_in=at_stated_time.found_in
         )
 
-    # The first change after the stated time that ends the key's authorization, if any.
-    boundary: _Boundary | None = None
-    if at_stated_time.deactivated_millis is not None and at_stated_time.deactivated is not None:
-        boundary = _Boundary(
-            millis=at_stated_time.deactivated_millis, time=at_stated_time.deactivated, did_deactivated=False
-        )
+    # The first entry after the stated time that ends the key's authorization, if any.
+    boundary: _LogEntry | None = None
     for later in entries[index + 1 :]:
-        if boundary is not None and later.version_millis >= boundary.millis:
-            break
-        if later.deactivated:
-            boundary = _Boundary(
-                millis=later.version_millis, time=later.version_time, did_deactivated=True, version_id=later.version_id
-            )
-            break
-        in_later = _key_in_state(later.state, key_id, required_purpose, later.version_millis)
-        # An entry that gives the key a ``deactivated`` time retires it, even when that time is after the entry's
-        # versionTime (the SDK's rotation writes the document clock, with milliseconds, next to a versionTime in
-        # seconds). The entry is the change, so it is the boundary.
-        newly_deactivated = (
-            in_later.ok
-            and in_later.deactivated_millis is not None
-            and in_later.deactivated_millis != at_stated_time.deactivated_millis
-        )
-        if not in_later.ok or newly_deactivated:
-            boundary = _Boundary(
-                millis=later.version_millis, time=later.version_time, did_deactivated=False, version_id=later.version_id
-            )
+        if later.deactivated or not _key_in_state(later.state, key_id, required_purpose).ok:
+            boundary = later
             break
 
-    if boundary is None or (evidence_millis is not None and evidence_millis < boundary.millis):
+    if boundary is None or (evidence_millis is not None and evidence_millis < boundary.version_millis):
         return KeyAtTimeResult(
             status="authorized",
             key_id=key_id,
@@ -236,10 +197,10 @@ async def check_did_webvh_key_at_time(
     return KeyAtTimeResult(
         status="indeterminate",
         key_id=key_id,
-        reason="did_deactivated_after_stated_time" if boundary.did_deactivated else "key_retired_after_stated_time",
+        reason="did_deactivated_after_stated_time" if boundary.deactivated else "key_retired_after_stated_time",
         public_key_multibase=at_stated_time.public_key_multibase,
         boundary_version_id=boundary.version_id,
-        boundary_time=boundary.time,
+        boundary_time=boundary.version_time,
     )
 
 

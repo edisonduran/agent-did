@@ -74,7 +74,7 @@ interface LogEntry {
 }
 
 type KeyInState =
-  | { ok: true; publicKeyMultibase: string; deactivatedMillis?: number; deactivated?: string }
+  | { ok: true; publicKeyMultibase: string }
   | { ok: false; reason: KeyAtTimeRejection; foundIn: VerificationRelationship[] };
 
 function stringList(value: unknown): string[] {
@@ -85,13 +85,8 @@ function relationshipsOf(state: Record<string, unknown>, keyId: string): Verific
   return DID_VERIFICATION_RELATIONSHIPS.filter((relationship) => stringList(state[relationship]).includes(keyId));
 }
 
-/** Whether `keyId` is an authorized `requiredPurpose` key in `state` at `atMillis`. */
-function keyInState(
-  state: Record<string, unknown>,
-  keyId: string,
-  requiredPurpose: VerificationRelationship,
-  atMillis: number
-): KeyInState {
+/** Whether `keyId` is an authorized `requiredPurpose` key in `state`. */
+function keyInState(state: Record<string, unknown>, keyId: string, requiredPurpose: VerificationRelationship): KeyInState {
   const foundIn = relationshipsOf(state, keyId);
   const methods = Array.isArray(state.verificationMethod) ? (state.verificationMethod as unknown[]) : [];
   const method = methods.find(
@@ -101,22 +96,16 @@ function keyInState(
   if (!method || typeof method.publicKeyMultibase !== 'string' || method.publicKeyMultibase.length === 0) {
     return { ok: false, reason: 'key_not_found', foundIn };
   }
-  let deactivatedMillis: number | undefined;
+  // The log entry that gives a key a `deactivated` time retires it from that entry's versionTime. The time itself
+  // is not compared with anything: the SDK's rotation writes the document clock, with milliseconds, next to a
+  // versionTime in seconds, so the time can be later than the entry that carries it.
   if (method.deactivated !== undefined && method.deactivated !== null) {
-    deactivatedMillis = parseRfc3339Millis(method.deactivated);
-    // An unreadable deactivation time is treated as already deactivated (fail closed).
-    if (deactivatedMillis === undefined || deactivatedMillis <= atMillis) {
-      return { ok: false, reason: 'key_deactivated', foundIn };
-    }
+    return { ok: false, reason: 'key_deactivated', foundIn };
   }
   if (requiredPurpose === 'keyAgreement' || !foundIn.includes(requiredPurpose)) {
     return { ok: false, reason: 'key_purpose_violation', foundIn };
   }
-  return {
-    ok: true,
-    publicKeyMultibase: method.publicKeyMultibase,
-    ...(deactivatedMillis !== undefined ? { deactivatedMillis, deactivated: String(method.deactivated) } : {})
-  };
+  return { ok: true, publicKeyMultibase: method.publicKeyMultibase };
 }
 
 /**
@@ -125,7 +114,8 @@ function keyInState(
  * The whole log is verified first (`resolveDidWebvhLog`); a log that fails verification throws `DidWebvhError`.
  * Then the entry in effect at the stated time (the last one whose `versionTime` is not after it) decides
  * `authorized` / `not_authorized`, and any later entry that retires the key or deactivates the DID turns
- * `authorized` into `indeterminate`, unless `trustedTimeNotAfter` is earlier than that entry.
+ * `authorized` into `indeterminate`, unless `trustedTimeNotAfter` is earlier than that entry. A key is retired
+ * from the `versionTime` of the entry that gives it a `deactivated` time, whatever that time says.
  */
 export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTimeOptions): Promise<KeyAtTimeResult> {
   const { keyId } = options;
@@ -182,34 +172,15 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
   if (current.deactivated) {
     return { status: 'not_authorized', keyId, reason: 'did_deactivated', foundIn: relationshipsOf(current.state, keyId) };
   }
-  const atStatedTime = keyInState(current.state, keyId, requiredPurpose, statedMillis);
+  const atStatedTime = keyInState(current.state, keyId, requiredPurpose);
   if (!atStatedTime.ok) {
     return { status: 'not_authorized', keyId, reason: atStatedTime.reason, foundIn: atStatedTime.foundIn };
   }
 
-  // The first change after the stated time that ends the key's authorization, if any.
-  let boundary: { millis: number; time: string; versionId?: string; didDeactivated: boolean } | undefined;
-  if (atStatedTime.deactivatedMillis !== undefined) {
-    boundary = { millis: atStatedTime.deactivatedMillis, time: atStatedTime.deactivated as string, didDeactivated: false };
-  }
-  for (const entry of entries.slice(index + 1)) {
-    if (boundary && entry.versionMillis >= boundary.millis) {
-      break;
-    }
-    if (entry.deactivated) {
-      boundary = { millis: entry.versionMillis, time: entry.versionTime, versionId: entry.versionId, didDeactivated: true };
-      break;
-    }
-    const later = keyInState(entry.state, keyId, requiredPurpose, entry.versionMillis);
-    // An entry that gives the key a `deactivated` time retires it, even when that time is after the entry's
-    // versionTime (the SDK's rotation writes the document clock, with milliseconds, next to a versionTime in
-    // seconds). The entry is the change, so it is the boundary.
-    const newlyDeactivated = later.ok && later.deactivatedMillis !== undefined && later.deactivatedMillis !== atStatedTime.deactivatedMillis;
-    if (!later.ok || newlyDeactivated) {
-      boundary = { millis: entry.versionMillis, time: entry.versionTime, versionId: entry.versionId, didDeactivated: false };
-      break;
-    }
-  }
+  // The first entry after the stated time that ends the key's authorization, if any.
+  const boundary = entries
+    .slice(index + 1)
+    .find((entry) => entry.deactivated || !keyInState(entry.state, keyId, requiredPurpose).ok);
 
   if (!boundary) {
     return {
@@ -220,7 +191,7 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
       basis: 'no_later_change'
     };
   }
-  if (evidenceMillis !== undefined && evidenceMillis < boundary.millis) {
+  if (evidenceMillis !== undefined && evidenceMillis < boundary.versionMillis) {
     return {
       status: 'authorized',
       keyId,
@@ -232,10 +203,10 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
   return {
     status: 'indeterminate',
     keyId,
-    reason: boundary.didDeactivated ? 'did_deactivated_after_stated_time' : 'key_retired_after_stated_time',
+    reason: boundary.deactivated ? 'did_deactivated_after_stated_time' : 'key_retired_after_stated_time',
     publicKeyMultibase: atStatedTime.publicKeyMultibase,
-    ...(boundary.versionId !== undefined ? { boundaryVersionId: boundary.versionId } : {}),
-    boundaryTime: boundary.time
+    boundaryVersionId: boundary.versionId,
+    boundaryTime: boundary.versionTime
   };
 }
 

@@ -1498,7 +1498,8 @@ export declare function parseRfc3339Millis(value: unknown): number | undefined;
  * The whole log is verified first (`resolveDidWebvhLog`); a log that fails verification throws `DidWebvhError`.
  * Then the entry in effect at the stated time (the last one whose `versionTime` is not after it) decides
  * `authorized` / `not_authorized`, and any later entry that retires the key or deactivates the DID turns
- * `authorized` into `indeterminate`, unless `trustedTimeNotAfter` is earlier than that entry.
+ * `authorized` into `indeterminate`, unless `trustedTimeNotAfter` is earlier than that entry. A key is retired
+ * from the `versionTime` of the entry that gives it a `deactivated` time, whatever that time says.
  */
 export declare function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTimeOptions): Promise<KeyAtTimeResult>;
 /** Combines a key check at a stated time with the Ed25519 check of `signature` (hex) over `payload` (UTF-8). */
