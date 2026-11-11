@@ -11,7 +11,19 @@ The default `fetch` of the HTTP document sources (`HttpDIDDocumentSource`, `Bear
 - **Does not follow redirects.** A `3xx` response is reported as a non-OK status. If your resolver endpoint redirects (for example `http://` to `https://`, or a moved path), point the source at the final URL.
 - **Resolves the host name once and connects to the validated address.** The request is refused when the name does not resolve, or when any resolved address is not globally routable. The connection uses the address that was checked, and TLS still verifies the original host name.
 - **Rejects every non-globally-routable range.** This covers private, shared (`100.64.0.0/10`), loopback, link-local, documentation, benchmarking, multicast and reserved IPv4, and IPv6 outside global unicast space (`2000::/3`). IPv4-mapped, NAT64 and 6to4 addresses are judged by the IPv4 address they embed.
+- **Gives each request one deadline** (`timeoutMs`, default 10 s, `DEFAULT_HTTP_TIMEOUT_MS`) that covers the lookup, the connection and the whole body. rc.4 relied on the platform `fetch` defaults, which wait up to 5 minutes for the headers and between body chunks, so a server sending the body slowly could hold a request open indefinitely.
+- **Caps the response body** (`maxResponseBytes`, default 1 MiB, `DEFAULT_MAX_RESPONSE_BYTES`), whether or not the server declares a `Content-Length`. A did:webvh log grows with every entry; raise the limit if yours is larger.
+- **Asks for an unencoded body** (`Accept-Encoding: identity`) and rejects a response with any other `Content-Encoding`, so the cap applies to the bytes that are parsed. Servers that compress regardless of `Accept-Encoding` fail; serve those files uncompressed or supply your own `fetchFn`.
 - **Relies on Node.js modules** (`node:http`, `node:https`, `node:dns`). Where those are not available, supply your own `fetchFn` to the sources that accept one.
+
+The limits are part of `httpSecurity` (type `HttpSecurityOptions`), on the sources and on `useProductionResolverFromHttp` / `useProductionResolverFromJsonRpc`:
+
+```ts
+client.useProductionResolverFromHttp({
+  registry,
+  httpSecurity: { timeoutMs: 5_000, maxResponseBytes: 4 * 1024 * 1024 },
+});
+```
 
 If you must reach an internal endpoint (a resolver inside a private network, a local test server), opt out explicitly:
 
@@ -22,7 +34,9 @@ new HttpDIDDocumentSource({
 });
 ```
 
-A `fetchFn` you supply owns its own redirect and DNS policy; the SDK does not wrap it.
+A `fetchFn` you supply owns its own redirect, DNS and limit policy; the SDK does not wrap it.
+
+The `UniversalResolverClient` cache is now bounded: `maxCacheEntries` (default 1000, `DEFAULT_RESOLVER_MAX_CACHE_ENTRIES`; also on the `useProductionResolver*` configs). When it is full, expired entries are dropped first and then the least recently used. A process that relies on more than 1000 documents staying in the cache (for example documents registered locally with `registerDocument`) should raise it.
 
 ## 2. Target validation is stricter and the same in both SDKs
 
@@ -126,6 +140,8 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 - [ ] Resolver endpoints no longer rely on redirects.
 - [ ] Internal endpoints set `httpSecurity: { allowPrivateTargets: true }`.
 - [ ] Non-Node runtimes pass their own `fetchFn`.
+- [ ] Endpoints answer within 10 s with an uncompressed body of at most 1 MiB, or `httpSecurity.timeoutMs` / `maxResponseBytes` are raised.
+- [ ] Processes that need more than 1000 cached documents set `maxCacheEntries`.
 - [ ] Third-party signers with a lifetime above 300 s are covered by `maxSignatureLifetimeSeconds`.
 - [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
 - [ ] Code around `verifyHttpRequestSignature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.

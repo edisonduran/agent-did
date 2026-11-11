@@ -11,6 +11,21 @@ The default `httpx` client of the HTTP document sources (`HttpDIDDocumentSource`
 - **Does not follow redirects.** A `3xx` response is reported as a non-OK status. If your resolver endpoint redirects (for example `http://` to `https://`, or a moved path), point the source at the final URL.
 - **Resolves the host name once and connects to the validated address.** The request is refused when the name does not resolve, or when any resolved address is not globally routable. The connection uses the address that was checked, and TLS still verifies the original host name (`sni_hostname`).
 - **Rejects every non-globally-routable range.** This covers private, shared (`100.64.0.0/10`), loopback, link-local, documentation, benchmarking, multicast and reserved IPv4, and IPv6 outside global unicast space (`2000::/3`). IPv4-mapped, NAT64 and 6to4 addresses are judged by the IPv4 address they embed. The ranges are listed explicitly, so the result no longer depends on the Python version.
+- **Gives each request one deadline** (`timeout_ms`, default 10 s, `DEFAULT_HTTP_TIMEOUT_MS`) that covers the lookup, the connection and the whole body. rc4 used httpx's per-operation 5 s timeouts, which a server sending the body slowly could extend indefinitely.
+- **Caps the response body** (`max_response_bytes`, default 1 MiB, `DEFAULT_MAX_RESPONSE_BYTES`), whether or not the server declares a `Content-Length`. A did:webvh log grows with every entry; raise the limit if yours is larger.
+- **Asks for an unencoded body** (`Accept-Encoding: identity`) and rejects a response with any other `Content-Encoding`, so the cap applies to the bytes that are parsed. Servers that compress regardless of `Accept-Encoding` fail; serve those files uncompressed or supply your own `http_client`.
+
+The limits live in `HttpSecurityOptions`, a subclass of `HttpTargetValidationOptions` accepted wherever `http_security` is:
+
+```python
+from agent_did_sdk import HttpSecurityOptions, WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
+
+source = WebvhDIDDocumentSource(
+    WebvhDIDDocumentSourceConfig(
+        http_security=HttpSecurityOptions(timeout_ms=5_000, max_response_bytes=4 * 1024 * 1024),
+    )
+)
+```
 
 If you must reach an internal endpoint (a resolver inside a private network, a local test server), opt out explicitly:
 
@@ -25,7 +40,9 @@ source = HttpDIDDocumentSource(
 )
 ```
 
-An `http_client` you supply owns its own redirect and DNS policy; the SDK does not wrap it.
+An `http_client` you supply owns its own redirect, DNS and limit policy; the SDK does not wrap it.
+
+The `UniversalResolverClient` cache is now bounded: `max_cache_entries` (default 1000, `DEFAULT_RESOLVER_MAX_CACHE_ENTRIES`; also on the `use_production_resolver*` configs). When it is full, expired entries are dropped first and then the least recently used. A process that relies on more than 1000 documents staying in the cache (for example documents registered locally with `register_document`) should raise it.
 
 ## 2. Target validation is stricter and the same in both SDKs
 
@@ -155,6 +172,8 @@ If you import `agent_did_sdk.webvh.adapter` directly (`resolve_did_webvh_log` an
 - [ ] Resolver endpoints no longer rely on redirects.
 - [ ] Internal endpoints set `http_security=HttpTargetValidationOptions(allow_private_targets=True)`.
 - [ ] Any `http_security` passed to the Bearer source is the policy you want, now that it takes effect.
+- [ ] Endpoints answer within 10 s with an uncompressed body of at most 1 MiB, or `HttpSecurityOptions(timeout_ms=..., max_response_bytes=...)` raises the limits.
+- [ ] Processes that need more than 1000 cached documents set `max_cache_entries`.
 - [ ] Third-party signers with a lifetime above 300 s are covered by `max_signature_lifetime_seconds`.
 - [ ] Third-party signers list the seven required components in the order of RFC-001 §6.5 item 2, with extra components after them.
 - [ ] Code around `verify_http_request_signature` no longer expects an `IdentityCompositionError` for an unbound `keyid`.

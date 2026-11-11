@@ -7,6 +7,42 @@ export interface HttpTargetValidationOptions {
   allowPrivateTargets?: boolean;
 }
 
+/** Default deadline of a request made by the SDK's default HTTP client: 10 s. */
+export const DEFAULT_HTTP_TIMEOUT_MS = 10_000;
+
+/** Default maximum response body accepted by the SDK's default HTTP client: 1 MiB. */
+export const DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024;
+
+/**
+ * Policy of the SDK's default HTTP client (`createSafeFetch`): target validation plus limits.
+ * A caller-supplied `fetchFn` owns its own limits.
+ */
+export interface HttpSecurityOptions extends HttpTargetValidationOptions {
+  /**
+   * Deadline for the whole request, from the DNS lookup to the last byte of the body, in
+   * milliseconds. A server that sends the body slowly cannot extend it. Default: `DEFAULT_HTTP_TIMEOUT_MS`.
+   */
+  timeoutMs?: number;
+  /**
+   * Largest response body accepted, in bytes. The client asks for an unencoded body
+   * (`Accept-Encoding: identity`) and rejects a response with any other `Content-Encoding`, so
+   * the limit applies to the bytes that are parsed. Default: `DEFAULT_MAX_RESPONSE_BYTES`.
+   */
+  maxResponseBytes?: number;
+}
+
+/** The effective limits of `options`, with the defaults applied. Throws `TypeError` for a value that is not a positive integer. */
+export function resolveHttpClientLimits(options: HttpSecurityOptions = {}): { timeoutMs: number; maxResponseBytes: number } {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
+  const maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+  for (const [name, value] of [['timeoutMs', timeoutMs], ['maxResponseBytes', maxResponseBytes]] as const) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new TypeError(`${name} must be a positive integer`);
+    }
+  }
+  return { timeoutMs, maxResponseBytes };
+}
+
 function parseIpv4(host: string): number[] | null {
   const parts = host.split('.');
   if (parts.length !== 4) return null;

@@ -28,6 +28,7 @@ from ..resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceC
 from ..resolver.in_memory import InMemoryDIDResolver
 from ..resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
 from ..resolver.types import (
+    DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
     DIDDocumentSource,
     DIDResolver,
     ResolverResolutionEvent,
@@ -85,6 +86,7 @@ class ProductionResolverProfileConfig:
     wba_document_source: DIDDocumentSource | None = None
     webvh_document_source: DIDDocumentSource | None = None
     cache_ttl_ms: int | None = None
+    max_cache_entries: int | None = None
     on_resolution_event: object | None = None
     unverified_document_ref_schemes: list[str] | None = None
 
@@ -93,6 +95,7 @@ class ProductionResolverProfileConfig:
 class ProductionHttpResolverProfileConfig:
     registry: AgentRegistry
     cache_ttl_ms: int | None = None
+    max_cache_entries: int | None = None
     reference_to_url: Callable[[str], str] | None = None
     reference_to_urls: Callable[[str], list[str]] | None = None
     http_client: httpx.AsyncClient | None = None
@@ -106,6 +109,7 @@ class ProductionHttpResolverProfileConfig:
 class ProductionJsonRpcResolverProfileConfig:
     registry: AgentRegistry
     cache_ttl_ms: int | None = None
+    max_cache_entries: int | None = None
     endpoint: str | None = None
     endpoints: list[str] | None = None
     method: str | None = None
@@ -756,6 +760,9 @@ class AgentDidClient:
                 webvh_document_source=config.webvh_document_source,
                 fallback_resolver=self._resolver,
                 cache_ttl_ms=config.cache_ttl_ms or 60_000,
+                max_cache_entries=(
+                    DEFAULT_RESOLVER_MAX_CACHE_ENTRIES if config.max_cache_entries is None else config.max_cache_entries
+                ),
                 on_resolution_event=config.on_resolution_event,  # type: ignore[arg-type]
                 unverified_document_ref_schemes=config.unverified_document_ref_schemes,
             )
@@ -786,6 +793,7 @@ class AgentDidClient:
                 wba_document_source=source,
                 webvh_document_source=webvh_source,
                 cache_ttl_ms=config.cache_ttl_ms,
+                max_cache_entries=config.max_cache_entries,
                 on_resolution_event=config.on_resolution_event,
                 unverified_document_ref_schemes=config.unverified_document_ref_schemes,
             )
@@ -808,6 +816,7 @@ class AgentDidClient:
                 registry=config.registry,
                 document_source=source,
                 cache_ttl_ms=config.cache_ttl_ms,
+                max_cache_entries=config.max_cache_entries,
                 on_resolution_event=config.on_resolution_event,
             )
         )

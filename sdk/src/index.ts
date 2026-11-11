@@ -92,7 +92,10 @@ export {
 
 export {
   validateHttpTarget,
-  HttpTargetValidationOptions
+  HttpTargetValidationOptions,
+  HttpSecurityOptions,
+  DEFAULT_HTTP_TIMEOUT_MS,
+  DEFAULT_MAX_RESPONSE_BYTES
 } from './core/http-security';
 
 export {
@@ -107,6 +110,7 @@ export {
   DIDResolver,
   DIDDocumentSource,
   UniversalResolverConfig,
+  DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
   ResolverCacheStats,
   ResolverResolutionEvent,
   ResolverResolutionStage,

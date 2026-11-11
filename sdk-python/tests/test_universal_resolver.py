@@ -419,3 +419,56 @@ class TestUniversalResolverDidWebvh:
         with pytest.raises(TypeError, match="get_did_log_by_reference"):
             await _webvh_resolver(FakeSource(AgentDIDDocument.model_validate(created.state))).resolve(created.did)
 
+
+class TestCacheBound:
+    """TypeScript parity: ``cache bound`` in ``sdk/tests/UniversalResolverClient.test.ts``."""
+
+    @staticmethod
+    def _resolver(**overrides: int) -> UniversalResolverClient:
+        return UniversalResolverClient(
+            UniversalResolverConfig(registry=InMemoryAgentRegistry(), document_source=FakeSource(), **overrides)
+        )
+
+    @staticmethod
+    async def _is_cached(resolver: UniversalResolverClient, did: str) -> bool:
+        before = resolver.get_cache_stats().hits
+        try:
+            await resolver.resolve(did)
+        except ValueError:
+            pass
+        return resolver.get_cache_stats().hits > before
+
+    @pytest.mark.parametrize("value", [0, -1, True])
+    def test_rejects_max_cache_entries_that_is_not_a_positive_integer(self, value: int) -> None:
+        with pytest.raises(TypeError, match="max_cache_entries"):
+            self._resolver(max_cache_entries=value)
+
+    async def test_keeps_at_most_max_cache_entries_evicting_the_least_recently_used(self) -> None:
+        resolver = self._resolver(max_cache_entries=2)
+
+        resolver.register_document(_make_doc("did:example:a"))
+        resolver.register_document(_make_doc("did:example:b"))
+        await resolver.resolve("did:example:a")  # a becomes the most recently used
+        resolver.register_document(_make_doc("did:example:c"))
+
+        assert resolver.get_cache_stats().size == 2
+        assert await self._is_cached(resolver, "did:example:a")
+        assert await self._is_cached(resolver, "did:example:c")
+        assert not await self._is_cached(resolver, "did:example:b")
+
+    async def test_drops_expired_documents_before_evicting_live_ones(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        clock = [0.0]
+        monkeypatch.setattr(UniversalResolverClient, "_now_ms", staticmethod(lambda: clock[0]))
+        resolver = self._resolver(cache_ttl_ms=2000, max_cache_entries=2)
+
+        resolver.register_document(_make_doc("did:example:a"))  # expires at 2000
+        clock[0] = 500
+        resolver.register_document(_make_doc("did:example:b"))  # expires at 2500
+        clock[0] = 1000
+        await resolver.resolve("did:example:a")  # a is now the most recently used, b the least
+        clock[0] = 2100
+        resolver.register_document(_make_doc("did:example:c"))
+
+        assert resolver.get_cache_stats().size == 2
+        assert await self._is_cached(resolver, "did:example:b")
+        assert await self._is_cached(resolver, "did:example:c")

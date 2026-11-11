@@ -1,6 +1,6 @@
 import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
-import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
+import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 
 type JsonRpcResponse = {
@@ -29,7 +29,7 @@ export interface JsonRpcDIDDocumentSourceConfig {
   buildParams?: (documentRef: string) => unknown[];
   transport?: JsonRpcTransport;
   headers?: Record<string, string>;
-  httpSecurity?: HttpTargetValidationOptions;
+  httpSecurity?: HttpSecurityOptions;
 }
 
 export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
@@ -38,7 +38,7 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
   private readonly buildParams: (documentRef: string) => unknown[];
   private readonly transport: JsonRpcTransport;
   private readonly headers: Record<string, string>;
-  private readonly httpSecurity: HttpTargetValidationOptions;
+  private readonly httpSecurity: HttpSecurityOptions;
 
   constructor(config: JsonRpcDIDDocumentSourceConfig = {}) {
     this.endpoints = config.endpoints || (config.endpoint ? [config.endpoint] : []);

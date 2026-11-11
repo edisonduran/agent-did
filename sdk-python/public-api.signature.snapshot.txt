@@ -231,6 +231,15 @@ class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_sign
   attr path_segments: list[str] | None
   member model_config = {'arbitrary_types_allowed': True, 'extra': 'forbid'}
 
+## DEFAULT_HTTP_TIMEOUT_MS
+value DEFAULT_HTTP_TIMEOUT_MS = 10000
+
+## DEFAULT_MAX_RESPONSE_BYTES
+value DEFAULT_MAX_RESPONSE_BYTES = 1048576
+
+## DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
+value DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000
+
 ## DIDDocumentSource
 class DIDDocumentSource(*args, **kwargs)
   def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
@@ -294,6 +303,9 @@ class HttpRequestLike(method: 'str', url: 'str', headers: 'Mapping[str, str | Se
   attr headers: Mapping[str, str | Sequence[str]]
   attr method: str
   attr url: str
+
+## HttpSecurityOptions
+class HttpSecurityOptions(*, allow_private_targets: 'bool' = False, timeout_ms: 'int' = 10000, max_response_bytes: 'int' = 1048576) -> 'None'
 
 ## HttpSignatureError
 class HttpSignatureError(...)
@@ -401,11 +413,12 @@ class PresignedHttpDIDDocumentSourceConfig(reference_to_read_url: 'Callable[[str
   attr store_method: str
 
 ## ProductionHttpResolverProfileConfig
-class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
+class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, max_cache_entries: 'int | None' = None, reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
   attr cache_ttl_ms: int | None
   attr http_client: httpx.AsyncClient | None
   attr http_security: HttpTargetValidationOptions | None
   attr ipfs_gateways: list[str] | None
+  attr max_cache_entries: int | None
   attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
   attr reference_to_url: Callable[[str], str] | None
   attr reference_to_urls: Callable[[str], list[str]] | None
@@ -413,7 +426,7 @@ class ProductionHttpResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_m
   attr unverified_document_ref_schemes: list[str] | None
 
 ## ProductionJsonRpcResolverProfileConfig
-class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str | None' = None, build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
+class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_ttl_ms: 'int | None' = None, max_cache_entries: 'int | None' = None, endpoint: 'str | None' = None, endpoints: 'list[str] | None' = None, method: 'str | None' = None, build_params: 'Callable[[str], list[Any]] | None' = None, headers: 'dict[str, str] | None' = None, http_client: 'httpx.AsyncClient | None' = None, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None) -> None
   attr build_params: Callable[[str], list[Any]] | None
   attr cache_ttl_ms: int | None
   attr endpoint: str | None
@@ -421,14 +434,16 @@ class ProductionJsonRpcResolverProfileConfig(registry: 'AgentRegistry', cache_tt
   attr headers: dict[str, str] | None
   attr http_client: httpx.AsyncClient | None
   attr http_security: HttpTargetValidationOptions | None
+  attr max_cache_entries: int | None
   attr method: str | None
   attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
   attr registry: AgentRegistry
 
 ## ProductionResolverProfileConfig
-class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, cache_ttl_ms: 'int | None' = None, on_resolution_event: 'object | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
+class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, cache_ttl_ms: 'int | None' = None, max_cache_entries: 'int | None' = None, on_resolution_event: 'object | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
   attr cache_ttl_ms: int | None
   attr document_source: DIDDocumentSource
+  attr max_cache_entries: int | None
   attr on_resolution_event: object | None
   attr registry: AgentRegistry
   attr unverified_document_ref_schemes: list[str] | None
@@ -529,10 +544,11 @@ class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
 
 ## UniversalResolverConfig
-class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, cache_ttl_ms: 'int' = 60000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
+class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, cache_ttl_ms: 'int' = 60000, max_cache_entries: 'int' = 1000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None) -> None
   attr cache_ttl_ms: int
   attr document_source: DIDDocumentSource
   attr fallback_resolver: DIDResolver | None
+  attr max_cache_entries: int
   attr on_resolution_event: Callable[[ResolverResolutionEvent], None] | None
   attr registry: AgentRegistry
   attr unverified_document_ref_schemes: list[str] | None

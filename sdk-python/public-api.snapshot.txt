@@ -21,6 +21,9 @@ BearerTokenHttpDIDDocumentSourceConfig
 CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
+DEFAULT_HTTP_TIMEOUT_MS
+DEFAULT_MAX_RESPONSE_BYTES
+DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
 DIDDocumentSource
 DIDResolver
 DID_VERIFICATION_RELATIONSHIPS
@@ -33,6 +36,7 @@ FilesystemDIDDocumentSourceConfig
 HttpDIDDocumentSource
 HttpDIDDocumentSourceConfig
 HttpRequestLike
+HttpSecurityOptions
 HttpSignatureError
 HttpSignatureRejection
 HttpTargetValidationOptions

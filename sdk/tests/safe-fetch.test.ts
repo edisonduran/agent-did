@@ -11,20 +11,135 @@ describe('createSafeFetch', () => {
   });
 
   it('uses the platform fetch without following redirects for IP literals and allowed private targets', async () => {
-    const spy = jest.fn().mockResolvedValue({ ok: false, status: 302 });
+    const spy = jest.fn().mockImplementation(async () => new Response(null, { status: 302 }));
     globalThis.fetch = spy as unknown as typeof fetch;
     const lookup = jest.fn();
 
-    await createSafeFetch({}, lookup)('https://93.184.216.34/a', { method: 'PUT', headers: { a: 'b' }, redirect: 'follow' });
+    const first = await createSafeFetch({}, lookup)('https://93.184.216.34/a', {
+      method: 'PUT',
+      headers: { a: 'b', 'Accept-Encoding': 'gzip' },
+      redirect: 'follow'
+    });
     await createSafeFetch({ allowPrivateTargets: true }, lookup)('http://internal.example.com/b');
 
+    expect(first.status).toBe(302);
     expect(spy).toHaveBeenNthCalledWith(1, 'https://93.184.216.34/a', {
       method: 'PUT',
-      headers: { a: 'b' },
-      redirect: 'manual'
+      headers: { a: 'b', 'accept-encoding': 'identity' },
+      redirect: 'manual',
+      signal: expect.any(AbortSignal)
     });
-    expect(spy).toHaveBeenNthCalledWith(2, 'http://internal.example.com/b', { redirect: 'manual' });
+    expect(spy).toHaveBeenNthCalledWith(2, 'http://internal.example.com/b', {
+      headers: { 'accept-encoding': 'identity' },
+      redirect: 'manual',
+      signal: expect.any(AbortSignal)
+    });
     expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it('rejects limits that are not positive integers', () => {
+    expect(() => createSafeFetch({ timeoutMs: 0 })).toThrow(TypeError);
+    expect(() => createSafeFetch({ timeoutMs: 1.5 })).toThrow(TypeError);
+    expect(() => createSafeFetch({ maxResponseBytes: -1 })).toThrow(TypeError);
+    expect(() => createSafeFetch({ maxResponseBytes: Number.POSITIVE_INFINITY })).toThrow(TypeError);
+  });
+
+  describe('limits, on both request paths', () => {
+    const LIMIT = 1000;
+    let server: http.Server;
+    let port: number;
+    let acceptEncodings: Array<string | undefined>;
+    const timers = new Set<NodeJS.Timeout>();
+
+    beforeEach(async () => {
+      acceptEncodings = [];
+      server = http.createServer((req, res) => {
+        acceptEncodings.push(String(req.headers['accept-encoding']));
+        switch (req.url) {
+          case '/hang':
+            return; // never answers
+          case '/trickle': {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            const timer = setInterval(() => res.write(' '), 20);
+            timers.add(timer);
+            req.on('close', () => clearInterval(timer));
+            return;
+          }
+          case '/declared-too-large':
+            res.writeHead(200, { 'content-length': String(LIMIT + 1) });
+            res.end('x'.repeat(LIMIT + 1));
+            return;
+          case '/streamed-too-large':
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.write('x'.repeat(LIMIT));
+            res.end('x');
+            return;
+          case '/at-limit':
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ pad: 'x'.repeat(LIMIT - 10) }));
+            return;
+          case '/gzip':
+            res.writeHead(200, { 'content-encoding': 'gzip' });
+            res.end('not really gzip');
+            return;
+          default:
+            res.writeHead(404);
+            res.end();
+        }
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      port = (server.address() as AddressInfo).port;
+    });
+
+    afterEach(async () => {
+      timers.forEach((timer) => clearInterval(timer));
+      timers.clear();
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    const paths: Array<[string, (path: string, options: { timeoutMs?: number; maxResponseBytes?: number }) => Promise<any>]> = [
+      [
+        'pinned connection',
+        (path, options) =>
+          createSafeFetch(options, async () => [{ address: '127.0.0.1' }], () => false)(`http://pinned.test:${port}${path}`)
+      ],
+      [
+        'platform fetch',
+        (path, options) => createSafeFetch({ ...options, allowPrivateTargets: true })(`http://127.0.0.1:${port}${path}`)
+      ]
+    ];
+
+    describe.each(paths)('%s', (_name, request) => {
+      it('asks for an unencoded body and accepts a body at the size limit', async () => {
+        const response = await request('/at-limit', { maxResponseBytes: LIMIT });
+
+        expect(response.ok).toBe(true);
+        expect(((await response.json()) as { pad: string }).pad).toHaveLength(LIMIT - 10);
+        expect(acceptEncodings).toEqual(['identity']);
+      });
+
+      it('gives up when the server does not answer within the deadline', async () => {
+        await expect(request('/hang', { timeoutMs: 200 })).rejects.toThrow('exceeded the 200 ms deadline');
+      });
+
+      it('applies the deadline to the whole body, so a server sending bytes slowly cannot extend it', async () => {
+        await expect(request('/trickle', { timeoutMs: 300 })).rejects.toThrow('exceeded the 300 ms deadline');
+      });
+
+      it('rejects a body larger than the limit, declared or streamed', async () => {
+        await expect(request('/declared-too-large', { maxResponseBytes: LIMIT })).rejects.toThrow(
+          `exceeds the ${LIMIT}-byte limit`
+        );
+        await expect(request('/streamed-too-large', { maxResponseBytes: LIMIT })).rejects.toThrow(
+          `exceeds the ${LIMIT}-byte limit`
+        );
+      });
+
+      it('rejects an encoded body, since its decoded size is not bounded by the limit', async () => {
+        await expect(request('/gzip', {})).rejects.toThrow('Content-Encoding "gzip"');
+      });
+    });
   });
 
   describe('against a local server', () => {

@@ -1,6 +1,6 @@
 import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
-import { validateHttpTarget, HttpTargetValidationOptions } from '../core/http-security';
+import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource } from './types';
 
 type FetchLikeResponse = {
@@ -23,7 +23,7 @@ export interface HttpDIDDocumentSourceConfig {
   referenceToUrls?: (documentRef: string) => string[];
   fetchFn?: FetchLike;
   ipfsGateways?: string[];
-  httpSecurity?: HttpTargetValidationOptions;
+  httpSecurity?: HttpSecurityOptions;
   storeMethod?: string;
   didLogStoreMethod?: string;
 }
@@ -33,7 +33,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
   private readonly referenceToUrls: ((documentRef: string) => string[]) | undefined;
   private readonly fetchFn: FetchLike;
   private readonly ipfsGateways: string[];
-  private readonly httpSecurity: HttpTargetValidationOptions;
+  private readonly httpSecurity: HttpSecurityOptions;
   private readonly storeMethod: string;
   private readonly didLogStoreMethod: string;
 

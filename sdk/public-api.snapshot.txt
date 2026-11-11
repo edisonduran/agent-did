@@ -29,6 +29,9 @@ CreateAgentResult
 CreateDidWebvhOptions
 createMetadataCommitment
 decodePublicKeyMultibase
+DEFAULT_HTTP_TIMEOUT_MS
+DEFAULT_MAX_RESPONSE_BYTES
+DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
 DID_VERIFICATION_RELATIONSHIPS
 DIDDocumentSource
 didKeyFromPublicKey
@@ -51,6 +54,7 @@ hashPayload
 HttpDIDDocumentSource
 HttpDIDDocumentSourceConfig
 HttpRequestLike
+HttpSecurityOptions
 HttpSignatureError
 HttpSignatureRejection
 HttpTargetValidationOptions
