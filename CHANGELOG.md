@@ -39,6 +39,7 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ### Fixed
 
+- `agent-did-sdk` imported `jsoncanon` without declaring it: the module was only installed because `did-webvh` 1.0.1 depends on it, so a `did-webvh` release that drops it would make `import agent_did_sdk` fail. The did:webvh adapter now canonicalizes the proof options with the SDK's own `canonicalize_json` (RFC 8785, `rfc8785`). The signed bytes do not change. `sdk-python/tests/test_declared_dependencies.py` fails when the package imports a module that `pyproject.toml` does not declare.
 - `verifyHttpRequestSignature` / `verify_http_request_signature` raised `IdentityCompositionError` instead of returning `false` when the `keyid` of a signed request is not an `assertionMethod` key of the `Signature-Agent` DID (for example a fragment the document does not have, or a key listed only under `keyAgreement`). The request is now rejected. Found by the new vectors.
 - `fixtures/canonical-document-reference.json`: the document carried a `publicKeyMultibase` that is hex, not base58btc (reported in #127). It now holds a valid key, and `expectedDocumentRef` changes to `hash://sha256/87402cb5f300dc199df404f4bab22fec471ecf1257ba621610fa47891c293dcf`. Readers pinned to an earlier commit of the fixture must update the expected value; the canonicalization itself is unchanged.
 

@@ -24,7 +24,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-import jsoncanon
 from did_webvh.core.file_utils import AsyncTextReader, AsyncTextReadError
 from did_webvh.core.hash_utils import DEFAULT_HASH, HashInfo
 from did_webvh.core.proof import di_jcs_canonicalize_input
@@ -35,6 +34,7 @@ from did_webvh.resolver import extend_document_services
 from did_webvh.verify import WebvhVerifier
 
 from ..core.signer import AgentSigner
+from ..crypto.hash import canonicalize_json
 from ..crypto.multibase import _base58_decode, _base58_encode, encode_public_key_multibase
 
 DID_WEBVH_PLACEHOLDER = "{DID}"
@@ -350,7 +350,7 @@ async def _sign_state(state: DocumentState, signer: AgentSigner, update_key: str
         "proofPurpose": "assertionMethod",
     }
     data_hash = hashlib.sha256(di_jcs_canonicalize_input(state.history_line())).digest()
-    options_hash = hashlib.sha256(jsoncanon.canonicalize(options)).digest()
+    options_hash = hashlib.sha256(canonicalize_json(options).encode("utf-8")).digest()
     signature = bytes.fromhex(await signer.sign(options_hash + data_hash))
     # Same member order as didwebvh-ts, so both SDKs emit identical log lines.
     proof = {

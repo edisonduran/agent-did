@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from agent_did_sdk.core.signer import LocalKeySigner
+from agent_did_sdk.crypto.hash import canonicalize_json
 from agent_did_sdk.crypto.multibase import _base58_encode
 from agent_did_sdk.webvh.adapter import (
     DID_WEBVH_PLACEHOLDER,
@@ -66,8 +67,6 @@ def rewrite_line(log: str, index: int, mutate: Any) -> str:
 
 async def resign_line(log: str, index: int, private_key_hex: str) -> str:
     """Replace the proof on one entry with a valid proof from another key."""
-    import jsoncanon
-
     signer = LocalKeySigner(private_key_hex)
     key = await did_webvh_update_key_for(signer)
     lines = log.rstrip("\n").split("\n")
@@ -75,9 +74,10 @@ async def resign_line(log: str, index: int, private_key_hex: str) -> str:
     template = {k: v for k, v in entry["proof"][0].items() if k != "proofValue"}
     template["verificationMethod"] = f"did:key:{key}#{key}"
     unsigned = {k: v for k, v in entry.items() if k != "proof"}
-    data = hashlib.sha256(jsoncanon.canonicalize(template)).digest() + hashlib.sha256(
-        jsoncanon.canonicalize(unsigned)
-    ).digest()
+    data = (
+        hashlib.sha256(canonicalize_json(template).encode("utf-8")).digest()
+        + hashlib.sha256(canonicalize_json(unsigned).encode("utf-8")).digest()
+    )
     signature = bytes.fromhex(await signer.sign(data))
     entry["proof"] = [{**template, "proofValue": "z" + _base58_encode(signature)}]
     lines[index] = json.dumps(entry, separators=(",", ":"))
