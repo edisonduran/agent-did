@@ -257,6 +257,17 @@ async function generate(): Promise<Fixture> {
       expected: { status: 'authorized', basis: 'time_evidence', signature: 'valid' }
     },
     {
+      id: 'retiring-entry-in-effect-deactivated-time-later',
+      log: 'rotatedLate', key: 'key-1', requiredPurpose: 'assertionMethod', statedTime: INPUTS.rotated,
+      expected: { status: 'not_authorized', reason: 'key_deactivated', foundIn: ['assertionMethod'], signature: 'invalid', signatureReason: 'key_not_authorized' }
+    },
+    {
+      id: 'retiring-entry-in-effect-evidence-before-deactivated-time',
+      log: 'rotatedLate', key: 'key-1', requiredPurpose: 'assertionMethod', statedTime: '2026-01-03T00:00:00.250Z',
+      trustedTimeNotAfter: '2026-01-03T00:00:00.300Z',
+      expected: { status: 'not_authorized', reason: 'key_deactivated', foundIn: ['assertionMethod'], signature: 'invalid', signatureReason: 'key_not_authorized' }
+    },
+    {
       id: 'did-deactivated-later',
       log: 'deactivated', key: 'key-2', requiredPurpose: 'assertionMethod', statedTime: '2026-01-03T12:00:00Z',
       expected: { status: 'indeterminate', reason: 'did_deactivated_after_stated_time', boundaryVersionNumber: 4, boundaryTime: deactivatedAt, signature: 'indeterminate' }
@@ -278,7 +289,7 @@ async function generate(): Promise<Fixture> {
   return {
     formatVersion: 1,
     description:
-      'RFC-001 §6.2.2: key checks at a stated time against a did:webvh log. Log "rotated": (1) key-1 under authentication, assertionMethod and capabilityDelegation; (2) key-1 leaves capabilityDelegation; (3) key-1 deactivated, key-2 added. Log "deactivated" adds (4) a deactivation. Log "rotatedLate" is "rotated" with key-1\'s deactivated time 500 ms after entry (3)\'s versionTime, as the SDK writes a rotation. A key authorized at the stated time and retired later is indeterminate unless trustedTimeNotAfter is earlier than the retirement. TEST-ONLY keys.',
+      'RFC-001 §6.2.2: key checks at a stated time against a did:webvh log. Log "rotated": (1) key-1 under authentication, assertionMethod and capabilityDelegation; (2) key-1 leaves capabilityDelegation; (3) key-1 deactivated, key-2 added. Log "deactivated" adds (4) a deactivation. Log "rotatedLate" is "rotated" with key-1\'s deactivated time 500 ms after entry (3)\'s versionTime, as the SDK writes a rotation. A key authorized at the stated time and retired later is indeterminate unless trustedTimeNotAfter is earlier than the retirement. The entry that gives a key a deactivated time retires it from the entry\'s versionTime; the deactivated time itself is not compared. TEST-ONLY keys.',
     regenerate: 'WRITE_KEY_AT_TIME_VECTORS=1 npm --prefix sdk test -- KeyAtTimeVectors.test.ts',
     inputs: INPUTS,
     did,
