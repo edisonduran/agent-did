@@ -34,7 +34,6 @@ async def create_agent(next_update_keys: list[str] | None = None) -> tuple[Agent
             name="RecoverableBot",
             core_model="test-model",
             system_prompt="test prompt",
-            did_method="webvh",
             webvh=CreateDidWebvhOptions(
                 domain="agents.example",
                 path_segments=["agents", "recoverable-bot"],

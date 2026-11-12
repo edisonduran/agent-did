@@ -62,7 +62,6 @@ from .types import (
 class AgentIdentityConfig:
     controller_signer: AgentSigner
     """Ed25519 signer of the controller (creator); its public key identifies it (``did:key``)."""
-    network: str = "polygon"
     client: AgentDidClient | None = None
     """Client owning the identity state; defaults to the process-wide default client."""
 
@@ -78,7 +77,6 @@ class AgentIdentity:
 
     def __init__(self, config: AgentIdentityConfig) -> None:
         self._controller_signer = config.controller_signer
-        self._network = config.network
         self._explicit_client = config.client
 
     @property
@@ -98,7 +96,7 @@ class AgentIdentity:
 
     async def create(self, params: CreateAgentParams) -> CreateAgentResult:
         """Create a new Agent-DID document (passport) from raw parameters."""
-        return await self.client.create_agent(self._controller_signer, self._network, params)
+        return await self.client.create_agent(self._controller_signer, params)
 
     async def sign_message(self, payload: str, key_or_signer: str | AgentSigner) -> str:
         """Sign *payload* with an Ed25519 private key (hex) or an AgentSigner."""

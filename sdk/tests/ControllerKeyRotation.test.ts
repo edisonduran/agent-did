@@ -17,7 +17,6 @@ async function createAgent(nextUpdateKeys?: string[]) {
     name: 'RecoverableBot',
     coreModel: 'test-model',
     systemPrompt: 'test prompt',
-    didMethod: 'webvh',
     webvh: {
       domain: 'agents.example',
       pathSegments: ['agents', 'recoverable-bot'],

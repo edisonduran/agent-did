@@ -93,7 +93,7 @@ describe('Redis NonceStore reference (sdk/examples/redis-nonce-store.js)', () =>
 
   it('rejects a replayed signed request across two instances sharing Redis, and a Redis outage refuses the request', async () => {
     const [signer] = LocalKeySigner.generate();
-    const identity = new AgentIdentity({ controllerSigner: signer, network: 'polygon' });
+    const identity = new AgentIdentity({ controllerSigner: signer });
     const { document, agentPrivateKey } = await identity.create({ name: 'RedisBot', coreModel: 'test', systemPrompt: 'test' });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"redis":true}' };
     const headers = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, expiresInSeconds: 120 });

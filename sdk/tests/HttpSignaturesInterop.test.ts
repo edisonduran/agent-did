@@ -23,7 +23,7 @@ function publicKeyObject(raw: Uint8Array): crypto.KeyObject {
 }
 
 describe('RFC 9421 interoperability with http-message-signatures', () => {
-  const identity = new AgentIdentity({ controllerSigner: LocalKeySigner.generate()[0], network: 'polygon' });
+  const identity = new AgentIdentity({ controllerSigner: LocalKeySigner.generate()[0] });
   const request = { method: 'POST', url: 'https://api.example.com/v1/orders?id=42', body: '{"qty":1}' };
 
   beforeEach(() => {
