@@ -55,7 +55,7 @@
     "@noble/curves": "^1.4.0",
     "@noble/hashes": "^1.4.0",
     "bs58": "^6.0.0",
-    "didwebvh-ts": "~3.1.0",
+    "didwebvh-ts": "3.1.0",
     "multiformats": "^13.1.0",
     "structured-headers": "^2.1.1"
   },
