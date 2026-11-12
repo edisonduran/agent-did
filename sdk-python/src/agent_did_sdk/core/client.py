@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,7 +13,7 @@ import httpx
 from nacl.signing import SigningKey
 
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
-from ..crypto.multibase import did_key_from_public_key, encode_public_key_multibase
+from ..crypto.multibase import did_key_from_public_key
 from ..http_signatures.verify_request import SignatureCheckOutcome, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
@@ -72,7 +70,6 @@ from .types import (
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     UpdateAgentDocumentParams,
-    VerificationMethod,
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
@@ -164,11 +161,8 @@ class AgentDidClient:
     def _now_iso_timestamp(self) -> str:
         return normalize_timestamp_to_iso(self._clock().isoformat())  # type: ignore[return-value]
 
-    async def create_agent(
-        self, controller_signer: AgentSigner, network: str, params: CreateAgentParams
-    ) -> CreateAgentResult:
+    async def create_agent(self, controller_signer: AgentSigner, params: CreateAgentParams) -> CreateAgentResult:
         """Create a new Agent-DID document (passport) in this client's state."""
-        did_method = params.did_method or "webvh"
         # Reject an unsupported relationship before generating keys or touching any store
         additional_relationship_entries(params.additional_verification_relationships, "")
         timestamp = self._now_iso_timestamp()
@@ -201,51 +195,13 @@ class AgentDidClient:
             private_key_hex = signing_key.encode().hex()
             public_key_bytes = bytes(signing_key.verify_key)
 
-        if did_method == "webvh":
-            return await self._create_did_webvh_agent(
-                params,
-                controller_key_did=controller_key_did,
-                timestamp=timestamp,
-                agent_metadata=agent_metadata,
-                public_key_bytes=public_key_bytes,
-                private_key_hex=private_key_hex,
-                metadata_commitment_salts=metadata_commitment_salts,
-            )
-
-        # Legacy did:agent profile
-        nonce = os.urandom(16).hex()
-        raw_id = hashlib.sha256(f"{controller_key_did}-{timestamp}-{nonce}".encode()).hexdigest()
-        agent_did = f"did:agent:{network}:{raw_id}"
-        controller_did = controller_key_did
-        verification_method_id = f"{agent_did}#key-1"
-        vm = VerificationMethod(
-            id=verification_method_id,
-            type="Ed25519VerificationKey2020",
-            controller=controller_did,
-            publicKeyMultibase=encode_public_key_multibase(public_key_bytes),
-        )
-        document = AgentDIDDocument(
-            **{
-                "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
-                "id": agent_did,
-                "controller": controller_did,
-                "created": timestamp,
-                "updated": timestamp,
-                "agentMetadata": agent_metadata,
-                "verificationMethod": [vm.model_dump(by_alias=True, exclude_none=True)],
-                "authentication": [verification_method_id],
-                "assertionMethod": [verification_method_id],
-                **additional_relationship_entries(params.additional_verification_relationships, verification_method_id),
-            }
-        )
-
-        self._resolver.register_document(document)
-        await self._registry.register(document.id, document.controller, compute_document_reference(document))
-        self._append_history(document, "created")
-
-        return CreateAgentResult(
-            document=document,
-            agent_private_key=private_key_hex,
+        return await self._create_did_webvh_agent(
+            params,
+            controller_key_did=controller_key_did,
+            timestamp=timestamp,
+            agent_metadata=agent_metadata,
+            public_key_bytes=public_key_bytes,
+            private_key_hex=private_key_hex,
             metadata_commitment_salts=metadata_commitment_salts,
         )
 
@@ -316,10 +272,10 @@ class AgentDidClient:
     @staticmethod
     def _require_webvh_create_options(params: CreateAgentParams) -> CreateDidWebvhOptions:
         if params.webvh is None or not params.webvh.domain.strip():
-            raise ValueError("webvh.domain is required when did_method is webvh")
+            raise ValueError("webvh.domain is required")
 
         if not params.webvh.controller_did.strip():
-            raise ValueError("webvh.controller_did is required when did_method is webvh")
+            raise ValueError("webvh.controller_did is required")
 
         return params.webvh
 

@@ -89,17 +89,6 @@ describe('additionalVerificationRelationships (RFC-001 §6.2.1.3)', () => {
     );
   });
 
-  it('applies to the legacy did:agent profile', async () => {
-    const { identity } = setup();
-    const { document } = await identity.create({
-      ...params,
-      didMethod: 'agent',
-      additionalVerificationRelationships: ['capabilityDelegation']
-    });
-    expect(document.capabilityDelegation).toEqual([`${document.id}#key-1`]);
-    expect(document.capabilityInvocation).toBeUndefined();
-  });
-
   it.each([['assertionMethod'], ['keyAgreement'], ['authentication'], ['']])(
     'rejects %p before creating anything',
     async (relationship) => {

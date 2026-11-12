@@ -5,8 +5,8 @@
       "https://www.w3.org/ns/did/v1",
       "https://agent-did.org/v1"
     ],
-    "id": "did:agent:polygon:0xcanonicalfixture",
-    "controller": "did:ethr:0xfixturecontroller",
+    "id": "did:webvh:QmCanonicalFixtureScid:fixtures.example:agents:canonical-fixture",
+    "controller": "did:webvh:QmCanonicalControllerScid:fixtures.example:organizations:canonical-controller",
     "created": "2024-01-01T00:00:00+00:00",
     "updated": "2024-01-02T03:04:05Z",
     "agentMetadata": {
@@ -22,15 +22,15 @@
     },
     "verificationMethod": [
       {
-        "id": "did:agent:polygon:0xcanonicalfixture#key-1",
+        "id": "did:webvh:QmCanonicalFixtureScid:fixtures.example:agents:canonical-fixture#key-1",
         "type": "Ed25519VerificationKey2020",
-        "controller": "did:ethr:0xfixturecontroller",
+        "controller": "did:webvh:QmCanonicalControllerScid:fixtures.example:organizations:canonical-controller",
         "publicKeyMultibase": "z6MktPRkkheyNrEEUFkbdFKopndngf3BV4X5Xis3cDkwABu9"
       }
     ],
     "authentication": [
-      "did:agent:polygon:0xcanonicalfixture#key-1"
+      "did:webvh:QmCanonicalFixtureScid:fixtures.example:agents:canonical-fixture#key-1"
     ]
   },
-  "expectedDocumentRef": "hash://sha256/87402cb5f300dc199df404f4bab22fec471ecf1257ba621610fa47891c293dcf"
+  "expectedDocumentRef": "hash://sha256/6a9b500a0278d4f43280f5bc58788e14c63be092925b7bd0d165bdd49e933b94"
 }

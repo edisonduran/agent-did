@@ -65,25 +65,12 @@ class TestAgentIdentityCreate:
         assert [entry.id for entry in chain] == [doc.id, doc.controller]
         assert len(result.agent_private_key) == 64  # 32 bytes hex
 
-    async def test_create_legacy_agent_when_explicitly_requested(self, identity: AgentIdentity) -> None:
-        result = await identity.create(CreateAgentParams(
-            name="LegacyBot",
-            core_model="gpt-4-turbo",
-            system_prompt="You are a legacy compatibility agent.",
-            did_method="agent",
-        ))
-        doc = result.document
-        assert re.fullmatch(r"did:agent:polygon:[0-9a-f]{64}", doc.id)
-        assert doc.controller.startswith("did:key:z6Mk")
-        assert doc.verification_method[0].blockchain_account_id is None
-
     async def test_create_webvh_agent_when_requested(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
             name="WebvhBot",
             description="A web-native agent identity",
             core_model="gpt-4.1-mini",
             system_prompt="You are a web-native agent.",
-            did_method="webvh",
             webvh={
                 "domain": "agents.example",
                 "path_segments": ["agents", "webvh-bot"],
@@ -113,7 +100,6 @@ class TestAgentIdentityCreate:
                 name="BrokenWebvhBot",
                 core_model="gpt-4.1-mini",
                 system_prompt="broken",
-                did_method="webvh",
                 webvh={
                     "domain": "agents.example",
                     "controller_did": "",
@@ -468,7 +454,6 @@ class TestAgentIdentityResolve:
             name="ControllerRoot",
             core_model="controller-model",
             system_prompt="You are the controller root.",
-            did_method="webvh",
             webvh={
                 "domain": "agents.example",
                 "path_segments": ["organizations", "acme-support"],
@@ -481,7 +466,6 @@ class TestAgentIdentityResolve:
             name="SupportBot",
             core_model="agent-model",
             system_prompt="You are a support agent.",
-            did_method="webvh",
             webvh={
                 "domain": "agents.example",
                 "path_segments": ["agents", "supportbot-x"],
@@ -965,13 +949,6 @@ class TestAgentIdentityHistory:
         assert source.loaded_refs == [document_ref]
         assert (await AgentIdentity.resolve(did)).id == did
 
-    async def test_export_did_webvh_history_rejects_legacy_did(self, identity: AgentIdentity) -> None:
-        result = await identity.create(CreateAgentParams(
-            name="LegacyHistoryBot",
-            core_model="m",
-            system_prompt="p",
-            did_method="agent",
-        ))
-
+    async def test_export_did_webvh_history_rejects_a_did_that_is_not_webvh(self) -> None:
         with pytest.raises(ValueError, match="did:webvh DID is required"):
-            AgentIdentity.export_did_webvh_history(result.document.id)
+            AgentIdentity.export_did_webvh_history("did:example:123")

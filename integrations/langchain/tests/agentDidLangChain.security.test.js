@@ -3,7 +3,7 @@ const { createAgentDidTools } = require("../src");
 
 describe("@agentdid/langchain security edge cases", () => {
   const signer = LocalKeySigner.generate()[0];
-  const agentIdentity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
+  const agentIdentity = new AgentIdentity({ controllerSigner: signer });
 
   beforeAll(() => {
     AgentIdentity.setRegistry(new InMemoryAgentRegistry());

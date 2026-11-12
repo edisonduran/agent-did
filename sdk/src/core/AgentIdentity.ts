@@ -49,7 +49,6 @@ export interface AgentIdentityConfig {
    * (`did:key`) and, for did:webvh, authorizes the log. Use a KMS/HSM-backed `AgentSigner` in production.
    */
   controllerSigner: AgentSigner;
-  network?: string; // Network label of the legacy did:agent profile, e.g. 'polygon', 'base'
   /**
    * Client that owns the identity state (resolver, registry, did:webvh logs...) this
    * identity creates documents in. Defaults to the process-wide default client.
@@ -60,12 +59,10 @@ export interface AgentIdentityConfig {
 export class AgentIdentity {
   private static defaultClient: AgentDidClient = new AgentDidClient();
   private readonly controllerSigner: AgentSigner;
-  private readonly network: string;
   private readonly explicitClient?: AgentDidClient;
 
   constructor(config: AgentIdentityConfig) {
     this.controllerSigner = config.controllerSigner;
-    this.network = config.network || 'polygon';
     this.explicitClient = config.client;
   }
 
@@ -92,7 +89,7 @@ export class AgentIdentity {
    * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
    */
   public async create(params: CreateAgentParams): Promise<CreateAgentResult> {
-    return this.client.createAgent(this.controllerSigner, this.network, params);
+    return this.client.createAgent(this.controllerSigner, params);
   }
 
   /**

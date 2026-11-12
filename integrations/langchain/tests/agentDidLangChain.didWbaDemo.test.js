@@ -72,7 +72,7 @@ describe("@agentdid/langchain did:wba integrated demo", () => {
   it("supports an active did:wba runtime, partner resolution, and verifiable HTTP signing", async () => {
     const signer = LocalKeySigner.generate()[0];
     const registry = new InMemoryAgentRegistry();
-    const identity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
+    const identity = new AgentIdentity({ controllerSigner: signer });
     const createdIdentity = await identity.create({
       name: "weather_demo_bot",
       description: "Base identity used to derive a did:wba runtime",

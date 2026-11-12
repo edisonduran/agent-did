@@ -20,7 +20,7 @@ export interface VerifiableCredentialLink {
 }
 
 export interface VerificationMethod {
-  id: string; // e.g., "did:agent:0x...#key-1" or "did:webvh:...#key-1"
+  id: string; // e.g., "did:webvh:...#key-1"
   type: string; // e.g., "Ed25519VerificationKey2020" or "EcdsaSecp256k1RecoveryMethod2020"
   controller: string; // DID of the creator/owner
   publicKeyMultibase?: string;
@@ -141,10 +141,8 @@ export interface CreateAgentParams {
   memberOf?: string;
   /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
   signer?: import('./signer').AgentSigner;
-  /** DID emission profile. Defaults to the canonical `did:webvh` profile. */
-  didMethod?: 'agent' | 'webvh';
   /**
-   * Optional when `didMethod` is `webvh`. When omitted, the local `agents.local` profile is used and a
+   * Optional. When omitted, the local `agents.local` profile is used and a
    * bootstrap controller with a random key is registered (see `CreateAgentResult.controllerPrivateKey`).
    * When provided, `controllerDid` must be published by its owner; the SDK does not fabricate it.
    */

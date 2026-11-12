@@ -108,14 +108,6 @@ async def test_rejects_a_delegation_from_an_agent_created_without_the_option() -
         assert_key_purpose(f"{did}#key-1", result.document, required_relationship_for("delegation"))
 
 
-async def test_applies_to_the_legacy_did_agent_profile() -> None:
-    _, identity = _setup()
-    params = _params(did_method="agent", additional_verification_relationships=["capabilityDelegation"])
-    document = (await identity.create(params)).document
-    assert document.capability_delegation == [f"{document.id}#key-1"]
-    assert document.capability_invocation is None
-
-
 @pytest.mark.parametrize("relationship", ["assertionMethod", "keyAgreement", "authentication", ""])
 def test_rejects_an_unsupported_relationship_in_the_params(relationship: str) -> None:
     with pytest.raises(ValidationError):
@@ -128,7 +120,6 @@ async def test_rejects_an_unsupported_value_before_creating_anything(requested: 
     client, identity = _setup()
     params = CreateAgentParams.model_construct(
         **BASE,
-        did_method="webvh",
         additional_verification_relationships=requested,
     )
     with pytest.raises(ValueError):

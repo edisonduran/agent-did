@@ -98,6 +98,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | LangChain JS tests no longer pass the removed `network` option to `AgentIdentity` (the legacy `did:agent` profile is gone from both SDKs). Tests only; no change to the integration surface in either package. |
 | 2026-11-12 | LangChain JS `sign_http_request` passes `allowPrivateNetworkTargets` to the SDK target policy and rejects IPv6 private literals (`URL.hostname` keeps the brackets); LangChain Python gets the matching IPv6 test. Tool behavior is aligned in both packages. |
 | 2026-11-05 | LangChain TS did:wba demo and test queue a final model response, because newer `@langchain/core` `fakeModel` throws once its response queue is empty. Test fixtures only; no change to the integration surface and no TS/Python parity impact. |
 | 2026-11-04 | LangChain Python README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |
