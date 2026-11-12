@@ -40,7 +40,8 @@ class DIDResolver(Protocol):
     """A DID resolver. A resolver that fetches did:webvh logs may also implement
     ``async resolve_did_webvh_log(did) -> DidWebvhResolution | None`` so the controller binding can be checked;
     it rejects when the log cannot be fetched or verified (fail closed) and returns ``None`` when it holds only the
-    document."""
+    document. A caching resolver may also implement ``evict(did) -> None``, which drops what it holds for *did* so the
+    next resolution fetches it again (unlike ``remove``, it never deletes a document it is the only source of)."""
 
     def register_document(self, document: AgentDIDDocument) -> None: ...
     async def resolve(self, did: str) -> AgentDIDDocument: ...

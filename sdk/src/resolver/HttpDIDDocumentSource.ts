@@ -1,3 +1,4 @@
+import { assertAgentDidDocument } from '../core/document-guard';
 import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
@@ -223,6 +224,8 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
       throw new Error('HTTP DID document response does not expose a readable JSON body');
     }
 
-    return response.json() as Promise<AgentDIDDocument>;
+    const body: unknown = await response.json();
+    assertAgentDidDocument(body, 'The HTTP response body');
+    return body;
   }
 }

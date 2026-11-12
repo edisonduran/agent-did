@@ -32,6 +32,15 @@ def get_active_authentication_key_id(runtime_identity: RuntimeIdentity) -> str |
     return first_authentication_method
 
 
+def get_active_signing_key_id(runtime_identity: RuntimeIdentity) -> str | None:
+    """The key the agent signs payloads and HTTP requests with: the key of the last rotation, else the first active
+    key under ``assertionMethod``, the relationship verifiers require for both (RFC-001 §6.2.1.3)."""
+    if isinstance(runtime_identity, RotateVerificationMethodResult):
+        return runtime_identity.verification_method_id
+    document = runtime_identity.document
+    retired = {method.id for method in document.verification_method if method.deactivated}
+    return next((key_id for key_id in document.assertion_method or [] if key_id not in retired), None)
+
 def build_agent_did_identity_snapshot(runtime_identity: RuntimeIdentity) -> AgentDidIdentitySnapshot:
     document = runtime_identity.document
     metadata = document.agent_metadata

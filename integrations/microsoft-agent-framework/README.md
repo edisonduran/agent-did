@@ -136,6 +136,12 @@ El diseno de esta API surgio de una conversacion publica con [@haroldmalikfrimpo
 - Race condition de key-rotation durante handoff: [microsoft/agent-framework#4842 (comentario)](https://github.com/microsoft/agent-framework/issues/4842#issuecomment-4327716940).
 
 
+## Edad maxima y verificacion fresca en handoffs
+
+- La edad maxima de un mensaje depende de `action_class` (`HANDOFF_MAX_AGE_DEFAULTS`: 60 s `irreversible`, 600 s `compensable`, 3600 s `reversible`); `add_verified_handoff(..., max_age_seconds=...)` la baja, o la sube salvo en `irreversible`. El TTL por clase es solo la ventana de gracia para rotacion de clave.
+- Un salto `irreversible` o entre dominios descarta antes la resolucion en cache del emisor (`evict_cached_resolution`), asi que una clave retirada o un DID revocado dentro del TTL de la cache del resolver se detecta.
+- La firma cubre `trust_domain`.
+
 ## Tools expuestas por defecto
 
 - `agent_did_get_current_identity`

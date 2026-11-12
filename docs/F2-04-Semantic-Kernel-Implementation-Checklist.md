@@ -88,6 +88,7 @@ F2-04 is implementation-ready for release review when the package has a function
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | Tools sign with the first active `assertionMethod` key (`get_active_signing_key_id`), which verifiers require, instead of `authentication[0]`. |
 | 2026-11-12 | `sign_http_request` raises `ValueError` when the runtime identity has no active authentication key, because the SDK now requires the verification method id (same behavior as the A2A client). Type-check fix; no other change to the integration surface. |
 | 2026-11-12 | RC metadata moved to the `1.0.0rc5` release train (npm `1.0.0-rc.5`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-04 | Semantic Kernel README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |

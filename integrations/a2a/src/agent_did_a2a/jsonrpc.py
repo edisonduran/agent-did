@@ -15,7 +15,7 @@ from typing import Any
 from agent_did_sdk import AgentIdentity, SignHttpRequestParams, VerifyHttpRequestSignatureParams
 from pydantic import BaseModel, ConfigDict, Field
 
-from .snapshot import RuntimeIdentity, get_active_authentication_key_id
+from .snapshot import RuntimeIdentity, get_active_signing_key_id
 
 # --- JSON-RPC 2.0 Models ---
 
@@ -107,9 +107,9 @@ async def sign_a2a_request(
 
     body = jsonrpc_request.model_dump_json()
     agent_did = runtime_identity.document.id
-    key_id = get_active_authentication_key_id(runtime_identity)
+    key_id = get_active_signing_key_id(runtime_identity)
     if key_id is None:
-        raise ValueError("The runtime identity has no active authentication key to sign with")
+        raise ValueError("The runtime identity has no active assertionMethod key to sign with")
 
     signed_headers = await agent_identity.sign_http_request(
         SignHttpRequestParams(

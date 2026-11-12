@@ -47,6 +47,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
         executor_id: str | None = None,
         output_type: Any = object,
         nonce_store: NonceStore | None = None,
+        max_age_seconds: int | None = None,
     ) -> AgentDidWorkflowBuilder:
         """Insert an Agent-DID verifier between ``from_executor`` and ``to_executor``.
 
@@ -76,6 +77,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
             executor_id=executor_id,
             output_type=output_type,
             nonce_store=nonce_store,
+            max_age_seconds=max_age_seconds,
         )
         self.add_edge(from_executor, verifier)
         self.add_edge(verifier, to_executor)

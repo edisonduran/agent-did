@@ -102,6 +102,8 @@ export declare class AgentDidClient {
     private readonly bootstrapControllers;
     /** Serializes the creation of a bootstrap controller per creator key. */
     private readonly bootstrapControllerLocks;
+    /** One lifecycle operation (update, rotation, revocation, import) at a time per DID, so none is lost. */
+    private readonly didLocks;
     constructor(options?: AgentDidClientOptions);
     private nowIsoTimestamp;
     /**
@@ -118,6 +120,8 @@ export declare class AgentDidClient {
      */
     private createDidWebvhAgent;
     private requireWebvhCreateOptions;
+    /** Runs `operation` after every earlier lifecycle operation of `did` in this client has settled. */
+    private withDidLock;
     /**
      * Returns the local bootstrap controller for a creator's `did:key`, creating it on first use.
      * Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
@@ -190,6 +194,12 @@ export declare class AgentDidClient {
     /** The binding of `did` (and of its controllers) to its controller chain as it is now, from the client's own log. */
     private assertDidWebvhBoundNow;
     /**
+     * Drops the resolver's cached resolution of `did`, so the next verification fetches and verifies it again (for a
+     * check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
+     * not cache (`DIDResolver.evict` not implemented).
+     */
+    evictCachedResolution(did: string): void;
+    /**
      * Resolves a DID into its corresponding Agent-DID Document.
      * Uses the configured resolver (in-memory or production) to retrieve the document.
      */
@@ -209,8 +219,11 @@ export declare class AgentDidClient {
      * the registry.
      */
     revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
+    private revokeDidLocked;
     updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
+    private updateDidDocumentLocked;
     rotateVerificationMethod(did: string, options?: RotateVerificationMethodOptions): Promise<RotateVerificationMethodResult>;
+    private rotateVerificationMethodLocked;
     /**
      * Adds a key to the document of `did` without retiring any other key, listed under `options.relationships`
      * (default: `capabilityInvocation`). It is the first step of rotating the key that endorses the agents a DID
@@ -218,6 +231,7 @@ export declare class AgentDidClient {
      * the old one with `rotateVerificationMethod` (RFC-001 §6.6 item 7).
      */
     addVerificationMethod(did: string, options?: AddVerificationMethodOptions): Promise<AddVerificationMethodResult>;
+    private addVerificationMethodLocked;
     /**
      * Rotates the controller key of a did:webvh DID: appends a log entry whose `updateKeys` is
      * `newControllerSigner`'s key. This is the recovery path after a compromise of the controller key,
@@ -232,6 +246,7 @@ export declare class AgentDidClient {
      * Commit to the following key in `nextUpdateKeys`, or the key you rotate to stays the only valid next key.
      */
     rotateControllerKey(did: string, options: RotateControllerKeyOptions): Promise<DidWebvhControllerKeys>;
+    private rotateControllerKeyLocked;
     /** The controller keys of a did:webvh DID, from its verified log (including pre-rotation commitments). */
     getDidWebvhControllerKeys(did: string): Promise<DidWebvhControllerKeys>;
     getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
@@ -243,6 +258,7 @@ export declare class AgentDidClient {
      * DID afterwards requires its controller signer (`options.controllerSigner`).
      */
     importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
+    private importResolvedDidWebvhLog;
     saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void>;
     loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument>;
     persistDidWebvhHistoryToSource(did: string, documentRef: string, source: DIDDocumentSource): Promise<void>;
@@ -368,6 +384,18 @@ export declare function activeCapabilityInvocationKeys(controller: AgentDIDDocum
  * entry) is an active `capabilityInvocation` key of `controller`.
  */
 export declare function assertBoundToController(agent: AgentDIDDocument, lastEntrySignerKeys: readonly string[], controller: AgentDIDDocument): void;
+
+## core/document-guard.d.ts
+/**
+ * Runtime check of documents that come from outside the process (a did:webvh log, an HTTP or JSON-RPC answer, a
+ * file): the TypeScript types say nothing about them. It accepts and rejects what the Python SDK's
+ * `AgentDIDDocument` model does, so both SDKs fail the same way on a malformed document.
+ */
+import { AgentDIDDocument } from './types';
+/** Why `value` is not an Agent-DID document, or `undefined` when it is one. */
+export declare function agentDidDocumentProblem(value: unknown): string | undefined;
+/** Throws unless `value` is an Agent-DID document; `source` says where it came from in the message. */
+export declare function assertAgentDidDocument(value: unknown, source: string): asserts value is AgentDIDDocument;
 
 ## core/http-profile.d.ts
 /** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
@@ -542,16 +570,25 @@ export interface InMemoryNonceStoreOptions {
      * which would reopen a replay window. Default: 100 000.
      */
     maxEntries?: number;
+    /**
+     * Upper bound on live entries of one scope: the part of the key before its last space, which is the `keyid` of an
+     * HTTP signature (`"<keyid> <nonce>"`). It keeps one signer from filling the store and locking every other signer
+     * out. Default: 10 000.
+     */
+    maxEntriesPerScope?: number;
     /** Clock in Unix seconds; injectable for tests. */
     now?: () => number;
 }
 /** Process-local `NonceStore`. Suitable for a single verifier instance. */
 export declare class InMemoryNonceStore implements NonceStore {
     private readonly entries;
+    private readonly scopeCounts;
     private readonly maxEntries;
+    private readonly maxEntriesPerScope;
     private readonly now;
     constructor(options?: InMemoryNonceStoreOptions);
     checkAndStore(key: string, expiresAt: number): Promise<boolean>;
+    private isFull;
     /** Number of live entries (expired ones may linger until the next purge). */
     get size(): number;
     private purge;
@@ -1504,6 +1541,11 @@ export interface DIDResolver {
      * controller binding can be checked; failing to fetch rejects (fail closed).
      */
     resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
+    /**
+     * Optional: drops what a caching resolver holds for `did`, so the next resolution fetches it again. Unlike
+     * `remove`, it never deletes a document the resolver is the only source of.
+     */
+    evict?(did: string): void;
 }
 export interface DIDDocumentSource {
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
@@ -1594,6 +1636,8 @@ export declare class UniversalResolverClient implements DIDResolver {
      */
     resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined>;
     remove(did: string): void;
+    /** Drops the cached resolution of `did` (not the fallback resolver's documents): the next resolution fetches. */
+    evict(did: string): void;
     getCacheStats(): ResolverCacheStats;
     private resolveWithFallback;
     private resolveDidWba;
@@ -1826,10 +1870,6 @@ export declare function compareDidWebvhLogs(stored: string, candidate: string): 
 export declare function deriveDidWebvhLogUrl(did: string): string;
 
 ## webvh/documents.d.ts
-/**
- * Pure helpers that build the documents and history derived from did:webvh logs.
- * No state and no I/O: `AgentDidClient` owns the stores and calls these.
- */
 import { AdditionalVerificationRelationship, AgentDIDDocument, AgentDocumentHistoryEntry } from '../core/types';
 export declare function cloneDocument(document: AgentDIDDocument): AgentDIDDocument;
 export declare function computeDocumentReference(document: AgentDIDDocument): string;

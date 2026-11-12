@@ -173,6 +173,7 @@ This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edison
 
 - Default resolver is in-memory (not persistent) — use production resolver for real deployments
 - Default replay store (`InMemoryNonceStore`) is per process — use a shared `NonceStore` when more than one instance verifies HTTP signatures
+- did:webvh domains: every label must have at least two characters and start with a letter (`x.com` and `3m.com` are refused). The Python did:webvh library (`did-webvh`) refuses other labels, and both SDKs accept only what both libraries resolve
 - Optional EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
 - EVM timestamps consumed as Unix-string, SDK normalizes to ISO-8601
 
