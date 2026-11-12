@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 from collections.abc import Callable
@@ -158,6 +159,7 @@ class AgentDidClient:
         self._did_webvh_signer_store: dict[str, AgentSigner] = {}
         # Local bootstrap controllers, keyed by lowercase controller wallet address.
         self._bootstrap_controllers: dict[str, tuple[str, AgentSigner]] = {}
+        self._bootstrap_controller_locks: dict[str, asyncio.Lock] = {}
 
     def _now_iso_timestamp(self) -> str:
         return normalize_timestamp_to_iso(self._clock().isoformat())  # type: ignore[return-value]
@@ -326,8 +328,14 @@ class AgentDidClient:
 
         Its did:webvh log is signed by a controller key generated with a CSPRNG; the key is
         returned to the caller exactly once (third element) and never derived from public data.
+        Concurrent creates for the same creator share one bootstrap controller (a lock per creator key).
         """
         address = controller_key_did.strip()
+        lock = self._bootstrap_controller_locks.setdefault(address, asyncio.Lock())
+        async with lock:
+            return await self._create_or_reuse_bootstrap_controller(address)
+
+    async def _create_or_reuse_bootstrap_controller(self, address: str) -> tuple[str, AgentSigner, str | None]:
         key_id = address.removeprefix("did:key:")
         existing = self._bootstrap_controllers.get(address)
         if existing is not None and await self._registry.get_record(existing[0]) is not None:

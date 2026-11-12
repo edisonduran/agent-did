@@ -277,9 +277,10 @@ class FilesystemDIDDocumentSource(config: 'FilesystemDIDDocumentSourceConfig | N
   def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## FilesystemDIDDocumentSourceConfig
-class FilesystemDIDDocumentSourceConfig(reference_to_path: 'Callable[[str], str | Path] | None' = None, reference_to_paths: 'Callable[[str], list[str | Path]] | None' = None) -> None
+class FilesystemDIDDocumentSourceConfig(root_directory: 'str | Path | None' = None, reference_to_path: 'Callable[[str], str | Path] | None' = None, reference_to_paths: 'Callable[[str], list[str | Path]] | None' = None) -> None
   attr reference_to_path: Callable[[str], str | Path] | None
   attr reference_to_paths: Callable[[str], list[str | Path]] | None
+  attr root_directory: str | Path | None
 
 ## HttpDIDDocumentSource
 class HttpDIDDocumentSource(config: 'HttpDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -508,10 +509,10 @@ value SIGNED_ARTIFACT_KINDS = ('assertion', 'http_request', 'delegation', 'invoc
 value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
 
 ## SignHttpRequestParams
-class SignHttpRequestParams(*, method: str, url: str, body: str | None = None, agent_private_key: str | None = None, signer: typing.Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: typing.Any | None = None) -> None
+class SignHttpRequestParams(*, method: str, url: str, body: str | bytes | None = None, agent_private_key: str | None = None, signer: typing.Any | None = None, agent_did: str, verification_method_id: str | None = None, expires_in_seconds: int | None = None, http_security: typing.Any | None = None) -> None
   attr agent_did: str
   attr agent_private_key: str | None
-  attr body: str | None
+  attr body: str | bytes | None
   attr expires_in_seconds: int | None
   attr http_security: Any | None
   attr method: str
@@ -590,8 +591,8 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
 
 ## VerifyHttpRequestSignatureParams
-class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
-  attr body: str | None
+class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
+  attr body: str | bytes | None
   attr headers: dict[str, str]
   attr max_created_skew_seconds: int | None
   attr max_signature_lifetime_seconds: int | None

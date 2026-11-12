@@ -211,7 +211,6 @@ When these LangChain integrations change, the repository also expects the paired
 ```bash
 npm install
 npm --prefix sdk install
-npm --prefix contracts install
 python -m pip install -e "./sdk-python[dev]"
 ```
 

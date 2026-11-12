@@ -89,7 +89,8 @@ function validateHttpTarget(url, allowPrivateNetworkTargets) {
     throw new Error("An absolute URL with hostname is required");
   }
 
-  const normalizedHostname = hostname.toLowerCase();
+  // URL.hostname keeps the brackets of an IPv6 literal ("[::1]"), which net.isIP does not accept
+  const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/gu, "");
   if (allowPrivateNetworkTargets) {
     return;
   }
@@ -373,6 +374,8 @@ function createAgentDidTools(options) {
             agentPrivateKey: options.runtimeIdentity.agentPrivateKey,
             agentDid: options.runtimeIdentity.document.id,
             verificationMethodId: keyId,
+            // The SDK applies its own target policy too: without this, allowPrivateNetworkTargets would not reach it
+            httpSecurity: { allowPrivateTargets: options.allowPrivateNetworkTargets === true },
           });
 
           emitToolSucceeded(observer, {

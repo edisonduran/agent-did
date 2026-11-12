@@ -143,6 +143,13 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 - A DID with pre-rotation in force (section 6) is revoked in two log entries, both signed by the committed key: the first ends pre-rotation, the second deactivates. The call is the same.
 - The SDK depends on `didwebvh-ts` `3.1.0` exactly (was the range `~3.0.0`), so an install gets the release the SDK was tested with. `didwebvh-ts` 3.0.1, which the earlier range admits, already writes the entry this way. If your project also depends on `didwebvh-ts` with another version, npm installs both.
 
+## 12. `FilesystemDIDDocumentSource` needs a root directory or a mapping; IPFS gateway; binary bodies
+
+- `new FilesystemDIDDocumentSource()` throws. Pass `{ rootDirectory }` (a reference is stored as `<root>/<safe name>.json`) or `referenceToPath` / `referenceToPaths`, as before. Files written by the old default under a raw reference path are not found under the new names.
+- The default IPFS gateway is `https://ipfs.io/ipfs/` only (`cloudflare-ipfs.com` is retired). Set `ipfsGateways` for others.
+- `body` of `signHttpRequest` and `verifyHttpRequestSignature` is `string | Uint8Array`. Strings behave as before.
+- `WebvhDIDDocumentSource` and `WebvhDIDDocumentSourceConfig` are exported from `@agentdid/sdk`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

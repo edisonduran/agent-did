@@ -15,9 +15,10 @@ export const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[] = [
 /** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
 export const AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did';
 
-/** RFC 9530 `Content-Digest` with SHA-256. */
-export function computeContentDigest(body?: string): string {
-  const digest = sha256(new TextEncoder().encode(body || ''));
+/** RFC 9530 `Content-Digest` with SHA-256 of the body bytes (a string is hashed as UTF-8). */
+export function computeContentDigest(body?: string | Uint8Array): string {
+  const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : (body ?? new Uint8Array());
+  const digest = sha256(bytes);
   return `sha-256=:${Buffer.from(digest).toString('base64')}:`;
 }
 

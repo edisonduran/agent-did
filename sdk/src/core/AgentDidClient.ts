@@ -147,6 +147,8 @@ export class AgentDidClient {
   private readonly didWebvhSignerStore: Map<string, AgentSigner> = new Map();
   /** Local bootstrap controllers, keyed by the creator's did:key. */
   private readonly bootstrapControllers: Map<string, { did: string; signer: AgentSigner }> = new Map();
+  /** Serializes the creation of a bootstrap controller per creator key. */
+  private readonly bootstrapControllerLocks: Map<string, Promise<void>> = new Map();
 
   constructor(options: AgentDidClientOptions = {}) {
     this.resolver = options.resolver ?? new InMemoryDIDResolver();
@@ -342,7 +344,27 @@ export class AgentDidClient {
   private async ensureBootstrapController(
     controllerKeyDid: string
   ): Promise<{ did: string; signer: AgentSigner; privateKey?: string }> {
+    // Concurrent creates for the same creator share one bootstrap controller: the later ones wait for the first
     const address = controllerKeyDid.trim();
+    const pending = this.bootstrapControllerLocks.get(address) ?? Promise.resolve();
+    const run = pending.then(() => this.createOrReuseBootstrapController(address));
+    const settled = run.then(
+      () => undefined,
+      () => undefined
+    );
+    this.bootstrapControllerLocks.set(address, settled);
+    try {
+      return await run;
+    } finally {
+      if (this.bootstrapControllerLocks.get(address) === settled) {
+        this.bootstrapControllerLocks.delete(address);
+      }
+    }
+  }
+
+  private async createOrReuseBootstrapController(
+    address: string
+  ): Promise<{ did: string; signer: AgentSigner; privateKey?: string }> {
     const keyId = address.replace(/^did:key:/u, '');
     const existing = this.bootstrapControllers.get(address);
     if (existing && await this.registry.getRecord(existing.did)) {

@@ -130,6 +130,7 @@ export {
   HttpDIDDocumentSourceConfig
 } from './resolver/HttpDIDDocumentSource';
 
+export { WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig } from './resolver/WebvhDIDDocumentSource';
 export {
   BearerTokenHttpDIDDocumentSource,
   BearerTokenHttpDIDDocumentSourceConfig

@@ -200,7 +200,8 @@ class SignHttpRequestParams(BaseModel):
 
     method: str
     url: str
-    body: str | None = None
+    body: str | bytes | None = None
+    """Request body; bytes are hashed as they are, a string as UTF-8."""
     agent_private_key: str | None = None
     signer: Any | None = None  # AgentSigner — preferred over agent_private_key
     agent_did: str
@@ -212,7 +213,8 @@ class SignHttpRequestParams(BaseModel):
 class VerifyHttpRequestSignatureParams(BaseModel):
     method: str
     url: str
-    body: str | None = None
+    body: str | bytes | None = None
+    """Request body; bytes are hashed as they are, a string as UTF-8."""
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     headers: dict[str, str]

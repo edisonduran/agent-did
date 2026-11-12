@@ -25,7 +25,6 @@ class HttpDIDDocumentSourceConfig:
 
 
 _DEFAULT_IPFS_GATEWAYS = [
-    "https://cloudflare-ipfs.com/ipfs/",
     "https://ipfs.io/ipfs/",
 ]
 

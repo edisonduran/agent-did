@@ -3,8 +3,17 @@ import { AgentDIDDocument } from '../core/types';
 import { DIDDocumentSource } from './types';
 
 export interface FilesystemDIDDocumentSourceConfig {
+  /** Directory the default mapping writes to: a reference becomes `<rootDirectory>/<reference with unsafe characters replaced by _>.json`. */
+  rootDirectory?: string;
+  /** Maps a reference to a path. Required unless `rootDirectory` or `referenceToPaths` is given: a reference is never used as a path as it is. */
   referenceToPath?: (documentRef: string) => string;
   referenceToPaths?: (documentRef: string) => string[];
+}
+
+/** The file name of a reference under `rootDirectory`: path separators, `..` and anything outside `[A-Za-z0-9._-]` are replaced. */
+function safeFileName(documentRef: string): string {
+  const name = documentRef.replace(/[^A-Za-z0-9._-]/gu, '_').replace(/^\.+/u, '_');
+  return `${name || '_'}.json`;
 }
 
 export class FilesystemDIDDocumentSource implements DIDDocumentSource {
@@ -12,7 +21,14 @@ export class FilesystemDIDDocumentSource implements DIDDocumentSource {
   private readonly referenceToPaths: ((documentRef: string) => string[]) | undefined;
 
   constructor(config: FilesystemDIDDocumentSourceConfig = {}) {
-    this.referenceToPath = config.referenceToPath || ((documentRef) => documentRef);
+    const rootDirectory = config.rootDirectory;
+    if (!config.referenceToPath && !config.referenceToPaths && !rootDirectory) {
+      throw new TypeError(
+        'FilesystemDIDDocumentSource needs rootDirectory, referenceToPath or referenceToPaths: a reference is not used as a path as it is'
+      );
+    }
+    this.referenceToPath =
+      config.referenceToPath || ((documentRef) => path.join(rootDirectory ?? '.', safeFileName(documentRef)));
     this.referenceToPaths = config.referenceToPaths;
   }
 
