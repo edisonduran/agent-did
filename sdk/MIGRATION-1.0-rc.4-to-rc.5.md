@@ -141,7 +141,7 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 
 - `getDidWebvhControllerKeys` (and `metadata.updateKeys` from the adapter module) return an empty list for a revoked DID. The key that signed the revocation is in the proof of the last log entry.
 - A DID with pre-rotation in force (section 6) is revoked in two log entries, both signed by the committed key: the first ends pre-rotation, the second deactivates. The call is the same.
-- The SDK depends on `didwebvh-ts` `~3.1.0` (was `~3.0.0`). `didwebvh-ts` 3.0.1, which the earlier range admits, already writes the entry this way.
+- The SDK depends on `didwebvh-ts` `3.1.0` exactly (was the range `~3.0.0`), so an install gets the release the SDK was tested with. `didwebvh-ts` 3.0.1, which the earlier range admits, already writes the entry this way. If your project also depends on `didwebvh-ts` with another version, npm installs both.
 
 ## Checklist
 
