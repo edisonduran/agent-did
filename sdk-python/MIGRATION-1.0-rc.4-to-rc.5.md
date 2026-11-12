@@ -217,6 +217,17 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `sign_message` signs `agent-did/v1/message` + a line feed + the payload, and `verify_signature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 21. New: who signed an HTTP request, and allow-lists (optional)
+
+- An accepted `verify_http_request_signature_detailed` result carries `did`, `key_id` and `controllers` (the controller chain, nearest first). `HttpSignatureRejection` gains `did_not_allowed` and `controller_not_allowed`.
+- A valid signature proves which DID signed, not that you should accept it. Pass `allowed_dids` (the `Signature-Agent` DIDs you accept; checked before any resolution) and/or `allowed_controllers` (accept agents operated by these controllers), or read `result.did` and decide yourself. A2A: `verify_a2a_request(..., allowed_controllers=[...])`, or `verify_a2a_request_detailed`.
+
+```python
+result = await client.verify_http_request_signature_detailed(
+    VerifyHttpRequestSignatureParams(**request, allowed_controllers=[partner_org_did])
+)
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -241,3 +252,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] DIDs rotated in rc.4 were republished once (`update_did_document`) so retired keys leave the relationships.
 - [ ] `FilesystemDIDDocumentSource` has a `root_directory` or a mapping; `create` no longer passes `did_method` or `network`.
 - [ ] Microsoft Agent Framework handoffs are signed with `sign_handoff` and edges that move irreversible actions set `allowed_dids`.
+- [ ] Every HTTP verifier either passes `allowed_dids` / `allowed_controllers` or checks `result.did` before trusting the request.

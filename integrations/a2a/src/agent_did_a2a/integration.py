@@ -146,8 +146,13 @@ class AgentDidA2AIntegration:
         url: str,
         headers: dict[str, str],
         body: str | None = None,
+        allowed_dids: list[str] | None = None,
+        allowed_controllers: list[str] | None = None,
     ) -> bool:
-        """Verify an incoming A2A request's HTTP Signature."""
+        """Verify an incoming A2A request's HTTP Signature.
+
+        Without ``allowed_dids`` / ``allowed_controllers`` any sender with a valid key passes; see
+        :func:`verify_a2a_request_detailed` to learn who signed."""
 
         self.observer.emit(
             "agent_did.a2a.request.verifying",
@@ -160,6 +165,8 @@ class AgentDidA2AIntegration:
             url=url,
             headers=headers,
             body=body,
+            allowed_dids=allowed_dids,
+            allowed_controllers=allowed_controllers,
         )
 
         self.observer.emit(

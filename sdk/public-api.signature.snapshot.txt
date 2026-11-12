@@ -165,7 +165,7 @@ export declare class AgentDidClient {
      * (see `HttpSignatureRejection`). Test `result.ok`: the result object is truthy for a rejection too.
      */
     verifyHttpRequestSignatureDetailed(params: VerifyHttpRequestSignatureParams): Promise<VerifyHttpRequestSignatureResult>;
-    /** `verifySignature` that tells apart the ways a verification can fail. */
+    /** `verifySignature` that tells apart the ways a verification can fail, with the controller chain. */
     private checkSignature;
     /**
      * Verifies that a payload signature (`signMessage`, which covers `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`)
@@ -884,6 +884,18 @@ export interface VerifyHttpRequestSignatureParams {
      * use a shared store when several verifier instances serve the same agents.
      */
     nonceStore?: import('./nonce-store').NonceStore;
+    /**
+     * Accept only these `Signature-Agent` DIDs (exact match). Checked before any resolution, so a request from any
+     * other DID costs no network call. A valid signature only proves which DID signed: without `allowedDids` or
+     * `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job (read
+     * `result.did` / `result.controllers`).
+     */
+    allowedDids?: readonly string[];
+    /**
+     * Accept only agents whose controller chain (`result.controllers`) includes one of these DIDs, for example the
+     * organization that operates them. Checked after the signature verifies. When both lists are set, both apply.
+     */
+    allowedControllers?: readonly string[];
 }
 /**
  * Why `verifyHttpRequestSignatureDetailed` rejected a request. When the request carries several
@@ -911,14 +923,22 @@ export interface VerifyHttpRequestSignatureParams {
  *   the document does not have, or a key listed only under another relationship).
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
+ * - `did_not_allowed`: `allowedDids` is set and the `Signature-Agent` DID is not in it.
+ * - `controller_not_allowed`: `allowedControllers` is set and no DID of the controller chain is in it.
  */
-export type HttpSignatureRejection = 'missing_headers' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed';
+export type HttpSignatureRejection = 'missing_headers' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed' | 'did_not_allowed' | 'controller_not_allowed';
 /**
  * Result of `verifyHttpRequestSignatureDetailed`. Always test `result.ok`: the object itself is
  * truthy for a rejection too, which is why `verifyHttpRequestSignature` keeps returning a boolean.
  */
 export type VerifyHttpRequestSignatureResult = {
     ok: true;
+    /** The `Signature-Agent` DID: who signed. A valid signature does not make it authorized. */
+    did: string;
+    /** The verification method that signed (`keyid`). */
+    keyId: string;
+    /** The controller chain of `did`, nearest first (empty for a DID that controls itself). */
+    controllers: string[];
 } | {
     ok: false;
     reason: HttpSignatureRejection;
@@ -1119,9 +1139,14 @@ import { VerificationRelationship, VerifyHttpRequestSignatureParams, VerifyHttpR
 import { NonceStore } from '../core/nonce-store';
 /** What the injected cryptographic check found. */
 export type SignatureCheckOutcome = 'valid' | 'invalid' | 'key_not_authorized' | 'did_resolution_failed' | 'controller_not_bound';
+/** What the injected check found and, for a valid signature, the controller chain of the DID (nearest first). */
+export interface SignatureCheck {
+    outcome: SignatureCheckOutcome;
+    controllers?: string[];
+}
 export interface VerifyRequestDeps {
     /** Verifies `signatureHex` over `payload` by `keyId` under the DID `did`. */
-    verifySignature: (did: string, payload: string, signatureHex: string, keyId: string, purpose: VerificationRelationship) => Promise<SignatureCheckOutcome>;
+    verifySignature: (did: string, payload: string, signatureHex: string, keyId: string, purpose: VerificationRelationship) => Promise<SignatureCheck>;
     nonceStore: NonceStore;
     now: Date;
 }

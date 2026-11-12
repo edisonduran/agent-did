@@ -7,6 +7,7 @@ TypeScript parity: ``sdk/src/http-signatures/verify-request.ts``.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -36,10 +37,18 @@ SignatureCheckOutcome = Literal[
 ]
 """What the injected cryptographic check found."""
 
-# (did, payload, signature_hex, key_id, purpose) -> outcome
-VerifySignatureFn = Callable[[str, str, str, str, VerificationRelationship], Awaitable[SignatureCheckOutcome]]
 
-_OK = VerifyHttpRequestSignatureResult(ok=True)
+
+@dataclass(frozen=True)
+class SignatureCheck:
+    """What the injected check found and, for a valid signature, the controller chain of the DID (nearest first)."""
+
+    outcome: SignatureCheckOutcome
+    controllers: tuple[str, ...] = ()
+
+
+# (did, payload, signature_hex, key_id, purpose) -> check
+VerifySignatureFn = Callable[[str, str, str, str, VerificationRelationship], Awaitable[SignatureCheck]]
 
 
 def _reject(reason: HttpSignatureRejection) -> VerifyHttpRequestSignatureResult:
@@ -62,6 +71,9 @@ async def verify_agent_did_http_request(
     signature_agent = headers.get("signature-agent")
     if not headers.get("signature") or not headers.get("signature-input") or not signature_agent:
         return _reject("missing_headers")
+    # Before any resolution: a DID outside the list costs no network call
+    if params.allowed_dids is not None and signature_agent not in params.allowed_dids:
+        return _reject("did_not_allowed")
     if headers.get("content-digest") != compute_content_digest(params.body):
         return _reject("digest_mismatch")
 
@@ -135,9 +147,10 @@ async def verify_agent_did_http_request(
             failures.append(("signed_component_missing", True))
             continue
 
-        outcome = await verify_signature(
+        check = await verify_signature(
             signature_agent, signature_base, signature.hex(), key_id, REQUIRED_RELATIONSHIP_BY_ARTIFACT["http_request"]
         )
+        outcome = check.outcome
         if outcome != "valid":
             if outcome == "did_resolution_failed":
                 failures.append(("did_resolution_failed", True))
@@ -149,9 +162,17 @@ async def verify_agent_did_http_request(
                 failures.append(("signature_invalid", True))
             continue
 
-        # Record the nonce only for a valid signature, so forged requests cannot burn nonces.
+        controllers = list(check.controllers)
+        allowed_controllers = params.allowed_controllers
+        if allowed_controllers is not None and not any(c in allowed_controllers for c in controllers):
+            failures.append(("controller_not_allowed", True))
+            continue
+
+        # Record the nonce only for an accepted signature, so forged or refused requests cannot burn nonces.
         if await store.check_and_store(f"{key_id} {nonce}", expires):
-            return _OK
+            return VerifyHttpRequestSignatureResult(
+                ok=True, did=signature_agent, key_id=key_id, controllers=controllers
+            )
         return _reject("nonce_replayed")
 
     tagged = [reason for reason, is_tagged in failures if is_tagged]

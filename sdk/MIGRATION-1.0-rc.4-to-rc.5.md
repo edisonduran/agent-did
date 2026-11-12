@@ -191,6 +191,15 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `signMessage` signs `agent-did/v1/message` + a line feed + the payload, and `verifySignature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 21. New: who signed an HTTP request, and allow-lists (optional)
+
+- An accepted `verifyHttpRequestSignatureDetailed` result is `{ ok: true, did, keyId, controllers }`. `HttpSignatureRejection` gains `did_not_allowed` and `controller_not_allowed`: a `switch` that lists every reason needs the two new cases.
+- A valid signature proves which DID signed, not that you should accept it. Pass `allowedDids` (the `Signature-Agent` DIDs you accept; checked before any resolution) and/or `allowedControllers` (accept agents operated by these controllers), or read `result.did` and decide yourself.
+
+```ts
+const result = await client.verifyHttpRequestSignatureDetailed({ ...request, allowedControllers: [partnerOrgDid] });
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -215,3 +224,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] DIDs rotated in rc.4 were republished once (`updateDidDocument`) so retired keys leave the relationships.
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
+- [ ] Every HTTP verifier either passes `allowedDids` / `allowedControllers` or checks `result.did` before trusting the request.
