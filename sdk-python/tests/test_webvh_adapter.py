@@ -425,6 +425,49 @@ class TestDidWebvhCrossSdkVectors:
         } == expected
         assert resolved.version_number == vector["resolved"]["versionNumber"]
 
+    def test_has_per_version_expectations_for_every_deactivated_log(self) -> None:
+        resolvable = [*_VECTORS["deterministic"], *_VECTORS["resolveOnly"]]
+        deactivated = [vector["name"] for vector in resolvable if vector.get("deactivated") is True]
+        assert deactivated
+        assert [vector["name"] for vector in resolvable if "versions" in vector] == deactivated
+
+    @pytest.mark.parametrize(
+        "vector",
+        [vector for vector in _VECTORS["resolveOnly"] if "versions" in vector],
+        ids=lambda vector: vector["name"],
+    )
+    async def test_resolves_every_version_by_number_id_and_time(self, vector: dict[str, Any]) -> None:
+        versions = vector["versions"]
+        assert len(versions) == len(vector["log"].strip().split("\n"))
+        for version in versions:
+            selections: list[dict[str, Any]] = [
+                {"version_number": version["versionNumber"]},
+                {"version_id": version["versionId"]},
+                {"version_time": version["versionTime"]},
+            ]
+            for selection in selections:
+                resolved = await resolve_did_webvh_log(vector["log"], **selection)
+                assert resolved.version_number == version["versionNumber"], selection
+                assert resolved.document == version["document"], selection
+                assert {
+                    "versionId": resolved.metadata.version_id,
+                    "versionTime": resolved.metadata.version_time,
+                    "created": resolved.metadata.created,
+                    "updated": resolved.metadata.updated,
+                    "scid": resolved.metadata.scid,
+                    "updateKeys": resolved.metadata.update_keys,
+                    "nextKeyHashes": resolved.metadata.next_key_hashes,
+                    "deactivated": resolved.metadata.deactivated,
+                    "ttl": resolved.metadata.ttl,
+                } == version["metadata"], selection
+                assert resolved.metadata.deactivated is True
+
+    @pytest.mark.parametrize("vector", _VECTORS["negative"], ids=lambda vector: vector["name"])
+    async def test_rejects_at_every_selected_version(self, vector: dict[str, Any]) -> None:
+        for version_number in range(1, len(vector["log"].strip().split("\n")) + 1):
+            with pytest.raises(DidWebvhError):
+                await resolve_did_webvh_log(vector["log"], version_number=version_number)
+
     @pytest.mark.parametrize("vector", _VECTORS["negative"], ids=lambda vector: vector["name"])
     async def test_rejects(self, vector: dict[str, Any]) -> None:
         with pytest.raises(DidWebvhError):

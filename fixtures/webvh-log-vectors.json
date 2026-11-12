@@ -472,7 +472,262 @@
           "ttl": "3600"
         },
         "versionNumber": 4
-      }
+      },
+      "versions": [
+        {
+          "versionNumber": 1,
+          "versionId": "1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt",
+          "versionTime": "2026-01-01T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt",
+            "versionTime": "2026-01-01T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-01T00:00:00Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 2,
+          "versionId": "2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2",
+          "versionTime": "2026-01-02T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.1.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+              "capabilities": [
+                "read:tickets",
+                "write:replies",
+                "escalate:human"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2",
+            "versionTime": "2026-01-02T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-02T00:00:00Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 3,
+          "versionId": "3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k",
+          "versionTime": "2026-01-03T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.1.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+              "capabilities": [
+                "read:tickets",
+                "write:replies",
+                "escalate:human"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k",
+            "versionTime": "2026-01-03T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-03T00:00:00Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 4,
+          "versionId": "4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK",
+          "versionTime": "2026-11-11T22:32:09Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.1.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+              "capabilities": [
+                "read:tickets",
+                "write:replies",
+                "escalate:human"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK",
+            "versionTime": "2026-11-11T22:32:09Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-11-11T22:32:09Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        }
+      ]
     },
     {
       "name": "prerotation-deactivate",
@@ -525,7 +780,250 @@
           "ttl": "3600"
         },
         "versionNumber": 4
-      }
+      },
+      "versions": [
+        {
+          "versionNumber": 1,
+          "versionId": "1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn",
+          "versionTime": "2026-01-01T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn",
+            "versionTime": "2026-01-01T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-01T00:00:00Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [
+              "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+            ],
+            "nextKeyHashes": [
+              "Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa"
+            ],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 2,
+          "versionId": "2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv",
+          "versionTime": "2026-01-02T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv",
+            "versionTime": "2026-01-02T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-02T00:00:00Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [
+              "z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC"
+            ],
+            "nextKeyHashes": [
+              "QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze"
+            ],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 3,
+          "versionId": "3-Qmcr5QW3k2UbdmkpEsmVrhp5MA5gazuBt9vUi1bW616Wta",
+          "versionTime": "2026-11-11T22:32:09Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "3-Qmcr5QW3k2UbdmkpEsmVrhp5MA5gazuBt9vUi1bW616Wta",
+            "versionTime": "2026-11-11T22:32:09Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-11-11T22:32:09Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [
+              "z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 4,
+          "versionId": "4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi",
+          "versionTime": "2026-11-11T22:32:10Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            }
+          },
+          "metadata": {
+            "versionId": "4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi",
+            "versionTime": "2026-11-11T22:32:10Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-11-11T22:32:10Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        }
+      ]
     },
     {
       "name": "legacy-deactivate-keeping-update-keys",
@@ -594,7 +1092,264 @@
           "ttl": "3600"
         },
         "versionNumber": 4
-      }
+      },
+      "versions": [
+        {
+          "versionNumber": 1,
+          "versionId": "1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt",
+          "versionTime": "2026-01-01T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt",
+            "versionTime": "2026-01-01T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-01T00:00:00Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 2,
+          "versionId": "2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2",
+          "versionTime": "2026-01-02T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.1.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+              "capabilities": [
+                "read:tickets",
+                "write:replies",
+                "escalate:human"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2",
+            "versionTime": "2026-01-02T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-02T00:00:00Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 3,
+          "versionId": "3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k",
+          "versionTime": "2026-01-03T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.1.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+              "capabilities": [
+                "read:tickets",
+                "write:replies",
+                "escalate:human"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k",
+            "versionTime": "2026-01-03T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-03T00:00:00Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 4,
+          "versionId": "4-QmbcJ4unLRDNkqWzwrWU6EWzYb8Bw8xtFwGoq1AmZwxCQ6",
+          "versionTime": "2026-11-07T04:25:04Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.1.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+              "capabilities": [
+                "read:tickets",
+                "write:replies",
+                "escalate:human"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "4-QmbcJ4unLRDNkqWzwrWU6EWzYb8Bw8xtFwGoq1AmZwxCQ6",
+            "versionTime": "2026-11-07T04:25:04Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-11-07T04:25:04Z",
+            "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
+            "updateKeys": [
+              "z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        }
+      ]
     },
     {
       "name": "legacy-prerotation-deactivate-in-one-entry",
@@ -649,7 +1404,189 @@
           "ttl": "3600"
         },
         "versionNumber": 3
-      }
+      },
+      "versions": [
+        {
+          "versionNumber": 1,
+          "versionId": "1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn",
+          "versionTime": "2026-01-01T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn",
+            "versionTime": "2026-01-01T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-01T00:00:00Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [
+              "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+            ],
+            "nextKeyHashes": [
+              "Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa"
+            ],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 2,
+          "versionId": "2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv",
+          "versionTime": "2026-01-02T00:00:00Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            },
+            "service": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#files",
+                "type": "relativeRef",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+              },
+              {
+                "@context": "https://identity.foundation/linked-vp/contexts/v1",
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#whois",
+                "type": "LinkedVerifiablePresentation",
+                "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+              }
+            ]
+          },
+          "metadata": {
+            "versionId": "2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv",
+            "versionTime": "2026-01-02T00:00:00Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-01-02T00:00:00Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [
+              "z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC"
+            ],
+            "nextKeyHashes": [
+              "QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze"
+            ],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        },
+        {
+          "versionNumber": 3,
+          "versionId": "3-QmX6ZbU4hNKmH4no8YBa9jFqNFRTotMYEk41uPQGDtWTY2",
+          "versionTime": "2026-11-07T04:25:04Z",
+          "document": {
+            "@context": [
+              "https://www.w3.org/ns/did/v1",
+              "https://agent-did.org/v1"
+            ],
+            "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+            "controller": "did:webvh:QmControllerScid:controller.example.com",
+            "verificationMethod": [
+              {
+                "id": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1",
+                "type": "Multikey",
+                "controller": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+              }
+            ],
+            "authentication": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "assertionMethod": [
+              "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1"
+            ],
+            "agentMetadata": {
+              "name": "support-bot",
+              "version": "1.0.0",
+              "coreModelHash": "hash://hmac-sha256/model-commitment",
+              "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+              "capabilities": [
+                "read:tickets",
+                "write:replies"
+              ]
+            }
+          },
+          "metadata": {
+            "versionId": "3-QmX6ZbU4hNKmH4no8YBa9jFqNFRTotMYEk41uPQGDtWTY2",
+            "versionTime": "2026-11-07T04:25:04Z",
+            "created": "2026-01-01T00:00:00Z",
+            "updated": "2026-11-07T04:25:04Z",
+            "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
+            "updateKeys": [
+              "z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL"
+            ],
+            "nextKeyHashes": [],
+            "deactivated": true,
+            "ttl": "3600"
+          }
+        }
+      ]
     }
   ],
   "negative": [

@@ -1614,6 +1614,10 @@ export declare function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParam
  * Verifies a `did.jsonl` log (SCID, entry hash chain, `updateKeys` proofs,
  * version times) and returns the resolved document. Throws `DidWebvhError` on
  * any verification failure; it never returns a partially verified result.
+ *
+ * With `versionId`, `versionNumber` or `versionTime` it returns that version of the log. The whole log is
+ * still verified, and `metadata.deactivated` describes the DID, not the selected version: it is true for
+ * every version of a deactivated DID (DID Core section 7.1.2).
  */
 export declare function resolveDidWebvhLog(logText: string, options?: ResolveDidWebvhLogOptions): Promise<DidWebvhLogResult>;
 /**
