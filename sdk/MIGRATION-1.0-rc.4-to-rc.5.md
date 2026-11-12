@@ -135,6 +135,14 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 + result.versionNumber
 ```
 
+## 11. did:webvh revocation empties `updateKeys`
+
+`revokeDid` now writes the deactivation entry with `updateKeys: []`, as did:webvh v1.0 recommends: a revoked DID lists no key that could authorize a later entry. It kept the active keys before. Verification does not change, and logs revoked by an earlier release still verify.
+
+- `getDidWebvhControllerKeys` (and `metadata.updateKeys` from the adapter module) return an empty list for a revoked DID. The key that signed the revocation is in the proof of the last log entry.
+- A DID with pre-rotation in force (section 6) is revoked in two log entries, both signed by the committed key: the first ends pre-rotation, the second deactivates. The call is the same.
+- The SDK depends on `didwebvh-ts` `~3.1.0` (was `~3.0.0`). `didwebvh-ts` 3.0.1, which the earlier range admits, already writes the entry this way.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -148,6 +156,7 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`webvh.nextUpdateKeys`); it only helps if done before a compromise.
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `requiredRelationshipFor(...)` instead of the `assertionMethod` default.
 - [ ] Agents that issue delegations or invoke capabilities are created with `additionalVerificationRelationships`.
+- [ ] Code that reads the controller keys of a revoked did:webvh DID expects an empty list.
 - [ ] Calls to `verifyHistoricalSignature` are replaced with `verifySignatureAtTime`, and `indeterminate` is handled as not accepted.
 - [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.
 - [ ] Direct users of the did:webvh adapter read `result.versionNumber` instead of `result.metadata.versionNumber`.

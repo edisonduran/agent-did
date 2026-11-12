@@ -158,6 +158,8 @@ class TestDidWebvhAdapter:
         deactivated = await deactivate_did_webvh_log(log=created.log, signer=LocalKeySigner(CONTROLLER_KEY))
 
         assert deactivated.metadata.deactivated is True
+        # did:webvh v1.0: a deactivated DID lists no key that could authorize a later entry.
+        assert deactivated.metadata.update_keys == []
         resolved = await resolve_did_webvh_log(deactivated.log)
         assert resolved.metadata.deactivated is True
         assert resolved.document["id"] == created.did
