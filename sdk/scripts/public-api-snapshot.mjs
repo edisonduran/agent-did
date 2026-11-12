@@ -63,7 +63,8 @@ function main() {
     return;
   }
 
-  const currentSnapshot = fs.existsSync(snapshotPath) ? fs.readFileSync(snapshotPath, "utf8") : "";
+  // A Windows checkout with core.autocrlf=true has CRLF snapshots: compare the text, not the line endings
+  const currentSnapshot = fs.existsSync(snapshotPath) ? fs.readFileSync(snapshotPath, "utf8").replace(/\r\n/g, "\n") : "";
 
   if (currentSnapshot !== nextSnapshot) {
     console.error("Public API snapshot is out of date. Run `npm run api:snapshot` in sdk/ or `npm run api:snapshot` at the repo root.");
