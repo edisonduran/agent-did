@@ -32,7 +32,7 @@ class AgentDIDDocument(*, context: list[str], id: str, controller: str, created:
 
 ## AgentDidClient
 class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
-  def create_agent(self, controller_signer: 'AgentSigner', network: 'str', params: 'CreateAgentParams') -> 'CreateAgentResult'
+  def create_agent(self, controller_signer: 'AgentSigner', params: 'CreateAgentParams') -> 'CreateAgentResult'
   def export_did_webvh_history(self, did: 'str') -> 'str'
   def get_did_webvh_controller_keys(self, did: 'str') -> 'DidWebvhControllerKeys'
   def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
@@ -107,10 +107,9 @@ class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
   classmethod verify_signature(cls, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
 
 ## AgentIdentityConfig
-class AgentIdentityConfig(controller_signer: 'AgentSigner', network: 'str' = 'polygon', client: 'AgentDidClient | None' = None) -> None
+class AgentIdentityConfig(controller_signer: 'AgentSigner', client: 'AgentDidClient | None' = None) -> None
   attr client: AgentDidClient | None
   attr controller_signer: AgentSigner
-  attr network: str
 
 ## AgentMetadata
 class AgentMetadata(*, name: str, description: str | None = None, version: str, coreModelHash: str, systemPromptHash: str, capabilities: list[str] | None = None, memberOf: str | None = None) -> None
@@ -198,13 +197,12 @@ class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_tok
   attr token: str | None
 
 ## CreateAgentParams
-class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, did_method: Literal['agent', 'webvh'] = 'webvh', webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None, additional_verification_relationships: list[typing.Literal['capabilityDelegation', 'capabilityInvocation']] | None = None) -> None
+class CreateAgentParams(*, name: str, description: str | None = None, version: str | None = None, core_model: str, system_prompt: str, core_model_salt: str | None = None, system_prompt_salt: str | None = None, capabilities: list[str] | None = None, member_of: str | None = None, signer: typing.Any | None = None, webvh: agent_did_sdk.core.types.CreateDidWebvhOptions | None = None, additional_verification_relationships: list[typing.Literal['capabilityDelegation', 'capabilityInvocation']] | None = None) -> None
   attr additional_verification_relationships: list[AdditionalVerificationRelationship] | None
   attr capabilities: list[str] | None
   attr core_model: str
   attr core_model_salt: str | None
   attr description: str | None
-  attr did_method: Literal['agent', 'webvh']
   attr member_of: str | None
   attr name: str
   attr signer: Any | None

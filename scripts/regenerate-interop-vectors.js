@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regenerates fixtures/interop-vectors.json with a fresh Ed25519 keypair
- * and shared legacy + did:webvh vectors for the RFC 9421 Agent-DID HTTP signature profile.
+ * and the shared did:webvh vector for the RFC 9421 Agent-DID HTTP signature profile.
  *
  * Usage: node scripts/regenerate-interop-vectors.js
  */
@@ -152,12 +152,8 @@ function buildVector({ did, controller }) {
 }
 
 const fixture = {
-  formatVersion: 4,
+  formatVersion: 5,
   vectors: {
-    legacy: buildVector({
-      did: 'did:agent:polygon:0xinteropfixture',
-      controller: 'did:ethr:0xfixturecontroller'
-    }),
     webvh: buildVector({
       did: 'did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot',
       controller: 'did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller'

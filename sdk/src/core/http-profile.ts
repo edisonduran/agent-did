@@ -1,5 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, randomBytes } from '@noble/hashes/utils';
+import { bytesToBase64 } from '../crypto/base64';
 
 /** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
 export const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[] = [
@@ -19,7 +20,7 @@ export const AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did';
 export function computeContentDigest(body?: string | Uint8Array): string {
   const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : (body ?? new Uint8Array());
   const digest = sha256(bytes);
-  return `sha-256=:${Buffer.from(digest).toString('base64')}:`;
+  return `sha-256=:${bytesToBase64(digest)}:`;
 }
 
 /** 128-bit random nonce, hex encoded. */

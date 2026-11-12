@@ -111,7 +111,7 @@ export declare class AgentDidClient {
      * @param params The raw agent configuration (name, prompt, capabilities, etc.)
      * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
      */
-    createAgent(controllerSigner: AgentSigner, network: string, params: CreateAgentParams): Promise<CreateAgentResult>;
+    createAgent(controllerSigner: AgentSigner, params: CreateAgentParams): Promise<CreateAgentResult>;
     /**
      * Canonical did:webvh v1.0 profile: the agent document is the genesis entry of a
      * `did.jsonl` log signed by the controller key (the log's only `updateKeys` entry).
@@ -245,7 +245,6 @@ export interface AgentIdentityConfig {
      * (`did:key`) and, for did:webvh, authorizes the log. Use a KMS/HSM-backed `AgentSigner` in production.
      */
     controllerSigner: AgentSigner;
-    network?: string;
     /**
      * Client that owns the identity state (resolver, registry, did:webvh logs...) this
      * identity creates documents in. Defaults to the process-wide default client.
@@ -255,7 +254,6 @@ export interface AgentIdentityConfig {
 export declare class AgentIdentity {
     private static defaultClient;
     private readonly controllerSigner;
-    private readonly network;
     private readonly explicitClient?;
     constructor(config: AgentIdentityConfig);
     /** The client this identity creates documents in. */
@@ -685,10 +683,8 @@ export interface CreateAgentParams {
     memberOf?: string;
     /** Optional external signer. When omitted, a local Ed25519 key is generated (demo mode). */
     signer?: import('./signer').AgentSigner;
-    /** DID emission profile. Defaults to the canonical `did:webvh` profile. */
-    didMethod?: 'agent' | 'webvh';
     /**
-     * Optional when `didMethod` is `webvh`. When omitted, the local `agents.local` profile is used and a
+     * Optional. When omitted, the local `agents.local` profile is used and a
      * bootstrap controller with a random key is registered (see `CreateAgentResult.controllerPrivateKey`).
      * When provided, `controllerDid` must be published by its owner; the SDK does not fabricate it.
      */
@@ -920,6 +916,13 @@ export type VerifySignatureAtTimeResult = {
         status: 'indeterminate';
     }>;
 };
+
+## crypto/base64.d.ts
+/**
+ * Standard base64 (RFC 4648 §4) of bytes, without `Buffer`: the core runs where only web platform globals exist
+ * (`btoa` is available in Node.js 16+ and in browsers and workers).
+ */
+export declare function bytesToBase64(bytes: Uint8Array): string;
 
 ## crypto/hash.d.ts
 /**

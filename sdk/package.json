@@ -3,7 +3,17 @@
   "version": "1.0.0-rc.4",
   "description": "TypeScript SDK for creating, signing, and verifying Agent-DIDs based on RFC-001. Decentralized identity for autonomous AI agents with Ed25519 signatures, HTTP Bot Auth, and did:webvh logs.",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist/",
     "README.md",
@@ -14,7 +24,8 @@
     "api:check": "node ./scripts/public-api-snapshot.mjs --check",
     "api:signature:snapshot": "node ./scripts/public-api-signature-snapshot.mjs --write",
     "api:signature:check": "node ./scripts/public-api-signature-snapshot.mjs --check",
-    "build": "tsc",
+    "build": "tsc && node scripts/build-esm-wrapper.mjs",
+    "esm:check": "node scripts/check-esm-wrapper.mjs",
     "test": "jest",
     "prepublishOnly": "npm run api:check && npm run api:signature:check && npm run build && npm test"
   },

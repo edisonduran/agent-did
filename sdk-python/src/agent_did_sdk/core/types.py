@@ -127,7 +127,6 @@ class CreateAgentParams(BaseModel):
     capabilities: list[str] | None = None
     member_of: str | None = None
     signer: Any | None = None  # AgentSigner — optional external signer for production mode
-    did_method: Literal["agent", "webvh"] = "webvh"
     webvh: CreateDidWebvhOptions | None = None
     additional_verification_relationships: list[AdditionalVerificationRelationship] | None = None
     """Relationships to list the agent key under besides ``authentication`` and ``assertionMethod``.

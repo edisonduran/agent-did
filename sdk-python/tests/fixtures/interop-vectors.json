@@ -1,37 +1,6 @@
 {
-  "formatVersion": 4,
+  "formatVersion": 5,
   "vectors": {
-    "legacy": {
-      "did": "did:agent:polygon:0xinteropfixture",
-      "controller": "did:ethr:0xfixturecontroller",
-      "verificationMethod": {
-        "id": "did:agent:polygon:0xinteropfixture#key-1",
-        "type": "Ed25519VerificationKey2020",
-        "controller": "did:ethr:0xfixturecontroller",
-        "publicKeyMultibase": "z6MktPRkkheyNrEEUFkbdFKopndngf3BV4X5Xis3cDkwABu9"
-      },
-      "messageVector": {
-        "payload": "interop-message:v1",
-        "signatureHex": "27722747446ae7da5d4b211f6e7e40adca60b18441642c903eca8721669d5b8658e76bf186e2c1912b536a4ce7d788692fa13746f38dbedcd9614070f0aef304"
-      },
-      "httpVector": {
-        "method": "POST",
-        "url": "https://api.example.com/v1/interop?mode=fixture",
-        "body": "{\"fixture\":true}",
-        "date": "Mon, 01 Jan 2024 00:00:00 GMT",
-        "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
-        "headers": {
-          "Signature": "sig1=:c4/LzV54IjX0XNR3vZJ7CpYOlRGOSPArn08D/s+Uk0yytfCA2bpzZV35sOy0AURy4Vh2GzUkvCzHZkSWpvwiCQ==:",
-          "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067200;expires=2704067199;nonce=\"ff7a4ab6fdb94f71cb93c3bb77cd85aa\";keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-          "Signature-Agent": "did:agent:polygon:0xinteropfixture",
-          "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
-          "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
-        },
-        "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/interop\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:00 GMT\n\"signature-agent\": did:agent:polygon:0xinteropfixture\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067200;expires=2704067199;nonce=\"ff7a4ab6fdb94f71cb93c3bb77cd85aa\";keyid=\"did:agent:polygon:0xinteropfixture#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-        "maxCreatedSkewSeconds": 999999999,
-        "maxSignatureLifetimeSeconds": 999999999
-      }
-    },
     "webvh": {
       "did": "did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot",
       "controller": "did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller",
