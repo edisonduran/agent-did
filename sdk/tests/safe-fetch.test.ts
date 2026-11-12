@@ -210,6 +210,26 @@ describe('createSafeFetch', () => {
       }
     );
 
+    it('opens its own connection instead of reusing a pooled socket to the same host', async () => {
+      // Other code in the process talks to the same host:port through the global keep-alive agent
+      await new Promise<void>((resolve, reject) => {
+        http
+          .get(
+            { host: 'pooled.test', port, path: '/app', agent: http.globalAgent, lookup: (_h, _o, cb) => cb(null, [{ address: '127.0.0.1', family: 4 }] as never, 4) },
+            (res) => {
+              res.resume();
+              res.on('end', resolve);
+            }
+          )
+          .on('error', reject);
+      });
+
+      await expect(createSafeFetch({}, lookupTo('127.0.0.1'))(`http://pooled.test:${port}/did.jsonl`)).rejects.toThrow(
+        'private/reserved'
+      );
+      expect(received.map(({ url }) => url)).toEqual(['/app']);
+    });
+
     it('refuses when any resolved address is private, and when the name does not resolve', async () => {
       await expect(
         createSafeFetch({}, async () => [{ address: '93.184.216.34' }, { address: '127.0.0.1' }])(`http://mixed.test:${port}/`)

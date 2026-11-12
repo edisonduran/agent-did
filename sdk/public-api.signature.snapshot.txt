@@ -566,7 +566,8 @@ export declare class InMemoryNonceStore implements NonceStore {
  * - Host names are resolved once, at connection time, and the connection is refused when any
  *   resolved address is not globally routable. The address that was validated is the address that
  *   is connected to, so a DNS answer that changes after the check (rebinding) cannot redirect the
- *   request. TLS still verifies the original host name.
+ *   request. TLS still verifies the original host name. Each request opens its own connection, never a pooled
+ *   one, so a socket another part of the process opened to the same host is not reused unchecked.
  *
  * - Every request has one deadline (`timeoutMs`) covering lookup, connection and the whole body,
  *   and a maximum body size (`maxResponseBytes`). It asks for an unencoded body and rejects any
@@ -1257,6 +1258,13 @@ import { AgentDIDDocument } from '../core/types';
 import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
 import { DIDDocumentSource } from './types';
 export interface BearerTokenHttpDIDDocumentSourceConfig {
+    /**
+     * Origins (`https://storage.example.com`, port included when it is not the default) the credential may be sent
+     * to. Required and non-empty: a request to any other origin is refused before the token is resolved, so a source
+     * that is also given URLs derived from a DID (`wbaDocumentSource`, `webvhDocumentSource`) cannot hand the token
+     * to the DID's host.
+     */
+    allowedOrigins: string[];
     token?: string;
     getToken?: () => string | Promise<string>;
     headerName?: string;
@@ -1275,6 +1283,7 @@ export declare class BearerTokenHttpDIDDocumentSource implements DIDDocumentSour
     private readonly scheme;
     private readonly token;
     private readonly getToken;
+    private readonly allowedOrigins;
     constructor(config: BearerTokenHttpDIDDocumentSourceConfig);
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
     storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;

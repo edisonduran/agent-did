@@ -69,6 +69,9 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 - Two concurrent `create` calls of one creator share a single bootstrap controller (it could create two). `WebvhDIDDocumentSource` and its config are exported from the TypeScript package root, like in Python.
 - LangChain JS integration: `allowPrivateNetworkTargets` now reaches the SDK's own target policy (`httpSecurity`), and the IPv6 literals `[::1]`, `[fd00::1]`, `[fe80::1]` are rejected by default (the check never ran because `URL.hostname` keeps the brackets).
 - `sdk/package.json` no longer advertises EVM support (description, `web3` keyword); the root README no longer asks to install `contracts`; `langchain-python:install-dev` and `semantic-kernel:install-dev` work on every platform.
+- **`BearerTokenHttpDIDDocumentSource` requires `allowedOrigins` / `allowed_origins`** (breaking): the origins its credential may be sent to. A request to any other origin is refused before the token is resolved, so the source can also serve DID-derived URLs (`wbaDocumentSource`, `webvhDocumentSource`) without sending the token elsewhere.
+- `JsonRpcDIDDocumentSource` (both SDKs) reports an endpoint blocked by the target policy as an error, like `HttpDIDDocumentSource`, instead of returning "not found"; it returns `null` / `None` only when every endpoint answers "not found". TypeScript and Python now agree when a blocked endpoint sits next to one that answers "not found".
+- TypeScript: the default `fetch` of the document sources opens a connection of its own for each request to a host name instead of sharing the process-wide keep-alive pool, so every connection goes through the address check.
 
 ### Security
 
