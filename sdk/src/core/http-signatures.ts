@@ -7,6 +7,7 @@
  * Python parity: `agent_did_sdk.core.http_signatures`.
  */
 
+import { bytesToBase64 } from '../crypto/base64';
 import {
   parseDictionary,
   Token,
@@ -94,7 +95,7 @@ export function serializeSignature(label: string, signature: Uint8Array): string
   if (!KEY.test(label)) {
     throw new HttpSignatureError(`Invalid signature label: ${label}`);
   }
-  return `${label}=:${Buffer.from(signature).toString('base64')}:`;
+  return `${label}=:${bytesToBase64(signature)}:`;
 }
 
 // ---------------------------------------------------------------------------

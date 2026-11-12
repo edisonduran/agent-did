@@ -157,6 +157,10 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 - Existing `did:agent` documents registered in a registry still resolve and verify through the registry and `documentRef` path; new ones cannot be created. Create `did:webvh` agents and re-register.
 - Fixtures: if you pinned `fixtures/canonical-document-reference.json`, `expectedDocumentRef` is now `hash://sha256/6a9b500a0278d4f43280f5bc58788e14c63be092925b7bd0d165bdd49e933b94` (the document ids changed, not the canonicalization); `fixtures/interop-vectors.json` no longer has a `legacy` vector.
 
+## 14. `exports` map and ES module entry
+
+`@agentdid/sdk` now declares `exports`: the package root (`import` -> `dist/index.mjs`, `require` -> `dist/index.js`, types) and `./package.json`. ES module projects can `import { AgentIdentity } from '@agentdid/sdk'`; `require` keeps working and returns the same objects. Deep imports such as `@agentdid/sdk/dist/core/AgentIdentity` stop resolving: import from the package root.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
