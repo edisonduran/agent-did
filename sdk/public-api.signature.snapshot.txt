@@ -917,6 +917,13 @@ export type VerifySignatureAtTimeResult = {
     }>;
 };
 
+## crypto/base64.d.ts
+/**
+ * Standard base64 (RFC 4648 §4) of bytes, without `Buffer`: the core runs where only web platform globals exist
+ * (`btoa` is available in Node.js 16+ and in browsers and workers).
+ */
+export declare function bytesToBase64(bytes: Uint8Array): string;
+
 ## crypto/hash.d.ts
 /**
  * Generates a deterministic SHA-256 hash of a string payload (UTF-8 encoded).
