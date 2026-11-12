@@ -218,16 +218,19 @@ export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promis
 }
 
 export async function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams): Promise<DidWebvhLogResult> {
-  const log = parseLog(params.log);
-  const current = await resolveDidWebvhLog(params.log);
-  // While pre-rotation is active the deactivation is signed by a committed key, which becomes the update key.
-  const { signerKey, updateKeys } = await authorizeSigner(params.signer, current.metadata, undefined);
+  let current = await resolveDidWebvhLog(params.log);
+  // did:webvh v1.0 deactivates a pre-rotated DID in two entries: an entry under pre-rotation must carry the
+  // committed keys, so it cannot also empty `updateKeys`. A committed key first ends pre-rotation.
+  if (current.metadata.nextKeyHashes.length > 0) {
+    current = await updateDidWebvhLog({ log: params.log, signer: params.signer, nextUpdateKeys: [] });
+  }
+  const { signerKey } = await authorizeSigner(params.signer, current.metadata, undefined);
 
+  // The deactivation entry sets `updateKeys` to [] (the library default): no key can authorize a later entry.
   const result = await runLibraryOperation(() =>
     deactivateDID({
-      log,
+      log: parseLog(current.log),
       signer: toLibrarySigner(params.signer, signerKey),
-      ...(updateKeys !== undefined ? { updateKeys } : {}),
       verifier: defaultVerifier,
       fetch: noNetworkFetch,
     })

@@ -212,21 +212,22 @@ async def update_did_webvh_log(
 
 
 async def deactivate_did_webvh_log(*, log: str, signer: AgentSigner) -> DidWebvhLogResult:
-    """Append a controller-signed deactivation entry (``deactivated: true``)."""
-    entries = _parse_log(log)
-    current = await resolve_did_webvh_log(log)
-    # While pre-rotation is active the deactivation is signed by a committed key, which becomes the update key.
-    signer_key, effective_update_keys = await _authorize_signer(signer, current.metadata, None)
+    """Append a controller-signed deactivation entry (``deactivated: true``, ``updateKeys: []``).
 
-    last_state = await _load_last_state(log)
+    While pre-rotation is active this appends two entries, as did:webvh v1.0 requires: an entry under
+    pre-rotation must carry the committed keys, so it cannot also empty ``updateKeys``. A committed key first
+    ends pre-rotation and then signs the deactivation.
+    """
+    current = await resolve_did_webvh_log(log)
+    if current.metadata.next_key_hashes:
+        current = await update_did_webvh_log(log=log, signer=signer, next_update_keys=[])
+    signer_key, _ = await _authorize_signer(signer, current.metadata, None)
+
+    entries = _parse_log(current.log)
+    last_state = await _load_last_state(current.log)
     try:
-        state = last_state.create_next(
-            params_update={
-                "updateKeys": list(effective_update_keys or current.metadata.update_keys),
-                "nextKeyHashes": [],
-                "deactivated": True,
-            }
-        )
+        # No key can authorize a later entry.
+        state = last_state.create_next(params_update={"updateKeys": [], "nextKeyHashes": [], "deactivated": True})
     except ValueError as err:
         raise DidWebvhError("invalidInput", f"did:webvh operation failed: {err}") from None
     await _sign_state(state, signer, signer_key)

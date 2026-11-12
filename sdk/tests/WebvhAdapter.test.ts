@@ -133,6 +133,8 @@ describe('did:webvh adapter', () => {
     const deactivated = await deactivateDidWebvhLog({ log: created.log, signer: new LocalKeySigner(CONTROLLER_KEY) });
 
     expect(deactivated.metadata.deactivated).toBe(true);
+    // did:webvh v1.0: a deactivated DID lists no key that could authorize a later entry.
+    expect(deactivated.metadata.updateKeys).toEqual([]);
     const resolved = await resolveDidWebvhLog(deactivated.log);
     expect(resolved.metadata.deactivated).toBe(true);
     expect(resolved.document.id).toBe(created.did);

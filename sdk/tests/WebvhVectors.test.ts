@@ -213,6 +213,16 @@ async function witnessDeclaredLog(inputs: WebvhVectors['inputs']): Promise<strin
   return join(result.log.map((entry) => JSON.stringify(entry)));
 }
 
+/**
+ * Deactivation logs in the shape earlier releases wrote: the deactivation entry kept `updateKeys`, and a
+ * pre-rotated DID was deactivated in one entry. They are valid did:webvh v1.0 logs that both SDKs must keep
+ * resolving, and the adapters no longer write them, so regeneration carries them over from the fixture.
+ */
+function legacyVectors(): ResolvableVector[] {
+  const existing = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as WebvhVectors;
+  return existing.resolveOnly.filter((vector) => vector.name.startsWith('legacy-'));
+}
+
 async function generateVectors(): Promise<WebvhVectors> {
   const { created, updated, rotated, rotatedController, committed, preRotated, following } = await generateDeterministic(INPUTS);
   const deactivated = await deactivateDidWebvhLog({ log: rotated.log, signer: rotatedController });
@@ -238,6 +248,7 @@ async function generateVectors(): Promise<WebvhVectors> {
     resolveOnly: [
       vector('deactivate-with-rotated-key', deactivated),
       vector('prerotation-deactivate', preRotationDeactivated),
+      ...legacyVectors(),
     ],
     negative: [
       {

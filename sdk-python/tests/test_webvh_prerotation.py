@@ -145,13 +145,20 @@ class TestPreRotation:
             update_did_webvh_log(log=created.log, signer=K1, update_keys=[await key(K2)]), "invalidInput"
         )
 
-    async def test_deactivates_only_with_a_committed_key(self) -> None:
+    async def test_deactivates_only_with_a_committed_key_in_two_entries(self) -> None:
         created = await create_committed()
         await expect_code(deactivate_did_webvh_log(log=created.log, signer=K0), "unauthorized")
         deactivated = await deactivate_did_webvh_log(log=created.log, signer=K1)
         assert deactivated.metadata.deactivated is True
         assert deactivated.metadata.next_key_hashes == []
+        assert deactivated.metadata.update_keys == []
         assert (await resolve_did_webvh_log(deactivated.log)).metadata.deactivated is True
+
+        # did:webvh v1.0: the committed key first ends pre-rotation, then signs the deactivation.
+        entries = [json.loads(line) for line in deactivated.log.strip().split("\n")]
+        assert len(entries) == 3
+        assert entries[1]["parameters"] == {"updateKeys": [await key(K1)], "nextKeyHashes": [], "watchers": []}
+        assert entries[2]["parameters"] == {"updateKeys": [], "nextKeyHashes": [], "deactivated": True}
 
     async def test_refuses_to_sign_with_the_active_key_once_it_committed_to_a_successor(self) -> None:
         plain = await create_did_webvh_log(domain="agents.example.com", document=agent_document(), signer=K0)

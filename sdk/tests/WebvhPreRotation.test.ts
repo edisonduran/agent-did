@@ -145,13 +145,20 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
     await expectCode(updateDidWebvhLog({ log: created.log, signer: K1, updateKeys: [await key(K2)] }), 'invalidInput');
   });
 
-  it('deactivates only with a committed key while pre-rotation is active', async () => {
+  it('deactivates only with a committed key, in two entries, while pre-rotation is active', async () => {
     const created = await createCommitted();
     await expectCode(deactivateDidWebvhLog({ log: created.log, signer: K0 }), 'unauthorized');
     const deactivated = await deactivateDidWebvhLog({ log: created.log, signer: K1 });
     expect(deactivated.metadata.deactivated).toBe(true);
     expect(deactivated.metadata.nextKeyHashes).toEqual([]);
+    expect(deactivated.metadata.updateKeys).toEqual([]);
     expect((await resolveDidWebvhLog(deactivated.log)).metadata.deactivated).toBe(true);
+
+    // did:webvh v1.0: the committed key first ends pre-rotation, then signs the deactivation.
+    const entries = deactivated.log.trimEnd().split('\n').map((line) => JSON.parse(line));
+    expect(entries).toHaveLength(3);
+    expect(entries[1].parameters).toEqual({ updateKeys: [await key(K1)], nextKeyHashes: [], watchers: [] });
+    expect(entries[2].parameters).toEqual({ updateKeys: [], nextKeyHashes: [], deactivated: true });
   });
 
   it('refuses to sign with the active key once it has committed to a successor', async () => {
