@@ -17,10 +17,10 @@ from agent_did_sdk import (
     ProductionHttpResolverProfileConfig,
     VerifyHttpRequestSignatureParams,
 )
+from agent_did_sdk.crypto.multibase import encode_public_key_multibase
 from langchain.agents import create_agent
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
-from agent_did_sdk.crypto.multibase import encode_public_key_multibase
 from nacl.signing import SigningKey
 
 from agent_did_langchain import create_agent_did_langchain_integration

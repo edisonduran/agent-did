@@ -285,6 +285,9 @@ def create_agent_framework_tools(
             _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs=inputs)
             try:
                 _validate_http_target(url, allow_private_network_targets)
+                key_id = get_active_authentication_key_id(runtime_identity)
+                if key_id is None:
+                    raise ValueError("The runtime identity has no active authentication key to sign with")
                 result = await agent_identity.sign_http_request(
                     SignHttpRequestParams(
                         method=method,
@@ -292,7 +295,7 @@ def create_agent_framework_tools(
                         body=body,
                         agent_private_key=runtime_identity.agent_private_key,
                         agent_did=runtime_identity.document.id,
-                        verification_method_id=get_active_authentication_key_id(runtime_identity),
+                        verification_method_id=key_id,
                     )
                 )
                 payload: dict[str, str] = result

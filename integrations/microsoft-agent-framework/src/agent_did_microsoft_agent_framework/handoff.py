@@ -585,13 +585,11 @@ def build_handoff_verifier_executor(
 
     effective_ttl = _resolve_effective_ttl(action_class, ttl_seconds, cross_domain)
 
-    client_verifiers: dict[str, Callable[..., Any]] = (
-        {
-            "verify_signature": client.verify_signature,
-            "verify_signature_at_time": client.verify_signature_at_time,
-        }
-        if client is not None
-        else {}
+    verify_signature: Callable[..., Any] = (
+        client.verify_signature if client is not None else AgentIdentity.verify_signature
+    )
+    verify_signature_at_time: Callable[..., Any] = (
+        client.verify_signature_at_time if client is not None else _default_verify_signature_at_time
     )
     ctx = _VerifierContext(
         from_executor_id=from_id,
@@ -604,7 +602,8 @@ def build_handoff_verifier_executor(
         on_verification_blocked=on_verification_blocked,
         observer=observer,
         nonce_store=nonce_store if nonce_store is not None else InMemoryNonceStore(),
-        **client_verifiers,
+        verify_signature=verify_signature,
+        verify_signature_at_time=verify_signature_at_time,
     )
 
     verifier_func = build_handoff_verifier_function(ctx)
