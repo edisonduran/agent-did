@@ -334,7 +334,7 @@ To validate verification compatibility between implementations, maintain version
 
 Current fixture reference:
 
-- `fixtures/interop-vectors.json` (message and HTTP signatures: one valid request per DID method)
+- `fixtures/interop-vectors.json` (message and HTTP signatures: one valid did:webvh request)
 - `fixtures/http-verification-vectors.json` (the §6.5 verification rules: accepted requests and rejected requests, each rejected one differing from the valid request by a single change)
 - `fixtures/canonical-document-reference.json` (`documentRef` computation)
 - `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)

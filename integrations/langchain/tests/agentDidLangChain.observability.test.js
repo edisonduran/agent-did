@@ -10,7 +10,7 @@ const {
 
 describe("@agentdid/langchain observability", () => {
   const signer = LocalKeySigner.generate()[0];
-  const agentIdentity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
+  const agentIdentity = new AgentIdentity({ controllerSigner: signer });
 
   it("emits sanitized tool events through callbacks", async () => {
     const runtimeIdentity = await agentIdentity.create({

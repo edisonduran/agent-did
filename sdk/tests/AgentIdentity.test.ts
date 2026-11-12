@@ -35,8 +35,7 @@ describe('AgentIdentity Core Module', () => {
   beforeAll(() => {
     // Initialize the SDK with the creator's wallet
     agentIdentity = new AgentIdentity({
-      controllerSigner: creatorSigner,
-      network: 'polygon'
+      controllerSigner: creatorSigner
     });
 
   });
@@ -122,26 +121,12 @@ describe('AgentIdentity Core Module', () => {
     expect(document.id.startsWith('did:webvh:')).toBe(true);
   });
 
-  it('should preserve the legacy did:agent profile when explicitly requested', async () => {
-    const result = await agentIdentity.create({
-      name: 'LegacyBot',
-      coreModel: 'gpt-4.1-mini',
-      systemPrompt: 'You are a legacy compatibility agent.',
-      didMethod: 'agent'
-    });
-
-    expect(result.document.id).toMatch(/^did:agent:polygon:[0-9a-f]{64}$/);
-    expect(result.document.controller).toEqual(didKeyFromPublicKey(await creatorSigner.getPublicKey()));
-    expect(result.document.verificationMethod[0].blockchainAccountId).toBeUndefined();
-  });
-
   it('should create a did:webvh document when the web-native profile is requested', async () => {
     const result = await agentIdentity.create({
       name: 'WebvhBot',
       description: 'A web-native agent identity',
       coreModel: 'gpt-4.1-mini',
       systemPrompt: 'You are a web-native agent.',
-      didMethod: 'webvh',
       webvh: {
         domain: 'agents.example',
         pathSegments: ['agents', 'webvh-bot'],
@@ -638,7 +623,6 @@ describe('AgentIdentity Core Module', () => {
       name: 'ControllerRoot',
       coreModel: 'controller-model',
       systemPrompt: 'You are the controller root.',
-      didMethod: 'webvh',
       webvh: {
         domain: 'agents.example',
         pathSegments: ['organizations', 'acme-support'],
@@ -651,7 +635,6 @@ describe('AgentIdentity Core Module', () => {
       name: 'SupportBot',
       coreModel: 'agent-model',
       systemPrompt: 'You are a support agent.',
-      didMethod: 'webvh',
       webvh: {
         domain: 'agents.example',
         pathSegments: ['agents', 'supportbot-x'],
@@ -1257,15 +1240,8 @@ describe('AgentIdentity Core Module', () => {
     expect((await AgentIdentity.resolve(document.id)).id).toEqual(document.id);
   });
 
-  it('should reject did.jsonl history export for legacy non-webvh identifiers', async () => {
-    const { document } = await agentIdentity.create({
-      name: 'LegacyHistoryBot',
-      coreModel: 'gpt-4o-mini',
-      systemPrompt: 'legacy export prompt',
-      didMethod: 'agent'
-    });
-
-    expect(() => AgentIdentity.exportDidWebvhHistory(document.id)).toThrow(/did:webvh DID is required/i);
+  it('should reject did.jsonl history export for identifiers that are not did:webvh', () => {
+    expect(() => AgentIdentity.exportDidWebvhHistory('did:example:123')).toThrow(/did:webvh DID is required/i);
   });
 
   it('should create an agent with an external signer (production mode)', async () => {
@@ -1339,7 +1315,7 @@ describe('AgentIdentity Core Module', () => {
 
 describe('Bootstrap controller keys', () => {
   const [creatorSigner] = LocalKeySigner.generate();
-  const identity = new AgentIdentity({ controllerSigner: creatorSigner, network: 'polygon' });
+  const identity = new AgentIdentity({ controllerSigner: creatorSigner });
   const minimalParams: CreateAgentParams = {
     name: 'BootstrapBot',
     coreModel: 'gpt-4.1-mini',
@@ -1488,7 +1464,7 @@ describe('Bootstrap controller keys', () => {
 
 describe('did:webvh v1.0 lifecycle authorization', () => {
   const [creatorSigner] = LocalKeySigner.generate();
-  const identity = new AgentIdentity({ controllerSigner: creatorSigner, network: 'polygon' });
+  const identity = new AgentIdentity({ controllerSigner: creatorSigner });
   const controllerSigner = new LocalKeySigner('7c'.repeat(32));
   const params = {
     name: 'LifecycleBot',

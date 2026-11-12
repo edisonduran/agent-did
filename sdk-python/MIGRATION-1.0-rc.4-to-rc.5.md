@@ -180,6 +180,13 @@ If you import `agent_did_sdk.webvh.adapter` directly (`resolve_did_webvh_log` an
 - The default IPFS gateway is `https://ipfs.io/ipfs/` only (`cloudflare-ipfs.com` is retired). Set `ipfs_gateways` for others.
 - `body` of `SignHttpRequestParams` and `VerifyHttpRequestSignatureParams` is `str | bytes`. Strings behave as before.
 
+## 14. Breaking: the `did:agent` profile is removed
+
+- Remove `did_method="agent"` and `did_method="webvh"` from `CreateAgentParams`: there is one profile, `did:webvh`.
+- Remove `network` from `AgentIdentityConfig`, and the `network` argument of `AgentDidClient.create_agent(controller_signer, params)`.
+- Existing `did:agent` documents registered in a registry still resolve and verify through the registry and `documentRef` path; new ones cannot be created. Create `did:webvh` agents and re-register.
+- Fixtures: if you pinned `fixtures/canonical-document-reference.json`, `expectedDocumentRef` is now `hash://sha256/6a9b500a0278d4f43280f5bc58788e14c63be092925b7bd0d165bdd49e933b94`; `fixtures/interop-vectors.json` no longer has a `legacy` vector.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

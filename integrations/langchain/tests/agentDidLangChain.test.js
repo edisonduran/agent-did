@@ -6,7 +6,7 @@ const {
 
 describe("@agentdid/langchain", () => {
   const signer = LocalKeySigner.generate()[0];
-  const agentIdentity = new AgentIdentity({ controllerSigner: signer, network: "polygon" });
+  const agentIdentity = new AgentIdentity({ controllerSigner: signer });
 
   it("builds a system prompt section with the active Agent-DID context", async () => {
     const runtimeIdentity = await agentIdentity.create({

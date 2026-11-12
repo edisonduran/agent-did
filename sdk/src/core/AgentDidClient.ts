@@ -1,5 +1,3 @@
-import { bytesToHex, randomBytes } from '@noble/hashes/utils';
-import { sha256 } from '@noble/hashes/sha256';
 import {
   AgentDocumentHistoryAction,
   AgentDocumentHistoryEntry,
@@ -18,7 +16,7 @@ import {
   VerificationRelationship
 } from './types';
 import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash';
-import { encodePublicKeyMultibase, didKeyFromPublicKey } from '../crypto/multibase';
+import { didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { InMemoryNonceStore, NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
@@ -169,12 +167,7 @@ export class AgentDidClient {
    * @param params The raw agent configuration (name, prompt, capabilities, etc.)
    * @returns A fully formed AgentDIDDocument compliant with RFC-001 and the Agent's private key
    */
-  public async createAgent(
-    controllerSigner: AgentSigner,
-    network: string,
-    params: CreateAgentParams
-  ): Promise<CreateAgentResult> {
-    const didMethod = params.didMethod || 'webvh';
+  public async createAgent(controllerSigner: AgentSigner, params: CreateAgentParams): Promise<CreateAgentResult> {
     // Reject an unsupported relationship before generating keys or touching any store
     additionalRelationshipEntries(params.additionalVerificationRelationships, '');
     const timestamp = this.nowIsoTimestamp();
@@ -207,45 +200,13 @@ export class AgentDidClient {
       publicKeyBytes = await localSigner.getPublicKey();
     }
 
-    if (didMethod === 'webvh') {
-      return this.createDidWebvhAgent(params, controllerKeyDid, {
-        timestamp,
-        agentMetadata,
-        publicKeyBytes,
-        privateKeyHex,
-        metadataCommitmentSalts
-      });
-    }
-
-    // Legacy did:agent profile
-    const nonce = bytesToHex(randomBytes(16));
-    const rawAgentId = bytesToHex(sha256(new TextEncoder().encode(`${controllerKeyDid}-${timestamp}-${nonce}`)));
-    const agentDid = `did:agent:${network}:${rawAgentId}`;
-    const controllerDid = controllerKeyDid;
-    const verificationMethodId = `${agentDid}#key-1`;
-    const document: AgentDIDDocument = {
-      "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
-      id: agentDid,
-      controller: controllerDid,
-      created: timestamp,
-      updated: timestamp,
+    return this.createDidWebvhAgent(params, controllerKeyDid, {
+      timestamp,
       agentMetadata,
-      verificationMethod: [{
-        id: verificationMethodId,
-        type: "Ed25519VerificationKey2020",
-        controller: controllerDid,
-        publicKeyMultibase: encodePublicKeyMultibase(publicKeyBytes)
-      }],
-      authentication: [verificationMethodId],
-      assertionMethod: [verificationMethodId],
-      ...additionalRelationshipEntries(params.additionalVerificationRelationships, verificationMethodId)
-    };
-
-    this.resolver.registerDocument(document);
-    await this.registry.register(document.id, document.controller, computeDocumentReference(document));
-    this.appendHistory(document, 'created');
-
-    return { document, agentPrivateKey: privateKeyHex, metadataCommitmentSalts };
+      publicKeyBytes,
+      privateKeyHex,
+      metadataCommitmentSalts
+    });
   }
 
   /**
@@ -322,10 +283,10 @@ export class AgentDidClient {
   private requireWebvhCreateOptions(params: CreateAgentParams): NonNullable<CreateAgentParams['webvh']> {
     const options = params.webvh;
     if (!options?.domain?.trim()) {
-      throw new Error('webvh.domain is required when didMethod is webvh');
+      throw new Error('webvh.domain is required');
     }
     if (!options.controllerDid?.trim()) {
-      throw new Error('webvh.controllerDid is required when didMethod is webvh');
+      throw new Error('webvh.controllerDid is required');
     }
     if (!options.controllerSigner) {
       throw new Error('webvh.controllerSigner is required: the controller key signs the did:webvh log (updateKeys)');
