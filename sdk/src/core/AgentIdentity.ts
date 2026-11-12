@@ -17,6 +17,8 @@ import { AgentSigner } from './signer';
 import { REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import {
   buildSignatureBase,
+  HttpSignatureError,
+  requestUrlFormProblem,
   serializeSignature,
   serializeSignatureInput,
   SignatureInput
@@ -129,6 +131,12 @@ export class AgentIdentity {
 
     if (!params.url?.trim()) {
       throw new Error("HTTP URL is required");
+    }
+
+    // Only a URL in normalized form is signed: a verifier with another URL parser must derive the same components
+    const urlProblem = requestUrlFormProblem(params.url);
+    if (urlProblem !== undefined) {
+      throw new HttpSignatureError(`The request URL is not in normalized form: ${urlProblem}`);
     }
 
     validateHttpTarget(params.url, params.httpSecurity);

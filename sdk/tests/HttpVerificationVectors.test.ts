@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { AgentDidClient } from '../src/core/AgentDidClient';
+import { AgentIdentity } from '../src/core/AgentIdentity';
 import { InMemoryNonceStore } from '../src/core/nonce-store';
 import { AgentDIDDocument, VerificationRelationship } from '../src/core/types';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
@@ -145,5 +146,27 @@ describe('HTTP verification vectors (RFC-001 §6.5)', () => {
         nonceStore: fresh.nonceStore
       })
     ).resolves.toBe(vector.expected);
+  });
+});
+
+describe('request URLs that are not in normalized form (RFC-001 §6.5 item 4)', () => {
+  const notNormalized = fixture.vectors.filter((vector) => vector.reason === 'url_not_normalized');
+  const seed = new Uint8Array(32).fill(7);
+  const privateKeyHex = Buffer.from(seed).toString('hex');
+
+  it('has vectors to check', () => {
+    expect(notNormalized.length).toBeGreaterThan(10);
+  });
+
+  it.each(notNormalized.map((vector) => [vector.id, vector] as const))('%s is refused by the signer', async (_id, vector) => {
+    const identity = new AgentIdentity({ controllerSigner: undefined as never });
+    await expect(
+      identity.signHttpRequest({
+        ...vector.request,
+        agentDid: fixture.did,
+        agentPrivateKey: privateKeyHex,
+        verificationMethodId: `${fixture.did}#key-1`
+      })
+    ).rejects.toThrow(/normalized form/u);
   });
 });

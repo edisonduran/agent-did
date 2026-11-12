@@ -12,9 +12,12 @@ from typing import Any
 import pytest
 
 from agent_did_sdk.core.client import AgentDidClient, AgentDidClientOptions
+from agent_did_sdk.core.http_signatures import HttpSignatureError
+from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.nonce_store import InMemoryNonceStore
 from agent_did_sdk.core.types import (
     AgentDIDDocument,
+    SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
 )
@@ -154,3 +157,23 @@ async def test_http_verification_vector(vector: dict[str, Any]) -> None:
     # The boolean method gives the same verdict (fresh client: its nonce store is not shared).
     fresh, fresh_store = await _client_at(now)
     assert await fresh.verify_http_request_signature(_params(vector, fresh_store)) is vector["expected"]
+
+NOT_NORMALIZED = [vector for vector in FIXTURE["vectors"] if vector.get("reason") == "url_not_normalized"]
+
+
+def test_there_are_url_form_vectors() -> None:
+    assert len(NOT_NORMALIZED) > 10
+
+
+@pytest.mark.parametrize("vector", NOT_NORMALIZED, ids=[vector["id"] for vector in NOT_NORMALIZED])
+async def test_the_signer_refuses_a_url_that_is_not_in_normalized_form(vector: dict[str, Any]) -> None:
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=None))  # type: ignore[arg-type]
+    with pytest.raises(HttpSignatureError, match="normalized form"):
+        await identity.sign_http_request(SignHttpRequestParams(
+            method=vector["request"]["method"],
+            url=vector["request"]["url"],
+            body=vector["request"]["body"],
+            agent_did=FIXTURE["did"],
+            agent_private_key="07" * 32,
+            verification_method_id=f"{FIXTURE['did']}#key-1",
+        ))

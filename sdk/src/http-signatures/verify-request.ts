@@ -17,6 +17,7 @@ import {
   getSignatureParam,
   parseSignatureHeader,
   parseSignatureInputHeader,
+  requestUrlFormProblem,
   SignatureInput
 } from '../core/http-signatures';
 import { NonceStore } from '../core/nonce-store';
@@ -61,6 +62,9 @@ export async function verifyAgentDidHttpRequest(
   const signatureAgent = headers['signature-agent'];
   if (!headers['signature'] || !headers['signature-input'] || !signatureAgent) {
     return reject('missing_headers');
+  }
+  if (requestUrlFormProblem(params.url) !== undefined) {
+    return reject('url_not_normalized');
   }
   if (headers['content-digest'] !== computeContentDigest(params.body)) {
     return reject('digest_mismatch');

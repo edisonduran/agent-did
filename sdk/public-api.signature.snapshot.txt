@@ -460,6 +460,8 @@ export declare function parseSignatureInputHeader(value: string): Map<string, Si
 /** Parses a `Signature` field value into its members (label → signature bytes). */
 export declare function parseSignatureHeader(value: string): Map<string, Uint8Array>;
 export declare function getSignatureParam(input: SignatureInput, name: string): SignatureParamValue | undefined;
+/** Why `url` is not a request URL in normalized form, or `undefined` when it is. */
+export declare function requestUrlFormProblem(url: string): string | undefined;
 /** Builds the RFC 9421 signature base for `input` over `request`. */
 export declare function buildSignatureBase(request: HttpRequestLike, input: SignatureInput): string;
 
@@ -891,6 +893,8 @@ export interface VerifyHttpRequestSignatureParams {
  * first signature).
  *
  * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `url_not_normalized`: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
+ *   `requestUrlFormProblem`); the SDK refuses to sign such a URL too.
  * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
  * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
  * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
@@ -912,7 +916,7 @@ export interface VerifyHttpRequestSignatureParams {
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
  */
-export type HttpSignatureRejection = 'missing_headers' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed';
+export type HttpSignatureRejection = 'missing_headers' | 'url_not_normalized' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed';
 /**
  * Result of `verifyHttpRequestSignatureDetailed`. Always test `result.ok`: the object itself is
  * truthy for a rejection too, which is why `verifyHttpRequestSignature` keeps returning a boolean.
@@ -1023,6 +1027,11 @@ export declare function bytesToBase64(bytes: Uint8Array): string;
 ## crypto/ed25519-verify.d.ts
 /** Verifies an Ed25519 signature under the SDK rule above. Never throws; malformed input is `false`. */
 export declare function verifyEd25519(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): boolean;
+/**
+ * Decodes a payload signature written as hex: exactly 128 hex digits (64 bytes), nothing else (no spaces, no
+ * prefix). Throws otherwise, so both SDKs accept the same strings.
+ */
+export declare function decodeSignatureHex(signature: string): Uint8Array;
 
 ## crypto/hash.d.ts
 /**
@@ -1164,7 +1173,7 @@ export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
-export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, serializeSignatureInput } from './core/http-signatures';
+export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, requestUrlFormProblem, serializeSignatureInput } from './core/http-signatures';
 
 ## lifecycle/documents.d.ts
 import { AddedKeyRelationship, AgentDIDDocument, UpdateAgentDocumentParams } from '../core/types';
@@ -1681,6 +1690,10 @@ export declare function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtT
 export declare function signatureResultForKey(key: KeyAtTimeResult, payload: string | Uint8Array, signature: string): VerifySignatureAtTimeResult;
 
 ## verification/signature.d.ts
+/**
+ * Signature verification against an already resolved, active DID document. Resolution,
+ * revocation and controller-chain checks stay in `AgentDidClient`.
+ */
 import { AgentDIDDocument, VerificationRelationship } from '../core/types';
 /**
  * Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given).
