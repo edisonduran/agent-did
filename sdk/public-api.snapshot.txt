@@ -113,3 +113,5 @@ VerifyHttpRequestSignatureResult
 verifyMetadataCommitment
 VerifySignatureAtTimeOptions
 VerifySignatureAtTimeResult
+WebvhDIDDocumentSource
+WebvhDIDDocumentSourceConfig

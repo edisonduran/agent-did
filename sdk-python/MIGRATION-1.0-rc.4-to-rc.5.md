@@ -174,6 +174,12 @@ If you import `agent_did_sdk.webvh.adapter` directly (`resolve_did_webvh_log` an
 - `get_did_webvh_controller_keys` (and `metadata.update_keys` from the adapter module) return an empty list for a revoked DID. The key that signed the revocation is in the proof of the last log entry.
 - A DID with pre-rotation in force (section 7) is revoked in two log entries, both signed by the committed key: the first ends pre-rotation, the second deactivates. The call is the same.
 
+## 13. `FilesystemDIDDocumentSource` needs a root directory or a mapping; IPFS gateway; binary bodies
+
+- `FilesystemDIDDocumentSource()` raises `TypeError`. Pass `FilesystemDIDDocumentSourceConfig(root_directory=...)` (a reference is stored as `<root>/<safe name>.json`) or `reference_to_path` / `reference_to_paths`, as before. Files written by the old default under a raw reference path are not found under the new names.
+- The default IPFS gateway is `https://ipfs.io/ipfs/` only (`cloudflare-ipfs.com` is retired). Set `ipfs_gateways` for others.
+- `body` of `SignHttpRequestParams` and `VerifyHttpRequestSignatureParams` is `str | bytes`. Strings behave as before.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

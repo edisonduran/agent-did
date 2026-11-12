@@ -100,6 +100,8 @@ export declare class AgentDidClient {
     private readonly didWebvhSignerStore;
     /** Local bootstrap controllers, keyed by the creator's did:key. */
     private readonly bootstrapControllers;
+    /** Serializes the creation of a bootstrap controller per creator key. */
+    private readonly bootstrapControllerLocks;
     constructor(options?: AgentDidClientOptions);
     private nowIsoTimestamp;
     /**
@@ -122,6 +124,7 @@ export declare class AgentDidClient {
      * returned to the caller exactly once (`privateKey`) and never derived from public data.
      */
     private ensureBootstrapController;
+    private createOrReuseBootstrapController;
     /**
      * Appends a controller-signed entry with `document` to the DID's did:webvh log and
      * returns the state as signed. The signer is `controllerSigner` when given, otherwise
@@ -274,10 +277,6 @@ export declare class AgentIdentity {
      */
     signMessage(payload: string, keyOrSigner: string | AgentSigner): Promise<string>;
     /**
-     * Signs an HTTP request (Web Bot Auth) for secure API consumption.
-     * Implements a simplified version of IETF HTTP Message Signatures.
-     */
-    /**
      * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
      *
      * Covered components: `"@method" "@authority" "@path" "@query" "content-digest" "date"
@@ -330,8 +329,8 @@ export declare class AgentIdentity {
 export declare const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[];
 /** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
 export declare const AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did";
-/** RFC 9530 `Content-Digest` with SHA-256. */
-export declare function computeContentDigest(body?: string): string;
+/** RFC 9530 `Content-Digest` with SHA-256 of the body bytes (a string is hashed as UTF-8). */
+export declare function computeContentDigest(body?: string | Uint8Array): string;
 /** 128-bit random nonce, hex encoded. */
 export declare function generateNonce(): string;
 
@@ -765,7 +764,8 @@ export interface AgentDocumentHistoryEntry {
 export interface SignHttpRequestParams {
     method: string;
     url: string;
-    body?: string;
+    /** Request body; bytes are hashed as they are, a string as UTF-8. */
+    body?: string | Uint8Array;
     /** Ed25519 private key hex. Either this or `signer` must be provided. */
     agentPrivateKey?: string;
     /** External signer. Preferred over agentPrivateKey when both are present. */
@@ -780,7 +780,8 @@ export interface SignHttpRequestParams {
 export interface VerifyHttpRequestSignatureParams {
     method: string;
     url: string;
-    body?: string;
+    /** Request body; bytes are hashed as they are, a string as UTF-8. */
+    body?: string | Uint8Array;
     headers: Record<string, string>;
     /** Maximum distance between `created` and now, in seconds (default: 300). */
     maxCreatedSkewSeconds?: number;
@@ -1045,6 +1046,7 @@ export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, DEFAULT_RESOLV
 export { InMemoryDIDResolver } from './resolver/InMemoryDIDResolver';
 export { UniversalResolverClient } from './resolver/UniversalResolverClient';
 export { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './resolver/HttpDIDDocumentSource';
+export { WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig } from './resolver/WebvhDIDDocumentSource';
 export { BearerTokenHttpDIDDocumentSource, BearerTokenHttpDIDDocumentSourceConfig } from './resolver/BearerTokenHttpDIDDocumentSource';
 export { FilesystemDIDDocumentSource, FilesystemDIDDocumentSourceConfig } from './resolver/FilesystemDIDDocumentSource';
 export { PresignedHttpDIDDocumentSource, PresignedHttpDIDDocumentSourceConfig } from './resolver/PresignedHttpDIDDocumentSource';
@@ -1169,6 +1171,9 @@ export declare class BearerTokenHttpDIDDocumentSource implements DIDDocumentSour
 import { AgentDIDDocument } from '../core/types';
 import { DIDDocumentSource } from './types';
 export interface FilesystemDIDDocumentSourceConfig {
+    /** Directory the default mapping writes to: a reference becomes `<rootDirectory>/<reference with unsafe characters replaced by _>.json`. */
+    rootDirectory?: string;
+    /** Maps a reference to a path. Required unless `rootDirectory` or `referenceToPaths` is given: a reference is never used as a path as it is. */
     referenceToPath?: (documentRef: string) => string;
     referenceToPaths?: (documentRef: string) => string[];
 }

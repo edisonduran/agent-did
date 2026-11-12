@@ -40,10 +40,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
   constructor(config: HttpDIDDocumentSourceConfig = {}) {
     this.referenceToUrl = config.referenceToUrl || ((documentRef) => documentRef);
     this.referenceToUrls = config.referenceToUrls;
-    this.ipfsGateways = config.ipfsGateways || [
-      'https://cloudflare-ipfs.com/ipfs/',
-      'https://ipfs.io/ipfs/'
-    ];
+    this.ipfsGateways = config.ipfsGateways || ['https://ipfs.io/ipfs/'];
     this.httpSecurity = config.httpSecurity || {};
     this.fetchFn = config.fetchFn || (createSafeFetch(this.httpSecurity) as unknown as FetchLike);
     this.storeMethod = (config.storeMethod || 'PUT').toUpperCase();

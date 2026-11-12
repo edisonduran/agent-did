@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,8 +13,20 @@ from ..core.types import AgentDIDDocument
 
 @dataclass
 class FilesystemDIDDocumentSourceConfig:
+    root_directory: str | Path | None = None
+    """Directory the default mapping writes to: a reference becomes
+    ``<root_directory>/<reference with unsafe characters replaced by _>.json``."""
     reference_to_path: Callable[[str], str | Path] | None = None
+    """Maps a reference to a path. Required unless ``root_directory`` or ``reference_to_paths`` is given: a reference
+    is never used as a path as it is."""
     reference_to_paths: Callable[[str], list[str | Path]] | None = None
+
+
+def _safe_file_name(document_ref: str) -> str:
+    """The file name of a reference under ``root_directory``: path separators, ``..`` and anything outside
+    ``[A-Za-z0-9._-]`` are replaced."""
+    name = re.sub(r"^\.+", "_", re.sub(r"[^A-Za-z0-9._-]", "_", document_ref))
+    return f"{name or '_'}.json"
 
 
 class FilesystemDIDDocumentSource:
@@ -21,7 +34,13 @@ class FilesystemDIDDocumentSource:
 
     def __init__(self, config: FilesystemDIDDocumentSourceConfig | None = None) -> None:
         cfg = config or FilesystemDIDDocumentSourceConfig()
-        self._reference_to_path = cfg.reference_to_path or (lambda ref: ref)
+        root = cfg.root_directory
+        if cfg.reference_to_path is None and cfg.reference_to_paths is None and root is None:
+            raise TypeError(
+                "FilesystemDIDDocumentSource needs root_directory, reference_to_path or reference_to_paths: "
+                "a reference is not used as a path as it is"
+            )
+        self._reference_to_path = cfg.reference_to_path or (lambda ref: Path(root or ".") / _safe_file_name(ref))
         self._reference_to_paths = cfg.reference_to_paths
 
     async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None:

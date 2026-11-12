@@ -109,10 +109,6 @@ export class AgentIdentity {
   }
 
   /**
-   * Signs an HTTP request (Web Bot Auth) for secure API consumption.
-   * Implements a simplified version of IETF HTTP Message Signatures.
-   */
-  /**
    * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
    *
    * Covered components: `"@method" "@authority" "@path" "@query" "content-digest" "date"

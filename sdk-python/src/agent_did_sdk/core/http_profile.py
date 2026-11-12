@@ -20,9 +20,9 @@ AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did"
 """RFC 9421 ``tag`` parameter of Agent-DID HTTP Message Signatures."""
 
 
-def compute_content_digest(body: str | None) -> str:
-    """RFC 9530 ``Content-Digest`` with SHA-256."""
-    raw = (body or "").encode("utf-8")
+def compute_content_digest(body: str | bytes | None) -> str:
+    """RFC 9530 ``Content-Digest`` with SHA-256 of the body bytes (a string is hashed as UTF-8)."""
+    raw = body.encode("utf-8") if isinstance(body, str) else (body or b"")
     digest = hashlib.sha256(raw).digest()
     b64 = base64.b64encode(digest).decode("ascii")
     return f"sha-256=:{b64}:"

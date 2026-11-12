@@ -227,7 +227,8 @@ export interface AgentDocumentHistoryEntry {
 export interface SignHttpRequestParams {
   method: string;
   url: string;
-  body?: string;
+  /** Request body; bytes are hashed as they are, a string as UTF-8. */
+  body?: string | Uint8Array;
   /** Ed25519 private key hex. Either this or `signer` must be provided. */
   agentPrivateKey?: string;
   /** External signer. Preferred over agentPrivateKey when both are present. */
@@ -243,7 +244,8 @@ export interface SignHttpRequestParams {
 export interface VerifyHttpRequestSignatureParams {
   method: string;
   url: string;
-  body?: string;
+  /** Request body; bytes are hashed as they are, a string as UTF-8. */
+  body?: string | Uint8Array;
   headers: Record<string, string>;
   /** Maximum distance between `created` and now, in seconds (default: 300). */
   maxCreatedSkewSeconds?: number;

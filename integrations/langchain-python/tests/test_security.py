@@ -122,3 +122,20 @@ async def test_private_network_targets_can_be_enabled_explicitly() -> None:
     result = await tool.ainvoke({"method": "GET", "url": "http://127.0.0.1:8080/health"})
 
     assert result["headers"]["Signature-Agent"] == runtime_identity.document.id
+
+
+@pytest.mark.asyncio
+async def test_http_signing_rejects_ipv6_loopback_and_private_literals_by_default() -> None:
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
+    runtime_identity = await identity.create(
+        CreateAgentParams(name="Ipv6RejectBot", core_model="gpt-4.1-mini", system_prompt="Security test")
+    )
+    integration = create_agent_did_langchain_integration(
+        agent_identity=identity, runtime_identity=runtime_identity, expose={"sign_http": True}
+    )
+    tool = {t.name: t for t in integration.tools}["agent_did_sign_http_request"]
+
+    for url in ("http://[::1]:8080/tasks", "http://[fd00::1]/tasks", "http://[fe80::1]/tasks"):
+        result = await tool.ainvoke({"method": "POST", "url": url, "body": "{}"})
+        assert "private" in result["error"].lower() or "loopback" in result["error"].lower()
