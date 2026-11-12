@@ -389,6 +389,9 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
         _emit_tool_started(context, tool_name=tool_name, inputs=inputs)
         try:
             _validate_http_target(url, context.allow_private_network_targets)
+            key_id = get_active_authentication_key_id(context.runtime_identity)
+            if key_id is None:
+                raise ValueError("The runtime identity has no active authentication key to sign with")
             headers = await context.agent_identity.sign_http_request(
                 SignHttpRequestParams(
                     method=method,
@@ -396,7 +399,7 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
                     body=body,
                     agent_did=context.current_did,
                     agent_private_key=context.runtime_identity.agent_private_key,
-                    verification_method_id=get_active_authentication_key_id(context.runtime_identity),
+                    verification_method_id=key_id,
                 )
             )
             _emit_tool_succeeded(
