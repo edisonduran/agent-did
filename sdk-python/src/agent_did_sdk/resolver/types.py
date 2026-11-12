@@ -85,6 +85,24 @@ class ResolverCacheStats:
 
 
 DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000
+DEFAULT_NEGATIVE_CACHE_TTL_MS = 5_000
+DEFAULT_MAX_CONCURRENT_FETCHES = 16
+
+
+@dataclass(frozen=True)
+class ResolutionLimits:
+    """Bounds on the network work a resolver does for DIDs it is asked about. A verifier resolves the DID that a
+    request names before the signature is checked, so these limits also bound what an unauthenticated request can
+    make it do."""
+
+    negative_cache_ttl_ms: int = DEFAULT_NEGATIVE_CACHE_TTL_MS
+    """A failed did:webvh or did:wba resolution is remembered for this long and answered again with the same error,
+    without fetching. 0 turns it off."""
+    max_concurrent_fetches: int = DEFAULT_MAX_CONCURRENT_FETCHES
+    """At most this many did:webvh / did:wba fetches run at once; the others wait."""
+    allowed_hosts: list[str] | None = None
+    """When set, only did:webvh and did:wba DIDs on these hosts are fetched (``example.com``, or ``*.example.com`` for
+    its subdomains); any other DID fails before a request is made, with no fallback."""
 """Default maximum number of documents in the ``UniversalResolverClient`` cache."""
 
 
@@ -116,6 +134,9 @@ class UniversalResolverConfig:
     accepted, and they are always verified. Each unverified resolution emits a
     ``source-fetched`` event saying so.
     """
+    resolution_limits: ResolutionLimits | None = None
+    """Negative cache, concurrency limit and an optional host allow-list for did:webvh and did:wba. Concurrent
+    resolutions of one DID always share a single fetch."""
 
 
 class DocumentIntegrityError(ValueError):

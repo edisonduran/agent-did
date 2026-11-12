@@ -11,8 +11,8 @@ class AgentDidExposureConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     current_identity: bool = True
-    resolve_did: bool = True
-    verify_signatures: bool = True
+    resolve_did: bool = False
+    verify_signatures: bool = False
     sign_http: bool = False
     sign_payload: bool = False
     rotate_keys: bool = False

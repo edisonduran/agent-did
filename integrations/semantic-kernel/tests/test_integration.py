@@ -58,7 +58,14 @@ async def test_tool_set_tracks_requested_exposure() -> None:
     integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_http": True, "document_history": True, "sign_payload": True, "rotate_keys": True},
+        expose={
+            "resolve_did": True,
+            "verify_signatures": True,
+            "sign_http": True,
+            "document_history": True,
+            "sign_payload": True,
+            "rotate_keys": True,
+        },
     )
     tool_names = {tool.name for tool in integration.tools}
 

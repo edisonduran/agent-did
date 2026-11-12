@@ -23,7 +23,7 @@ async def test_tools_expose_identity_resolution_and_signature_verification() -> 
     integration = create_agent_did_crewai_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_payload": True, "rotate_keys": True},
+        expose={"resolve_did": True, "verify_signatures": True, "sign_payload": True, "rotate_keys": True},
     )
     tools_by_name = {tool.name: tool for tool in integration.tools}
 

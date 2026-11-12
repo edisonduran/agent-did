@@ -105,12 +105,15 @@ from .resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumen
 from .resolver.presigned_http_source import PresignedHttpDIDDocumentSource, PresignedHttpDIDDocumentSourceConfig
 from .resolver.s3_compatible_source import S3CompatibleDIDDocumentSource, S3CompatibleDIDDocumentSourceConfig
 from .resolver.types import (
+    DEFAULT_MAX_CONCURRENT_FETCHES,
+    DEFAULT_NEGATIVE_CACHE_TTL_MS,
     DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
     DIDDocumentSource,
     DIDResolver,
     DidWebvhResolution,
     DidWebvhState,
     DocumentIntegrityError,
+    ResolutionLimits,
     ResolverCacheStats,
     ResolverResolutionEvent,
     ResolverResolutionStage,
@@ -230,6 +233,9 @@ __all__ = [
     "DIDDocumentSource",
     "UniversalResolverConfig",
     "DEFAULT_RESOLVER_MAX_CACHE_ENTRIES",
+    "DEFAULT_NEGATIVE_CACHE_TTL_MS",
+    "DEFAULT_MAX_CONCURRENT_FETCHES",
+    "ResolutionLimits",
     "ResolverCacheStats",
     "ResolverResolutionEvent",
     "ResolverResolutionStage",

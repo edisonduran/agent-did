@@ -22,7 +22,7 @@ import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash
 import { didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { InMemoryNonceStore, NonceStore } from './nonce-store';
-import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolverResolutionEvent } from '../resolver/types';
+import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
 import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
 import { UniversalResolverClient } from '../resolver/UniversalResolverClient';
 import { HttpDIDDocumentSource } from '../resolver/HttpDIDDocumentSource';
@@ -80,6 +80,8 @@ export interface ProductionResolverProfileConfig {
    * Each unverified resolution emits a `source-fetched` event saying so.
    */
   unverifiedDocumentRefSchemes?: string[];
+  /** Negative cache, concurrency limit and host allow-list for did:webvh / did:wba fetches (see `ResolutionLimits`). */
+  resolutionLimits?: ResolutionLimits;
 }
 
 export interface ProductionHttpResolverProfileConfig {
@@ -100,6 +102,8 @@ export interface ProductionHttpResolverProfileConfig {
    */
   unverifiedDocumentRefSchemes?: string[];
   httpSecurity?: import('./http-security').HttpSecurityOptions;
+  /** Negative cache, concurrency limit and host allow-list for did:webvh / did:wba fetches (see `ResolutionLimits`). */
+  resolutionLimits?: ResolutionLimits;
 }
 
 export interface ProductionJsonRpcResolverProfileConfig {
@@ -115,6 +119,8 @@ export interface ProductionJsonRpcResolverProfileConfig {
   transport?: (url: string, body: string, headers: Record<string, string>) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
   onResolutionEvent?: (event: ResolverResolutionEvent) => void;
   httpSecurity?: import('./http-security').HttpSecurityOptions;
+  /** Negative cache, concurrency limit and host allow-list for did:webvh / did:wba fetches (see `ResolutionLimits`). */
+  resolutionLimits?: ResolutionLimits;
 }
 
 
@@ -978,7 +984,8 @@ export class AgentDidClient {
       cacheTtlMs: config.cacheTtlMs,
       maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent,
-      unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes
+      unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes,
+      resolutionLimits: config.resolutionLimits
     });
   }
 
@@ -1005,7 +1012,8 @@ export class AgentDidClient {
       cacheTtlMs: config.cacheTtlMs,
       maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent,
-      unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes
+      unverifiedDocumentRefSchemes: config.unverifiedDocumentRefSchemes,
+      resolutionLimits: config.resolutionLimits
     });
   }
 
@@ -1025,7 +1033,8 @@ export class AgentDidClient {
       documentSource: rpcSource,
       cacheTtlMs: config.cacheTtlMs,
       maxCacheEntries: config.maxCacheEntries,
-      onResolutionEvent: config.onResolutionEvent
+      onResolutionEvent: config.onResolutionEvent,
+      resolutionLimits: config.resolutionLimits
     });
   }
 

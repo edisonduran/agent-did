@@ -139,11 +139,13 @@ El diseno de esta API surgio de una conversacion publica con [@haroldmalikfrimpo
 ## Tools expuestas por defecto
 
 - `agent_did_get_current_identity`
-- `agent_did_resolve_did`
-- `agent_did_verify_signature`
 
 ## Tools opt-in
 
+`agent_did_resolve_did` y `agent_did_verify_signature` hacen que el modelo elija que DID resolver y, con un resolver HTTP, provocan peticiones salientes: desde `1.0.0-rc.5` son opt-in (`resolve_did`, `verify_signatures`). Al activarlas, limite los hosts del resolver con `resolution_limits=ResolutionLimits(allowed_hosts=[...])`.
+
+- `agent_did_resolve_did`
+- `agent_did_verify_signature`
 - `agent_did_sign_payload`
 - `agent_did_sign_http_request`
 - `agent_did_rotate_key`

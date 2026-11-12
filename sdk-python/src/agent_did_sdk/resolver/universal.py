@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import time
-from urllib.parse import quote, unquote, urlparse
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
+from urllib.parse import quote, unquote, urlparse, urlsplit
 
 from ..core.types import AgentDIDDocument
 from ..crypto.hash import generate_canonical_document_hash
@@ -20,6 +22,7 @@ from .http_source import HttpDIDDocumentSource
 from .types import (
     DidWebvhResolution,
     DocumentIntegrityError,
+    ResolutionLimits,
     ResolverCacheStats,
     ResolverResolutionEvent,
     UniversalResolverConfig,
@@ -27,6 +30,20 @@ from .types import (
 from .webvh_source import WebvhDIDDocumentSource
 
 _SHA256_DOCUMENT_REF_PREFIX = "hash://sha256/"
+
+_T = TypeVar("_T")
+
+
+def _host_allowed(host: str, allowed_hosts: list[str]) -> bool:
+    """*host* is listed, or a subdomain of a ``*.``-prefixed entry."""
+    normalized = host.lower()
+    for entry in allowed_hosts:
+        if entry.startswith("*."):
+            if normalized.endswith(entry[1:]) and len(normalized) > len(entry) - 1:
+                return True
+        elif normalized == entry:
+            return True
+    return False
 
 
 class _CachedDocument:
@@ -66,6 +83,24 @@ class UniversalResolverClient:
             scheme.lower() for scheme in (config.unverified_document_ref_schemes or [])
         )
         self._cache: dict[str, _CachedDocument] = {}
+        limits = config.resolution_limits or ResolutionLimits()
+        ttl = limits.negative_cache_ttl_ms
+        if isinstance(ttl, bool) or not isinstance(ttl, int) or ttl < 0:
+            raise TypeError("negative_cache_ttl_ms must be a non-negative integer")
+        self._negative_cache_ttl_ms = ttl
+        slots = limits.max_concurrent_fetches
+        if isinstance(slots, bool) or not isinstance(slots, int) or slots <= 0:
+            raise TypeError("max_concurrent_fetches must be a positive integer")
+        self._fetch_slots = asyncio.Semaphore(slots)
+        self._allowed_hosts: list[str] | None = None
+        if limits.allowed_hosts is not None:
+            if any(not isinstance(host, str) or not host.strip() for host in limits.allowed_hosts):
+                raise TypeError("allowed_hosts must be a list of host names")
+            self._allowed_hosts = [host.strip().lower() for host in limits.allowed_hosts]
+        # Recent did:webvh / did:wba failures, raised again without fetching until they expire
+        self._negative_cache: dict[str, tuple[BaseException, float]] = {}
+        # Fetches in progress, shared by concurrent resolutions of the same DID
+        self._in_flight: dict[str, asyncio.Future[Any]] = {}
         self._store_tasks: set[asyncio.Task[None]] = set()
         self._hits = 0
         self._misses = 0
@@ -117,7 +152,8 @@ class UniversalResolverClient:
         self._emit(did, "cache-miss", started)
 
         if self._is_did_wba(did):
-            return await self._resolve_did_wba(did, started, now)
+            document = await self._guarded_fetch(did, started, lambda: self._resolve_did_wba(did, started, now))
+            return document.model_copy(deep=True)
 
         if self._is_did_webvh(did):
             return await self._resolve_did_webvh(did, started, now)
@@ -174,8 +210,57 @@ class UniversalResolverClient:
         else:
             self._misses += 1
             self._emit(did, "cache-miss", started)
-            entry = await self._load_did_webvh(did, started, started)
+            entry = await self._guarded_fetch(did, started, lambda: self._load_did_webvh(did, started, started))
         return entry.webvh
+
+    async def _guarded_fetch(self, did: str, started: float, load: Callable[[], Awaitable[_T]]) -> _T:
+        """Run *load* (a did:webvh or did:wba fetch) under the resolution limits: the host allow-list, the negative
+        cache, one shared fetch per DID and at most ``max_concurrent_fetches`` fetches at once."""
+        self._assert_host_allowed(did, started)
+        recent = self._negative_cache.get(did)
+        if recent is not None and recent[1] > self._now_ms():
+            self._emit(did, "error", started, message=f"recent failure: {recent[0]}")
+            raise recent[0]
+        pending = self._in_flight.get(did)
+        if pending is None:
+            pending = asyncio.ensure_future(self._run_fetch(did, load))
+            self._in_flight[did] = pending
+            pending.add_done_callback(lambda _: self._in_flight.pop(did, None))
+        # shield: a caller that is cancelled does not cancel the fetch the others wait for
+        result: _T = await asyncio.shield(pending)
+        return result
+
+    async def _run_fetch(self, did: str, load: Callable[[], Awaitable[_T]]) -> _T:
+        async with self._fetch_slots:
+            try:
+                value = await load()
+            except Exception as exc:
+                self._remember_failure(did, exc)
+                raise
+        self._negative_cache.pop(did, None)
+        return value
+
+    def _remember_failure(self, did: str, error: BaseException) -> None:
+        if self._negative_cache_ttl_ms == 0:
+            return
+        self._negative_cache.pop(did, None)
+        self._negative_cache[did] = (error, self._now_ms() + self._negative_cache_ttl_ms)
+        while len(self._negative_cache) > self._max_cache_entries:
+            del self._negative_cache[next(iter(self._negative_cache))]
+
+    def _assert_host_allowed(self, did: str, started: float) -> None:
+        """Raise before any request when ``allowed_hosts`` is set and the DID's host is not in it."""
+        if self._allowed_hosts is None:
+            return
+        try:
+            url = derive_did_webvh_log_url(did) if self._is_did_webvh(did) else self._derive_did_wba_document_url(did)
+            host = urlsplit(url).hostname or ""
+        except (DidWebvhError, ValueError):
+            return  # an invalid DID fails in the fetch itself
+        if not _host_allowed(host, self._allowed_hosts):
+            msg = f"Resolution of {did} is not allowed: {host} is not in allowed_hosts"
+            self._emit(did, "error", started, message=msg)
+            raise ValueError(msg)
 
     def _deactivated_error(self, did: str, started: float) -> ValueError:
         msg = f"DID is deactivated: {did}"
@@ -252,7 +337,7 @@ class UniversalResolverClient:
         There is no fallback to another resolver: a fetch error, a missing log, an invalid DID, a log that
         fails verification, a log that contradicts the one held locally and a deactivated DID all fail closed.
         """
-        entry = await self._load_did_webvh(did, started, now)
+        entry = await self._guarded_fetch(did, started, lambda: self._load_did_webvh(did, started, now))
         if entry.deactivated:
             raise self._deactivated_error(did, started)
         self._emit(did, "resolved", started)

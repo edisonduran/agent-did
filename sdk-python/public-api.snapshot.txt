@@ -25,7 +25,9 @@ CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
 DEFAULT_HTTP_TIMEOUT_MS
+DEFAULT_MAX_CONCURRENT_FETCHES
 DEFAULT_MAX_RESPONSE_BYTES
+DEFAULT_NEGATIVE_CACHE_TTL_MS
 DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
 DIDDocumentSource
 DIDResolver
@@ -64,6 +66,7 @@ ProductionHttpResolverProfileConfig
 ProductionJsonRpcResolverProfileConfig
 ProductionResolverProfileConfig
 REQUIRED_RELATIONSHIP_BY_ARTIFACT
+ResolutionLimits
 ResolverCacheStats
 ResolverResolutionEvent
 ResolverResolutionStage

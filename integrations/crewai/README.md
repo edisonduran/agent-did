@@ -51,6 +51,7 @@ integration = create_agent_did_crewai_integration(
     runtime_identity=runtime_identity,
     expose={
         "sign_http": True,
+        "resolve_did": True,
         "verify_signatures": True,
         "sign_payload": False,
         "rotate_keys": False,
@@ -128,7 +129,7 @@ Los callbacks de CrewAI siguen retornando payloads ligeros y saneados, pero si c
 
 ## Defaults seguros
 
-- `current_identity`, `resolve_did` y `verify_signatures` quedan habilitados por defecto.
+- `current_identity` es la unica tool habilitada por defecto. `resolve_did` y `verify_signatures` hacen que el modelo elija que DID resolver y, con un resolver HTTP, provocan peticiones salientes: desde `1.0.0-rc.5` son opt-in. Al activarlas, limite los hosts del resolver con `resolution_limits=ResolutionLimits(allowed_hosts=[...])`.
 - `sign_http`, `sign_payload`, `rotate_keys` y `document_history` permanecen deshabilitados por defecto.
 - `sign_http` rechaza esquemas no HTTP(S), credenciales embebidas y targets privados/loopback salvo opt-in explicito con `allow_private_network_targets=True`.
 - La rotacion de clave actualiza el estado compartido de la integracion y las tools, evitando snapshots obsoletos despues de una rotacion.

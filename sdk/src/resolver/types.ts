@@ -53,6 +53,28 @@ export interface DIDDocumentSource {
 /** Default maximum number of documents in the `UniversalResolverClient` cache. */
 export const DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000;
 
+/**
+ * Bounds on the network work a resolver does for DIDs it is asked about. A verifier resolves the DID that a request
+ * names before the signature is checked, so these limits also bound what an unauthenticated request can make it do.
+ */
+export interface ResolutionLimits {
+  /**
+   * A failed did:webvh or did:wba resolution is remembered for this long and answered again with the same error,
+   * without fetching. Default `DEFAULT_NEGATIVE_CACHE_TTL_MS` (5000); 0 turns it off.
+   */
+  negativeCacheTtlMs?: number;
+  /** At most this many did:webvh / did:wba fetches run at once; the others wait. Default 16. */
+  maxConcurrentFetches?: number;
+  /**
+   * When set, only did:webvh and did:wba DIDs on these hosts are fetched (`example.com`, or `*.example.com` for its
+   * subdomains); any other DID fails before a request is made, with no fallback.
+   */
+  allowedHosts?: string[];
+}
+
+export const DEFAULT_NEGATIVE_CACHE_TTL_MS = 5_000;
+export const DEFAULT_MAX_CONCURRENT_FETCHES = 16;
+
 export interface UniversalResolverConfig {
   registry: AgentRegistry;
   documentSource: DIDDocumentSource;
@@ -84,6 +106,11 @@ export interface UniversalResolverConfig {
    * Each unverified resolution emits a `source-fetched` event saying so.
    */
   unverifiedDocumentRefSchemes?: string[];
+  /**
+   * Negative cache, coalescing and concurrency limits, and an optional host allow-list, for did:webvh and did:wba.
+   * Concurrent resolutions of one DID always share a single fetch.
+   */
+  resolutionLimits?: ResolutionLimits;
 }
 
 export interface ResolverCacheStats {

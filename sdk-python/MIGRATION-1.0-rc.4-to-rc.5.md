@@ -235,6 +235,18 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `sign_http_request` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `request_url_form_problem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
 - A payload signature passed to `verify_signature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
 
+## 22. Resolution limits; integration tools that resolve DIDs are opt-in
+
+- The universal resolver remembers a failed did:webvh / did:wba resolution for 5 s (`ResolutionLimits.negative_cache_ttl_ms`, 0 turns it off), shares one fetch between concurrent resolutions of the same DID and runs at most 16 fetches at once (`max_concurrent_fetches`). Code that retries a failing DID within 5 s gets the same error without a new request.
+- New optional `ResolutionLimits.allowed_hosts` (`UniversalResolverConfig.resolution_limits` and the `use_production_resolver*` profiles): only DIDs on these hosts are fetched. Set it on verifiers that know their peers.
+- LangChain Python, CrewAI, Semantic Kernel and Microsoft Agent Framework: `expose["resolve_did"]` and `expose["verify_signatures"]` default to `False`. Set them to `True` where the agent needs them, together with `allowed_hosts`.
+
+```python
+client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
+    registry=registry, resolution_limits=ResolutionLimits(allowed_hosts=["*.partner.example"]),
+))
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -262,3 +274,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] Every `BearerTokenHttpDIDDocumentSourceConfig` lists its `allowed_origins`.
 - [ ] Code that treated a `None` from `JsonRpcDIDDocumentSource` with blocked endpoints as "not found" handles the error.
 - [ ] Every URL passed to `sign_http_request` is percent-encoded and normalized (`request_url_form_problem` returns nothing for it).
+- [ ] Agents that use the `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `ResolutionLimits.allowed_hosts`.

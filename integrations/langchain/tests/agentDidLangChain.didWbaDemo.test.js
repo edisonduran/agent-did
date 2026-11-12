@@ -120,6 +120,8 @@ describe("@agentdid/langchain did:wba integrated demo", () => {
       agentIdentity: identity,
       runtimeIdentity,
       expose: {
+        resolveDid: true,
+        verifySignatures: true,
         signHttp: true,
       },
     });

@@ -9,6 +9,8 @@ import {
   resolveDidWebvhLog
 } from '../webvh/adapter';
 import {
+  DEFAULT_MAX_CONCURRENT_FETCHES,
+  DEFAULT_NEGATIVE_CACHE_TTL_MS,
   DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
   DocumentIntegrityError,
   DidWebvhResolution,
@@ -29,6 +31,14 @@ interface CachedDocument {
   deactivated?: boolean;
 }
 
+/** `host` is listed, or a subdomain of a `*.`-prefixed entry. */
+function hostAllowed(host: string, allowedHosts: readonly string[]): boolean {
+  const normalized = host.toLowerCase();
+  return allowedHosts.some((entry) =>
+    entry.startsWith('*.') ? normalized.endsWith(entry.slice(1)) && normalized.length > entry.length - 1 : normalized === entry
+  );
+}
+
 export class UniversalResolverClient implements DIDResolver {
   private readonly registry;
   private readonly documentSource;
@@ -40,6 +50,15 @@ export class UniversalResolverClient implements DIDResolver {
   private readonly onResolutionEvent;
   private readonly unverifiedDocumentRefSchemes: ReadonlySet<string>;
   private readonly cache = new Map<string, CachedDocument>();
+  private readonly negativeCacheTtlMs: number;
+  private readonly maxConcurrentFetches: number;
+  private readonly allowedHosts: readonly string[] | undefined;
+  /** Recent did:webvh / did:wba failures, answered again without fetching until they expire. */
+  private readonly negativeCache = new Map<string, { error: unknown; expiresAt: number }>();
+  /** Fetches in progress, shared by concurrent resolutions of the same DID. */
+  private readonly inFlight = new Map<string, Promise<unknown>>();
+  private activeFetches = 0;
+  private readonly waitingFetches: Array<() => void> = [];
   private hits = 0;
   private misses = 0;
 
@@ -53,6 +72,21 @@ export class UniversalResolverClient implements DIDResolver {
     this.maxCacheEntries = config.maxCacheEntries ?? DEFAULT_RESOLVER_MAX_CACHE_ENTRIES;
     if (!Number.isSafeInteger(this.maxCacheEntries) || this.maxCacheEntries <= 0) {
       throw new TypeError('maxCacheEntries must be a positive integer');
+    }
+    const limits = config.resolutionLimits ?? {};
+    this.negativeCacheTtlMs = limits.negativeCacheTtlMs ?? DEFAULT_NEGATIVE_CACHE_TTL_MS;
+    if (!Number.isSafeInteger(this.negativeCacheTtlMs) || this.negativeCacheTtlMs < 0) {
+      throw new TypeError('negativeCacheTtlMs must be a non-negative integer');
+    }
+    this.maxConcurrentFetches = limits.maxConcurrentFetches ?? DEFAULT_MAX_CONCURRENT_FETCHES;
+    if (!Number.isSafeInteger(this.maxConcurrentFetches) || this.maxConcurrentFetches <= 0) {
+      throw new TypeError('maxConcurrentFetches must be a positive integer');
+    }
+    if (limits.allowedHosts !== undefined) {
+      if (!Array.isArray(limits.allowedHosts) || limits.allowedHosts.some((host) => typeof host !== 'string' || !host.trim())) {
+        throw new TypeError('allowedHosts must be a list of host names');
+      }
+      this.allowedHosts = limits.allowedHosts.map((host) => host.trim().toLowerCase());
     }
     this.onResolutionEvent = config.onResolutionEvent;
     this.unverifiedDocumentRefSchemes = new Set(
@@ -100,7 +134,7 @@ export class UniversalResolverClient implements DIDResolver {
     this.emitEvent({ did, stage: 'cache-miss', durationMs: Date.now() - startedAt });
 
     if (this.isDidWba(did)) {
-      return this.resolveDidWba(did, startedAt, now);
+      return this.clone(await this.guardedFetch(did, startedAt, () => this.resolveDidWba(did, startedAt, now)));
     }
 
     if (this.isDidWebvh(did)) {
@@ -178,9 +212,85 @@ export class UniversalResolverClient implements DIDResolver {
     } else {
       this.misses += 1;
       this.emitEvent({ did, stage: 'cache-miss', durationMs: Date.now() - startedAt });
-      entry = await this.loadDidWebvh(did, startedAt, startedAt);
+      entry = await this.guardedFetch(did, startedAt, () => this.loadDidWebvh(did, startedAt, startedAt));
     }
     return entry.webvh ? JSON.parse(JSON.stringify(entry.webvh)) as DidWebvhResolution : undefined;
+  }
+
+  /**
+   * Runs `load` (a did:webvh or did:wba fetch) under the resolution limits: the host allow-list, the negative cache,
+   * one shared fetch per DID and at most `maxConcurrentFetches` fetches at once.
+   */
+  private async guardedFetch<T>(did: string, startedAt: number, load: () => Promise<T>): Promise<T> {
+    this.assertHostAllowed(did, startedAt);
+    const recent = this.negativeCache.get(did);
+    if (recent && recent.expiresAt > Date.now()) {
+      const message = recent.error instanceof Error ? recent.error.message : String(recent.error);
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message: `recent failure: ${message}` });
+      throw recent.error;
+    }
+    const pending = this.inFlight.get(did);
+    if (pending) {
+      return pending as Promise<T>;
+    }
+    const run = this.withFetchSlot(load).then(
+      (value) => {
+        this.negativeCache.delete(did);
+        return value;
+      },
+      (error: unknown) => {
+        this.rememberFailure(did, error);
+        throw error;
+      }
+    );
+    this.inFlight.set(did, run);
+    try {
+      return await run;
+    } finally {
+      this.inFlight.delete(did);
+    }
+  }
+
+  private async withFetchSlot<T>(load: () => Promise<T>): Promise<T> {
+    while (this.activeFetches >= this.maxConcurrentFetches) {
+      await new Promise<void>((resolve) => this.waitingFetches.push(resolve));
+    }
+    this.activeFetches += 1;
+    try {
+      return await load();
+    } finally {
+      this.activeFetches -= 1;
+      this.waitingFetches.shift()?.();
+    }
+  }
+
+  private rememberFailure(did: string, error: unknown): void {
+    if (this.negativeCacheTtlMs === 0) {
+      return;
+    }
+    this.negativeCache.delete(did);
+    this.negativeCache.set(did, { error, expiresAt: Date.now() + this.negativeCacheTtlMs });
+    while (this.negativeCache.size > this.maxCacheEntries) {
+      this.negativeCache.delete(this.negativeCache.keys().next().value as string);
+    }
+  }
+
+  /** Throws before any request when `allowedHosts` is set and the DID's host is not in it. */
+  private assertHostAllowed(did: string, startedAt: number): void {
+    if (this.allowedHosts === undefined) {
+      return;
+    }
+    let host: string;
+    try {
+      host = new URL(this.isDidWebvh(did) ? deriveDidWebvhLogUrl(did) : this.deriveDidWbaDocumentUrl(did)).hostname;
+    } catch {
+      return; // an invalid DID fails in the fetch itself
+    }
+    if (!hostAllowed(host, this.allowedHosts)) {
+      const message = `Resolution of ${did} is not allowed: ${host} is not in allowedHosts`;
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(message);
+    }
   }
 
   private deactivatedError(did: string, startedAt: number): Error {
@@ -259,7 +369,7 @@ export class UniversalResolverClient implements DIDResolver {
    * the one held locally and a deactivated DID all fail closed.
    */
   private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<AgentDIDDocument> {
-    const entry = await this.loadDidWebvh(did, startedAt, now);
+    const entry = await this.guardedFetch(did, startedAt, () => this.loadDidWebvh(did, startedAt, now));
     if (entry.deactivated) {
       throw this.deactivatedError(did, startedAt);
     }

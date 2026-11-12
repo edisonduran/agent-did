@@ -35,7 +35,9 @@ CreateDidWebvhOptions
 createMetadataCommitment
 decodePublicKeyMultibase
 DEFAULT_HTTP_TIMEOUT_MS
+DEFAULT_MAX_CONCURRENT_FETCHES
 DEFAULT_MAX_RESPONSE_BYTES
+DEFAULT_NEGATIVE_CACHE_TTL_MS
 DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
 DID_VERIFICATION_RELATIONSHIPS
 DIDDocumentSource
@@ -94,6 +96,7 @@ ProductionResolverProfileConfig
 requestUrlFormProblem
 REQUIRED_RELATIONSHIP_BY_ARTIFACT
 requiredRelationshipFor
+ResolutionLimits
 ResolverCacheStats
 ResolverResolutionEvent
 ResolverResolutionStage

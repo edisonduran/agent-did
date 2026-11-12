@@ -61,6 +61,7 @@ const integration = createAgentDidIntegration({
   agentIdentity: identity,
   runtimeIdentity,
   expose: {
+    resolveDid: true,
     signHttp: true,
     verifySignatures: true,
     signPayload: false,
@@ -105,6 +106,7 @@ En este flujo el SDK usa el path web-native canonico y bootstrappea el controlle
 
 ## Seguridad por defecto
 
+- `currentIdentity` es la unica tool habilitada por defecto. `resolveDid` y `verifySignatures` hacen que el modelo elija que DID resolver y, con un resolver HTTP, provocan peticiones salientes: desde `1.0.0-rc.5` son opt-in. Al activarlas, limite los hosts del resolver con `resolutionLimits: { allowedHosts: [...] }`.
 - `signPayload` y `rotateKeys` vienen deshabilitados por defecto.
 - `signHttp` tambien es opt-in y puede habilitarse para que el agente firme solicitudes salientes sin exponer la clave privada al modelo.
 - Los destinos HTTP privados, loopback o con credenciales embebidas se rechazan por defecto.

@@ -207,6 +207,16 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `signHttpRequest` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `requestUrlFormProblem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
 - A payload signature passed to `verifySignature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
 
+## 22. Resolution limits; integration tools that resolve DIDs are opt-in
+
+- The universal resolver remembers a failed did:webvh / did:wba resolution for 5 s (`resolutionLimits.negativeCacheTtlMs`, 0 turns it off), shares one fetch between concurrent resolutions of the same DID and runs at most 16 fetches at once (`maxConcurrentFetches`). Code that retries a failing DID within 5 s gets the same error without a new request.
+- New optional `resolutionLimits.allowedHosts` (on `UniversalResolverConfig` and the `useProductionResolver*` profiles): only DIDs on these hosts are fetched. Set it on verifiers that know their peers.
+- LangChain JS: `expose.resolveDid` and `expose.verifySignatures` default to `false`. Set them to `true` where the agent needs them, together with `allowedHosts`.
+
+```ts
+client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHosts: ['*.partner.example'] } });
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -234,3 +244,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
 - [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
+- [ ] Agents that use the LangChain `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `resolutionLimits.allowedHosts`.

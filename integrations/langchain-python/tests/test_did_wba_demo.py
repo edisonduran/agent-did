@@ -119,7 +119,7 @@ async def test_did_wba_runtime_identity_supports_resolve_and_http_signature_veri
         integration = create_agent_did_langchain_integration(
             agent_identity=identity,
             runtime_identity=runtime_identity,
-            expose={"sign_http": True},
+            expose={"resolve_did": True, "verify_signatures": True, "sign_http": True},
         )
         tools_by_name = {tool.name: tool for tool in integration.tools}
 

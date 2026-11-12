@@ -4,7 +4,7 @@
 import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, RotateControllerKeyOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
-import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolverResolutionEvent } from '../resolver/types';
+import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
 export interface ProductionResolverProfileConfig {
     registry: AgentRegistry;
@@ -22,6 +22,8 @@ export interface ProductionResolverProfileConfig {
      * Each unverified resolution emits a `source-fetched` event saying so.
      */
     unverifiedDocumentRefSchemes?: string[];
+    /** Negative cache, concurrency limit and host allow-list for did:webvh / did:wba fetches (see `ResolutionLimits`). */
+    resolutionLimits?: ResolutionLimits;
 }
 export interface ProductionHttpResolverProfileConfig {
     registry: AgentRegistry;
@@ -46,6 +48,8 @@ export interface ProductionHttpResolverProfileConfig {
      */
     unverifiedDocumentRefSchemes?: string[];
     httpSecurity?: import('./http-security').HttpSecurityOptions;
+    /** Negative cache, concurrency limit and host allow-list for did:webvh / did:wba fetches (see `ResolutionLimits`). */
+    resolutionLimits?: ResolutionLimits;
 }
 export interface ProductionJsonRpcResolverProfileConfig {
     registry: AgentRegistry;
@@ -64,6 +68,8 @@ export interface ProductionJsonRpcResolverProfileConfig {
     }>;
     onResolutionEvent?: (event: ResolverResolutionEvent) => void;
     httpSecurity?: import('./http-security').HttpSecurityOptions;
+    /** Negative cache, concurrency limit and host allow-list for did:webvh / did:wba fetches (see `ResolutionLimits`). */
+    resolutionLimits?: ResolutionLimits;
 }
 export interface AgentDidClientOptions {
     /** DID resolver. Defaults to a fresh in-memory resolver. */
@@ -1162,7 +1168,7 @@ export { encodePublicKeyMultibase, didKeyFromPublicKey, decodePublicKeyMultibase
 export { AgentSigner, LocalKeySigner } from './core/signer';
 export { validateHttpTarget, HttpTargetValidationOptions, HttpSecurityOptions, DEFAULT_HTTP_TIMEOUT_MS, DEFAULT_MAX_RESPONSE_BYTES } from './core/http-security';
 export { isUnixTimestampString, unixStringToIso, isoToUnixString, normalizeTimestampToIso } from './core/time';
-export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, DEFAULT_RESOLVER_MAX_CACHE_ENTRIES, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
+export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, DEFAULT_RESOLVER_MAX_CACHE_ENTRIES, DEFAULT_NEGATIVE_CACHE_TTL_MS, DEFAULT_MAX_CONCURRENT_FETCHES, ResolutionLimits, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
 export { InMemoryDIDResolver } from './resolver/InMemoryDIDResolver';
 export { UniversalResolverClient } from './resolver/UniversalResolverClient';
 export { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './resolver/HttpDIDDocumentSource';
@@ -1539,6 +1545,26 @@ export interface DIDDocumentSource {
 }
 /** Default maximum number of documents in the `UniversalResolverClient` cache. */
 export declare const DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000;
+/**
+ * Bounds on the network work a resolver does for DIDs it is asked about. A verifier resolves the DID that a request
+ * names before the signature is checked, so these limits also bound what an unauthenticated request can make it do.
+ */
+export interface ResolutionLimits {
+    /**
+     * A failed did:webvh or did:wba resolution is remembered for this long and answered again with the same error,
+     * without fetching. Default `DEFAULT_NEGATIVE_CACHE_TTL_MS` (5000); 0 turns it off.
+     */
+    negativeCacheTtlMs?: number;
+    /** At most this many did:webvh / did:wba fetches run at once; the others wait. Default 16. */
+    maxConcurrentFetches?: number;
+    /**
+     * When set, only did:webvh and did:wba DIDs on these hosts are fetched (`example.com`, or `*.example.com` for its
+     * subdomains); any other DID fails before a request is made, with no fallback.
+     */
+    allowedHosts?: string[];
+}
+export declare const DEFAULT_NEGATIVE_CACHE_TTL_MS = 5000;
+export declare const DEFAULT_MAX_CONCURRENT_FETCHES = 16;
 export interface UniversalResolverConfig {
     registry: AgentRegistry;
     documentSource: DIDDocumentSource;
@@ -1570,6 +1596,11 @@ export interface UniversalResolverConfig {
      * Each unverified resolution emits a `source-fetched` event saying so.
      */
     unverifiedDocumentRefSchemes?: string[];
+    /**
+     * Negative cache, coalescing and concurrency limits, and an optional host allow-list, for did:webvh and did:wba.
+     * Concurrent resolutions of one DID always share a single fetch.
+     */
+    resolutionLimits?: ResolutionLimits;
 }
 export interface ResolverCacheStats {
     hits: number;
@@ -1608,6 +1639,15 @@ export declare class UniversalResolverClient implements DIDResolver {
     private readonly onResolutionEvent;
     private readonly unverifiedDocumentRefSchemes;
     private readonly cache;
+    private readonly negativeCacheTtlMs;
+    private readonly maxConcurrentFetches;
+    private readonly allowedHosts;
+    /** Recent did:webvh / did:wba failures, answered again without fetching until they expire. */
+    private readonly negativeCache;
+    /** Fetches in progress, shared by concurrent resolutions of the same DID. */
+    private readonly inFlight;
+    private activeFetches;
+    private readonly waitingFetches;
     private hits;
     private misses;
     constructor(config: UniversalResolverConfig);
@@ -1619,6 +1659,15 @@ export declare class UniversalResolverClient implements DIDResolver {
      * `deactivated: true`. `undefined` when the cached entry holds only a document that was registered without its log.
      */
     resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined>;
+    /**
+     * Runs `load` (a did:webvh or did:wba fetch) under the resolution limits: the host allow-list, the negative cache,
+     * one shared fetch per DID and at most `maxConcurrentFetches` fetches at once.
+     */
+    private guardedFetch;
+    private withFetchSlot;
+    private rememberFailure;
+    /** Throws before any request when `allowedHosts` is set and the DID's host is not in it. */
+    private assertHostAllowed;
     private deactivatedError;
     remove(did: string): void;
     getCacheStats(): ResolverCacheStats;

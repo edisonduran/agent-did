@@ -23,7 +23,7 @@ async def test_tools_expose_identity_resolution_and_signature_verification() -> 
     integration = create_agent_did_langchain_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_payload": True, "rotate_keys": True},
+        expose={"resolve_did": True, "verify_signatures": True, "sign_payload": True, "rotate_keys": True},
     )
     tools_by_name = {tool.name: tool for tool in integration.tools}
 
@@ -60,7 +60,14 @@ async def test_tools_return_structured_errors_on_invalid_inputs() -> None:
         )
     )
 
-    integration = create_agent_did_langchain_integration(agent_identity=identity, runtime_identity=runtime_identity)
+    integration = create_agent_did_langchain_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,
+        expose={
+            "resolve_did": True,
+            "verify_signatures": True,
+        }
+    )
     tools_by_name = {tool.name: tool for tool in integration.tools}
 
     malformed = await tools_by_name["agent_did_verify_signature"].ainvoke(
