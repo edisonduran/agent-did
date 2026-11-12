@@ -11,6 +11,7 @@ from nacl.signing import VerifyKey
 
 from agent_did_sdk.core.http_signatures import HttpRequestLike, build_signature_base, parse_signature_input_header
 from agent_did_sdk.core.identity import AgentIdentity
+from agent_did_sdk.core.message_signing import message_signing_input
 from agent_did_sdk.core.nonce_store import InMemoryNonceStore
 from agent_did_sdk.core.types import (
     AgentDIDDocument,
@@ -26,7 +27,8 @@ def _build_interop_document(vector: dict) -> AgentDIDDocument:
         **{
             "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
             "id": vector["did"],
-            "controller": vector["controller"],
+            # Self-controlled: the vectors test signatures, and a document-only resolver cannot prove a binding
+            "controller": vector["did"],
             "created": "2024-01-01T00:00:00Z",
             "updated": "2024-01-01T00:00:00Z",
             "agentMetadata": {
@@ -79,8 +81,8 @@ class TestInteropMessageVector:
             signature_hex = vector["messageVector"]["signatureHex"]
 
             vk = VerifyKey(public_key_bytes)
-            # PyNaCl raises on invalid; no exception → valid
-            vk.verify(payload.encode("utf-8"), bytes.fromhex(signature_hex))
+            # PyNaCl raises on invalid; no exception → valid. The signature covers the payload-signature domain prefix.
+            vk.verify(message_signing_input(payload), bytes.fromhex(signature_hex))
 
 
 class TestInteropHttpVector:

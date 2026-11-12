@@ -48,9 +48,18 @@ describe('HttpDIDDocumentSource', () => {
       json: async () => ({})
     });
 
-    const source = new HttpDIDDocumentSource({ fetchFn });
+    const source = new HttpDIDDocumentSource({ fetchFn, referenceToUrl: () => 'https://docs.example.com/missing.json' });
     const result = await source.getByReference('hash://sha256/missing');
     expect(result).toBeNull();
+  });
+
+  it('should report a target blocked by the SSRF policy as a failure, not as not found', async () => {
+    const fetchFn = jest.fn();
+    const source = new HttpDIDDocumentSource({ fetchFn, referenceToUrl: () => 'http://10.0.0.5/did.json' });
+
+    await expect(source.getByReference('hash://sha256/blocked')).rejects.toThrow(/blocked by SSRF policy/u);
+    await expect(source.getDidLogByReference('hash://sha256/blocked')).rejects.toThrow(/blocked by SSRF policy/u);
+    expect(fetchFn).not.toHaveBeenCalled();
   });
 
   it('should fail over across endpoints until one succeeds', async () => {

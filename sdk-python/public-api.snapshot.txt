@@ -2,6 +2,8 @@
 ADDITIONAL_VERIFICATION_RELATIONSHIPS
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
+AGENT_DID_MESSAGE_SIGNING_PREFIX
+AddVerificationMethodResult
 AdditionalVerificationRelationship
 AgentDIDDocument
 AgentDidClient
@@ -18,6 +20,7 @@ AwsSigV4S3DIDDocumentSource
 AwsSigV4S3DIDDocumentSourceConfig
 BearerTokenHttpDIDDocumentSource
 BearerTokenHttpDIDDocumentSourceConfig
+ControllerBindingError
 CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
@@ -30,6 +33,8 @@ DID_VERIFICATION_RELATIONSHIPS
 DidWebvhControllerKeys
 DidWebvhError
 DidWebvhErrorCode
+DidWebvhResolution
+DidWebvhState
 DocumentIntegrityError
 FilesystemDIDDocumentSource
 FilesystemDIDDocumentSourceConfig
@@ -103,6 +108,7 @@ get_relationship_key_ids
 hash_payload
 is_unix_timestamp_string
 iso_to_unix_string
+message_signing_input
 normalize_timestamp_to_iso
 parse_signature_header
 parse_signature_input_header

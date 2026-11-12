@@ -79,6 +79,39 @@ export interface DidWebvhLifecycleOptions {
   controllerSigner?: import('./signer').AgentSigner;
 }
 
+/** A relationship a key added with `addVerificationMethod` can be listed under (never `keyAgreement`). */
+export type AddedKeyRelationship = SigningVerificationPurpose;
+
+export interface AddVerificationMethodOptions extends DidWebvhLifecycleOptions {
+  /**
+   * Signer that holds the new key (for example a KMS or HSM key). Its public key becomes the new verification
+   * method and no private key reaches the SDK: `agentPrivateKey` in the result is an empty string. Without it the
+   * SDK generates a local key and returns it.
+   */
+  signer?: import('./signer').AgentSigner;
+  /**
+   * Relationships to list the new key under. Defaults to `['capabilityInvocation']`: a key that can endorse the
+   * agents it controls (RFC-001 §6.6 item 7) without signing in any other role.
+   */
+  relationships?: AddedKeyRelationship[];
+}
+
+export interface AddVerificationMethodResult {
+  document: AgentDIDDocument;
+  verificationMethodId: string;
+  /** Empty when `signer` was given. */
+  agentPrivateKey: string;
+}
+
+export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOptions {
+  /**
+   * Signer that holds the new agent key (for example a KMS or HSM key). Its public key becomes the new
+   * verification method and the private key never reaches the SDK: `agentPrivateKey` in the result is an
+   * empty string. Without it the SDK generates a local key and returns it.
+   */
+  signer?: import('./signer').AgentSigner;
+}
+
 export type VerificationRelationship =
   | 'authentication'
   | 'assertionMethod'
@@ -232,7 +265,12 @@ export interface SignHttpRequestParams {
   /** External signer. Preferred over agentPrivateKey when both are present. */
   signer?: import('./signer').AgentSigner;
   agentDid: string;
-  verificationMethodId?: string;
+  /**
+   * The verification method (`keyid`) that matches the signing key, e.g. `document.authentication[0]` or the
+   * `verificationMethodId` that `rotateVerificationMethod` returned. Required: there is no default, because a
+   * fixed guess names the wrong key once the agent has rotated.
+   */
+  verificationMethodId: string;
   /** Signature expiration window in seconds (default: 30). */
   expiresInSeconds?: number;
   /** SSRF protection options. */
@@ -299,6 +337,7 @@ export type HttpSignatureRejection =
   | 'expired'
   | 'signed_component_missing'
   | 'did_resolution_failed'
+  | 'controller_not_bound'
   | 'keyid_not_authorized'
   | 'signature_invalid'
   | 'nonce_replayed';
@@ -406,7 +445,7 @@ export type VerifySignatureAtTimeResult =
   | { status: 'valid'; key: Extract<KeyAtTimeResult, { status: 'authorized' }> }
   | {
       status: 'invalid';
-      reason: 'did_resolution_failed' | 'key_not_authorized' | 'signature_invalid';
+      reason: 'did_resolution_failed' | 'key_not_authorized' | 'controller_not_bound' | 'signature_invalid';
       key?: KeyAtTimeResult;
     }
   | { status: 'indeterminate'; key: Extract<KeyAtTimeResult, { status: 'indeterminate' }> };

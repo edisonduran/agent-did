@@ -406,6 +406,52 @@ async function runLibraryOperation<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * The multikeys (`z6Mk...`) that made the proofs of the LAST entry of a log: the keys that endorsed the current
+ * document. The log must already be verified (`resolveDidWebvhLog`), which guarantees each proof is valid and was
+ * made by a key authorized by the `updateKeys` in force; this only reads which keys they were.
+ */
+export function didWebvhLastEntrySigners(logText: string): string[] {
+  const log = parseLog(logText);
+  const proofs = (log[log.length - 1] as { proof?: unknown }).proof;
+  if (!Array.isArray(proofs)) {
+    return [];
+  }
+  const signers: string[] = [];
+  for (const proof of proofs) {
+    const method = (proof as { verificationMethod?: unknown } | null)?.verificationMethod;
+    const match = typeof method === 'string' ? /^did:key:(z[1-9A-HJ-NP-Za-km-z]+)(?:#.*)?$/u.exec(method) : null;
+    if (match && !signers.includes(match[1])) {
+      signers.push(match[1]);
+    }
+  }
+  return signers;
+}
+
+/** How a candidate log relates to a stored one (both already verified). */
+export type DidWebvhLogRelation = 'equal' | 'extends' | 'prefix' | 'diverged';
+
+/**
+ * Compares two did:webvh logs entry by entry by `versionId` (each one hashes its entry and the previous
+ * `versionId`, so equal ids mean equal prefixes). `extends`: the candidate holds every stored entry and
+ * more. `prefix`: the candidate is a strict prefix of the stored log (older). `diverged`: they differ at
+ * some entry. Callers verify both logs first; this only compares their shape.
+ */
+export function compareDidWebvhLogs(stored: string, candidate: string): DidWebvhLogRelation {
+  const storedIds = parseLog(stored).map((entry) => entry.versionId);
+  const candidateIds = parseLog(candidate).map((entry) => entry.versionId);
+  const shared = Math.min(storedIds.length, candidateIds.length);
+  for (let index = 0; index < shared; index += 1) {
+    if (storedIds[index] !== candidateIds[index]) {
+      return 'diverged';
+    }
+  }
+  if (storedIds.length === candidateIds.length) {
+    return 'equal';
+  }
+  return candidateIds.length > storedIds.length ? 'extends' : 'prefix';
+}
+
 function parseLog(logText: string): DIDLog {
   if (typeof logText !== 'string') {
     throw new DidWebvhError('invalidInput', 'did:webvh log must be a string');

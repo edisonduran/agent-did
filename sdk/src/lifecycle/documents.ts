@@ -6,7 +6,12 @@
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex } from '@noble/hashes/utils';
 import { ADDITIONAL_VERIFICATION_RELATIONSHIPS } from '../core/identity-composition';
-import { AgentDIDDocument, UpdateAgentDocumentParams, VerificationMethod } from '../core/types';
+import {
+  AddedKeyRelationship,
+  AgentDIDDocument,
+  UpdateAgentDocumentParams,
+  VerificationMethod
+} from '../core/types';
 import { createMetadataCommitment } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
 import { normalizeTimestampToIso } from '../core/time';
@@ -32,12 +37,41 @@ export function assertUpdatePatch(did: string, patch: UpdateAgentDocumentParams)
   }
 }
 
+/**
+ * Removes the keys of `document` that carry a `deactivated` time from every verification relationship
+ * (they stay in `verificationMethod` as the record of the retired key). Idempotent; an optional
+ * relationship (everything but `authentication`) that ends up empty is omitted. A key id that is not a verification method of the document
+ * is left alone.
+ */
+function withoutRetiredKeysInRelationships(document: AgentDIDDocument): AgentDIDDocument {
+  const retired = new Set(document.verificationMethod.filter((method) => method.deactivated).map((method) => method.id));
+  if (retired.size === 0) {
+    return document;
+  }
+  const result: AgentDIDDocument = { ...document };
+  result.authentication = document.authentication.filter((keyId) => !retired.has(keyId));
+  for (const relationship of ['assertionMethod', ...ADDITIONAL_VERIFICATION_RELATIONSHIPS] as const) {
+    const keyIds = document[relationship];
+    if (!keyIds) {
+      continue;
+    }
+    const kept = keyIds.filter((keyId) => !retired.has(keyId));
+    if (kept.length > 0) {
+      result[relationship] = kept;
+    } else {
+      delete result[relationship];
+    }
+  }
+  return result;
+}
+
 export function buildUpdatedDocument(
   existing: AgentDIDDocument,
   patch: UpdateAgentDocumentParams,
   updated: string
 ): AgentDIDDocument {
-  return {
+  // Any update also normalizes a document written by an earlier release that still listed retired keys
+  return withoutRetiredKeysInRelationships({
     ...existing,
     updated,
     agentMetadata: {
@@ -54,15 +88,16 @@ export function buildUpdatedDocument(
       memberOf: patch.memberOf ?? existing.agentMetadata.memberOf
     },
     complianceCertifications: patch.complianceCertifications ?? existing.complianceCertifications
-  };
+  });
 }
 
 type CapabilityRelationshipLists = Partial<Pick<AgentDIDDocument, 'capabilityDelegation' | 'capabilityInvocation'>>;
 
 /**
  * `capabilityDelegation` / `capabilityInvocation` lists for a rotated document: the new key joins each one
- * that lists a key this rotation deactivates, so an agent that could delegate or invoke still can. A list
- * that names no active key (for example only another party's key) is left as it is.
+ * that lists a key this rotation deactivates, so an agent that could delegate or invoke still can. The keys
+ * of this document are removed from every list (a rotated-out key is no longer a verification relationship
+ * of any kind); another party's key stays, and a list left empty is omitted.
  */
 function carriedCapabilityRelationships(
   existing: AgentDIDDocument,
@@ -71,21 +106,73 @@ function carriedCapabilityRelationships(
   const activeKeyIds = new Set(
     existing.verificationMethod.filter((method) => !method.deactivated).map((method) => method.id)
   );
+  const ownKeyIds = new Set(existing.verificationMethod.map((method) => method.id));
   const carried: CapabilityRelationshipLists = {};
   for (const relationship of ADDITIONAL_VERIFICATION_RELATIONSHIPS) {
     const keyIds = existing[relationship];
-    if (keyIds?.some((keyId) => activeKeyIds.has(keyId))) {
-      carried[relationship] = Array.from(new Set([...keyIds, newVerificationMethodId]));
+    if (!keyIds) {
+      continue;
+    }
+    const kept = keyIds.filter((keyId) => !ownKeyIds.has(keyId));
+    const next = keyIds.some((keyId) => activeKeyIds.has(keyId)) ? [...kept, newVerificationMethodId] : kept;
+    if (next.length > 0) {
+      carried[relationship] = Array.from(new Set(next));
     }
   }
   return carried;
 }
 
-/** Deactivates every current key and adds a fresh Ed25519 key as the active one. */
+/**
+ * Adds an Ed25519 key to the document without retiring any other key, listed under `relationships`: `newPublicKey`
+ * when the caller holds the key elsewhere (`agentPrivateKey` is then empty), otherwise a freshly generated local key.
+ */
+export function buildAddedKeyDocument(
+  did: string,
+  existing: AgentDIDDocument,
+  updated: string,
+  relationships: readonly AddedKeyRelationship[],
+  newPublicKey?: Uint8Array
+): { document: AgentDIDDocument; verificationMethodId: string; agentPrivateKey: string } {
+  if (relationships.length === 0) {
+    throw new Error('At least one relationship is required for the new key');
+  }
+  const keyIndexes = existing.verificationMethod.map((method) => {
+    const match = method.id.match(/#key-(\d+)$/);
+    return match ? Number(match[1]) : 0;
+  });
+  const verificationMethodId = `${did}#key-${(keyIndexes.length ? Math.max(...keyIndexes) : 0) + 1}`;
+  if (newPublicKey !== undefined && newPublicKey.length !== 32) {
+    throw new Error('The new verification method key must be a 32-byte Ed25519 public key');
+  }
+  const privateKeyBytes = newPublicKey ? undefined : ed25519.utils.randomPrivateKey();
+  const document: AgentDIDDocument = {
+    ...existing,
+    updated,
+    verificationMethod: [
+      ...existing.verificationMethod,
+      {
+        id: verificationMethodId,
+        type: 'Ed25519VerificationKey2020',
+        controller: existing.controller,
+        publicKeyMultibase: encodePublicKeyMultibase(newPublicKey ?? ed25519.getPublicKey(privateKeyBytes as Uint8Array))
+      }
+    ]
+  };
+  for (const relationship of new Set(relationships)) {
+    document[relationship] = [...(document[relationship] ?? []), verificationMethodId];
+  }
+  return { document, verificationMethodId, agentPrivateKey: privateKeyBytes ? bytesToHex(privateKeyBytes) : '' };
+}
+
+/**
+ * Deactivates every current key and adds an Ed25519 key as the active one: `newPublicKey` when the caller holds
+ * the key elsewhere (`agentPrivateKey` is then empty), otherwise a freshly generated local key.
+ */
 export function buildRotatedDocument(
   did: string,
   existing: AgentDIDDocument,
-  updated: string
+  updated: string,
+  newPublicKey?: Uint8Array
 ): { document: AgentDIDDocument; verificationMethodId: string; agentPrivateKey: string } {
   const keyIndexes = existing.verificationMethod.map((method) => {
     const match = method.id.match(/#key-(\d+)$/);
@@ -94,28 +181,33 @@ export function buildRotatedDocument(
   const nextIndex = (keyIndexes.length ? Math.max(...keyIndexes) : 0) + 1;
   const verificationMethodId = `${did}#key-${nextIndex}`;
 
-  const privateKeyBytes = ed25519.utils.randomPrivateKey();
+  if (newPublicKey !== undefined && newPublicKey.length !== 32) {
+    throw new Error('The new verification method key must be a 32-byte Ed25519 public key');
+  }
+  const privateKeyBytes = newPublicKey ? undefined : ed25519.utils.randomPrivateKey();
   const newVerificationMethod: VerificationMethod = {
     id: verificationMethodId,
     type: 'Ed25519VerificationKey2020',
     controller: existing.controller,
-    publicKeyMultibase: encodePublicKeyMultibase(ed25519.getPublicKey(privateKeyBytes))
+    publicKeyMultibase: encodePublicKeyMultibase(newPublicKey ?? ed25519.getPublicKey(privateKeyBytes as Uint8Array))
   };
   const deactivatedMethods = existing.verificationMethod.map((method) => ({
     ...method,
     deactivated: method.deactivated || updated
   }));
 
+  // Every key of the previous document is retired: none of them stays in a verification relationship
+  const { capabilityDelegation: _delegation, capabilityInvocation: _invocation, ...withoutCapabilities } = existing;
   return {
     document: {
-      ...existing,
+      ...withoutCapabilities,
       updated,
       verificationMethod: [...deactivatedMethods, newVerificationMethod],
       authentication: [verificationMethodId],
-      assertionMethod: Array.from(new Set([...(existing.assertionMethod || []), verificationMethodId])),
+      assertionMethod: [verificationMethodId],
       ...carriedCapabilityRelationships(existing, verificationMethodId)
     },
     verificationMethodId,
-    agentPrivateKey: bytesToHex(privateKeyBytes)
+    agentPrivateKey: privateKeyBytes ? bytesToHex(privateKeyBytes) : ''
   };
 }

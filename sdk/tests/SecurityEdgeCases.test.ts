@@ -10,8 +10,7 @@ describe('Security Edge Cases', () => {
         referenceToUrl: () => 'file:///etc/passwd',
       });
 
-      const result = await source.getByReference('hash://sha256/test');
-      expect(result).toBeNull();
+      await expect(source.getByReference('hash://sha256/test')).rejects.toThrow(/blocked by SSRF policy/u);
       expect(fetchFn).not.toHaveBeenCalled();
     });
 
@@ -22,8 +21,7 @@ describe('Security Edge Cases', () => {
         referenceToUrl: () => 'data:text/html,<h1>malicious</h1>',
       });
 
-      const result = await source.getByReference('hash://sha256/test');
-      expect(result).toBeNull();
+      await expect(source.getByReference('hash://sha256/test')).rejects.toThrow(/blocked by SSRF policy/u);
       expect(fetchFn).not.toHaveBeenCalled();
     });
 

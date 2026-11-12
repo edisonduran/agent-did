@@ -13,7 +13,7 @@ from agent_did_sdk.registry.in_memory import InMemoryAgentRegistry
 from agent_did_sdk.resolver.in_memory import InMemoryDIDResolver
 from agent_did_sdk.resolver.types import DocumentIntegrityError, ResolverResolutionEvent, UniversalResolverConfig
 from agent_did_sdk.resolver.universal import UniversalResolverClient
-from agent_did_sdk.webvh.adapter import DidWebvhError, deactivate_did_webvh_log
+from agent_did_sdk.webvh.adapter import DidWebvhError, deactivate_did_webvh_log, update_did_webvh_log
 
 from .webvh_helpers import TEST_CONTROLLER_KEY, create_agent_webvh_log, tamper_last_state
 
@@ -386,14 +386,88 @@ class TestUniversalResolverDidWebvh:
         with pytest.raises(ValueError, match="deactivated"):
             await _webvh_resolver(LogSource(deactivated.log), fallback).resolve(created.did)
 
-    async def test_falls_back_only_when_the_log_is_unavailable(self) -> None:
+    async def test_fails_closed_never_falls_back_when_the_log_is_not_found(self) -> None:
         created = await create_agent_webvh_log("agents.example")
         fallback = InMemoryDIDResolver()
         fallback.register_document(AgentDIDDocument.model_validate(created.state))
 
-        resolved = await _webvh_resolver(LogSource(None), fallback).resolve(created.did)
+        with pytest.raises(ValueError, match="DID log not found"):
+            await _webvh_resolver(LogSource(None), fallback).resolve(created.did)
 
-        assert resolved.id == created.did
+    async def test_fails_closed_never_falls_back_when_the_log_cannot_be_fetched(self) -> None:
+        class FailingSource(LogSource):
+            async def get_did_log_by_reference(self, ref: str) -> str | None:
+                raise RuntimeError("connect timeout")
+
+        created = await create_agent_webvh_log("agents.example")
+        fallback = InMemoryDIDResolver()
+        fallback.register_document(AgentDIDDocument.model_validate(created.state))
+
+        with pytest.raises(ValueError, match="could not be fetched.*connect timeout"):
+            await _webvh_resolver(FailingSource(None), fallback).resolve(created.did)
+
+    @staticmethod
+    def _resolver_with_local(fetched: str | None, local: str | None) -> UniversalResolverClient:
+        return UniversalResolverClient(UniversalResolverConfig(
+            registry=SpyRegistry(),
+            document_source=FakeSource(None),
+            webvh_document_source=LogSource(fetched),  # type: ignore[arg-type]
+            did_webvh_local_log=lambda did: local,
+            cache_ttl_ms=60_000,
+        ))
+
+    async def test_a_deactivated_local_log_wins_over_an_older_fetched_log(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        deactivated = await deactivate_did_webvh_log(log=created.log, signer=LocalKeySigner(TEST_CONTROLLER_KEY))
+
+        with pytest.raises(ValueError, match="deactivated"):
+            await self._resolver_with_local(created.log, deactivated.log).resolve(created.did)
+
+    async def test_accepts_a_fetched_log_that_extends_the_local_one(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        updated = await update_did_webvh_log(
+            log=created.log,
+            signer=LocalKeySigner(TEST_CONTROLLER_KEY),
+            document={**created.state, "updated": "2030-01-01T00:00:00Z"},
+        )
+
+        resolved = await self._resolver_with_local(updated.log, created.log).resolve(created.did)
+
+        assert resolved.updated == "2030-01-01T00:00:00Z"
+
+    async def test_refuses_a_fetched_log_that_contradicts_the_local_one(self) -> None:
+        created = await create_agent_webvh_log("agents.example")
+        signer = LocalKeySigner(TEST_CONTROLLER_KEY)
+        local = await update_did_webvh_log(
+            log=created.log, signer=signer, document={**created.state, "updated": "2030-01-01T00:00:00Z"}
+        )
+        fetched = await update_did_webvh_log(
+            log=created.log, signer=signer, document={**created.state, "updated": "2031-01-01T00:00:00Z"}
+        )
+
+        with pytest.raises(DocumentIntegrityError):
+            await self._resolver_with_local(fetched.log, local.log).resolve(created.did)
+
+    async def test_reports_a_failed_remote_write_through_a_resolution_event(self) -> None:
+        class FailingStore(FakeSource):
+            async def store_by_reference(self, ref: str, document: AgentDIDDocument) -> None:
+                raise RuntimeError("storage unavailable")
+
+        created = await create_agent_webvh_log("agents.example")
+        events: list[ResolverResolutionEvent] = []
+        resolver = UniversalResolverClient(UniversalResolverConfig(
+            registry=SpyRegistry(),
+            document_source=FailingStore(None),
+            on_resolution_event=events.append,
+        ))
+
+        resolver.register_document(AgentDIDDocument.model_validate(created.state))
+        await asyncio.sleep(0.01)
+
+        assert any(
+            e.stage == "error" and "store_by_reference failed: storage unavailable" in (e.message or "")
+            for e in events
+        )
 
     @pytest.mark.parametrize(
         "did",

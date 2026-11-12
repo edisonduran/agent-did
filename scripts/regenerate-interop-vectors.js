@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Regenerates fixtures/interop-vectors.json with a fresh Ed25519 keypair
- * and the shared did:webvh vector for the RFC 9421 Agent-DID HTTP signature profile.
+ * Regenerates fixtures/interop-vectors.json: the shared did:webvh vector for payload signatures
+ * (RFC-001 §7: the signature covers the "agent-did/v1/message\n" domain prefix followed by the payload)
+ * and for the RFC 9421 Agent-DID HTTP signature profile.
+ *
+ * The output is deterministic. The Ed25519 seed and nonce below are TEST-ONLY values, public on purpose:
+ * they sign nothing real.
  *
  * Usage: node scripts/regenerate-interop-vectors.js
  */
@@ -84,13 +88,14 @@ function buildHttpSignatureBase({ method, url, headers, signatureParams }) {
 }
 
 // --- Generate ---
-const privateKeyBytes = crypto.randomBytes(32);
+const privateKeyBytes = Buffer.from('4f0b5b4c6e7d8a9b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899', 'hex');
 const publicKeyBytes = ed25519GetPublicKey(privateKeyBytes);
 const publicKeyMultibase = encodePublicKeyMultibase(publicKeyBytes);
 
 // 1. Message vector
 const messagePayload = 'interop-message:v1';
-const messageBytes = Buffer.from(messagePayload, 'utf-8');
+const MESSAGE_SIGNING_PREFIX = 'agent-did/v1/message\n';
+const messageBytes = Buffer.from(MESSAGE_SIGNING_PREFIX + messagePayload, 'utf-8');
 const messageSig = ed25519Sign(messageBytes, privateKeyBytes);
 const messageSignatureHex = messageSig.toString('hex');
 
@@ -99,7 +104,7 @@ const httpMethod = 'POST';
 const httpUrl = 'https://api.example.com/v1/interop?mode=fixture';
 const httpBody = '{"fixture":true}';
 const httpDate = 'Mon, 01 Jan 2024 00:00:00 GMT';
-const nonce = crypto.randomBytes(16).toString('hex');
+const nonce = '7c1f0e9ab23d4658a1b0c9d8e7f60514';
 const created = 1704067200; // 2024-01-01T00:00:00Z
 const expiresAt = created + 999999999; // ~2055, so fixture never expires in tests
 

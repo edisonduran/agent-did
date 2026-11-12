@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from urllib.parse import quote, unquote, urlparse
 
 from ..core.types import AgentDIDDocument
 from ..crypto.hash import generate_canonical_document_hash
-from ..webvh.adapter import DidWebvhError, derive_did_webvh_log_url, resolve_did_webvh_log
+from ..webvh.adapter import (
+    DidWebvhError,
+    DidWebvhLogResult,
+    compare_did_webvh_logs,
+    derive_did_webvh_log_url,
+    did_webvh_last_entry_signers,
+    resolve_did_webvh_log,
+)
 from .http_source import HttpDIDDocumentSource
 from .types import (
+    DidWebvhResolution,
     DocumentIntegrityError,
     ResolverCacheStats,
     ResolverResolutionEvent,
@@ -21,11 +30,14 @@ _SHA256_DOCUMENT_REF_PREFIX = "hash://sha256/"
 
 
 class _CachedDocument:
-    __slots__ = ("document", "expires_at")
+    __slots__ = ("document", "expires_at", "webvh")
 
-    def __init__(self, document: AgentDIDDocument, expires_at: float) -> None:
+    def __init__(
+        self, document: AgentDIDDocument, expires_at: float, webvh: DidWebvhResolution | None = None
+    ) -> None:
         self.document = document
         self.expires_at = expires_at
+        self.webvh = webvh
 
 
 class UniversalResolverClient:
@@ -37,6 +49,7 @@ class UniversalResolverClient:
         self._wba_source = config.wba_document_source or HttpDIDDocumentSource()
         self._webvh_source = config.webvh_document_source or WebvhDIDDocumentSource()
         self._fallback = config.fallback_resolver
+        self._did_webvh_local_log = config.did_webvh_local_log
         self._cache_ttl_ms = config.cache_ttl_ms
         max_entries = config.max_cache_entries
         if isinstance(max_entries, bool) or not isinstance(max_entries, int) or max_entries <= 0:
@@ -47,6 +60,7 @@ class UniversalResolverClient:
             scheme.lower() for scheme in (config.unverified_document_ref_schemes or [])
         )
         self._cache: dict[str, _CachedDocument] = {}
+        self._store_tasks: set[asyncio.Task[None]] = set()
         self._hits = 0
         self._misses = 0
 
@@ -60,13 +74,24 @@ class UniversalResolverClient:
         store_fn = getattr(self._source, "store_by_reference", None)
         if callable(store_fn):
             doc_ref = self._compute_ref(document)
-            # Fire-and-forget; cache already updated
-            import asyncio
+            # Fire-and-forget; the cache is already updated, so resolution here keeps working. A failed
+            # remote write is reported through the resolution event instead of being swallowed.
+            started = self._now_ms()
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(store_fn(doc_ref, document.model_copy(deep=True)))
             except RuntimeError:
-                pass
+                self._emit_quietly(did, started, "store_by_reference skipped: no running event loop")
+                return
+
+            async def _store() -> None:
+                try:
+                    await store_fn(doc_ref, document.model_copy(deep=True))
+                except Exception as exc:  # noqa: BLE001
+                    self._emit_quietly(did, started, f"store_by_reference failed: {exc}")
+
+            task = loop.create_task(_store())
+            self._store_tasks.add(task)
+            task.add_done_callback(self._store_tasks.discard)
 
     async def resolve(self, did: str) -> AgentDIDDocument:
         started = self._now_ms()
@@ -125,6 +150,16 @@ class UniversalResolverClient:
         self._emit(did, "resolved", started)
         return resolved.model_copy(deep=True)
 
+    async def resolve_did_webvh_log(self, did: str) -> DidWebvhResolution | None:
+        """The verified did:webvh log behind *did*: from the cache while the entry is fresh, otherwise fetched and
+        verified (raising when it cannot be, with no fallback). ``None`` when the cached entry holds only a document
+        that was registered without its log."""
+        if not self._is_did_webvh(did):
+            return None
+        await self.resolve(did)
+        entry = self._cache.get(did)
+        return entry.webvh if entry is not None else None
+
     def remove(self, did: str) -> None:
         self._cache.pop(did, None)
         if self._fallback:
@@ -137,10 +172,12 @@ class UniversalResolverClient:
 
     # -- Private helpers ------------------------------------------------------
 
-    def _cache_put(self, did: str, document: AgentDIDDocument, expires_at: float) -> None:
+    def _cache_put(
+        self, did: str, document: AgentDIDDocument, expires_at: float, webvh: DidWebvhResolution | None = None
+    ) -> None:
         """Store ``document`` (already a copy), keeping the cache within ``max_cache_entries``."""
         self._cache.pop(did, None)
-        self._cache[did] = _CachedDocument(document, expires_at)
+        self._cache[did] = _CachedDocument(document, expires_at, webvh)
         if len(self._cache) <= self._max_cache_entries:
             return
         now = self._now_ms()
@@ -185,8 +222,8 @@ class UniversalResolverClient:
     async def _resolve_did_webvh(self, did: str, started: float, now: float) -> AgentDIDDocument:
         """Fetch ``did.jsonl`` from the URL derived from the DID, verify it, return the latest state.
 
-        Only availability failures (fetch error, log not found) may fall back; an invalid DID, a log
-        that fails verification or a deactivated DID never does.
+        There is no fallback to another resolver: a fetch error, a missing log, an invalid DID, a log that
+        fails verification, a log that contradicts the one held locally and a deactivated DID all fail closed.
         """
         try:
             log_url = derive_did_webvh_log_url(did)
@@ -206,18 +243,22 @@ class UniversalResolverClient:
         self._emit(did, "source-fetch", started, message=f"url={log_url}")
         try:
             log_text = await get_log(log_url)
-        except Exception as exc:  # noqa: BLE001 - availability failure, may fall back
+        except Exception as exc:  # noqa: BLE001 - availability failure: fail closed
             msg = str(exc)
             self._emit(did, "error", started, message=msg)
-            return await self._fallback_resolve(did, msg, started)
+            raise ValueError(f"did:webvh log could not be fetched for {did}: {msg}") from exc
 
         if log_text is None:
-            return await self._fallback_resolve(did, f"DID log not found for did:webvh URL: {log_url}", started)
+            msg = f"DID log not found for did:webvh URL: {log_url}"
+            self._emit(did, "error", started, message=msg)
+            raise ValueError(msg)
 
         try:
             resolved = await resolve_did_webvh_log(log_text, did=did)
         except DidWebvhError as exc:
             raise self._integrity_failure(did, f"did:webvh log verification failed for {did}: {exc}", started) from None
+
+        resolved = await self._reconcile_with_local_log(did, resolved, started)
 
         if resolved.metadata.deactivated:
             msg = f"DID is deactivated: {did}"
@@ -232,9 +273,61 @@ class UniversalResolverClient:
             ) from None
 
         self._emit(did, "source-fetched", started, message=f"versionId={resolved.metadata.version_id}")
-        self._cache_put(did, document.model_copy(deep=True), now + self._cache_ttl_ms)
+        self._cache_put(
+            did,
+            document.model_copy(deep=True),
+            now + self._cache_ttl_ms,
+            DidWebvhResolution(
+                document=document.model_copy(deep=True),
+                log=resolved.log,
+                version_id=resolved.metadata.version_id,
+                update_keys=list(resolved.metadata.update_keys),
+                last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
+            ),
+        )
         self._emit(did, "resolved", started)
         return document.model_copy(deep=True)
+
+    async def _reconcile_with_local_log(
+        self, did: str, fetched: DidWebvhLogResult, started: float
+    ) -> DidWebvhLogResult:
+        """The longer of the fetched and the locally held log wins; a log that is neither a prefix nor an
+        extension of the other is an integrity failure (never a fallback)."""
+        lookup = self._did_webvh_local_log
+        local = lookup(did) if lookup is not None else None
+        if local is None:
+            return fetched
+        try:
+            relation = compare_did_webvh_logs(local, fetched.log)
+        except DidWebvhError as exc:
+            raise self._integrity_failure(did, f"did:webvh log comparison failed for {did}: {exc}", started) from None
+        if relation == "diverged":
+            raise self._integrity_failure(
+                did,
+                f"The did:webvh log fetched for {did} contradicts the log held locally (not a prefix or an extension)",
+                started,
+            )
+        if relation == "prefix":
+            self._emit(
+                did,
+                "source-fetched",
+                started,
+                message="fetched did:webvh log is older than the local one; using the local log",
+            )
+            try:
+                return await resolve_did_webvh_log(local, did=did)
+            except DidWebvhError as exc:
+                raise self._integrity_failure(
+                    did, f"did:webvh log verification failed for {did}: {exc}", started
+                ) from None
+        return fetched
+
+    def _emit_quietly(self, did: str, started: float, message: str) -> None:
+        """Emit an ``error`` event; an event handler that raises must not break the caller."""
+        try:
+            self._emit(did, "error", started, message=message)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _emit(self, did: str, stage: str, started: float, *, message: str | None = None) -> None:
         if self._on_event:

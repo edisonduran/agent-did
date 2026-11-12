@@ -6,7 +6,7 @@ import { AgentIdentity } from '../src/core/AgentIdentity';
 import { generateCanonicalDocumentHash } from '../src/crypto/hash';
 import { DocumentIntegrityError, ResolverResolutionEvent } from '../src/resolver/types';
 import { LocalKeySigner } from '../src/core/signer';
-import { deactivateDidWebvhLog } from '../src/webvh/adapter';
+import { deactivateDidWebvhLog, updateDidWebvhLog } from '../src/webvh/adapter';
 import { createAgentWebvhLog, tamperLastState, TEST_CONTROLLER_KEY, textResponse } from './helpers/webvhAgentLog';
 
 describe('UniversalResolverClient', () => {
@@ -618,7 +618,7 @@ describe('UniversalResolverClient', () => {
       await expect(resolver.resolve(created.did)).rejects.toThrow(/deactivated/u);
     });
 
-    it('should fall back only when the log is unavailable', async () => {
+    it('should fail closed, never fall back, when the log is not found', async () => {
       const created = await createAgentWebvhLog('agents.example');
       const fallbackResolver = new InMemoryDIDResolver();
       fallbackResolver.registerDocument(created.state as any);
@@ -629,7 +629,81 @@ describe('UniversalResolverClient', () => {
         fallbackResolver
       });
 
-      await expect(resolver.resolve(created.did)).resolves.toMatchObject({ id: created.did });
+      await expect(resolver.resolve(created.did)).rejects.toThrow(/DID log not found/u);
+    });
+
+    it('should fail closed, never fall back, when the log cannot be fetched', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const fallbackResolver = new InMemoryDIDResolver();
+      fallbackResolver.registerDocument(created.state as any);
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: { getByReference: jest.fn() },
+        webvhDocumentSource: { getByReference: jest.fn(), getDidLogByReference: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')) },
+        fallbackResolver
+      });
+
+      await expect(resolver.resolve(created.did)).rejects.toThrow(/could not be fetched.*ECONNREFUSED/u);
+    });
+
+    describe('against a locally held log', () => {
+      const signer = () => new LocalKeySigner(TEST_CONTROLLER_KEY);
+      const resolverWith = (fetchedLog: string | null, localLog: string | undefined) =>
+        new UniversalResolverClient({
+          registry: registry(),
+          documentSource: { getByReference: jest.fn() },
+          webvhDocumentSource: logSource(fetchedLog),
+          didWebvhLocalLog: () => localLog
+        });
+
+      it('should keep a deactivated DID deactivated when the host serves an older log', async () => {
+        const created = await createAgentWebvhLog('agents.example');
+        const deactivated = await deactivateDidWebvhLog({ log: created.log, signer: signer() });
+
+        await expect(resolverWith(created.log, deactivated.log).resolve(created.did)).rejects.toThrow(/deactivated/u);
+      });
+
+      it('should accept a fetched log that extends the local one', async () => {
+        const created = await createAgentWebvhLog('agents.example');
+        const updated = await updateDidWebvhLog({
+          log: created.log,
+          signer: signer(),
+          document: { ...(created.state as any), updated: '2030-01-01T00:00:00Z' }
+        });
+
+        const resolved = await resolverWith(updated.log, created.log).resolve(created.did);
+        expect(resolved.updated).toBe('2030-01-01T00:00:00Z');
+      });
+
+      it('should refuse a fetched log that contradicts the local one', async () => {
+        const created = await createAgentWebvhLog('agents.example');
+        const branch = (updated: string) =>
+          updateDidWebvhLog({ log: created.log, signer: signer(), document: { ...(created.state as any), updated } });
+        const local = await branch('2030-01-01T00:00:00Z');
+        const fetched = await branch('2031-01-01T00:00:00Z');
+
+        await expect(resolverWith(fetched.log, local.log).resolve(created.did)).rejects.toBeInstanceOf(
+          DocumentIntegrityError
+        );
+      });
+    });
+
+    it('should report a failed remote write through a resolution event', async () => {
+      const created = await createAgentWebvhLog('agents.example');
+      const events: Array<{ stage: string; message?: string }> = [];
+      const resolver = new UniversalResolverClient({
+        registry: registry(),
+        documentSource: {
+          getByReference: jest.fn(),
+          storeByReference: jest.fn().mockRejectedValue(new Error('storage unavailable'))
+        },
+        onResolutionEvent: (event) => events.push(event)
+      });
+
+      resolver.registerDocument(created.state as any);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(events).toContainEqual(expect.objectContaining({ stage: 'error', message: expect.stringMatching(/storeByReference failed: storage unavailable/u) }));
     });
 
     it.each([

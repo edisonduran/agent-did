@@ -60,6 +60,8 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
       try {
         validateHttpTarget(url, this.httpSecurity);
       } catch {
+        // Blocked by policy is not "not found": the document may well exist.
+        allNotFound = false;
         errors.push(`${url}: blocked by SSRF policy`);
         continue;
       }
@@ -110,6 +112,8 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
       try {
         validateHttpTarget(url, this.httpSecurity);
       } catch {
+        // Blocked by policy is not "not found": the document may well exist.
+        allNotFound = false;
         errors.push(`${url}: blocked by SSRF policy`);
         continue;
       }

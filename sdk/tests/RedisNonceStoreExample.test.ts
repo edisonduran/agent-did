@@ -96,7 +96,7 @@ describe('Redis NonceStore reference (sdk/examples/redis-nonce-store.js)', () =>
     const identity = new AgentIdentity({ controllerSigner: signer });
     const { document, agentPrivateKey } = await identity.create({ name: 'RedisBot', coreModel: 'test', systemPrompt: 'test' });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"redis":true}' };
-    const headers = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, expiresInSeconds: 120 });
+    const headers = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1`, expiresInSeconds: 120 });
 
     // Real time here: the verifier uses the system clock, so Redis uses it too.
     const realRedis = new FakeRedis(() => Math.floor(Date.now() / 1000));
@@ -106,7 +106,7 @@ describe('Redis NonceStore reference (sdk/examples/redis-nonce-store.js)', () =>
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers, nonceStore: instanceA })).resolves.toBe(true);
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers, nonceStore: instanceB })).resolves.toBe(false);
 
-    const fresh = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const fresh = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     realRedis.failing = true;
     await expect(
       AgentIdentity.verifyHttpRequestSignature({ ...request, headers: fresh, nonceStore: instanceA })

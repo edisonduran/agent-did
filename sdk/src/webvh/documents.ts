@@ -113,7 +113,9 @@ export function buildBootstrapControllerTemplate(params: {
       publicKeyMultibase: encodePublicKeyMultibase(params.publicKeyBytes)
     }],
     authentication: [verificationMethodId],
-    assertionMethod: [verificationMethodId]
+    assertionMethod: [verificationMethodId],
+    // The bootstrap key endorses the agents it controls (RFC-001 §6.6 item 7)
+    capabilityInvocation: [verificationMethodId]
   };
 }
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 import time
 from datetime import datetime
 
@@ -41,13 +42,23 @@ from agent_did_microsoft_agent_framework import (
     SignedHandoffMessage,
     VerificationBlockedError,
     create_agent_did_microsoft_agent_framework_integration,
+    sign_handoff,
 )
 from agent_did_microsoft_agent_framework.handoff import (
     _resolve_effective_ttl,
     _VerifierContext,
+    build_handoff_envelope,
+    build_handoff_verifier_executor,
     build_handoff_verifier_function,
 )
 from agent_did_microsoft_agent_framework.observability import AgentDidObserver
+
+
+def _signed(**kwargs):
+    """A signed handoff message with the envelope fields a verifier requires (the signature itself is stubbed)."""
+    kwargs.setdefault("nonce", secrets.token_hex(8))
+    kwargs.setdefault("destination", "downstream")
+    return SignedHandoffMessage(**kwargs)
 
 
 class _FakeWorkflowContext:
@@ -196,7 +207,7 @@ def test_disallowed_did_blocked() -> None:
     verifier = build_handoff_verifier_function(
         _ctx(observer=observer, allowed_dids=["did:wba:allowed"])
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:other", signature="00", signed_at=time.time()
     )
     with pytest.raises(VerificationBlockedError) as exc:
@@ -209,7 +220,7 @@ def test_invalid_signature_blocked() -> None:
     verifier = build_handoff_verifier_function(
         _ctx(observer=observer, verify_signature=_stub_async(False))
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:agent", signature="00", signed_at=time.time()
     )
     with pytest.raises(VerificationBlockedError) as exc:
@@ -237,7 +248,7 @@ def test_signature_verification_requests_assertion_method_purpose() -> None:
             now=lambda: 1767398400.5,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x",
         did="did:wba:agent",
         signature="00",
@@ -264,7 +275,7 @@ def test_expired_ttl_with_failing_reverify_blocked_as_key_lifecycle() -> None:
             now=lambda: 100.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:agent", signature="00", signed_at=50.0
     )
     with pytest.raises(VerificationBlockedError) as exc:
@@ -283,7 +294,7 @@ def test_irreversible_action_with_stale_signature_forces_reverify() -> None:
             now=lambda: 1000.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:agent", signature="00", signed_at=900.0
     )  # 100s old > 30s TTL
     with pytest.raises(VerificationBlockedError) as exc:
@@ -302,7 +313,7 @@ def test_cross_domain_hop_collapses_ttl_to_zero() -> None:
             now=lambda: 100.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:agent", signature="00", signed_at=99.5
     )
     with pytest.raises(VerificationBlockedError) as exc:
@@ -318,7 +329,7 @@ def test_valid_signature_inside_ttl_forwards_inner_payload() -> None:
     verifier = build_handoff_verifier_function(
         _ctx(observer=observer, verify_signature=_stub_async(True))
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload={"approved": True}, did="did:wba:agent", signature="aa", signed_at=time.time()
     )
     sent, _ = _run_verifier(verifier, msg)
@@ -343,7 +354,7 @@ def test_key_rotation_race_inside_ttl_accepted_when_key_valid_at_signed_at() -> 
             now=lambda: 100.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="approve",
         did="did:wba:agent",
         signature="aa",
@@ -369,7 +380,7 @@ def test_key_rotation_race_inside_ttl_key_retired_after_signed_at_is_blocked() -
             now=lambda: 100.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="approve",
         did="did:wba:agent",
         signature="aa",
@@ -392,7 +403,7 @@ def test_key_rotation_race_inside_ttl_unreadable_signed_at_is_blocked() -> None:
             now=lambda: float("nan"),
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="approve",
         did="did:wba:agent",
         signature="aa",
@@ -401,7 +412,7 @@ def test_key_rotation_race_inside_ttl_unreadable_signed_at_is_blocked() -> None:
     )
     with pytest.raises(VerificationBlockedError) as exc:
         _run_verifier(verifier, msg)
-    assert exc.value.failing_gates == ["signature"]
+    assert exc.value.failing_gates == ["signed_at"]
 
 
 def test_key_rotation_race_after_ttl_reverified_against_current_key() -> None:
@@ -418,7 +429,7 @@ def test_key_rotation_race_after_ttl_reverified_against_current_key() -> None:
             now=lambda: 100.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="approve",
         did="did:wba:agent",
         signature="aa",
@@ -442,7 +453,7 @@ def test_key_rotation_race_after_ttl_revoked_key_blocked_with_key_lifecycle_gate
             now=lambda: 100.0,
         )
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="approve",
         did="did:wba:agent",
         signature="aa",
@@ -487,8 +498,6 @@ def test_key_rotation_race_against_real_sdk_inside_ttl(integration) -> None:
     identity, runtime_identity, _ = integration
     did = runtime_identity.document.id
     payload = "real:rotation:inside_ttl"
-    old_key_id = f"{did}#key-1"
-    old_sig = asyncio.run(identity.sign_message(payload, runtime_identity.agent_private_key))
 
     asyncio.run(AgentIdentity.rotate_verification_method(did))
     created_at, rotated_at = _version_epochs(did)
@@ -496,12 +505,15 @@ def test_key_rotation_race_against_real_sdk_inside_ttl(integration) -> None:
 
     observer, _events = _make_observer()
     verifier = build_handoff_verifier_function(_real_sdk_ctx(observer, now=lambda: rotated_at + 1))
-    msg = SignedHandoffMessage(
-        payload=payload,
-        did=did,
-        signature=old_sig,
-        signed_at=created_at,  # key-1 was authorized then; the rotation retires it later
-        key_id=old_key_id,
+    # key-1 was authorized at created_at; the rotation retires it later. The runtime identity still names key-1.
+    msg = asyncio.run(
+        sign_handoff(
+            agent_identity=identity,
+            runtime_identity=runtime_identity,
+            payload=payload,
+            destination="downstream",
+            signed_at=created_at,
+        )
     )
     with pytest.raises(VerificationBlockedError) as exc:
         _run_verifier(verifier, msg)
@@ -511,14 +523,14 @@ def test_key_rotation_race_against_real_sdk_inside_ttl(integration) -> None:
 
 def test_real_sdk_inside_ttl_accepts_the_current_key(integration) -> None:
     identity, runtime_identity, _ = integration
-    did = runtime_identity.document.id
     payload = "real:no_rotation"
-    signature = asyncio.run(identity.sign_message(payload, runtime_identity.agent_private_key))
 
     observer, events = _make_observer()
     verifier = build_handoff_verifier_function(_real_sdk_ctx(observer, now=time.time))
-    msg = SignedHandoffMessage(
-        payload=payload, did=did, signature=signature, signed_at=time.time(), key_id=f"{did}#key-1"
+    msg = asyncio.run(
+        sign_handoff(
+            agent_identity=identity, runtime_identity=runtime_identity, payload=payload, destination="downstream"
+        )
     )
     sent, _ = _run_verifier(verifier, msg)
     assert sent == [payload]
@@ -566,7 +578,7 @@ def test_handoff_verified_event_includes_required_attributes() -> None:
     verifier = build_handoff_verifier_function(
         _ctx(observer=observer, verify_signature=_stub_async(True))
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:agent", signature="aa", signed_at=time.time()
     )
     _run_verifier(verifier, msg)
@@ -580,7 +592,7 @@ def test_handoff_blocked_event_includes_required_attributes() -> None:
     verifier = build_handoff_verifier_function(
         _ctx(observer=observer, verify_signature=_stub_async(False))
     )
-    msg = SignedHandoffMessage(
+    msg = _signed(
         payload="x", did="did:wba:agent", signature="00", signed_at=time.time()
     )
     with pytest.raises(VerificationBlockedError):
@@ -618,3 +630,167 @@ def test_add_verified_handoff_wires_two_edges_into_builder(integration) -> None:
         allowed_dids=["did:wba:trusted"],
     )
     assert returned is builder  # fluent
+
+
+# --- Signed envelope (payload, signer, destination, nonce, signed_at) ----------------------
+
+
+def _real_ctx(observer, **overrides):
+    ctx = _real_sdk_ctx(observer, now=overrides.pop("now", time.time))
+    for name, value in overrides.items():
+        setattr(ctx, name, value)
+    return ctx
+
+
+def _sign(integration, payload="approve", **kwargs):
+    identity, runtime_identity, _ = integration
+    kwargs.setdefault("destination", "downstream")
+    return asyncio.run(
+        sign_handoff(agent_identity=identity, runtime_identity=runtime_identity, payload=payload, **kwargs)
+    )
+
+
+def test_a_structured_payload_is_signed_canonically_and_verifies(integration) -> None:
+    observer, _events = _make_observer()
+    payload = {"b": [1, 2, {"z": True}], "a": "x"}
+    msg = _sign(integration, payload)
+    sent, _ = _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert sent == [payload]
+
+
+def test_a_changed_payload_is_blocked(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, {"amount": 1})
+    msg.payload = {"amount": 1000}
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["signature"]
+
+
+def test_a_payload_that_is_not_json_serializable_is_blocked_not_stringified(integration) -> None:
+    observer, _events = _make_observer()
+
+    class Opaque:
+        def __str__(self) -> str:
+            return "approve"
+
+    msg = _sign(integration, "approve")
+    msg.payload = Opaque()
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["payload"]
+
+
+def test_signing_a_payload_that_is_not_json_serializable_raises(integration) -> None:
+    with pytest.raises((TypeError, ValueError)):
+        _sign(integration, object())
+
+
+def test_a_handoff_signed_for_another_edge_is_blocked(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", destination="some-other-executor")
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["destination"]
+
+
+def test_changing_the_destination_field_breaks_the_signature(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", destination="some-other-executor")
+    msg.destination = "downstream"  # the verifier's edge, but the signature covers the other one
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["signature"]
+
+
+def test_a_captured_handoff_cannot_be_replayed(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "pay:invoice-7")
+    verifier = build_handoff_verifier_function(_real_ctx(observer))
+    sent, _ = _run_verifier(verifier, msg)
+    assert sent == ["pay:invoice-7"]
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(verifier, msg)
+    assert exc.value.failing_gates == ["replay"]
+
+
+def test_a_message_without_a_nonce_is_blocked(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve")
+    msg.nonce = None
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["nonce"]
+
+
+def test_a_signed_at_in_the_future_is_blocked_so_the_ttl_cannot_be_stretched(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", signed_at=time.time() + 10_000)
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["signed_at"]
+
+
+def test_changing_signed_at_breaks_the_signature(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", signed_at=time.time() - 1000)
+    msg.signed_at = time.time()  # claims to be fresh to dodge the TTL
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["signature"]
+
+
+def test_a_very_old_handoff_is_refused_even_with_a_valid_signature(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", signed_at=time.time() - 10_000)
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["signed_at"]
+
+
+def test_irreversible_handoffs_require_allowed_dids() -> None:
+    observer, _events = _make_observer()
+    with pytest.raises(ValueError, match="allowed_dids is required"):
+        build_handoff_verifier_executor(
+            from_executor="a",
+            to_executor="b",
+            action_class="irreversible",
+            ttl_seconds=None,
+            allowed_dids=None,
+            require_signature=True,
+            cross_domain=None,
+            on_verification_blocked=None,
+            observer=observer,
+        )
+
+
+def test_a_reversible_handoff_without_allowed_dids_logs_a_warning(caplog) -> None:
+    observer, _events = _make_observer()
+    with caplog.at_level("WARNING"):
+        build_handoff_verifier_executor(
+            from_executor="a",
+            to_executor="b",
+            action_class="reversible",
+            ttl_seconds=None,
+            allowed_dids=None,
+            require_signature=True,
+            cross_domain=None,
+            on_verification_blocked=None,
+            observer=observer,
+        )
+    assert "accepts any DID" in caplog.text
+
+
+def test_the_envelope_is_canonical_json_with_the_documented_members() -> None:
+    envelope = build_handoff_envelope(
+        did="did:example:a",
+        key_id="did:example:a#key-1",
+        signed_at=1.5,
+        destination="d",
+        nonce="n",
+        payload={"b": 1, "a": 2},
+    )
+    assert envelope == (
+        '{"destination":"d","did":"did:example:a","keyId":"did:example:a#key-1","nonce":"n",'
+        '"payload":{"a":2,"b":1},"signedAtMs":1500,"type":"agent-did/handoff/v1"}'
+    )

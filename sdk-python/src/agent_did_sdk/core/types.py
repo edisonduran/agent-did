@@ -182,6 +182,15 @@ class UpdateAgentDocumentParams(BaseModel):
     compliance_certifications: list[VerifiableCredentialLink] | None = None
 
 
+class AddVerificationMethodResult(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    document: AgentDIDDocument
+    verification_method_id: str = Field(alias="verificationMethodId")
+    agent_private_key: str = Field(alias="agentPrivateKey")
+    """Empty when a ``signer`` was given."""
+
+
 class RotateVerificationMethodResult(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -204,7 +213,10 @@ class SignHttpRequestParams(BaseModel):
     agent_private_key: str | None = None
     signer: Any | None = None  # AgentSigner — preferred over agent_private_key
     agent_did: str
-    verification_method_id: str | None = None
+    verification_method_id: str
+    """The verification method (``keyid``) that matches the signing key, e.g. ``document.authentication[0]`` or the
+    ``verification_method_id`` that ``rotate_verification_method`` returned. Required: there is no default, because
+    a fixed guess names the wrong key once the agent has rotated."""
     expires_in_seconds: int | None = None
     http_security: Any | None = None  # HttpTargetValidationOptions
 
@@ -241,6 +253,7 @@ HttpSignatureRejection = Literal[
     "expired",
     "signed_component_missing",
     "did_resolution_failed",
+    "controller_not_bound",
     "keyid_not_authorized",
     "signature_invalid",
     "nonce_replayed",
@@ -341,7 +354,9 @@ class KeyAtTimeResult:
     """``indeterminate``: when the key stopped being authorized (log ``versionTime`` or the key's ``deactivated``)."""
 
 
-VerifySignatureAtTimeRejection = Literal["did_resolution_failed", "key_not_authorized", "signature_invalid"]
+VerifySignatureAtTimeRejection = Literal[
+    "did_resolution_failed", "key_not_authorized", "controller_not_bound", "signature_invalid"
+]
 
 
 @dataclass(frozen=True)
@@ -350,7 +365,8 @@ class VerifySignatureAtTimeResult:
     authorized at the stated time. Treat ``indeterminate`` as not accepted.
 
     ``reason`` (for ``invalid``): ``did_resolution_failed`` (the stored did:webvh log failed verification),
-    ``key_not_authorized`` (see ``key.reason``) or ``signature_invalid``.
+    ``key_not_authorized`` (see ``key.reason``), ``controller_not_bound`` (the agent is not bound to its controller
+    now, RFC-001 §6.6 item 7) or ``signature_invalid``.
     """
 
     status: Literal["valid", "invalid", "indeterminate"]

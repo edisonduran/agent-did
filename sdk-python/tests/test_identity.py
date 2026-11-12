@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from agent_did_sdk import InMemoryAgentRegistry, ProductionHttpResolverProfileConfig
+from agent_did_sdk.core.client import AgentDidClient, AgentDidClientOptions
 from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.identity_composition import (
     IdentityCompositionError,
@@ -171,7 +172,13 @@ class TestAgentIdentitySignVerify:
         ))
         key_id = result.document.verification_method[0].id
         misbound_doc = result.document.model_copy(
-            update={"authentication": [], "assertion_method": [], "key_agreement": [key_id]},
+            # self-controlled: a resolver holding only documents cannot prove a controller binding
+            update={
+                "controller": result.document.id,
+                "authentication": [],
+                "assertion_method": [],
+                "key_agreement": [key_id],
+            },
             deep=True,
         )
 
@@ -191,19 +198,25 @@ class TestAgentIdentitySignVerify:
         payload = "approve:purpose:1"
         signature = await identity.sign_message(payload, result.agent_private_key)
         misbound_doc = result.document.model_copy(
-            update={"authentication": [], "assertion_method": [], "key_agreement": [key_id]},
+            # self-controlled: a resolver holding only documents cannot prove a controller binding
+            update={
+                "controller": result.document.id,
+                "authentication": [],
+                "assertion_method": [],
+                "key_agreement": [key_id],
+            },
             deep=True,
         )
         controller_chain = await AgentIdentity.resolve_controller_chain(result.document.id)
 
+        # A verifier that did not create the DID and resolves a misbound document
         resolver = InMemoryDIDResolver()
         resolver.register_document(misbound_doc)
         resolver.register_document(controller_chain[1])
-        AgentIdentity.set_resolver(resolver)
-        AgentIdentity.set_registry(InMemoryAgentRegistry())
+        verifier = AgentDidClient(AgentDidClientOptions(resolver=resolver, registry=InMemoryAgentRegistry()))
 
         with pytest.raises(IdentityCompositionError) as exc:
-            await AgentIdentity.verify_signature(result.document.id, payload, signature, key_id)
+            await verifier.verify_signature(result.document.id, payload, signature, key_id)
 
         assert exc.value.reason == "key_purpose_violation"
         assert exc.value.key_id == key_id
@@ -275,7 +288,7 @@ class TestAgentIdentityHttpSignature:
             url="https://api.example.com/v1/test",
             body='{"data":true}',
             agent_private_key=result.agent_private_key,
-            agent_did=result.document.id,
+            agent_did=result.document.id, verification_method_id=f"{result.document.id}#key-1",
         ))
         assert "Signature" in headers
         assert "Signature-Input" in headers
@@ -326,7 +339,7 @@ class TestAgentIdentityHttpSignature:
                 url="https://api.example.com/v1/test",
                 body='{"expired":true}',
                 agent_private_key=result.agent_private_key,
-                agent_did=result.document.id,
+                agent_did=result.document.id, verification_method_id=f"{result.document.id}#key-1",
                 expires_in_seconds=30,
             ))
 
@@ -348,6 +361,7 @@ class TestAgentIdentityHttpSignature:
         headers = await identity.sign_http_request(SignHttpRequestParams(
             method="POST", url=url, body=body,
             agent_private_key=result.agent_private_key, agent_did=result.document.id,
+                verification_method_id=f"{result.document.id}#key-1",
         ))
         now = int(time.time())
         rewritten = dict(headers)
@@ -383,7 +397,7 @@ class TestAgentIdentityHttpSignature:
                     url="https://api.example.com/v1/test",
                     body='{"skew":true}',
                     agent_private_key=result.agent_private_key,
-                    agent_did=result.document.id,
+                    agent_did=result.document.id, verification_method_id=f"{result.document.id}#key-1",
                     expires_in_seconds=120,
                 ))
 
@@ -420,7 +434,7 @@ class TestAgentIdentityHttpSignature:
                 url="https://api.example.com/v1/test",
                 body='{"lifetime":true}',
                 agent_private_key=result.agent_private_key,
-                agent_did=result.document.id,
+                agent_did=result.document.id, verification_method_id=f"{result.document.id}#key-1",
                 expires_in_seconds=expires_in,
             ))
             return await AgentIdentity.verify_http_request_signature(
@@ -622,10 +636,8 @@ class TestAgentIdentityRotateKey:
         assert rotated.verification_method_id.endswith("#key-2")
         assert len(rotated.document.verification_method) == 2
         assert rotated.document.authentication == [rotated.verification_method_id]
-        assert rotated.document.assertion_method == [
-            f"{result.document.id}#key-1",
-            rotated.verification_method_id,
-        ]
+        # A rotated-out key is no longer listed in any verification relationship
+        assert rotated.document.assertion_method == [rotated.verification_method_id]
 
     async def test_rotate_twice(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(
@@ -784,7 +796,7 @@ class TestSignerAbstraction:
             url="https://api.example.com/v1/action",
             body='{"action":"approve"}',
             signer=signer,
-            agent_did=result.document.id,
+            agent_did=result.document.id, verification_method_id=f"{result.document.id}#key-1",
         ))
         assert "Signature" in headers
         assert "X-Request-Nonce" not in headers

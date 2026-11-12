@@ -182,7 +182,8 @@ def identity() -> AgentIdentity:
 async def _signed(identity: AgentIdentity, name: str = "HttpBot") -> tuple[str, str, dict[str, str]]:
     result = await identity.create(CreateAgentParams(name=name, core_model="m", system_prompt="p"))
     headers = await identity.sign_http_request(
-        SignHttpRequestParams(**REQUEST, agent_private_key=result.agent_private_key, agent_did=result.document.id)
+        SignHttpRequestParams(**REQUEST, agent_private_key=result.agent_private_key, agent_did=result.document.id,
+            verification_method_id=f"{result.document.id}#key-1")
     )
     return result.document.id, result.agent_private_key, headers
 
@@ -203,7 +204,7 @@ class TestAgentDidHttpSignatureProfile:
                 url=REQUEST["url"],
                 body=REQUEST["body"],
                 agent_private_key=result.agent_private_key,
-                agent_did=result.document.id,
+                agent_did=result.document.id, verification_method_id=f"{result.document.id}#key-1",
                 expires_in_seconds=60,
             )
         )
@@ -287,7 +288,8 @@ class TestAgentDidHttpSignatureProfile:
     async def test_verifies_additional_covered_components_only_when_signed(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(name="ExtraBot", core_model="m", system_prompt="p"))
         signed = await identity.sign_http_request(
-            SignHttpRequestParams(**REQUEST, agent_private_key=result.agent_private_key, agent_did=result.document.id)
+            SignHttpRequestParams(**REQUEST, agent_private_key=result.agent_private_key, agent_did=result.document.id,
+                verification_method_id=f"{result.document.id}#key-1")
         )
         created = int(dict(parse_signature_input_header(signed["Signature-Input"])["sig1"].params)["created"])  # type: ignore[call-overload]
         headers = {

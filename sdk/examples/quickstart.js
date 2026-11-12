@@ -19,7 +19,7 @@ const main = async () => {
     url: 'https://api.example.com/tasks',
     body: '{"taskId":7}',
     agentPrivateKey: created.agentPrivateKey,
-    agentDid: created.document.id
+    agentDid: created.document.id, verificationMethodId: `${created.document.id}#key-1`
   });
 
   const ok = await AgentIdentity.verifyHttpRequestSignature({

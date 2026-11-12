@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .core.client import AgentDidClient, AgentDidClientOptions
+from .core.controller_binding import ControllerBindingError
 from .core.http_security import (
     DEFAULT_HTTP_TIMEOUT_MS,
     DEFAULT_MAX_RESPONSE_BYTES,
@@ -42,6 +43,7 @@ from .core.identity_composition import (
     get_relationship_key_ids,
     required_relationship_for,
 )
+from .core.message_signing import AGENT_DID_MESSAGE_SIGNING_PREFIX, message_signing_input
 from .core.nonce_store import InMemoryNonceStore, NonceStore
 from .core.signer import AgentSigner, LocalKeySigner
 from .core.time_utils import (
@@ -52,6 +54,7 @@ from .core.time_utils import (
 )
 from .core.types import (
     AdditionalVerificationRelationship,
+    AddVerificationMethodResult,
     AgentDIDDocument,
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
@@ -104,6 +107,8 @@ from .resolver.types import (
     DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
     DIDDocumentSource,
     DIDResolver,
+    DidWebvhResolution,
+    DidWebvhState,
     DocumentIntegrityError,
     ResolverCacheStats,
     ResolverResolutionEvent,
@@ -154,7 +159,13 @@ __all__ = [
     "SIGNING_VERIFICATION_PURPOSES",
     "SIGNED_ARTIFACT_KINDS",
     "ADDITIONAL_VERIFICATION_RELATIONSHIPS",
+    "AGENT_DID_MESSAGE_SIGNING_PREFIX",
     "REQUIRED_RELATIONSHIP_BY_ARTIFACT",
+    "ControllerBindingError",
+    "DidWebvhResolution",
+    "DidWebvhState",
+    "AddVerificationMethodResult",
+    "message_signing_input",
     "required_relationship_for",
     "assert_key_purpose",
     "assert_signing_purpose",

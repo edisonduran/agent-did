@@ -150,11 +150,11 @@ describe('publicKeyMultibase (property)', () => {
     );
   });
 
-  it('legacy z+hex keys always decode to 32 bytes', () => {
+  it('legacy z+hex keys are always rejected', () => {
     fc.assert(
       fc.property(fc.uint8Array({ minLength: 32, maxLength: 32 }), (key) => {
         const hex = Buffer.from(key).toString('hex');
-        expect(decodePublicKeyMultibase(`z${hex}`)).toHaveLength(32);
+        expect(() => decodePublicKeyMultibase(`z${hex}`)).toThrow('Unable to decode publicKeyMultibase');
       }),
       { numRuns: RUNS }
     );

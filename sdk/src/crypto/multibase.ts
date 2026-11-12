@@ -32,9 +32,9 @@ export function encodePublicKeyMultibase(rawPublicKey: Uint8Array): string {
 /**
  * Decodes a publicKeyMultibase string back into a raw Ed25519 public key.
  *
- * Accepts both:
- *   - Standard format: 'z' + Base58btc(0xed01 + raw_key)  (W3C compliant)
- *   - Legacy format:   'z' + hex(raw_key)                  (SDK v0.1.0 simplified)
+ * Accepts only the standard format: 'z' + Base58btc(0xed01 + raw_key) (W3C compliant). The legacy forms of
+ * SDK v0.1.0 (`z` + hex, or a raw key without the multicodec prefix) are rejected: a second encoding of the
+ * same key is a second way to write a document that other implementations read differently.
  *
  * @param encoded - The publicKeyMultibase string
  * @returns 32-byte raw Ed25519 public key
@@ -46,36 +46,23 @@ export function decodePublicKeyMultibase(encoded: string): Uint8Array {
 
   const value = encoded.slice(1);
 
-  // Attempt standard Base58btc decode with multicodec prefix
+  let decoded: Uint8Array | undefined;
   try {
-    const decoded = bs58.decode(value);
-
-    if (
-      decoded.length === 34 &&
-      decoded[0] === ED25519_MULTICODEC_PREFIX[0] &&
-      decoded[1] === ED25519_MULTICODEC_PREFIX[1]
-    ) {
-      return decoded.slice(2);
-    }
-
-    // Base58btc decoded but no multicodec prefix — could be raw 32-byte key
-    if (decoded.length === 32) {
-      return decoded;
-    }
+    decoded = bs58.decode(value);
   } catch {
-    // Not valid Base58btc — fall through to legacy hex
+    decoded = undefined;
   }
 
-  // Legacy fallback: 'z' + hex (SDK v0.1.0 format)
-  if (/^[0-9a-fA-F]+$/.test(value) && value.length === 64) {
-    const bytes = new Uint8Array(32);
-    for (let i = 0; i < 32; i++) {
-      bytes[i] = parseInt(value.substring(i * 2, i * 2 + 2), 16);
-    }
-    return bytes;
+  if (
+    decoded !== undefined &&
+    decoded.length === 34 &&
+    decoded[0] === ED25519_MULTICODEC_PREFIX[0] &&
+    decoded[1] === ED25519_MULTICODEC_PREFIX[1]
+  ) {
+    return decoded.slice(2);
   }
 
-  throw new Error('Unable to decode publicKeyMultibase: unrecognized format');
+  throw new Error('Unable to decode publicKeyMultibase: expected z + Base58btc(0xed01 + 32-byte Ed25519 key)');
 }
 
 /**

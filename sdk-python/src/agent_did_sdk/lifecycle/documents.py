@@ -8,13 +8,14 @@ TypeScript parity: ``sdk/src/lifecycle/documents.ts``.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 
 from nacl.signing import SigningKey
 
 from ..core.identity_composition import ADDITIONAL_VERIFICATION_RELATIONSHIPS
 from ..core.time_utils import normalize_timestamp_to_iso
-from ..core.types import AgentDIDDocument, UpdateAgentDocumentParams, VerificationMethod
+from ..core.types import AgentDIDDocument, SigningVerificationPurpose, UpdateAgentDocumentParams, VerificationMethod
 from ..crypto.hash import create_metadata_commitment
 from ..crypto.multibase import encode_public_key_multibase
 
@@ -52,7 +53,41 @@ def assert_update_patch(did: str, patch: UpdateAgentDocumentParams) -> None:
         )
 
 
+def _without_retired_keys_in_relationships(document: AgentDIDDocument) -> AgentDIDDocument:
+    """Remove the keys of *document* that carry a ``deactivated`` time from every verification relationship.
+
+    They stay in ``verificationMethod`` as the record of the retired key. Idempotent; an optional relationship
+    (everything but ``authentication``) that ends up empty is omitted. A key id that is not a verification
+    method of the document is left alone.
+    """
+    retired = {vm.id for vm in document.verification_method if vm.deactivated}
+    if not retired:
+        return document
+
+    def kept(key_ids: list[str] | None) -> list[str] | None:
+        if key_ids is None:
+            return None
+        remaining = [key_id for key_id in key_ids if key_id not in retired]
+        return remaining or None
+
+    return document.model_copy(
+        update={
+            "authentication": [key_id for key_id in document.authentication if key_id not in retired],
+            "assertion_method": kept(document.assertion_method),
+            "capability_delegation": kept(document.capability_delegation),
+            "capability_invocation": kept(document.capability_invocation),
+        }
+    )
+
+
 def build_updated_document(
+    existing: AgentDIDDocument, patch: UpdateAgentDocumentParams, updated: str
+) -> AgentDIDDocument:
+    # Any update also normalizes a document written by an earlier release that still listed retired keys
+    return _without_retired_keys_in_relationships(_build_updated_document(existing, patch, updated))
+
+
+def _build_updated_document(
     existing: AgentDIDDocument, patch: UpdateAgentDocumentParams, updated: str
 ) -> AgentDIDDocument:
     return AgentDIDDocument(
@@ -108,9 +143,11 @@ def _carried_capability_relationships(existing: AgentDIDDocument, new_vm_id: str
     """``capabilityDelegation`` / ``capabilityInvocation`` lists for a rotated document.
 
     The new key joins each list that names a key this rotation deactivates, so an agent that could delegate
-    or invoke still can. A list that names no active key (for example only another party's key) is left as it is.
+    or invoke still can. The keys of this document are removed from every list (a rotated-out key is no longer a
+    verification relationship of any kind); another party's key stays, and a list left empty is omitted.
     """
     active_key_ids = {vm.id for vm in existing.verification_method if not vm.deactivated}
+    own_key_ids = {vm.id for vm in existing.verification_method}
     current: dict[str, list[str] | None] = {
         "capabilityDelegation": existing.capability_delegation,
         "capabilityInvocation": existing.capability_invocation,
@@ -118,18 +155,83 @@ def _carried_capability_relationships(existing: AgentDIDDocument, new_vm_id: str
     carried: dict[str, list[str] | None] = {}
     for relationship in ADDITIONAL_VERIFICATION_RELATIONSHIPS:
         key_ids = current[relationship]
-        if key_ids and any(key_id in active_key_ids for key_id in key_ids):
-            carried[relationship] = list(dict.fromkeys([*key_ids, new_vm_id]))
-        else:
-            carried[relationship] = key_ids
+        if not key_ids:
+            carried[relationship] = None
+            continue
+        kept = [key_id for key_id in key_ids if key_id not in own_key_ids]
+        if any(key_id in active_key_ids for key_id in key_ids):
+            kept = [*kept, new_vm_id]
+        carried[relationship] = list(dict.fromkeys(kept)) or None
     return carried
 
 
-def build_rotated_document(did: str, existing: AgentDIDDocument, updated: str) -> tuple[AgentDIDDocument, str, str]:
-    """Deactivate every current key and add a fresh Ed25519 key as the active one.
+def build_added_key_document(
+    did: str,
+    existing: AgentDIDDocument,
+    updated: str,
+    relationships: Sequence[SigningVerificationPurpose],
+    new_public_key: bytes | None = None,
+) -> tuple[AgentDIDDocument, str, str]:
+    """Add an Ed25519 key to the document without retiring any other key, listed under *relationships*.
+
+    The new key is *new_public_key* when the caller holds the key elsewhere (the private key hex is then empty),
+    otherwise a freshly generated local key. Returns ``(document, verification_method_id, agent_private_key_hex)``.
+    """
+    if not relationships:
+        raise ValueError("At least one relationship is required for the new key")
+    if new_public_key is not None and len(new_public_key) != 32:
+        raise ValueError("The new verification method key must be a 32-byte Ed25519 public key")
+    key_indexes = []
+    for m in existing.verification_method:
+        match = re.search(r"#key-(\d+)$", m.id)
+        key_indexes.append(int(match.group(1)) if match else 0)
+    vm_id = f"{did}#key-{(max(key_indexes) if key_indexes else 0) + 1}"
+
+    if new_public_key is None:
+        signing_key = SigningKey.generate()
+        private_key_hex = signing_key.encode().hex()
+        public_key = bytes(signing_key.verify_key)
+    else:
+        private_key_hex = ""
+        public_key = new_public_key
+    new_vm = VerificationMethod(
+        id=vm_id,
+        type="Ed25519VerificationKey2020",
+        controller=existing.controller,
+        publicKeyMultibase=encode_public_key_multibase(public_key),
+    )
+    fields = {
+        "authentication": existing.authentication,
+        "assertion_method": existing.assertion_method,
+        "capability_delegation": existing.capability_delegation,
+        "capability_invocation": existing.capability_invocation,
+    }
+    for relationship in dict.fromkeys(relationships):
+        attribute = {
+            "authentication": "authentication",
+            "assertionMethod": "assertion_method",
+            "capabilityDelegation": "capability_delegation",
+            "capabilityInvocation": "capability_invocation",
+        }[relationship]
+        fields[attribute] = [*(fields[attribute] or []), vm_id]
+    document = existing.model_copy(
+        update={"updated": updated, "verification_method": [*existing.verification_method, new_vm], **fields}
+    )
+    return document, vm_id, private_key_hex
+
+
+def build_rotated_document(
+    did: str, existing: AgentDIDDocument, updated: str, new_public_key: bytes | None = None
+) -> tuple[AgentDIDDocument, str, str]:
+    """Deactivate every current key and add an Ed25519 key as the active one.
+
+    The new key is *new_public_key* when the caller holds the key elsewhere (the private key hex is then empty),
+    otherwise a freshly generated local key.
 
     Returns ``(document, verification_method_id, agent_private_key_hex)``.
     """
+    if new_public_key is not None and len(new_public_key) != 32:
+        raise ValueError("The new verification method key must be a 32-byte Ed25519 public key")
     key_indexes: list[int] = []
     for m in existing.verification_method:
         match = re.search(r"#key-(\d+)$", m.id)
@@ -138,13 +240,18 @@ def build_rotated_document(did: str, existing: AgentDIDDocument, updated: str) -
     next_idx = (max(key_indexes) if key_indexes else 0) + 1
     vm_id = f"{did}#key-{next_idx}"
 
-    signing_key = SigningKey.generate()
-    private_key_hex = signing_key.encode().hex()
+    if new_public_key is None:
+        signing_key = SigningKey.generate()
+        private_key_hex = signing_key.encode().hex()
+        public_key = bytes(signing_key.verify_key)
+    else:
+        private_key_hex = ""
+        public_key = new_public_key
     new_vm = VerificationMethod(
         id=vm_id,
         type="Ed25519VerificationKey2020",
         controller=existing.controller,
-        publicKeyMultibase=encode_public_key_multibase(bytes(signing_key.verify_key)),
+        publicKeyMultibase=encode_public_key_multibase(public_key),
     )
 
     all_vms = []
@@ -165,7 +272,8 @@ def build_rotated_document(did: str, existing: AgentDIDDocument, updated: str) -
             "agentMetadata": existing.agent_metadata.model_dump(by_alias=True, exclude_none=True),
             "verificationMethod": all_vms,
             "authentication": [vm_id],
-            "assertionMethod": list(dict.fromkeys([*(existing.assertion_method or []), vm_id])),
+            # Every key of the previous document is retired: none of them stays in a verification relationship
+            "assertionMethod": [vm_id],
             **_carried_capability_relationships(existing, vm_id),
             "keyAgreement": existing.key_agreement,
         }

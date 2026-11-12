@@ -1,0 +1,15 @@
+{
+  "description": "SHA-256 of the shared fixtures that define signed or hashed bytes, pinned when the wire freeze was set. Change a digest only for a deliberate wire change, in a new release candidate, with an entry in CHANGELOG.md and the migration guides. See docs/DEPRECATION-POLICY.md.",
+  "check": "node scripts/check-wire-freeze.js",
+  "pin": "node scripts/check-wire-freeze.js --write",
+  "fixtures": {
+    "fixtures/interop-vectors.json": "d47a5c0bdecec6cae0dcb67ff87c6a1e2e55f9655fa83bcf3fef2813c093286f",
+    "fixtures/http-verification-vectors.json": "1106b2599439374a69588f304132f712ca2f2a4165ee34865ad75858a549c0d9",
+    "fixtures/canonical-document-reference.json": "e0e02aca16c5095d67726a159229c6b54178034336dcea52fd9e5c7f6e30d258",
+    "fixtures/jcs-vectors.json": "65636f1e47bc7e9a557ce934a5bc737a4492148de19a957b188794647009f156",
+    "fixtures/metadata-commitment-vectors.json": "30e59bb7b2c02563bfafa31a954522b046a316c2d300265bdbbed9747342d9d6",
+    "fixtures/webvh-log-vectors.json": "6371dbfb113b972e111a00dfd9bf78405a20bbcfb9c26964ebd6d42d0c8aba31",
+    "fixtures/ed25519-verification-vectors.json": "f30b0c637f0246d00adbda38c850da51ead2c74caee2e002b23181e127e2f5ff",
+    "fixtures/key-at-time-vectors.json": "bd8a84bfca3be744017f81b3deba02e36f948acafeabc1bc4439e2cfbc47941c"
+  }
+}

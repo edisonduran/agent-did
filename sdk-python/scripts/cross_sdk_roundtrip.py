@@ -14,11 +14,8 @@ import sys
 
 from agent_did_sdk import (
     AgentDidClient,
-    AgentDidClientOptions,
     AgentIdentity,
     AgentIdentityConfig,
-    InMemoryAgentRegistry,
-    InMemoryDIDResolver,
     InMemoryNonceStore,
 )
 from agent_did_sdk.core.signer import LocalKeySigner
@@ -49,7 +46,12 @@ async def emit() -> None:
     signature_hex = await identity.sign_message(MESSAGE, result.agent_private_key)
     headers = await identity.sign_http_request(
         SignHttpRequestParams(
-            method="POST", url=URL, body=BODY, agent_private_key=result.agent_private_key, agent_did=document.id
+            method="POST",
+            url=URL,
+            body=BODY,
+            agent_private_key=result.agent_private_key,
+            agent_did=document.id,
+            verification_method_id=f"{document.id}#key-1",
         )
     )
     chain = await client.resolve_controller_chain(document.id)
@@ -57,6 +59,8 @@ async def emit() -> None:
         "producer": "python",
         "document": _dump(document),
         "controllerDocuments": [_dump(d) for d in chain if d.id != document.id],
+        # The did:webvh logs of the agent and its controllers: the verifier checks them and the controller binding
+        "logs": [client.export_did_webvh_history(d.id) for d in chain],
         "keyId": document.verification_method[0].id,
         "message": {"payload": MESSAGE, "signatureHex": signature_hex},
         "http": {"method": "POST", "url": URL, "body": BODY, "headers": headers},
@@ -67,12 +71,9 @@ async def emit() -> None:
 async def verify() -> int:
     bundle = json.load(sys.stdin)
     document = AgentDIDDocument(**bundle["document"])
-    resolver = InMemoryDIDResolver()
-    for raw in [bundle["document"], *bundle["controllerDocuments"]]:
-        resolver.register_document(AgentDIDDocument(**raw))
-    registry = InMemoryAgentRegistry()
-    await registry.register(document.id, document.controller, "hash://sha256/roundtrip")
-    client = AgentDidClient(AgentDidClientOptions(resolver=resolver, registry=registry))
+    client = AgentDidClient()
+    for log in bundle["logs"]:
+        await client.import_did_webvh_history(log)
 
     http = bundle["http"]
 

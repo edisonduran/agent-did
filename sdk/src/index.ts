@@ -23,6 +23,10 @@ export {
   CreateAgentResult,
   CreateDidWebvhOptions,
   DidWebvhLifecycleOptions,
+  RotateVerificationMethodOptions,
+  AddVerificationMethodOptions,
+  AddVerificationMethodResult,
+  AddedKeyRelationship,
   DidWebvhControllerKeys,
   RotateControllerKeyOptions,
   MetadataCommitmentSalts,
@@ -56,6 +60,9 @@ export {
   getKeyRelationships,
   getRelationshipKeyIds
 } from './core/identity-composition';
+export { AGENT_DID_MESSAGE_SIGNING_PREFIX, messageSigningInput } from './core/message-signing';
+export { ControllerBindingError } from './core/controller-binding';
+export type { DidWebvhResolution, DidWebvhState } from './resolver/types';
 
 // Export Core Identity Class
 export {

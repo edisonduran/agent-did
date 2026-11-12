@@ -45,7 +45,8 @@ const main = async () => {
     url: 'https://api.example.com/tasks',
     body: '{"taskId":7}',
     agentPrivateKey: created.agentPrivateKey,
-    agentDid: created.document.id
+    agentDid: created.document.id,
+    verificationMethodId: created.document.authentication[0]
   });
 
   const ok = await AgentIdentity.verifyHttpRequestSignature({
@@ -73,7 +74,7 @@ This snippet proves the current local SDK signing flow. The SDK auto-bootstraps 
 Install:
 
 ```bash
-pip install agent-did-sdk==1.0.0rc4
+pip install agent-did-sdk==1.0.0rc5
 ```
 
 Pinning `1.0.0rc4` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc4`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [Platform support](sdk-python/README.md#platform-support)).
@@ -101,6 +102,7 @@ async def main() -> None:
         body='{"taskId":7}',
         agent_private_key=created.agent_private_key,
         agent_did=created.document.id,
+        verification_method_id=created.document.authentication[0],
     ))
 
     ok = await AgentIdentity.verify_http_request_signature(VerifyHttpRequestSignatureParams(

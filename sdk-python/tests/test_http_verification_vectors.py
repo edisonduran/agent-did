@@ -47,7 +47,8 @@ def _agent_document() -> AgentDIDDocument:
         **{
             "@context": CONTEXT,
             "id": FIXTURE["did"],
-            "controller": FIXTURE["controller"],
+            # Self-controlled: the vectors test the HTTP rules, and a document-only resolver cannot prove a binding
+            "controller": FIXTURE["did"],
             "created": "2024-01-01T00:00:00.000Z",
             "updated": "2024-01-01T00:00:00.000Z",
             "agentMetadata": _meta("HttpVerificationFixtureBot"),

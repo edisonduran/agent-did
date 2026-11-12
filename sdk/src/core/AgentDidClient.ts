@@ -1,4 +1,6 @@
 import {
+  AddVerificationMethodOptions,
+  AddVerificationMethodResult,
   AgentDocumentHistoryAction,
   AgentDocumentHistoryEntry,
   AgentDIDDocument,
@@ -7,6 +9,7 @@ import {
   DidWebvhControllerKeys,
   DidWebvhLifecycleOptions,
   RotateControllerKeyOptions,
+  RotateVerificationMethodOptions,
   RotateVerificationMethodResult,
   UpdateAgentDocumentParams,
   VerifyHttpRequestSignatureParams,
@@ -19,7 +22,7 @@ import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash
 import { didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { InMemoryNonceStore, NonceStore } from './nonce-store';
-import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
+import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolverResolutionEvent } from '../resolver/types';
 import { InMemoryDIDResolver } from '../resolver/InMemoryDIDResolver';
 import { UniversalResolverClient } from '../resolver/UniversalResolverClient';
 import { HttpDIDDocumentSource } from '../resolver/HttpDIDDocumentSource';
@@ -27,7 +30,10 @@ import { JsonRpcDIDDocumentSource } from '../resolver/JsonRpcDIDDocumentSource';
 import { WebvhDIDDocumentSource } from '../resolver/WebvhDIDDocumentSource';
 import { AgentRegistry } from '../registry/types';
 import {
+  compareDidWebvhLogs,
   createDidWebvhLog,
+  didWebvhLastEntrySigners,
+  DidWebvhError,
   deactivateDidWebvhLog,
   didWebvhUpdateKeyFor,
   resolveDidWebvhLog,
@@ -44,6 +50,7 @@ import {
 } from '../webvh/documents';
 import {
   assertUpdatePatch,
+  buildAddedKeyDocument,
   buildRotatedDocument,
   buildUpdatedDocument,
   nextDocumentTimestamp
@@ -54,6 +61,8 @@ import { SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signat
 import { IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
+import { messageSigningInput } from './message-signing';
+import { assertBoundToController, ControllerBindingError } from './controller-binding';
 
 export interface ProductionResolverProfileConfig {
   registry: AgentRegistry;
@@ -140,7 +149,7 @@ export class AgentDidClient {
    * Deactivation state derived from the verified log, keyed by DID and tied to the exact
    * log text it was computed from. It is recomputed whenever the stored log changes.
    */
-  private readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean }> = new Map();
+  private readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean; document: AgentDIDDocument }> = new Map();
   /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
   private readonly didWebvhSignerStore: Map<string, AgentSigner> = new Map();
   /** Local bootstrap controllers, keyed by the creator's did:key. */
@@ -397,7 +406,66 @@ export class AgentDidClient {
       throw new Error(`DID is not active: ${did}`);
     }
 
+    if (did.startsWith('did:webvh:')) {
+      await this.assertControllerChainBound(chain);
+    }
+
     return chain;
+  }
+
+  /**
+   * Every link of a controller chain (agent -> controller -> its controller ...) must be bound: the last entry of the
+   * agent's did:webvh log was signed by a key that is active now under `capabilityInvocation` of the controller
+   * (RFC-001 §6.6 item 7). Fails closed with `ControllerBindingError`, also when no log is available to check.
+   */
+  private async assertControllerChainBound(chain: AgentDIDDocument[]): Promise<void> {
+    for (let index = 0; index + 1 < chain.length; index += 1) {
+      const agent = chain[index];
+      const controller = chain[index + 1];
+      const state = agent.id.startsWith('did:webvh:') ? await this.resolveDidWebvhState(agent.id) : undefined;
+      if (!state) {
+        throw new ControllerBindingError(agent.id, controller.id, 'no did:webvh log is available to check the binding');
+      }
+      assertBoundToController(agent, state.lastEntrySignerKeys, controller);
+    }
+  }
+
+  /**
+   * The verified did:webvh log behind `did` and what it says: the document in force, `versionId`, the `updateKeys`
+   * in force, the keys that signed the last entry and the provenance of the log. A DID created or changed in this
+   * client is answered from its local log; any other is answered by the resolver (`DIDResolver.resolveDidWebvhLog`),
+   * which rejects when the log cannot be fetched or verified, and otherwise from the log imported in this client.
+   * Returns `undefined` for a DID that is not did:webvh or has no log available (a resolver that holds only documents).
+   */
+  public async resolveDidWebvhState(did: string): Promise<DidWebvhState | undefined> {
+    if (!did.startsWith('did:webvh:')) {
+      return undefined;
+    }
+    const local = this.didWebvhLogStore.get(did);
+    if (local !== undefined && this.didWebvhSignerStore.has(did)) {
+      return this.didWebvhStateFromLog(did, local, 'local');
+    }
+    const fetched = await this.resolver.resolveDidWebvhLog?.(did);
+    if (fetched) {
+      return { ...fetched, provenance: 'fetched' };
+    }
+    return local !== undefined ? this.didWebvhStateFromLog(did, local, 'imported') : undefined;
+  }
+
+  private async didWebvhStateFromLog(
+    did: string,
+    log: string,
+    provenance: DidWebvhState['provenance']
+  ): Promise<DidWebvhState> {
+    const resolved = await resolveDidWebvhLog(log, { did });
+    return {
+      document: cloneDocument(resolved.state as unknown as AgentDIDDocument),
+      log: resolved.log,
+      versionId: resolved.metadata.versionId,
+      updateKeys: [...resolved.metadata.updateKeys],
+      lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log),
+      provenance
+    };
   }
 
   private hasActiveVerificationMethod(document: AgentDIDDocument): boolean {
@@ -444,8 +512,8 @@ export class AgentDidClient {
     let verificationChain: AgentDIDDocument[];
     try {
       verificationChain = await this.resolveActiveVerificationChain(did);
-    } catch {
-      return 'did_resolution_failed';
+    } catch (error) {
+      return error instanceof ControllerBindingError ? 'controller_not_bound' : 'did_resolution_failed';
     }
     try {
       return verifyWithActiveKeys(verificationChain[0], payload, signature, keyId, requiredPurpose) ? 'valid' : 'invalid';
@@ -458,8 +526,9 @@ export class AgentDidClient {
   }
 
   /**
-   * Verifies that a signature was produced by a specific Agent-DID.
-   * Uses the configured resolver and registry to validate against active verification methods.
+   * Verifies that a payload signature (`signMessage`, which covers `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`)
+   * was produced by a specific Agent-DID. Uses the configured resolver and registry to validate against active
+   * verification methods. HTTP request signatures are verified with `verifyHttpRequestSignature`, not here.
    */
   public async verifySignature(
     did: string,
@@ -475,7 +544,7 @@ export class AgentDidClient {
       return false;
     }
 
-    return verifyWithActiveKeys(verificationChain[0], payload, signature, keyId, requiredPurpose);
+    return verifyWithActiveKeys(verificationChain[0], messageSigningInput(payload), signature, keyId, requiredPurpose);
   }
 
   /**
@@ -511,7 +580,35 @@ export class AgentDidClient {
       }
       return { status: 'invalid', reason: 'did_resolution_failed' };
     }
-    return signatureResultForKey(key, payload, signature);
+    const result = signatureResultForKey(key, messageSigningInput(payload), signature);
+    if (result.status === 'valid') {
+      // The binding is evaluated against the controller as it is now, never at the stated time
+      try {
+        await this.assertDidWebvhBoundNow(did);
+      } catch (error) {
+        if (error instanceof ControllerBindingError) {
+          return { status: 'invalid', reason: 'controller_not_bound', key: result.key };
+        }
+        throw error;
+      }
+    }
+    return result;
+  }
+
+  /** The binding of `did` (and of its controllers) to its controller chain as it is now, from the client's own log. */
+  private async assertDidWebvhBoundNow(did: string): Promise<void> {
+    const state = await this.resolveDidWebvhState(did);
+    const document = state?.document;
+    if (!document || !document.controller?.trim() || document.controller === did) {
+      return;
+    }
+    let controllers: AgentDIDDocument[];
+    try {
+      controllers = await this.resolveControllerChain(document.controller);
+    } catch (error) {
+      throw new ControllerBindingError(did, document.controller, `the controller does not resolve (${String(error)})`);
+    }
+    await this.assertControllerChainBound([document, ...controllers]);
   }
 
   /**
@@ -522,10 +619,19 @@ export class AgentDidClient {
     if (did.startsWith('did:webvh:')) {
       // For did:webvh the verified log is the only source of revocation state: a DID is
       // revoked only by a controller-signed deactivation entry. The registry record is a
-      // derived index and is not consulted. DIDs without a local log are resolved (and their
-      // logs verified) by the configured resolver.
-      if (await this.isDidWebvhDeactivated(did)) {
+      // derived index and is not consulted.
+      //
+      // A DID created or changed in this process (its controller signer is retained) is
+      // authoritative here: its local log is served without asking the resolver, so it does not
+      // stop resolving when a resolver cache entry expires or its host is down. Any other DID
+      // is resolved (and its log verified) by the configured resolver, which treats an imported
+      // log as a cache and fails closed when it cannot refresh it.
+      const state = await this.didWebvhState(did);
+      if (state?.deactivated) {
         throw new Error(`DID is revoked: ${did}`);
+      }
+      if (state && this.didWebvhSignerStore.has(did)) {
+        return cloneDocument(state.document);
       }
       return this.resolver.resolve(did);
     }
@@ -540,23 +646,28 @@ export class AgentDidClient {
   }
 
   /**
-   * Whether the locally stored did:webvh log ends in a deactivation entry. The log is
-   * verified (SCID, hash chain, controller proofs) before its state is trusted; a log that
-   * fails verification is an error, never "not revoked". Returns false when no log is
-   * stored for the DID.
+   * State of the locally stored did:webvh log: whether it ends in a deactivation entry and its
+   * latest document. The log is verified (SCID, hash chain, controller proofs) before its state is
+   * trusted; a log that fails verification is an error, never "not revoked". Returns undefined when
+   * no log is stored for the DID.
    */
-  private async isDidWebvhDeactivated(did: string): Promise<boolean> {
+  private async didWebvhState(did: string): Promise<{ deactivated: boolean; document: AgentDIDDocument } | undefined> {
     const log = this.didWebvhLogStore.get(did);
     if (log === undefined) {
-      return false;
+      return undefined;
     }
     const cached = this.didWebvhStateCache.get(did);
     if (cached?.log === log) {
-      return cached.deactivated;
+      return cached;
     }
     const resolved = await resolveDidWebvhLog(log, { did });
-    this.didWebvhStateCache.set(did, { log, deactivated: resolved.metadata.deactivated });
-    return resolved.metadata.deactivated;
+    const state = {
+      log,
+      deactivated: resolved.metadata.deactivated,
+      document: cloneDocument(resolved.state as unknown as AgentDIDDocument)
+    };
+    this.didWebvhStateCache.set(did, state);
+    return state;
   }
 
   public async resolveControllerChain(did: string, maxDepth = 8): Promise<AgentDIDDocument[]> {
@@ -629,10 +740,15 @@ export class AgentDidClient {
 
   public async rotateVerificationMethod(
     did: string,
-    options: DidWebvhLifecycleOptions = {}
+    options: RotateVerificationMethodOptions = {}
   ): Promise<RotateVerificationMethodResult> {
     const existing = await this.resolve(did);
-    const rotated = buildRotatedDocument(did, existing, this.nextTimestamp(existing.updated));
+    const rotated = buildRotatedDocument(
+      did,
+      existing,
+      this.nextTimestamp(existing.updated),
+      options.signer ? await options.signer.getPublicKey() : undefined
+    );
     let updatedDocument = rotated.document;
 
     if (did.startsWith('did:webvh:')) {
@@ -647,6 +763,41 @@ export class AgentDidClient {
       document: updatedDocument,
       verificationMethodId: rotated.verificationMethodId,
       agentPrivateKey: rotated.agentPrivateKey
+    };
+  }
+
+  /**
+   * Adds a key to the document of `did` without retiring any other key, listed under `options.relationships`
+   * (default: `capabilityInvocation`). It is the first step of rotating the key that endorses the agents a DID
+   * controls without unbinding them: add the new key, give each agent an entry signed by the new key, then retire
+   * the old one with `rotateVerificationMethod` (RFC-001 §6.6 item 7).
+   */
+  public async addVerificationMethod(
+    did: string,
+    options: AddVerificationMethodOptions = {}
+  ): Promise<AddVerificationMethodResult> {
+    const existing = await this.resolve(did);
+    const added = buildAddedKeyDocument(
+      did,
+      existing,
+      this.nextTimestamp(existing.updated),
+      options.relationships ?? ['capabilityInvocation'],
+      options.signer ? await options.signer.getPublicKey() : undefined
+    );
+    let updatedDocument = added.document;
+
+    if (did.startsWith('did:webvh:')) {
+      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
+    }
+
+    this.resolver.registerDocument(updatedDocument);
+    await this.registry.setDocumentReference(did, computeDocumentReference(updatedDocument));
+    this.appendHistory(updatedDocument, 'updated');
+
+    return {
+      document: updatedDocument,
+      verificationMethodId: added.verificationMethodId,
+      agentPrivateKey: added.agentPrivateKey
     };
   }
 
@@ -728,9 +879,25 @@ export class AgentDidClient {
     const latestDocument = cloneDocument(resolved.state as unknown as AgentDIDDocument);
     const documentRef = computeDocumentReference(latestDocument);
 
-    this.documentHistoryStore.set(did, historyFromDidWebvhLog(resolved.log));
-    this.didWebvhLogStore.set(did, resolved.log);
-    this.didWebvhSignerStore.delete(did);
+    // A log can only replace the stored one by extending it: an older prefix (it would reinstate
+    // a revoked DID or an earlier key set) or a different history is rejected. The same log is a no-op.
+    const stored = this.didWebvhLogStore.get(did);
+    const relation = stored === undefined ? 'extends' : compareDidWebvhLogs(stored, resolved.log);
+    if (relation === 'prefix' || relation === 'diverged') {
+      throw new DidWebvhError(
+        'invalidInput',
+        `did:webvh log for ${did} does not extend the log already stored in this client (${relation === 'prefix' ? 'it is older' : 'it diverges'})`
+      );
+    }
+    if (relation === 'extends') {
+      this.documentHistoryStore.set(did, historyFromDidWebvhLog(resolved.log));
+      this.didWebvhLogStore.set(did, resolved.log);
+      // The retained controller signer stays only while its key is still one of the log's updateKeys.
+      const signer = this.didWebvhSignerStore.get(did);
+      if (signer && !resolved.metadata.updateKeys.includes(await didWebvhUpdateKeyFor(signer))) {
+        this.didWebvhSignerStore.delete(did);
+      }
+    }
 
     this.resolver.registerDocument(latestDocument);
     await this.registry.register(latestDocument.id, latestDocument.controller, documentRef);
@@ -796,6 +963,7 @@ export class AgentDidClient {
       wbaDocumentSource: config.wbaDocumentSource,
       webvhDocumentSource: config.webvhDocumentSource,
       fallbackResolver: this.resolver,
+      didWebvhLocalLog: (did) => this.didWebvhLogStore.get(did),
       cacheTtlMs: config.cacheTtlMs,
       maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent,

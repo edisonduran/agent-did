@@ -70,6 +70,8 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
       try {
         validateHttpTarget(url, this.httpSecurity);
       } catch {
+        // Blocked by policy is not "not found": the log may well exist.
+        allNotFound = false;
         errors.push(`${url}: blocked by SSRF policy`);
         continue;
       }

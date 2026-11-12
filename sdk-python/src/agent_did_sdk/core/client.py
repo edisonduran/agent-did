@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from nacl.signing import SigningKey
@@ -17,6 +17,7 @@ from ..crypto.multibase import did_key_from_public_key
 from ..http_signatures.verify_request import SignatureCheckOutcome, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
+    build_added_key_document,
     build_rotated_document,
     build_updated_document,
     next_document_timestamp,
@@ -30,6 +31,8 @@ from ..resolver.types import (
     DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
     DIDDocumentSource,
     DIDResolver,
+    DidWebvhResolution,
+    DidWebvhState,
     ResolverResolutionEvent,
     UniversalResolverConfig,
 )
@@ -39,8 +42,10 @@ from ..verification.key_at_time import check_did_webvh_key_at_time, signature_re
 from ..verification.signature import verify_with_active_keys
 from ..webvh.adapter import (
     DidWebvhError,
+    compare_did_webvh_logs,
     create_did_webvh_log,
     deactivate_did_webvh_log,
+    did_webvh_last_entry_signers,
     did_webvh_update_key_for,
     resolve_did_webvh_log,
     update_did_webvh_log,
@@ -53,12 +58,15 @@ from ..webvh.documents import (
     history_from_did_webvh_log,
     normalize_did_path_segment,
 )
+from .controller_binding import ControllerBindingError, assert_bound_to_controller
 from .http_security import HttpTargetValidationOptions
 from .identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT, IdentityCompositionError
+from .message_signing import message_signing_input
 from .nonce_store import InMemoryNonceStore, NonceStore
 from .signer import AgentSigner, LocalKeySigner
 from .time_utils import normalize_timestamp_to_iso
 from .types import (
+    AddVerificationMethodResult,
     AgentDIDDocument,
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
@@ -69,6 +77,7 @@ from .types import (
     KeyAtTimeResult,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
+    SigningVerificationPurpose,
     UpdateAgentDocumentParams,
     VerificationRelationship,
     VerifyHttpRequestSignatureParams,
@@ -151,7 +160,7 @@ class AgentDidClient:
         self._did_webvh_log_store: dict[str, str] = {}
         # Deactivation state derived from the verified log, keyed by DID and tied to the exact
         # log text it was computed from. It is recomputed whenever the stored log changes.
-        self._did_webvh_state_cache: dict[str, tuple[str, bool]] = {}
+        self._did_webvh_state_cache: dict[str, tuple[str, bool, AgentDIDDocument]] = {}
         # Controller signers (did:webvh updateKeys) retained for DIDs created in this process.
         self._did_webvh_signer_store: dict[str, AgentSigner] = {}
         # Local bootstrap controllers, keyed by lowercase controller wallet address.
@@ -410,7 +419,73 @@ class AgentDidClient:
         chain = await self.resolve_controller_chain(did) if did.startswith("did:webvh:") else [await self.resolve(did)]
         if any(not self._has_active_verification_method(document) for document in chain):
             raise ValueError(f"DID is not active: {did}")
+        if did.startswith("did:webvh:"):
+            await self._assert_controller_chain_bound(chain)
         return chain
+
+    async def _assert_controller_chain_bound(self, chain: list[AgentDIDDocument]) -> None:
+        """Every link of a controller chain (agent -> controller -> its controller ...) must be bound: the last entry
+        of the agent's did:webvh log was signed by a key that is active now under ``capabilityInvocation`` of the
+        controller (RFC-001 §6.6 item 7). Fails closed with :class:`ControllerBindingError`, also when no log is
+        available to check."""
+        for agent, controller in zip(chain, chain[1:], strict=False):
+            state = await self.resolve_did_webvh_state(agent.id) if agent.id.startswith("did:webvh:") else None
+            if state is None:
+                raise ControllerBindingError(
+                    agent.id, controller.id, "no did:webvh log is available to check the binding"
+                )
+            assert_bound_to_controller(agent, state.last_entry_signer_keys, controller)
+
+    async def resolve_did_webvh_state(self, did: str) -> DidWebvhState | None:
+        """The verified did:webvh log behind *did* and what it says: the document in force, ``version_id``, the
+        ``update_keys`` in force, the keys that signed the last entry and the provenance of the log.
+
+        A DID created or changed in this client is answered from its local log; any other is answered by the resolver
+        (``resolve_did_webvh_log``), which raises when the log cannot be fetched or verified, and otherwise from the
+        log imported in this client. Returns ``None`` for a DID that is not did:webvh or has no log available (a
+        resolver that holds only documents)."""
+        if not did.startswith("did:webvh:"):
+            return None
+        local = self._did_webvh_log_store.get(did)
+        if local is not None and did in self._did_webvh_signer_store:
+            return await self._did_webvh_state_from_log(did, local, "local")
+        resolve_log = getattr(self._resolver, "resolve_did_webvh_log", None)
+        fetched: DidWebvhResolution | None = await resolve_log(did) if callable(resolve_log) else None
+        if fetched is not None:
+            return DidWebvhState(
+                document=fetched.document,
+                log=fetched.log,
+                version_id=fetched.version_id,
+                update_keys=fetched.update_keys,
+                last_entry_signer_keys=fetched.last_entry_signer_keys,
+                provenance="fetched",
+            )
+        return await self._did_webvh_state_from_log(did, local, "imported") if local is not None else None
+
+    async def _did_webvh_state_from_log(
+        self, did: str, log: str, provenance: Literal["local", "imported"]
+    ) -> DidWebvhState:
+        resolved = await resolve_did_webvh_log(log, did=did)
+        return DidWebvhState(
+            document=AgentDIDDocument.model_validate(resolved.state),
+            log=resolved.log,
+            version_id=resolved.metadata.version_id,
+            update_keys=list(resolved.metadata.update_keys),
+            last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
+            provenance=provenance,
+        )
+
+    async def _assert_did_webvh_bound_now(self, did: str) -> None:
+        """The binding of *did* (and of its controllers) as it is now, from the client's own log."""
+        state = await self.resolve_did_webvh_state(did)
+        if state is None or not state.document.controller or state.document.controller.strip() == did:
+            return
+        controller_did = state.document.controller.strip()
+        try:
+            controllers = await self.resolve_controller_chain(controller_did)
+        except Exception as exc:
+            raise ControllerBindingError(did, controller_did, f"the controller does not resolve ({exc})") from exc
+        await self._assert_controller_chain_bound([state.document, *controllers])
 
     @staticmethod
     def _has_active_verification_method(document: AgentDIDDocument) -> bool:
@@ -455,6 +530,8 @@ class AgentDidClient:
         """``verify_signature`` that tells apart the ways a verification can fail."""
         try:
             verification_chain = await self._resolve_active_verification_chain(did)
+        except ControllerBindingError:
+            return "controller_not_bound"
         except Exception:
             return "did_resolution_failed"
         try:
@@ -471,13 +548,16 @@ class AgentDidClient:
         key_id: str | None = None,
         required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     ) -> bool:
-        """Verify that *signature* was produced by *did* for *payload*."""
+        """Verify that *signature* (``sign_message``: it covers ``AGENT_DID_MESSAGE_SIGNING_PREFIX + payload``)
+        was produced by *did* for *payload*. HTTP request signatures use ``verify_http_request_signature``."""
         try:
             verification_chain = await self._resolve_active_verification_chain(did)
         except Exception:
             return False
 
-        return verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
+        return verify_with_active_keys(
+            verification_chain[0], message_signing_input(payload), signature, key_id, required_purpose
+        )
 
     async def verify_signature_at_time(
         self,
@@ -520,16 +600,31 @@ class AgentDidClient:
             )
         except DidWebvhError:
             return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed")
-        return signature_result_for_key(key, payload, signature)
+        result = signature_result_for_key(key, message_signing_input(payload), signature)
+        if result.status == "valid":
+            # The binding is evaluated against the controller as it is now, never at the stated time
+            try:
+                await self._assert_did_webvh_bound_now(did)
+            except ControllerBindingError:
+                return VerifySignatureAtTimeResult(status="invalid", reason="controller_not_bound", key=result.key)
+        return result
 
     async def resolve(self, did: str) -> AgentDIDDocument:
         if did.startswith("did:webvh:"):
             # For did:webvh the verified log is the only source of revocation state: a DID is
             # revoked only by a controller-signed deactivation entry. The registry record is a
-            # derived index and is not consulted. DIDs without a local log are resolved (and
-            # their logs verified) by the configured resolver.
-            if await self._is_did_webvh_deactivated(did):
+            # derived index and is not consulted.
+            #
+            # A DID created or changed in this process (its controller signer is retained) is
+            # authoritative here: its local log is served without asking the resolver, so it does
+            # not stop resolving when a resolver cache entry expires or its host is down. Any other
+            # DID is resolved (and its log verified) by the configured resolver, which treats an
+            # imported log as a cache and fails closed when it cannot refresh it.
+            state = await self._did_webvh_state(did)
+            if state is not None and state[0]:
                 raise ValueError(f"DID is revoked: {did}")
+            if state is not None and did in self._did_webvh_signer_store:
+                return state[1].model_copy(deep=True)
             return await self._resolver.resolve(did)
 
         is_revoked = await self._registry.is_revoked(did)
@@ -537,22 +632,23 @@ class AgentDidClient:
             raise ValueError(f"DID is revoked: {did}")
         return await self._resolver.resolve(did)
 
-    async def _is_did_webvh_deactivated(self, did: str) -> bool:
-        """Whether the locally stored did:webvh log ends in a deactivation entry.
+    async def _did_webvh_state(self, did: str) -> tuple[bool, AgentDIDDocument] | None:
+        """State of the locally stored did:webvh log: ``(deactivated, latest document)``.
 
         The log is verified (SCID, hash chain, controller proofs) before its state is
         trusted; a log that fails verification is an error, never "not revoked". Returns
-        False when no log is stored for the DID.
+        None when no log is stored for the DID.
         """
         log = self._did_webvh_log_store.get(did)
         if log is None:
-            return False
+            return None
         cached = self._did_webvh_state_cache.get(did)
         if cached is not None and cached[0] == log:
-            return cached[1]
+            return cached[1], cached[2]
         resolved = await resolve_did_webvh_log(log, did=did)
-        self._did_webvh_state_cache[did] = (log, resolved.metadata.deactivated)
-        return resolved.metadata.deactivated
+        document = AgentDIDDocument.model_validate(resolved.state)
+        self._did_webvh_state_cache[did] = (log, resolved.metadata.deactivated, document)
+        return resolved.metadata.deactivated, document
 
     async def resolve_controller_chain(self, did: str, max_depth: int = 8) -> list[AgentDIDDocument]:
         if max_depth < 1:
@@ -615,11 +711,50 @@ class AgentDidClient:
         self._append_history(updated, "updated")
         return updated
 
-    async def rotate_verification_method(
-        self, did: str, *, controller_signer: AgentSigner | None = None
-    ) -> RotateVerificationMethodResult:
+    async def add_verification_method(
+        self,
+        did: str,
+        *,
+        controller_signer: AgentSigner | None = None,
+        signer: AgentSigner | None = None,
+        relationships: list[SigningVerificationPurpose] | None = None,
+    ) -> AddVerificationMethodResult:
+        """Add a key to the document of *did* without retiring any other key, listed under *relationships* (default:
+        ``capabilityInvocation``). It is the first step of rotating the key that endorses the agents a DID controls
+        without unbinding them: add the new key, give each agent an entry signed by the new key, then retire the old
+        one with :meth:`rotate_verification_method` (RFC-001 §6.6 item 7). With *signer* (for example a KMS or HSM
+        key) its public key becomes the new verification method and ``agent_private_key`` in the result is empty."""
         existing = await self.resolve(did)
-        updated, vm_id, private_key_hex = build_rotated_document(did, existing, self._next_timestamp(existing.updated))
+        updated, vm_id, private_key_hex = build_added_key_document(
+            did,
+            existing,
+            self._next_timestamp(existing.updated),
+            relationships if relationships is not None else ["capabilityInvocation"],
+            await signer.get_public_key() if signer is not None else None,
+        )
+
+        if did.startswith("did:webvh:"):
+            updated = await self._append_did_webvh_entry(did, updated, controller_signer)
+
+        self._resolver.register_document(updated)
+        await self._registry.set_document_reference(did, compute_document_reference(updated))
+        self._append_history(updated, "updated")
+        return AddVerificationMethodResult(
+            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex
+        )
+
+    async def rotate_verification_method(
+        self, did: str, *, controller_signer: AgentSigner | None = None, signer: AgentSigner | None = None
+    ) -> RotateVerificationMethodResult:
+        """Rotate the agent key. With *signer* (for example a KMS or HSM key) its public key becomes the new
+        verification method and ``agent_private_key`` in the result is empty; otherwise a local key is generated."""
+        existing = await self.resolve(did)
+        updated, vm_id, private_key_hex = build_rotated_document(
+            did,
+            existing,
+            self._next_timestamp(existing.updated),
+            await signer.get_public_key() if signer is not None else None,
+        )
 
         if did.startswith("did:webvh:"):
             updated = await self._append_did_webvh_entry(did, updated, controller_signer)
@@ -657,9 +792,23 @@ class AgentDidClient:
         latest = AgentDIDDocument.model_validate(resolved.state)
         document_ref = compute_document_reference(latest)
 
-        self._history_store[did] = history_from_did_webvh_log(resolved.log)
-        self._did_webvh_log_store[did] = resolved.log
-        self._did_webvh_signer_store.pop(did, None)
+        # A log can only replace the stored one by extending it: an older prefix (it would reinstate
+        # a revoked DID or an earlier key set) or a different history is rejected. The same log is a no-op.
+        stored = self._did_webvh_log_store.get(did)
+        relation = "extends" if stored is None else compare_did_webvh_logs(stored, resolved.log)
+        if relation in ("prefix", "diverged"):
+            raise DidWebvhError(
+                "invalidInput",
+                f"did:webvh log for {did} does not extend the log already stored in this client "
+                f"({'it is older' if relation == 'prefix' else 'it diverges'})",
+            )
+        if relation == "extends":
+            self._history_store[did] = history_from_did_webvh_log(resolved.log)
+            self._did_webvh_log_store[did] = resolved.log
+            # The retained controller signer stays only while its key is still one of the log's updateKeys.
+            signer = self._did_webvh_signer_store.get(did)
+            if signer is not None and await did_webvh_update_key_for(signer) not in resolved.metadata.update_keys:
+                del self._did_webvh_signer_store[did]
 
         self._resolver.register_document(latest)
         await self._registry.register(latest.id, latest.controller, document_ref)
@@ -723,6 +872,7 @@ class AgentDidClient:
                 wba_document_source=config.wba_document_source,
                 webvh_document_source=config.webvh_document_source,
                 fallback_resolver=self._resolver,
+                did_webvh_local_log=self._did_webvh_log_store.get,
                 cache_ttl_ms=config.cache_ttl_ms or 60_000,
                 max_cache_entries=(
                     DEFAULT_RESOLVER_MAX_CACHE_ENTRIES if config.max_cache_entries is None else config.max_cache_entries

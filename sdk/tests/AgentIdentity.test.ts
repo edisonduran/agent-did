@@ -1,5 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { AgentIdentity, AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from '../src/core/AgentIdentity';
+import { AgentDidClient } from '../src/core/AgentDidClient';
 import { buildSignatureBase, parseSignatureInputHeader, serializeSignatureInput } from '../src/core/http-signatures';
 import { InMemoryNonceStore } from '../src/core/nonce-store';
 import { CreateAgentParams } from '../src/core/types';
@@ -167,7 +168,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/data',
       body: '{"test": true}',
       agentPrivateKey,
-      agentDid: document.id
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`
     };
     
     const headers = await agentIdentity.signHttpRequest(requestParams);
@@ -200,7 +201,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/transfer',
       body: '{"amount":100}',
       agentPrivateKey,
-      agentDid: document.id
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`
     };
 
     const headers = await agentIdentity.signHttpRequest(requestParams);
@@ -227,7 +228,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/claims',
       body: '{"claim": true}',
       agentPrivateKey,
-      agentDid: document.id
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`
     };
 
     const headers = await agentIdentity.signHttpRequest(requestParams);
@@ -256,7 +257,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/claims',
       body: '{"claim": true}',
       agentPrivateKey,
-      agentDid: document.id
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`
     };
 
     const headers = await agentIdentity.signHttpRequest(requestParams);
@@ -281,7 +282,7 @@ describe('AgentIdentity Core Module', () => {
 
     const url = 'https://api.example.com/v1/interop?view=full';
     const body = '{"interop": true}';
-    const signed = await agentIdentity.signHttpRequest({ method: 'POST', url, body, agentPrivateKey, agentDid: document.id });
+    const signed = await agentIdentity.signHttpRequest({ method: 'POST', url, body, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     const created = Math.floor(Date.now() / 1000);
     const headers: Record<string, string> = {
       'Signature-Agent': document.id,
@@ -302,7 +303,8 @@ describe('AgentIdentity Core Module', () => {
       ] as Array<[string, string | number]>
     };
     const base = buildSignatureBase({ method: 'POST', url, headers }, input);
-    const signatureHex = await agentIdentity.signMessage(base, agentPrivateKey);
+    // An RFC 9421 signature is over the base as is, not over a signMessage payload
+    const signatureHex = bytesToHex(ed25519.sign(new TextEncoder().encode(base), hexToBytes(agentPrivateKey)));
     headers['Signature-Input'] = `sig-a=${serializeSignatureInput(input)}`;
     headers['Signature'] = `sig-a=:${Buffer.from(hexToBytes(signatureHex)).toString('base64')}:`;
 
@@ -326,7 +328,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/interop',
       body: '{"multi": true}',
       agentPrivateKey,
-      agentDid: document.id
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`
     };
 
     const headers = await agentIdentity.signHttpRequest(requestParams);
@@ -356,7 +358,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/data?x=1',
       body: '{"nonce": true}',
       agentPrivateKey,
-      agentDid: document.id,
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`,
       expiresInSeconds: 60
     });
 
@@ -396,7 +398,7 @@ describe('AgentIdentity Core Module', () => {
         url: 'https://api.example.com/v1/data',
         body: '{"expired": true}',
         agentPrivateKey,
-        agentDid: document.id,
+        agentDid: document.id, verificationMethodId: `${document.id}#key-1`,
         expiresInSeconds: 30
       });
     } finally {
@@ -420,7 +422,7 @@ describe('AgentIdentity Core Module', () => {
     });
 
     const request = { method: 'POST', url: 'https://api.example.com/v1/transfer', body: '{"amount":500}' };
-    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     const now = Math.floor(Date.now() / 1000);
 
     const rewritten = {
@@ -454,7 +456,7 @@ describe('AgentIdentity Core Module', () => {
           url: 'https://api.example.com/v1/data',
           body: '{"skew": true}',
           agentPrivateKey,
-          agentDid: document.id,
+          agentDid: document.id, verificationMethodId: `${document.id}#key-1`,
           expiresInSeconds: 120
         });
       } finally {
@@ -493,7 +495,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/data',
       body: '{"lifetime": true}',
       agentPrivateKey,
-      agentDid: document.id,
+      agentDid: document.id, verificationMethodId: `${document.id}#key-1`,
       expiresInSeconds
     });
     const verify = (headers: Record<string, string>, maxSignatureLifetimeSeconds?: number) =>
@@ -519,14 +521,14 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"nonce-cache": true}' };
-    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, expiresInSeconds: 120 });
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1`, expiresInSeconds: 120 });
 
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(true);
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(false);
 
     // A caller-supplied store is used instead of the default one.
     const nonceStore = new InMemoryNonceStore();
-    const second = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const second = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: second, nonceStore })).resolves.toBe(true);
     expect(nonceStore.size).toBe(1);
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: second, nonceStore })).resolves.toBe(false);
@@ -539,7 +541,7 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"amount":1}' };
-    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     const nonceStore = new InMemoryNonceStore();
 
     await expect(
@@ -567,7 +569,7 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{"profile": true}' };
-    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     headers['Signature-Input'] = mutate(headers['Signature-Input']);
 
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers })).resolves.toBe(false);
@@ -585,7 +587,7 @@ describe('AgentIdentity Core Module', () => {
       systemPrompt: 'test'
     });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data?x=1', body: '{}' };
-    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const headers = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
 
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, ...change, headers })).resolves.toBe(false);
   });
@@ -597,7 +599,7 @@ describe('AgentIdentity Core Module', () => {
     const headers = await agentIdentity.signHttpRequest({
       ...request,
       agentPrivateKey: attacker.agentPrivateKey,
-      agentDid: attacker.document.id
+      agentDid: attacker.document.id, verificationMethodId: `${attacker.document.id}#key-1`
     });
 
     const swapped = { ...headers, 'Signature-Agent': victim.document.id };
@@ -728,6 +730,8 @@ describe('AgentIdentity Core Module', () => {
     const keyId = document.verificationMethod[0].id;
     const misboundDocument = {
       ...document,
+      // self-controlled: a resolver holding only documents cannot prove a controller binding, and this test is about purposes
+      controller: document.id,
       authentication: [],
       assertionMethod: [],
       keyAgreement: [keyId]
@@ -761,20 +765,22 @@ describe('AgentIdentity Core Module', () => {
     const signature = await agentIdentity.signMessage(payload, agentPrivateKey);
     const misboundDocument = {
       ...document,
+      // self-controlled: a resolver holding only documents cannot prove a controller binding, and this test is about purposes
+      controller: document.id,
       authentication: [],
       assertionMethod: [],
       keyAgreement: [keyId]
     };
     const controllerChain = await AgentIdentity.resolveControllerChain(document.id);
 
+    // A verifier that did not create the DID and resolves a misbound document
     const resolver = new InMemoryDIDResolver();
     resolver.registerDocument(misboundDocument);
     resolver.registerDocument(controllerChain[1]);
-    AgentIdentity.setResolver(resolver);
-    AgentIdentity.setRegistry(new InMemoryAgentRegistry());
+    const verifier = new AgentDidClient({ resolver, registry: new InMemoryAgentRegistry() });
 
     await expect(
-      AgentIdentity.verifySignature(document.id, payload, signature, keyId)
+      verifier.verifySignature(document.id, payload, signature, keyId)
     ).rejects.toMatchObject({
       reason: 'key_purpose_violation',
       keyId,
@@ -943,10 +949,8 @@ describe('AgentIdentity Core Module', () => {
     expect(oldValidAfterRotation).toBe(false);
     expect(newValidAfterRotation).toBe(true);
     expect(rotation.document.authentication).toEqual([rotation.verificationMethodId]);
-    expect(rotation.document.assertionMethod).toEqual([
-      `${document.id}#key-1`,
-      rotation.verificationMethodId
-    ]);
+    // A rotated-out key is no longer listed in any verification relationship
+    expect(rotation.document.assertionMethod).toEqual([rotation.verificationMethodId]);
   });
 
   it('should mark old keys as deactivated after rotation', async () => {
@@ -1297,7 +1301,7 @@ describe('AgentIdentity Core Module', () => {
       url: 'https://api.example.com/v1/action',
       body: '{"action":"approve"}',
       signer,
-      agentDid: result.document.id
+      agentDid: result.document.id, verificationMethodId: `${result.document.id}#key-1`
     });
 
     expect(headers['Signature']).toBeDefined();

@@ -57,6 +57,8 @@ class WebvhDIDDocumentSource:
             try:
                 validate_http_target(url, self._http_security)
             except ValueError as exc:
+                # Blocked by policy is not "not found": the log may well exist.
+                all_not_found = False
                 errors.append(f"{url}: {exc}")
                 continue
 

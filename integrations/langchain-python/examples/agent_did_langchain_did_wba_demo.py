@@ -20,6 +20,7 @@ from agent_did_sdk import (
 from langchain.agents import create_agent
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
+from agent_did_sdk.crypto.multibase import encode_public_key_multibase
 from nacl.signing import SigningKey
 
 from agent_did_langchain import create_agent_did_langchain_integration
@@ -82,7 +83,7 @@ def _build_runtime_identity() -> CreateAgentResult:
         did=ACTIVE_DID,
         name="WeatherBot",
         description="Integrated did:wba runtime identity for LangChain Python",
-        public_key_multibase=f"z{signing_key.verify_key.encode().hex()}",
+        public_key_multibase=encode_public_key_multibase(bytes(signing_key.verify_key)),
         capabilities=["weather:forecast", "http:sign", "partner:resolve"],
     )
     return CreateAgentResult(document=document, agentPrivateKey=signing_key.encode().hex())
@@ -94,7 +95,7 @@ def _build_partner_document() -> AgentDIDDocument:
         did=PARTNER_DID,
         name="DispatchRouter",
         description="Remote did:wba partner resolved over HTTPS",
-        public_key_multibase=f"z{signing_key.verify_key.encode().hex()}",
+        public_key_multibase=encode_public_key_multibase(bytes(signing_key.verify_key)),
         capabilities=["dispatch:receive", "dispatch:ack"],
     )
 

@@ -33,7 +33,7 @@ describe('RFC 9421 interoperability with http-message-signatures', () => {
 
   it('signatures produced by the SDK verify with the independent implementation', async () => {
     const { document, agentPrivateKey } = await identity.create({ name: 'InteropOut', coreModel: 'm', systemPrompt: 'p' });
-    const headers = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id });
+    const headers = await identity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     const publicKey = publicKeyObject(decodePublicKeyMultibase(document.verificationMethod[0].publicKeyMultibase!));
 
     const verified = await httpbis.verifyMessage(

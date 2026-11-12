@@ -119,6 +119,8 @@ def build_bootstrap_controller_template(
         ],
         "authentication": [verification_method_id],
         "assertionMethod": [verification_method_id],
+        # The bootstrap key endorses the agents it controls (RFC-001 §6.6 item 7)
+        "capabilityInvocation": [verification_method_id],
     }
 
 

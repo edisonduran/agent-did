@@ -4,13 +4,11 @@ Implements W3C-compliant publicKeyMultibase encoding:
   - 'z' prefix for Base58btc (Multibase)
   - 0xed01 prefix for Ed25519 public keys (Multicodec)
 
-Also supports decoding legacy 'z' + hex format from SDK v0.1.0 for
-backward compatibility.
+Only this form is decoded: the legacy 'z' + hex format of SDK v0.1.0 and raw keys without the
+multicodec prefix are rejected.
 """
 
 from __future__ import annotations
-
-import re
 
 # Multicodec prefix for Ed25519 public keys (varint-encoded 0xed)
 _ED25519_MULTICODEC_PREFIX = bytes([0xED, 0x01])
@@ -79,9 +77,9 @@ def encode_public_key_multibase(raw_public_key: bytes) -> str:
 def decode_public_key_multibase(encoded: str) -> bytes:
     """Decode a publicKeyMultibase string back to a raw Ed25519 public key.
 
-    Accepts both:
-      - Standard format: ``z`` + Base58btc(``0xed01`` + raw_key) (W3C compliant)
-      - Legacy format: ``z`` + hex(raw_key) (SDK v0.1.0 simplified)
+    Accepts only the standard format: ``z`` + Base58btc(``0xed01`` + raw_key) (W3C compliant). The legacy forms
+    of SDK v0.1.0 (``z`` + hex, or a raw key without the multicodec prefix) are rejected: a second encoding of the
+    same key is a second way to write a document that other implementations read differently.
 
     Args:
         encoded: The publicKeyMultibase string.
@@ -94,26 +92,19 @@ def decode_public_key_multibase(encoded: str) -> bytes:
 
     value = encoded[1:]
 
-    # Attempt standard Base58btc decode with multicodec prefix
     try:
         decoded = _base58_decode(value)
-        if (
-            len(decoded) == 34
-            and decoded[0] == _ED25519_MULTICODEC_PREFIX[0]
-            and decoded[1] == _ED25519_MULTICODEC_PREFIX[1]
-        ):
-            return decoded[2:]
-        # Base58btc decoded but no multicodec prefix — could be raw 32-byte key
-        if len(decoded) == 32:
-            return decoded
     except ValueError:
-        pass  # Not valid Base58btc — fall through to legacy hex
+        decoded = b""
 
-    # Legacy fallback: 'z' + hex (SDK v0.1.0 format)
-    if re.fullmatch(r"[0-9a-fA-F]{64}", value):
-        return bytes.fromhex(value)
+    if (
+        len(decoded) == 34
+        and decoded[0] == _ED25519_MULTICODEC_PREFIX[0]
+        and decoded[1] == _ED25519_MULTICODEC_PREFIX[1]
+    ):
+        return decoded[2:]
 
-    raise ValueError("Unable to decode publicKeyMultibase: unrecognized format")
+    raise ValueError("Unable to decode publicKeyMultibase: expected z + Base58btc(0xed01 + 32-byte Ed25519 key)")
 
 
 def did_key_from_public_key(raw_public_key: bytes) -> str:

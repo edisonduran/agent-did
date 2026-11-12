@@ -61,8 +61,8 @@ Until Agent-DID reaches v1.0, security fixes are applied to the **latest publish
 
 | Package | Channel | Currently supported |
 |---|---|---|
-| `@agentdid/sdk`, `@agentdid/langchain` | npm | latest published (`1.0.0-rc.4` line) |
-| `agent-did-sdk` and the Python integrations | PyPI | latest published (`1.0.0rc4` line) |
+| `@agentdid/sdk`, `@agentdid/langchain` | npm | latest published (`1.0.0-rc.5` line) |
+| `agent-did-sdk` and the Python integrations | PyPI | latest published (`1.0.0rc5` line) |
 | Deferred EVM profile (`AgentRegistry` contract, `@agentdid/evm`, `agent-did-evm`) | repo `edisonduran/agent-did-evm` | `main` branch (optional profile only; no public testnet or mainnet deployment claimed). Report through this policy |
 | Framework integrations | repo `integrations/*/` | `main` branch |
 
@@ -100,7 +100,7 @@ State this clearly so reports based on these assumptions are not surprising:
 | O3 | **Authorization (what an agent is allowed to do)** | Agent-DID provides authentication and binding of declared capabilities; it does not enforce them. Authorization is the relying party's responsibility. |
 | O4 | **Confidentiality of agent payloads** | Signing ≠ encryption. Use TLS / channel encryption / payload encryption at the transport or application layer as required. |
 | O5 | **Front-running or MEV against revocation transactions** | Revocation latency is bounded by L1 finality of the chain in use. Operators in adversarial environments should pre-stage revocation infrastructure. |
-| O6 | **Trust of the controller (the human or org behind the agent)** | Agent-DID binds the agent to its controller cryptographically; trust in the controller itself is an external concern (KYC, organizational identity, etc.). |
+| O6 | **Trust of the controller (the human or org behind the agent)** | A `did:webvh` agent that names a controller verifies only if the proof of the last entry of its log was made by a key that is active under `capabilityInvocation` of the controller's document, for every link of the controller chain (RFC-001 §6.6 item 7); a verifier that does not hold the agent's log cannot check it and rejects. Residual: whoever holds a controller key listed there can endorse any agent for that controller, so the controller is the root of trust and its key custody (KMS/HSM, pre-rotation) is out of scope of the agent's log. Trust in the controller itself is an external concern (KYC, organizational identity, etc.). |
 | O7 | **Operational compromise of a registry node, resolver host, or PyPI/npm account** | Standard infrastructure security applies. We document the published channels (§2) so detection of unexpected releases is possible. |
 
 The per-flow STRIDE analysis (creation, log publication, resolution, HTTP signing, A2A handoff, rotation and revocation) with residual risks is in [`docs/Threat-Model.md`](docs/Threat-Model.md).

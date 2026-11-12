@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 
 from agent_did_sdk.resolver.bearer_http_source import (
     BearerTokenHttpDIDDocumentSource,
@@ -105,7 +106,8 @@ class TestBearerHttpSecurity:
         blocked = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
             token="t", reference_to_url=lambda ref: url, http_client=client,
         ))
-        assert await blocked.get_by_reference("ref") is None
+        with pytest.raises(RuntimeError, match="private/reserved"):
+            await blocked.get_by_reference("ref")
         assert seen == []
 
         allowed = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(

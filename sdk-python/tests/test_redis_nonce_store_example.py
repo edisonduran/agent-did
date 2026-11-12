@@ -121,7 +121,7 @@ class TestRedisReference:
                 SignHttpRequestParams(
                     **request,
                     agent_private_key=created.agent_private_key,
-                    agent_did=created.document.id,
+                    agent_did=created.document.id, verification_method_id=f"{created.document.id}#key-1",
                     expires_in_seconds=120,
                 )
             )

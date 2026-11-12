@@ -124,7 +124,8 @@ describe('additionalVerificationRelationships (RFC-001 §6.2.1.3)', () => {
     const rotated = await client.rotateVerificationMethod(document.id);
     const newKeyId = rotated.verificationMethodId;
 
-    expect(rotated.document.capabilityDelegation).toEqual([`${document.id}#key-1`, newKeyId]);
+    // The rotated-out key leaves the relationship; the new key takes its place
+    expect(rotated.document.capabilityDelegation).toEqual([newKeyId]);
     expect(rotated.document.capabilityInvocation).toBeUndefined();
 
     const signature = await identity.signMessage('delegation', rotated.agentPrivateKey);

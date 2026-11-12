@@ -1,10 +1,10 @@
 # Public API signature snapshot for @agentdid/sdk
 
 ## core/AgentDidClient.d.ts
-import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, RotateControllerKeyOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
+import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, RotateControllerKeyOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
-import { DIDDocumentSource, DIDResolver, ResolverResolutionEvent } from '../resolver/types';
+import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolverResolutionEvent } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
 export interface ProductionResolverProfileConfig {
     registry: AgentRegistry;
@@ -133,6 +133,21 @@ export declare class AgentDidClient {
     private appendDidWebvhEntry;
     private requireDidWebvhLifecycle;
     private resolveActiveVerificationChain;
+    /**
+     * Every link of a controller chain (agent -> controller -> its controller ...) must be bound: the last entry of the
+     * agent's did:webvh log was signed by a key that is active now under `capabilityInvocation` of the controller
+     * (RFC-001 §6.6 item 7). Fails closed with `ControllerBindingError`, also when no log is available to check.
+     */
+    private assertControllerChainBound;
+    /**
+     * The verified did:webvh log behind `did` and what it says: the document in force, `versionId`, the `updateKeys`
+     * in force, the keys that signed the last entry and the provenance of the log. A DID created or changed in this
+     * client is answered from its local log; any other is answered by the resolver (`DIDResolver.resolveDidWebvhLog`),
+     * which rejects when the log cannot be fetched or verified, and otherwise from the log imported in this client.
+     * Returns `undefined` for a DID that is not did:webvh or has no log available (a resolver that holds only documents).
+     */
+    resolveDidWebvhState(did: string): Promise<DidWebvhState | undefined>;
+    private didWebvhStateFromLog;
     private hasActiveVerificationMethod;
     /**
      * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
@@ -153,8 +168,9 @@ export declare class AgentDidClient {
     /** `verifySignature` that tells apart the ways a verification can fail. */
     private checkSignature;
     /**
-     * Verifies that a signature was produced by a specific Agent-DID.
-     * Uses the configured resolver and registry to validate against active verification methods.
+     * Verifies that a payload signature (`signMessage`, which covers `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`)
+     * was produced by a specific Agent-DID. Uses the configured resolver and registry to validate against active
+     * verification methods. HTTP request signatures are verified with `verifyHttpRequestSignature`, not here.
      */
     verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
     /**
@@ -171,18 +187,20 @@ export declare class AgentDidClient {
      * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
      */
     verifySignatureAtTime(did: string, payload: string, signature: string, keyId: string, options: VerifySignatureAtTimeOptions): Promise<VerifySignatureAtTimeResult>;
+    /** The binding of `did` (and of its controllers) to its controller chain as it is now, from the client's own log. */
+    private assertDidWebvhBoundNow;
     /**
      * Resolves a DID into its corresponding Agent-DID Document.
      * Uses the configured resolver (in-memory or production) to retrieve the document.
      */
     resolve(did: string): Promise<AgentDIDDocument>;
     /**
-     * Whether the locally stored did:webvh log ends in a deactivation entry. The log is
-     * verified (SCID, hash chain, controller proofs) before its state is trusted; a log that
-     * fails verification is an error, never "not revoked". Returns false when no log is
-     * stored for the DID.
+     * State of the locally stored did:webvh log: whether it ends in a deactivation entry and its
+     * latest document. The log is verified (SCID, hash chain, controller proofs) before its state is
+     * trusted; a log that fails verification is an error, never "not revoked". Returns undefined when
+     * no log is stored for the DID.
      */
-    private isDidWebvhDeactivated;
+    private didWebvhState;
     resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
     /**
      * Revokes a DID. For did:webvh DIDs this appends a controller-signed deactivation entry
@@ -192,7 +210,14 @@ export declare class AgentDidClient {
      */
     revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
     updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
-    rotateVerificationMethod(did: string, options?: DidWebvhLifecycleOptions): Promise<RotateVerificationMethodResult>;
+    rotateVerificationMethod(did: string, options?: RotateVerificationMethodOptions): Promise<RotateVerificationMethodResult>;
+    /**
+     * Adds a key to the document of `did` without retiring any other key, listed under `options.relationships`
+     * (default: `capabilityInvocation`). It is the first step of rotating the key that endorses the agents a DID
+     * controls without unbinding them: add the new key, give each agent an entry signed by the new key, then retire
+     * the old one with `rotateVerificationMethod` (RFC-001 §6.6 item 7).
+     */
+    addVerificationMethod(did: string, options?: AddVerificationMethodOptions): Promise<AddVerificationMethodResult>;
     /**
      * Rotates the controller key of a did:webvh DID: appends a log entry whose `updateKeys` is
      * `newControllerSigner`'s key. This is the recovery path after a compromise of the controller key,
@@ -232,7 +257,7 @@ export declare class AgentDidClient {
 }
 
 ## core/AgentIdentity.d.ts
-import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { DIDDocumentSource, DIDResolver } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
@@ -271,9 +296,15 @@ export declare class AgentIdentity {
      */
     create(params: CreateAgentParams): Promise<CreateAgentResult>;
     /**
-     * Signs a payload using an Ed25519 private key or an AgentSigner.
+     * Signs a payload using an Ed25519 private key or an AgentSigner (hex signature).
+     *
+     * The signature covers `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`, so it is a payload signature and cannot
+     * be reused as an HTTP request signature or any other signature of the same key. Verify it with
+     * `verifySignature` / `verifySignatureAtTime`, which apply the same prefix.
      */
     signMessage(payload: string, keyOrSigner: string | AgentSigner): Promise<string>;
+    /** Signs exactly `messageBytes`, with no domain prefix: for protocols that define their own signature input. */
+    private signBytes;
     /**
      * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
      *
@@ -295,7 +326,7 @@ export declare class AgentIdentity {
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
-    static rotateVerificationMethod(did: string, options?: DidWebvhLifecycleOptions): Promise<RotateVerificationMethodResult>;
+    static rotateVerificationMethod(did: string, options?: RotateVerificationMethodOptions): Promise<RotateVerificationMethodResult>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
@@ -321,6 +352,22 @@ export declare class AgentIdentity {
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
 }
+
+## core/controller-binding.d.ts
+import { AgentDIDDocument } from './types';
+/** The agent is not bound to its controller (see `assertBoundToController`). */
+export declare class ControllerBindingError extends Error {
+    readonly did: string;
+    readonly controllerDid: string;
+    constructor(did: string, controllerDid: string, detail: string);
+}
+/** Raw public keys (hex) of the controller's keys that are active now under `capabilityInvocation`. */
+export declare function activeCapabilityInvocationKeys(controller: AgentDIDDocument): Set<string>;
+/**
+ * Throws `ControllerBindingError` unless one of `lastEntrySignerKeys` (multikeys of the proofs of the agent's last log
+ * entry) is an active `capabilityInvocation` key of `controller`.
+ */
+export declare function assertBoundToController(agent: AgentDIDDocument, lastEntrySignerKeys: readonly string[], controller: AgentDIDDocument): void;
 
 ## core/http-profile.d.ts
 /** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
@@ -453,6 +500,21 @@ export declare function getRelationshipKeyIds(didDoc: AgentDIDDocument, relation
 export declare function getKeyRelationships(keyId: string, didDoc: AgentDIDDocument): VerificationRelationship[];
 export declare function assertKeyPurpose(keyId: string, didDoc: AgentDIDDocument, requiredPurpose: VerificationRelationship): void;
 export declare function assertSigningPurpose(requiredPurpose: VerificationRelationship, didDoc: AgentDIDDocument, keyId?: string): asserts requiredPurpose is SigningVerificationPurpose;
+
+## core/message-signing.d.ts
+/**
+ * Domain separation for payload signatures (RFC-001 §7).
+ *
+ * `signMessage` signs `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`, and `verifySignature` /
+ * `verifySignatureAtTime` verify against that same input. The agent key also signs HTTP requests (RFC 9421
+ * signature bases, which start with `"@method"`) and the controller key signs did:webvh log proofs (JSON
+ * documents): the prefix keeps a payload signature, which a caller may let an agent produce over text it does
+ * not control, from being valid as one of those. Python parity: `sdk-python/src/agent_did_sdk/core/message_signing.py`.
+ */
+/** Domain tag signed in front of every `signMessage` payload. */
+export declare const AGENT_DID_MESSAGE_SIGNING_PREFIX = "agent-did/v1/message\n";
+/** The bytes a payload signature covers: the UTF-8 prefix followed by the UTF-8 payload. */
+export declare function messageSigningInput(payload: string): Uint8Array;
 
 ## core/nonce-store.d.ts
 /**
@@ -636,6 +698,35 @@ export interface DidWebvhLifecycleOptions {
      */
     controllerSigner?: import('./signer').AgentSigner;
 }
+/** A relationship a key added with `addVerificationMethod` can be listed under (never `keyAgreement`). */
+export type AddedKeyRelationship = SigningVerificationPurpose;
+export interface AddVerificationMethodOptions extends DidWebvhLifecycleOptions {
+    /**
+     * Signer that holds the new key (for example a KMS or HSM key). Its public key becomes the new verification
+     * method and no private key reaches the SDK: `agentPrivateKey` in the result is an empty string. Without it the
+     * SDK generates a local key and returns it.
+     */
+    signer?: import('./signer').AgentSigner;
+    /**
+     * Relationships to list the new key under. Defaults to `['capabilityInvocation']`: a key that can endorse the
+     * agents it controls (RFC-001 §6.6 item 7) without signing in any other role.
+     */
+    relationships?: AddedKeyRelationship[];
+}
+export interface AddVerificationMethodResult {
+    document: AgentDIDDocument;
+    verificationMethodId: string;
+    /** Empty when `signer` was given. */
+    agentPrivateKey: string;
+}
+export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOptions {
+    /**
+     * Signer that holds the new agent key (for example a KMS or HSM key). Its public key becomes the new
+     * verification method and the private key never reaches the SDK: `agentPrivateKey` in the result is an
+     * empty string. Without it the SDK generates a local key and returns it.
+     */
+    signer?: import('./signer').AgentSigner;
+}
 export type VerificationRelationship = 'authentication' | 'assertionMethod' | 'capabilityDelegation' | 'capabilityInvocation' | 'keyAgreement';
 export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
 /**
@@ -767,7 +858,12 @@ export interface SignHttpRequestParams {
     /** External signer. Preferred over agentPrivateKey when both are present. */
     signer?: import('./signer').AgentSigner;
     agentDid: string;
-    verificationMethodId?: string;
+    /**
+     * The verification method (`keyid`) that matches the signing key, e.g. `document.authentication[0]` or the
+     * `verificationMethodId` that `rotateVerificationMethod` returned. Required: there is no default, because a
+     * fixed guess names the wrong key once the agent has rotated.
+     */
+    verificationMethodId: string;
     /** Signature expiration window in seconds (default: 30). */
     expiresInSeconds?: number;
     /** SSRF protection options. */
@@ -816,7 +912,7 @@ export interface VerifyHttpRequestSignatureParams {
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
  */
-export type HttpSignatureRejection = 'missing_headers' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed';
+export type HttpSignatureRejection = 'missing_headers' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed';
 /**
  * Result of `verifyHttpRequestSignatureDetailed`. Always test `result.ok`: the object itself is
  * truthy for a rejection too, which is why `verifyHttpRequestSignature` keeps returning a boolean.
@@ -908,7 +1004,7 @@ export type VerifySignatureAtTimeResult = {
     }>;
 } | {
     status: 'invalid';
-    reason: 'did_resolution_failed' | 'key_not_authorized' | 'signature_invalid';
+    reason: 'did_resolution_failed' | 'key_not_authorized' | 'controller_not_bound' | 'signature_invalid';
     key?: KeyAtTimeResult;
 } | {
     status: 'indeterminate';
@@ -923,6 +1019,10 @@ export type VerifySignatureAtTimeResult = {
  * (`btoa` is available in Node.js 16+ and in browsers and workers).
  */
 export declare function bytesToBase64(bytes: Uint8Array): string;
+
+## crypto/ed25519-verify.d.ts
+/** Verifies an Ed25519 signature under the SDK rule above. Never throws; malformed input is `false`. */
+export declare function verifyEd25519(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): boolean;
 
 ## crypto/hash.d.ts
 /**
@@ -1000,9 +1100,9 @@ export declare function encodePublicKeyMultibase(rawPublicKey: Uint8Array): stri
 /**
  * Decodes a publicKeyMultibase string back into a raw Ed25519 public key.
  *
- * Accepts both:
- *   - Standard format: 'z' + Base58btc(0xed01 + raw_key)  (W3C compliant)
- *   - Legacy format:   'z' + hex(raw_key)                  (SDK v0.1.0 simplified)
+ * Accepts only the standard format: 'z' + Base58btc(0xed01 + raw_key) (W3C compliant). The legacy forms of
+ * SDK v0.1.0 (`z` + hex, or a raw key without the multicodec prefix) are rejected: a second encoding of the
+ * same key is a second way to write a document that other implementations read differently.
  *
  * @param encoded - The publicKeyMultibase string
  * @returns 32-byte raw Ed25519 public key
@@ -1018,7 +1118,7 @@ export declare function didKeyFromPublicKey(rawPublicKey: Uint8Array): string;
 import { VerificationRelationship, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult } from '../core/types';
 import { NonceStore } from '../core/nonce-store';
 /** What the injected cryptographic check found. */
-export type SignatureCheckOutcome = 'valid' | 'invalid' | 'key_not_authorized' | 'did_resolution_failed';
+export type SignatureCheckOutcome = 'valid' | 'invalid' | 'key_not_authorized' | 'did_resolution_failed' | 'controller_not_bound';
 export interface VerifyRequestDeps {
     /** Verifies `signatureHex` over `payload` by `keyId` under the DID `did`. */
     verifySignature: (did: string, payload: string, signatureHex: string, keyId: string, purpose: VerificationRelationship) => Promise<SignatureCheckOutcome>;
@@ -1035,9 +1135,12 @@ export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSigna
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult } from './core/types';
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, SIGNED_ARTIFACT_KINDS, ADDITIONAL_VERIFICATION_RELATIONSHIPS, REQUIRED_RELATIONSHIP_BY_ARTIFACT, requiredRelationshipFor, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
+export { AGENT_DID_MESSAGE_SIGNING_PREFIX, messageSigningInput } from './core/message-signing';
+export { ControllerBindingError } from './core/controller-binding';
+export type { DidWebvhResolution, DidWebvhState } from './resolver/types';
 export { AgentIdentity, AgentIdentityConfig, ProductionResolverProfileConfig, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig } from './core/AgentIdentity';
 export { AgentDidClient, AgentDidClientOptions } from './core/AgentDidClient';
 export { hashPayload, formatHashUri, generateAgentMetadataHash, canonicalizeJson, generateCanonicalDocumentHash, generateCommitmentSalt, createMetadataCommitment, verifyMetadataCommitment } from './crypto/hash';
@@ -1064,13 +1167,25 @@ export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './cor
 export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, serializeSignatureInput } from './core/http-signatures';
 
 ## lifecycle/documents.d.ts
-import { AgentDIDDocument, UpdateAgentDocumentParams } from '../core/types';
+import { AddedKeyRelationship, AgentDIDDocument, UpdateAgentDocumentParams } from '../core/types';
 /** Timestamp strictly after `previousTimestamp`, using `now` unless it is not later. */
 export declare function nextDocumentTimestamp(now: Date, previousTimestamp?: string): string;
 export declare function assertUpdatePatch(did: string, patch: UpdateAgentDocumentParams): void;
 export declare function buildUpdatedDocument(existing: AgentDIDDocument, patch: UpdateAgentDocumentParams, updated: string): AgentDIDDocument;
-/** Deactivates every current key and adds a fresh Ed25519 key as the active one. */
-export declare function buildRotatedDocument(did: string, existing: AgentDIDDocument, updated: string): {
+/**
+ * Adds an Ed25519 key to the document without retiring any other key, listed under `relationships`: `newPublicKey`
+ * when the caller holds the key elsewhere (`agentPrivateKey` is then empty), otherwise a freshly generated local key.
+ */
+export declare function buildAddedKeyDocument(did: string, existing: AgentDIDDocument, updated: string, relationships: readonly AddedKeyRelationship[], newPublicKey?: Uint8Array): {
+    document: AgentDIDDocument;
+    verificationMethodId: string;
+    agentPrivateKey: string;
+};
+/**
+ * Deactivates every current key and adds an Ed25519 key as the active one: `newPublicKey` when the caller holds
+ * the key elsewhere (`agentPrivateKey` is then empty), otherwise a freshly generated local key.
+ */
+export declare function buildRotatedDocument(did: string, existing: AgentDIDDocument, updated: string, newPublicKey?: Uint8Array): {
     document: AgentDIDDocument;
     verificationMethodId: string;
     agentPrivateKey: string;
@@ -1355,10 +1470,40 @@ export declare class S3CompatibleDIDDocumentSource implements DIDDocumentSource 
 ## resolver/types.d.ts
 import { AgentDIDDocument } from '../core/types';
 import { AgentRegistry } from '../registry/types';
+/**
+ * A verified did:webvh log and what is derived from it. `lastEntrySignerKeys` are the multikeys that made the proofs
+ * of the last entry: the keys that endorsed the current document (see ADR-005 / RFC-001 §6.6 item 7).
+ */
+export interface DidWebvhResolution {
+    /** The document in force (the state of the last entry). */
+    document: AgentDIDDocument;
+    /** The verified log text (`did.jsonl`). */
+    log: string;
+    versionId: string;
+    /** The `updateKeys` in force after the last entry. */
+    updateKeys: string[];
+    /** Multikeys (`z6Mk...`) that signed the last entry. */
+    lastEntrySignerKeys: string[];
+}
+/** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
+export interface DidWebvhState extends DidWebvhResolution {
+    /**
+     * `local`: created or changed in this client (its controller signer is retained), authoritative here.
+     * `imported`: a log loaded with `importDidWebvhHistory`, a cache of what the log host serves.
+     * `fetched`: fetched and verified by the resolver.
+     */
+    provenance: 'local' | 'imported' | 'fetched';
+}
 export interface DIDResolver {
     registerDocument(document: AgentDIDDocument): void;
     resolve(did: string): Promise<AgentDIDDocument>;
     remove(did: string): void;
+    /**
+     * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document
+     * (for example a document registered without its log). A resolver that fetches logs implements this so the
+     * controller binding can be checked; failing to fetch rejects (fail closed).
+     */
+    resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
 }
 export interface DIDDocumentSource {
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
@@ -1373,7 +1518,18 @@ export interface UniversalResolverConfig {
     documentSource: DIDDocumentSource;
     wbaDocumentSource?: DIDDocumentSource;
     webvhDocumentSource?: DIDDocumentSource;
+    /**
+     * Resolver used when the registry has no record or the document source cannot answer. It is never
+     * used for did:webvh: a did:webvh DID that cannot be fetched fails closed, because falling back to an
+     * older copy would let whoever can block the log host keep a revoked or rotated-out state alive.
+     */
     fallbackResolver?: DIDResolver;
+    /**
+     * Returns the did:webvh log the caller already holds for a DID (`AgentDidClient` passes its imported
+     * logs). A fetched log must equal it, extend it or be a prefix of it; when it is a prefix the longer
+     * local log wins (a stale host never rolls the DID back), and a log that diverges is an integrity failure.
+     */
+    didWebvhLocalLog?: (did: string) => string | undefined;
     cacheTtlMs?: number;
     /**
      * Maximum documents kept in the cache. When it is full, expired entries are dropped first and
@@ -1413,7 +1569,7 @@ export declare class DocumentIntegrityError extends Error {
 
 ## resolver/UniversalResolverClient.d.ts
 import { AgentDIDDocument } from '../core/types';
-import { DIDResolver, ResolverCacheStats, UniversalResolverConfig } from './types';
+import { DidWebvhResolution, DIDResolver, ResolverCacheStats, UniversalResolverConfig } from './types';
 export declare class UniversalResolverClient implements DIDResolver {
     private readonly config;
     private readonly registry;
@@ -1431,6 +1587,12 @@ export declare class UniversalResolverClient implements DIDResolver {
     constructor(config: UniversalResolverConfig);
     registerDocument(document: AgentDIDDocument): void;
     resolve(did: string): Promise<AgentDIDDocument>;
+    /**
+     * The verified did:webvh log behind `did`: from the cache while the entry is fresh, otherwise fetched and verified
+     * (rejecting when it cannot be, with no fallback). `undefined` when the cached entry holds only a document that was
+     * registered without its log.
+     */
+    resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined>;
     remove(did: string): void;
     getCacheStats(): ResolverCacheStats;
     private resolveWithFallback;
@@ -1438,11 +1600,16 @@ export declare class UniversalResolverClient implements DIDResolver {
     /**
      * did:webvh resolution: fetch `did.jsonl` from the URL derived from the DID,
      * verify the whole log with the did:webvh adapter, and return the latest
-     * state. Only availability failures (fetch error, log not found) may fall
-     * back; an invalid DID, a log that fails verification or a deactivated DID
-     * never does.
+     * state. There is no fallback to another resolver: a fetch error, a missing
+     * log, an invalid DID, a log that fails verification, a log that contradicts
+     * the one held locally and a deactivated DID all fail closed.
      */
     private resolveDidWebvh;
+    /**
+     * Applies the rule for a fetched log against the log the caller holds: the longer one wins and a log
+     * that is not a prefix or an extension of the other is an integrity failure (never a fallback).
+     */
+    private reconcileWithLocalLog;
     /** Stores a copy of `document`, keeping the cache within `maxCacheEntries`. */
     private cachePut;
     private emitEvent;
@@ -1510,13 +1677,19 @@ export declare function parseRfc3339Millis(value: unknown): number | undefined;
  * from the `versionTime` of the entry that gives it a `deactivated` time, whatever that time says.
  */
 export declare function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTimeOptions): Promise<KeyAtTimeResult>;
-/** Combines a key check at a stated time with the Ed25519 check of `signature` (hex) over `payload` (UTF-8). */
-export declare function signatureResultForKey(key: KeyAtTimeResult, payload: string, signature: string): VerifySignatureAtTimeResult;
+/** Combines a key check at a stated time with the Ed25519 check of `signature` (hex) over `payload` (UTF-8 text or bytes). */
+export declare function signatureResultForKey(key: KeyAtTimeResult, payload: string | Uint8Array, signature: string): VerifySignatureAtTimeResult;
 
 ## verification/signature.d.ts
 import { AgentDIDDocument, VerificationRelationship } from '../core/types';
-/** Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given). */
-export declare function verifyWithActiveKeys(didDoc: AgentDIDDocument, payload: string, signature: string, keyId: string | undefined, requiredPurpose: VerificationRelationship): boolean;
+/**
+ * Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given).
+ *
+ * Returns `false` for a signature that is not valid hex, an empty `keyId` and a `keyId` of a retired key (one
+ * with a `deactivated` time: a rotated-out key is no longer listed in any relationship). Ed25519 edge cases
+ * follow the single rule of `verifyEd25519`.
+ */
+export declare function verifyWithActiveKeys(didDoc: AgentDIDDocument, payload: string | Uint8Array, signature: string, keyId: string | undefined, requiredPurpose: VerificationRelationship): boolean;
 
 ## webvh/adapter.d.ts
 import type { AgentSigner } from '../core/signer';
@@ -1628,6 +1801,21 @@ export declare function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParam
  * every version of a deactivated DID (DID Core section 7.1.2).
  */
 export declare function resolveDidWebvhLog(logText: string, options?: ResolveDidWebvhLogOptions): Promise<DidWebvhLogResult>;
+/**
+ * The multikeys (`z6Mk...`) that made the proofs of the LAST entry of a log: the keys that endorsed the current
+ * document. The log must already be verified (`resolveDidWebvhLog`), which guarantees each proof is valid and was
+ * made by a key authorized by the `updateKeys` in force; this only reads which keys they were.
+ */
+export declare function didWebvhLastEntrySigners(logText: string): string[];
+/** How a candidate log relates to a stored one (both already verified). */
+export type DidWebvhLogRelation = 'equal' | 'extends' | 'prefix' | 'diverged';
+/**
+ * Compares two did:webvh logs entry by entry by `versionId` (each one hashes its entry and the previous
+ * `versionId`, so equal ids mean equal prefixes). `extends`: the candidate holds every stored entry and
+ * more. `prefix`: the candidate is a strict prefix of the stored log (older). `diverged`: they differ at
+ * some entry. Callers verify both logs first; this only compares their shape.
+ */
+export declare function compareDidWebvhLogs(stored: string, candidate: string): DidWebvhLogRelation;
 /**
  * Derives the HTTPS URL of a did:webvh DID's `did.jsonl` (did:webvh v1.0,
  * "The DID to HTTPS Transformation"). Applies the same host and path rules as

@@ -16,9 +16,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from nacl.exceptions import BadSignatureError
-from nacl.signing import VerifyKey
-
 from ..core.identity_composition import DID_VERIFICATION_RELATIONSHIPS, REQUIRED_RELATIONSHIP_BY_ARTIFACT
 from ..core.types import (
     KeyAtTimeRejection,
@@ -26,6 +23,7 @@ from ..core.types import (
     VerificationRelationship,
     VerifySignatureAtTimeResult,
 )
+from ..crypto.ed25519 import verify_ed25519
 from ..crypto.multibase import decode_public_key_multibase
 from ..webvh.adapter import resolve_did_webvh_log
 
@@ -204,7 +202,9 @@ async def check_did_webvh_key_at_time(
     )
 
 
-def signature_result_for_key(key: KeyAtTimeResult, payload: str, signature: str) -> VerifySignatureAtTimeResult:
+def signature_result_for_key(
+    key: KeyAtTimeResult, payload: str | bytes, signature: str
+) -> VerifySignatureAtTimeResult:
     """Combine a key check at a stated time with the Ed25519 check of ``signature`` (hex) over ``payload``."""
     if key.status == "not_authorized":
         return VerifySignatureAtTimeResult(status="invalid", reason="key_not_authorized", key=key)
@@ -212,10 +212,14 @@ def signature_result_for_key(key: KeyAtTimeResult, payload: str, signature: str)
         # Only ``history_unavailable`` has no key to check the signature with.
         return VerifySignatureAtTimeResult(status="indeterminate", key=key)
     try:
-        VerifyKey(decode_public_key_multibase(key.public_key_multibase)).verify(
-            payload.encode("utf-8"), bytes.fromhex(signature)
+        verified = verify_ed25519(
+            bytes.fromhex(signature),
+            payload.encode("utf-8") if isinstance(payload, str) else payload,
+            decode_public_key_multibase(key.public_key_multibase),
         )
-    except (BadSignatureError, ValueError, TypeError):
+    except (ValueError, TypeError):
+        verified = False
+    if not verified:
         return VerifySignatureAtTimeResult(status="invalid", reason="signature_invalid", key=key)
     if key.status == "authorized":
         return VerifySignatureAtTimeResult(status="valid", key=key)

@@ -40,7 +40,7 @@ Integrar Agent-DID como capa de identidad verificable para agentes y workflows c
 Instalacion recomendada, con el runtime validado fijado:
 
 ```bash
-pip install agent-did-microsoft-agent-framework==1.0.0rc4 agent-framework==1.24.0
+pip install agent-did-microsoft-agent-framework==1.0.0rc5 agent-framework==1.24.0
 ```
 
 `agent-framework` es un meta-paquete que arrastra unos 30 subpaquetes `agent-framework-*`. Sin fijar la version, pip puede tardar varios minutos en resolver dependencias (~7.5 min medidos en el smoke del RC).
@@ -102,6 +102,8 @@ builder.add_verified_handoff(
     output_type=str,
 )
 ```
+
+El executor aguas arriba firma con `sign_handoff(agent_identity=..., runtime_identity=..., payload=..., destination="<id del executor destino>")` y emite el `SignedHandoffMessage` resultante. La firma cubre un sobre JSON canonico (RFC 8785) con `payload` (debe ser serializable a JSON), DID, `key_id`, `signed_at`, el id del executor destino y un `nonce` de un solo uso (`build_handoff_envelope`). El verificador reconstruye el sobre a partir del mensaje: un mensaje firmado para otro borde, con otro `signed_at` o con otro payload no verifica, y un par `(did, nonce)` se acepta una sola vez (`nonce_store`: por defecto en memoria de este verificador; pasa un store compartido si varias instancias verifican el mismo borde). `signed_at` no puede estar en el futuro mas alla de 30 s y un handoff de mas de 1 h se rechaza. `allowed_dids` es obligatorio para `action_class="irreversible"`; para las demas clases, omitirlo registra una advertencia porque el borde acepta cualquier DID que resuelva y firme.
 
 Defaults TTL (overridables por workflow, no por encima de los topes para `irreversible` y cross-domain):
 

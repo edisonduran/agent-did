@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from agent_did_sdk import AgentDidClient, AgentDIDDocument, AgentIdentity
+from agent_did_sdk import AgentDidClient, AgentDIDDocument, AgentIdentity, NonceStore
 from agent_framework import Agent, AgentExecutor, Case, Default, FunctionExecutor, WorkflowBuilder
 
 from .config import AgentDidExposureConfig, AgentDidMicrosoftAgentFrameworkConfig
@@ -46,6 +46,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
         cross_domain: bool | None = None,
         executor_id: str | None = None,
         output_type: Any = object,
+        nonce_store: NonceStore | None = None,
     ) -> AgentDidWorkflowBuilder:
         """Insert an Agent-DID verifier between ``from_executor`` and ``to_executor``.
 
@@ -74,6 +75,7 @@ class AgentDidWorkflowBuilder(WorkflowBuilder):
             client=self._agent_did_client,
             executor_id=executor_id,
             output_type=output_type,
+            nonce_store=nonce_store,
         )
         self.add_edge(from_executor, verifier)
         self.add_edge(verifier, to_executor)

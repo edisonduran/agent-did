@@ -437,6 +437,43 @@ def _next_key_hashes_for(next_update_keys: list[str] | None, active_keys: list[s
     return [_next_key_hash(key) for key in next_update_keys]
 
 
+def did_webvh_last_entry_signers(log: str) -> list[str]:
+    """The multikeys (``z6Mk...``) that made the proofs of the LAST entry of a log: the keys that endorsed the current
+    document. The log must already be verified (:func:`resolve_did_webvh_log`), which guarantees each proof is valid
+    and was made by a key authorized by the ``updateKeys`` in force; this only reads which keys they were."""
+    proofs = _parse_log(log)[-1].get("proof")
+    signers: list[str] = []
+    if not isinstance(proofs, list):
+        return signers
+    for proof in proofs:
+        method = proof.get("verificationMethod") if isinstance(proof, dict) else None
+        match = re.fullmatch(r"did:key:(z[1-9A-HJ-NP-Za-km-z]+)(?:#.*)?", method) if isinstance(method, str) else None
+        if match and match.group(1) not in signers:
+            signers.append(match.group(1))
+    return signers
+
+
+DidWebvhLogRelation = Literal["equal", "extends", "prefix", "diverged"]
+"""How a candidate log relates to a stored one: it equals it, extends it, is a strict prefix of it
+(older) or diverges from it."""
+
+
+def compare_did_webvh_logs(stored: str, candidate: str) -> DidWebvhLogRelation:
+    """Compare two did:webvh logs entry by entry by ``versionId``.
+
+    Each ``versionId`` hashes its entry and the previous ``versionId``, so equal ids mean equal
+    prefixes. Callers verify both logs first; this only compares their shape.
+    """
+    stored_ids = [entry.get("versionId") for entry in _parse_log(stored)]
+    candidate_ids = [entry.get("versionId") for entry in _parse_log(candidate)]
+    shared = min(len(stored_ids), len(candidate_ids))
+    if stored_ids[:shared] != candidate_ids[:shared]:
+        return "diverged"
+    if len(stored_ids) == len(candidate_ids):
+        return "equal"
+    return "extends" if len(candidate_ids) > len(stored_ids) else "prefix"
+
+
 def _parse_log(log: str) -> list[dict[str, Any]]:
     if not isinstance(log, str):
         raise DidWebvhError("invalidInput", "did:webvh log must be a string")

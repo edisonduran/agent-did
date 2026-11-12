@@ -37,6 +37,7 @@ const headers = await agentIdentity.signHttpRequest({
   body: '{"action":"approve"}',
   agentPrivateKey: myKey, // or signer: an AgentSigner (KMS/HSM)
   agentDid: myDid,
+  verificationMethodId: myKeyId, // the verification method of the signing key, e.g. document.authentication[0]
   expiresInSeconds: 60 // optional, default: 30
 });
 // Signature-Agent, Date, Content-Digest, Signature-Input, Signature
@@ -49,6 +50,7 @@ headers = await identity.sign_http_request(SignHttpRequestParams(
     body='{"action":"approve"}',
     agent_private_key=my_key,
     agent_did=my_did,
+    verification_method_id=my_key_id,  # the verification method of the signing key
     expires_in_seconds=60,
 ))
 ```

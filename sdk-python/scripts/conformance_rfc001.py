@@ -104,7 +104,7 @@ async def evaluate_signature_controls(
             url="https://api.example.com/v1/messages?draft=false",
             body='{"message":"hello"}',
             agent_private_key=agent_private_key,
-            agent_did=document.id,
+            agent_did=document.id, verification_method_id=f"{document.id}#key-1",
         )
     )
     http_valid = await AgentIdentity.verify_http_request_signature(
@@ -235,13 +235,13 @@ def evaluate_document_reference_controls(record_after_create, record_after_rotat
 
 def build_interop_document(interop_vector: dict[str, object]) -> AgentDIDDocument:
     did = interop_vector["did"]
-    controller = interop_vector["controller"]
     verification_method = interop_vector["verificationMethod"]
     return AgentDIDDocument(
         **{
             "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
             "id": did,
-            "controller": controller,
+            # Self-controlled: the vectors test signatures, and a document-only resolver cannot prove a binding
+            "controller": did,
             "created": "2024-01-01T00:00:00Z",
             "updated": "2024-01-01T00:00:00Z",
             "agentMetadata": {

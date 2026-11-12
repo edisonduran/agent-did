@@ -44,6 +44,7 @@ from .http_signatures import (
     serialize_signature_input,
 )
 from .identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT
+from .message_signing import message_signing_input
 from .signer import AgentSigner
 from .types import (
     AgentDIDDocument,
@@ -99,8 +100,17 @@ class AgentIdentity:
         return await self.client.create_agent(self._controller_signer, params)
 
     async def sign_message(self, payload: str, key_or_signer: str | AgentSigner) -> str:
-        """Sign *payload* with an Ed25519 private key (hex) or an AgentSigner."""
-        message_bytes = payload.encode("utf-8")
+        """Sign *payload* with an Ed25519 private key (hex) or an AgentSigner (hex signature).
+
+        The signature covers ``AGENT_DID_MESSAGE_SIGNING_PREFIX + payload``, so it is a payload signature and cannot
+        be reused as an HTTP request signature or any other signature of the same key. Verify it with
+        ``verify_signature`` / ``verify_signature_at_time``, which apply the same prefix.
+        """
+        return await self._sign_bytes(message_signing_input(payload), key_or_signer)
+
+    @staticmethod
+    async def _sign_bytes(message_bytes: bytes, key_or_signer: str | AgentSigner) -> str:
+        """Sign exactly *message_bytes*, with no domain prefix: for protocols that define their own signature input."""
         if isinstance(key_or_signer, str):
             private_bytes = bytes.fromhex(key_or_signer)
             signing_key = SigningKey(private_bytes)
@@ -125,6 +135,9 @@ class AgentIdentity:
         if not (params.agent_did and params.agent_did.strip()):
             raise ValueError("Agent DID is required")
 
+        if not (params.verification_method_id and params.verification_method_id.strip()):
+            raise ValueError("verification_method_id is required: pass the verification method of the signing key")
+
         key_or_signer = params.signer or params.agent_private_key
         if key_or_signer is None:
             raise ValueError("Either signer or agent_private_key must be provided")
@@ -142,7 +155,7 @@ class AgentIdentity:
                 ("created", created),
                 ("expires", created + expires_in),
                 ("nonce", os.urandom(16).hex()),
-                ("keyid", params.verification_method_id or f"{params.agent_did}#key-1"),
+                ("keyid", params.verification_method_id),
                 ("alg", "ed25519"),
                 ("tag", AGENT_DID_HTTP_SIGNATURE_TAG),
             ],
@@ -151,7 +164,8 @@ class AgentIdentity:
             HttpRequestLike(method=params.method.upper(), url=params.url, headers=headers), signature_input
         )
 
-        signature_hex = await self.sign_message(signature_base, key_or_signer)
+        # The RFC 9421 signature base is signed as is: the "agent-did/v1/message" prefix of sign_message is not applied
+        signature_hex = await self._sign_bytes(signature_base.encode("utf-8"), key_or_signer)
         return {
             **headers,
             "Signature-Input": f"sig1={serialize_signature_input(signature_input)}",
@@ -199,10 +213,12 @@ class AgentIdentity:
 
     @classmethod
     async def rotate_verification_method(
-        cls, did: str, *, controller_signer: AgentSigner | None = None
+        cls, did: str, *, controller_signer: AgentSigner | None = None, signer: AgentSigner | None = None
     ) -> RotateVerificationMethodResult:
         """Deprecated: use the same method on an ``AgentDidClient``; removed in 2.0."""
-        return await cls._default_client.rotate_verification_method(did, controller_signer=controller_signer)
+        return await cls._default_client.rotate_verification_method(
+            did, controller_signer=controller_signer, signer=signer
+        )
 
     @classmethod
     def get_document_history(cls, did: str) -> list[AgentDocumentHistoryEntry]:

@@ -1,10 +1,42 @@
 import { AgentDIDDocument } from '../core/types';
 import { AgentRegistry } from '../registry/types';
 
+/**
+ * A verified did:webvh log and what is derived from it. `lastEntrySignerKeys` are the multikeys that made the proofs
+ * of the last entry: the keys that endorsed the current document (see ADR-005 / RFC-001 §6.6 item 7).
+ */
+export interface DidWebvhResolution {
+  /** The document in force (the state of the last entry). */
+  document: AgentDIDDocument;
+  /** The verified log text (`did.jsonl`). */
+  log: string;
+  versionId: string;
+  /** The `updateKeys` in force after the last entry. */
+  updateKeys: string[];
+  /** Multikeys (`z6Mk...`) that signed the last entry. */
+  lastEntrySignerKeys: string[];
+}
+
+/** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
+export interface DidWebvhState extends DidWebvhResolution {
+  /**
+   * `local`: created or changed in this client (its controller signer is retained), authoritative here.
+   * `imported`: a log loaded with `importDidWebvhHistory`, a cache of what the log host serves.
+   * `fetched`: fetched and verified by the resolver.
+   */
+  provenance: 'local' | 'imported' | 'fetched';
+}
+
 export interface DIDResolver {
   registerDocument(document: AgentDIDDocument): void;
   resolve(did: string): Promise<AgentDIDDocument>;
   remove(did: string): void;
+  /**
+   * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document
+   * (for example a document registered without its log). A resolver that fetches logs implements this so the
+   * controller binding can be checked; failing to fetch rejects (fail closed).
+   */
+  resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
 }
 
 export interface DIDDocumentSource {
@@ -22,7 +54,18 @@ export interface UniversalResolverConfig {
   documentSource: DIDDocumentSource;
   wbaDocumentSource?: DIDDocumentSource;
   webvhDocumentSource?: DIDDocumentSource;
+  /**
+   * Resolver used when the registry has no record or the document source cannot answer. It is never
+   * used for did:webvh: a did:webvh DID that cannot be fetched fails closed, because falling back to an
+   * older copy would let whoever can block the log host keep a revoked or rotated-out state alive.
+   */
   fallbackResolver?: DIDResolver;
+  /**
+   * Returns the did:webvh log the caller already holds for a DID (`AgentDidClient` passes its imported
+   * logs). A fetched log must equal it, extend it or be a prefix of it; when it is a prefix the longer
+   * local log wins (a stale host never rolls the DID back), and a log that diverges is an integrity failure.
+   */
+  didWebvhLocalLog?: (did: string) => string | undefined;
   cacheTtlMs?: number;
   /**
    * Maximum documents kept in the cache. When it is full, expired entries are dropped first and

@@ -2,7 +2,19 @@
 
 This document tracks normative and materially relevant editorial changes to RFC-001 independently from the ecosystem release train tracked in [../CHANGELOG.md](../CHANGELOG.md).
 
-> **Current canonical text:** [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md), version `1.0-rc.4` (release candidate). It supersedes `0.3-pivot-pattern-on-webvh`.
+> **Current canonical text:** [RFC-001-Agent-DID-Specification.md](RFC-001-Agent-DID-Specification.md), version `1.0-rc.5` (release candidate). It supersedes `0.3-pivot-pattern-on-webvh`.
+
+---
+
+## [1.0-rc.5] - Unreleased (1.0.0-rc.5)
+
+### Result
+
+- §6.6 item 7 defines the binding of a `did:webvh` agent to its controller: the proof of the last log entry must come from a key active under the controller's `capabilityInvocation`, checked now for every link of the chain, failing closed (`controller_not_bound`). §4.2 and §6.2 point to it.
+- §4.2 / §6.6 item 3: a key deactivated by rotation is removed from every verification relationship; verifiers reject it even when an older document lists it.
+- §6.6 item 4: a held `did:webvh` log is replaced only by an extension of it; no fallback source for `did:webvh`.
+- §7.2: `signMessage` signs `agent-did/v1/message\n` plus the payload (domain separation from HTTP request signatures and log proofs), and the Ed25519 verification rule is stated (`fixtures/ed25519-verification-vectors.json`).
+- Wire change: payload signatures and the content of rotated documents change in rc.5; the wire freeze of [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) starts at this release.
 
 ---
 

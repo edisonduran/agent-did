@@ -98,6 +98,8 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | RC metadata moved to the `1.0.0rc5` release train (npm `1.0.0-rc.5`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
+| 2026-11-12 | LangChain Python did:wba demo and test encode the Ed25519 public key as base58btc multibase (`encode_public_key_multibase`) instead of `z` + hex, a form the SDK no longer decodes. Test fixtures only; no change to the integration surface. |
 | 2026-11-12 | LangChain JS tests no longer pass the removed `network` option to `AgentIdentity` (the legacy `did:agent` profile is gone from both SDKs). Tests only; no change to the integration surface in either package. |
 | 2026-11-12 | LangChain JS `sign_http_request` passes `allowPrivateNetworkTargets` to the SDK target policy and rejects IPv6 private literals (`URL.hostname` keeps the brackets); LangChain Python gets the matching IPv6 test. Tool behavior is aligned in both packages. |
 | 2026-11-05 | LangChain TS did:wba demo and test queue a final model response, because newer `@langchain/core` `fakeModel` throws once its response queue is empty. Test fixtures only; no change to the integration surface and no TS/Python parity impact. |

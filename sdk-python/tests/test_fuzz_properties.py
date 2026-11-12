@@ -119,8 +119,9 @@ class TestPublicKeyMultibase:
         assert len(result) == 32
 
     @given(st.binary(min_size=32, max_size=32))
-    def test_legacy_hex_keys_always_decode_to_32_bytes(self, key: bytes) -> None:
-        assert len(decode_public_key_multibase(f"z{key.hex()}")) == 32
+    def test_legacy_hex_keys_are_always_rejected(self, key: bytes) -> None:
+        with pytest.raises(ValueError, match="Unable to decode publicKeyMultibase"):
+            decode_public_key_multibase(f"z{key.hex()}")
 
 
 def _run(coro: Any) -> Any:

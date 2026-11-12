@@ -16,7 +16,6 @@ Reference threads:
 from __future__ import annotations
 
 import asyncio
-import time
 
 from agent_did_sdk import (
     AgentIdentity,
@@ -30,6 +29,7 @@ from agent_framework import WorkflowContext
 from agent_did_microsoft_agent_framework import (
     SignedHandoffMessage,
     create_agent_did_microsoft_agent_framework_integration,
+    sign_handoff,
 )
 
 
@@ -64,15 +64,14 @@ async def main() -> None:
     # Stage 2 — enrichment. Wraps its output as a SignedHandoffMessage so the
     # verifier can enforce identity at the next edge.
     async def enrichment(payload: str, ctx: WorkflowContext[SignedHandoffMessage]) -> None:
-        signed_payload = f"enrichment:{payload}"
-        signature = await identity.sign_message(signed_payload, runtime_identity.agent_private_key)
+        # The signature covers a canonical envelope: the payload (JSON-serializable), this DID and key,
+        # signed_at, the id of the downstream executor ("execution") and a single-use nonce.
         await ctx.send_message(
-            SignedHandoffMessage(
-                payload=signed_payload,
-                did=runtime_identity.document.id,
-                signature=signature,
-                signed_at=time.time(),
-                key_id=f"{runtime_identity.document.id}#key-1",
+            await sign_handoff(
+                agent_identity=identity,
+                runtime_identity=runtime_identity,
+                payload=f"enrichment:{payload}",
+                destination="execution",
             )
         )
 

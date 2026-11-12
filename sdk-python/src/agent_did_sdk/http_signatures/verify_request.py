@@ -31,7 +31,9 @@ from ..core.types import (
     VerifyHttpRequestSignatureResult,
 )
 
-SignatureCheckOutcome = Literal["valid", "invalid", "key_not_authorized", "did_resolution_failed"]
+SignatureCheckOutcome = Literal[
+    "valid", "invalid", "key_not_authorized", "did_resolution_failed", "controller_not_bound"
+]
 """What the injected cryptographic check found."""
 
 # (did, payload, signature_hex, key_id, purpose) -> outcome
@@ -139,6 +141,8 @@ async def verify_agent_did_http_request(
         if outcome != "valid":
             if outcome == "did_resolution_failed":
                 failures.append(("did_resolution_failed", True))
+            elif outcome == "controller_not_bound":
+                failures.append(("controller_not_bound", True))
             elif outcome == "key_not_authorized":
                 failures.append(("keyid_not_authorized", True))
             else:

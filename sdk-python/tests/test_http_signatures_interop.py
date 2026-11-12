@@ -58,6 +58,7 @@ class TestRfc9421Interop:
             SignHttpRequestParams(
                 method="POST", url=URL, body=BODY,
                 agent_private_key=result.agent_private_key, agent_did=result.document.id,
+                    verification_method_id=f"{result.document.id}#key-1",
             )
         )
         key_id = f"{result.document.id}#key-1"

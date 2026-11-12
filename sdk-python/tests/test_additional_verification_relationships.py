@@ -136,7 +136,8 @@ async def test_carries_the_relationships_over_to_the_new_key_on_rotation() -> No
     rotated = await client.rotate_verification_method(document.id)
     new_key_id = rotated.verification_method_id
 
-    assert rotated.document.capability_delegation == [f"{document.id}#key-1", new_key_id]
+    # The rotated-out key leaves the relationship; the new key takes its place
+    assert rotated.document.capability_delegation == [new_key_id]
     assert rotated.document.capability_invocation is None
 
     signature = await identity.sign_message("delegation", rotated.agent_private_key)

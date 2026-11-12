@@ -72,7 +72,7 @@ Promotion rules for this release train:
 
 Current recommendation for the normalized `v1.0.0` branch state:
 
-- The first prerelease was **`1.0.0-rc.1`** (the current one is `1.0.0-rc.4`), not `1.0.0-beta.1`, because Sprint 1 hardening, migration guides, integration evidence, and API-freeze work are already in place.
+- The first prerelease was **`1.0.0-rc.1`** (the current one is `1.0.0-rc.5`), not `1.0.0-beta.1`, because Sprint 1 hardening, migration guides, integration evidence, and API-freeze work are already in place.
 - A beta should only be introduced if maintainers deliberately reopen contract-shaping work before the first prerelease is cut.
 
 ---
@@ -241,9 +241,9 @@ Goal: cut the appropriate prerelease (`beta` only if contract-shaping feedback i
 
 Every coordinated `1.0.0-rc.N` cut uses a single monorepo release tag with ecosystem-native prerelease normalization (shown for the current `rc.4`; `rc.1` to `rc.3` followed the same pattern):
 
-1. npm packages declare `1.0.0-rc.4`.
-2. Python packages declare `1.0.0rc4`.
-3. The coordinated release tag is `v1.0.0-rc.4`.
+1. npm packages declare `1.0.0-rc.5`.
+2. Python packages declare `1.0.0rc5`.
+3. The coordinated release tag is `v1.0.0-rc.5`.
 4. `.github/workflows/publish-release-train.yml` is the coordinated publication entrypoint for the core release train.
 5. npm prereleases publish under dist-tag `next`; PyPI packages publish as prerelease versions derived from the normalized Python manifests.
 6. Legacy `sdk-v*` and `sdk-python-v*` tags remain package-specific workflows for SDK-only publication paths and are not the coordinated core RC tag.

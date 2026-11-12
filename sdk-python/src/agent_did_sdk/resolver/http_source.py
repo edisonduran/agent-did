@@ -51,6 +51,8 @@ class HttpDIDDocumentSource:
             try:
                 validate_http_target(url, self._http_security)
             except ValueError as ve:
+                # Blocked by policy is not "not found": the document may well exist.
+                all_not_found = False
                 errors.append(f"{url}: {ve}")
                 continue
 
@@ -94,6 +96,8 @@ class HttpDIDDocumentSource:
             try:
                 validate_http_target(url, self._http_security)
             except ValueError as ve:
+                # Blocked by policy is not "not found": the document may well exist.
+                all_not_found = False
                 errors.append(f"{url}: {ve}")
                 continue
 

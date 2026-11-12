@@ -8,7 +8,6 @@
  *
  * Python parity: `sdk-python/src/agent_did_sdk/verification/key_at_time.py`.
  */
-import { ed25519 } from '@noble/curves/ed25519';
 import { hexToBytes } from '@noble/hashes/utils';
 import {
   DID_VERIFICATION_RELATIONSHIPS,
@@ -21,6 +20,7 @@ import {
   VerificationRelationship,
   VerifySignatureAtTimeResult
 } from '../core/types';
+import { verifyEd25519 } from '../crypto/ed25519-verify';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
 import { resolveDidWebvhLog } from '../webvh/adapter';
 
@@ -210,8 +210,12 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
   };
 }
 
-/** Combines a key check at a stated time with the Ed25519 check of `signature` (hex) over `payload` (UTF-8). */
-export function signatureResultForKey(key: KeyAtTimeResult, payload: string, signature: string): VerifySignatureAtTimeResult {
+/** Combines a key check at a stated time with the Ed25519 check of `signature` (hex) over `payload` (UTF-8 text or bytes). */
+export function signatureResultForKey(
+  key: KeyAtTimeResult,
+  payload: string | Uint8Array,
+  signature: string
+): VerifySignatureAtTimeResult {
   if (key.status === 'not_authorized') {
     return { status: 'invalid', reason: 'key_not_authorized', key };
   }
@@ -221,9 +225,9 @@ export function signatureResultForKey(key: KeyAtTimeResult, payload: string, sig
   }
   let verified = false;
   try {
-    verified = ed25519.verify(
+    verified = verifyEd25519(
       hexToBytes(signature),
-      new TextEncoder().encode(payload),
+      typeof payload === 'string' ? new TextEncoder().encode(payload) : payload,
       decodePublicKeyMultibase(key.publicKeyMultibase)
     );
   } catch {

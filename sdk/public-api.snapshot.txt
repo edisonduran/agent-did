@@ -1,8 +1,12 @@
 # Public API snapshot for @agentdid/sdk
+AddedKeyRelationship
 ADDITIONAL_VERIFICATION_RELATIONSHIPS
 AdditionalVerificationRelationship
+AddVerificationMethodOptions
+AddVerificationMethodResult
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
+AGENT_DID_MESSAGE_SIGNING_PREFIX
 AgentDidClient
 AgentDidClientOptions
 AgentDIDDocument
@@ -24,6 +28,7 @@ buildSignatureBase
 canonicalizeJson
 checkDidWebvhKeyAtTime
 CheckKeyAtTimeOptions
+ControllerBindingError
 CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
@@ -40,6 +45,8 @@ DidWebvhControllerKeys
 DidWebvhError
 DidWebvhErrorCode
 DidWebvhLifecycleOptions
+DidWebvhResolution
+DidWebvhState
 DocumentIntegrityError
 encodePublicKeyMultibase
 FilesystemDIDDocumentSource
@@ -73,6 +80,7 @@ KeyAtTimeRejection
 KeyAtTimeResult
 KeyAtTimeUncertainty
 LocalKeySigner
+messageSigningInput
 MetadataCommitmentSalts
 NonceStore
 normalizeTimestampToIso
@@ -89,6 +97,7 @@ ResolverCacheStats
 ResolverResolutionEvent
 ResolverResolutionStage
 RotateControllerKeyOptions
+RotateVerificationMethodOptions
 RotateVerificationMethodResult
 S3CompatibleDIDDocumentSource
 S3CompatibleDIDDocumentSourceConfig

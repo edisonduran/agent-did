@@ -6,6 +6,7 @@ import {
   CreateAgentParams,
   CreateAgentResult,
   DidWebvhLifecycleOptions,
+  RotateVerificationMethodOptions,
   RotateVerificationMethodResult,
   SignHttpRequestParams,
   UpdateAgentDocumentParams,
@@ -21,6 +22,7 @@ import {
   SignatureInput
 } from './http-signatures';
 import { validateHttpTarget } from './http-security';
+import { messageSigningInput } from './message-signing';
 import {
   AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
   AGENT_DID_HTTP_SIGNATURE_TAG,
@@ -93,10 +95,18 @@ export class AgentIdentity {
   }
 
   /**
-   * Signs a payload using an Ed25519 private key or an AgentSigner.
+   * Signs a payload using an Ed25519 private key or an AgentSigner (hex signature).
+   *
+   * The signature covers `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`, so it is a payload signature and cannot
+   * be reused as an HTTP request signature or any other signature of the same key. Verify it with
+   * `verifySignature` / `verifySignatureAtTime`, which apply the same prefix.
    */
   public async signMessage(payload: string, keyOrSigner: string | AgentSigner): Promise<string> {
-    const messageBytes = new TextEncoder().encode(payload);
+    return this.signBytes(messageSigningInput(payload), keyOrSigner);
+  }
+
+  /** Signs exactly `messageBytes`, with no domain prefix: for protocols that define their own signature input. */
+  private async signBytes(messageBytes: Uint8Array, keyOrSigner: string | AgentSigner): Promise<string> {
     if (typeof keyOrSigner === 'string') {
       const privateKeyBytes = hexToBytes(keyOrSigner);
       const signatureBytes = ed25519.sign(messageBytes, privateKeyBytes);
@@ -127,6 +137,10 @@ export class AgentIdentity {
       throw new Error("Agent DID is required");
     }
 
+    if (!params.verificationMethodId?.trim()) {
+      throw new Error("verificationMethodId is required: pass the verification method that matches the signing key");
+    }
+
     const keyOrSigner = params.signer || params.agentPrivateKey;
     if (!keyOrSigner) {
       throw new Error("Either agentPrivateKey or signer must be provided");
@@ -144,7 +158,7 @@ export class AgentIdentity {
         ['created', created],
         ['expires', created + (params.expiresInSeconds ?? 30)],
         ['nonce', generateNonce()],
-        ['keyid', params.verificationMethodId || `${params.agentDid}#key-1`],
+        ['keyid', params.verificationMethodId],
         ['alg', 'ed25519'],
         ['tag', AGENT_DID_HTTP_SIGNATURE_TAG]
       ]
@@ -154,7 +168,8 @@ export class AgentIdentity {
       input
     );
 
-    const signatureHex = await this.signMessage(signatureBase, keyOrSigner);
+    // The RFC 9421 signature base is signed as is: the "agent-did/v1/message" prefix of signMessage is not applied
+    const signatureHex = await this.signBytes(new TextEncoder().encode(signatureBase), keyOrSigner);
     return {
       ...headers,
       'Signature-Input': `sig1=${serializeSignatureInput(input)}`,
@@ -193,7 +208,7 @@ export class AgentIdentity {
   }
 
   /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
-  public static async rotateVerificationMethod(did: string, options: DidWebvhLifecycleOptions = {}): Promise<RotateVerificationMethodResult> {
+  public static async rotateVerificationMethod(did: string, options: RotateVerificationMethodOptions = {}): Promise<RotateVerificationMethodResult> {
     return AgentIdentity.defaultClient.rotateVerificationMethod(did, options);
   }
 

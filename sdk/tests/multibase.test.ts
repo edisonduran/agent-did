@@ -16,16 +16,16 @@ describe('multibase helpers', () => {
       .toThrow('Ed25519 public key must be 32 bytes, got 31');
   });
 
-  it('should decode base58 multibase values that contain a raw 32-byte key without a multicodec prefix', () => {
+  it('should reject a base58 multibase value that holds a raw 32-byte key without a multicodec prefix', () => {
     const encoded = `z${bs58.encode(rawPublicKey)}`;
 
-    expect(decodePublicKeyMultibase(encoded)).toEqual(rawPublicKey);
+    expect(() => decodePublicKeyMultibase(encoded)).toThrow('Unable to decode publicKeyMultibase');
   });
 
-  it('should decode the legacy hex multibase format used by earlier SDK versions', () => {
+  it('should reject the legacy hex multibase format used by SDK v0.1.0', () => {
     const encoded = `z${Buffer.from(rawPublicKey).toString('hex')}`;
 
-    expect(decodePublicKeyMultibase(encoded)).toEqual(rawPublicKey);
+    expect(() => decodePublicKeyMultibase(encoded)).toThrow('Unable to decode publicKeyMultibase');
   });
 
   it('should reject unsupported multibase prefixes', () => {
@@ -39,6 +39,6 @@ describe('multibase helpers', () => {
 
   it('should reject unrecognized multibase payloads', () => {
     expect(() => decodePublicKeyMultibase('znot-a-valid-key'))
-      .toThrow('Unable to decode publicKeyMultibase: unrecognized format');
+      .toThrow('Unable to decode publicKeyMultibase');
   });
 });

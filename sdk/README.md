@@ -8,9 +8,9 @@ Verifiable decentralized identity for autonomous AI agents. Create, sign, resolv
 
 > **SDK en TypeScript para identidad descentralizada verificable de agentes de IA autónomos.**
 >
-> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.4` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
+> **Release-candidate note:** The repository is frozen for the `1.0.0-rc.5` release train and RFC-001 is now treated as Stable text. Final `v1.0.0` publication still depends on the remaining gates in [../docs/RELEASE-1.0-CRITERIA.md](../docs/RELEASE-1.0-CRITERIA.md).
 >
-> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Coming from `1.0.0-rc.3`? The breaking changes in `1.0.0-rc.4` are listed in [MIGRATION-1.0-rc.3-to-rc.4.md](MIGRATION-1.0-rc.3-to-rc.4.md); from `1.0.0-rc.2`, see [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) first.
+> **Moving from `0.x`?** See [MIGRATION-0.x-to-1.0.md](MIGRATION-0.x-to-1.0.md). Coming from `1.0.0-rc.3`? The breaking changes in `1.0.0-rc.5` are listed in [MIGRATION-1.0-rc.3-to-rc.5.md](MIGRATION-1.0-rc.3-to-rc.5.md); from `1.0.0-rc.2`, see [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) first.
 
 ---
 

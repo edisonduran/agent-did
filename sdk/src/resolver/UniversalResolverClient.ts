@@ -2,10 +2,16 @@ import { AgentDIDDocument } from '../core/types';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
-import { deriveDidWebvhLogUrl, resolveDidWebvhLog } from '../webvh/adapter';
+import {
+  compareDidWebvhLogs,
+  deriveDidWebvhLogUrl,
+  didWebvhLastEntrySigners,
+  resolveDidWebvhLog
+} from '../webvh/adapter';
 import {
   DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
   DocumentIntegrityError,
+  DidWebvhResolution,
   DIDResolver,
   ResolverResolutionEvent,
   ResolverCacheStats,
@@ -17,6 +23,8 @@ const SHA256_DOCUMENT_REF_PREFIX = 'hash://sha256/';
 interface CachedDocument {
   document: AgentDIDDocument;
   expiresAt: number;
+  /** Set when the document came from a verified did:webvh log fetched by this resolver. */
+  webvh?: DidWebvhResolution;
 }
 
 export class UniversalResolverClient implements DIDResolver {
@@ -56,8 +64,15 @@ export class UniversalResolverClient implements DIDResolver {
 
     if (this.documentSource.storeByReference) {
       const documentRef = this.computeDocumentReference(document);
-      this.documentSource.storeByReference(documentRef, this.clone(document)).catch(() => {
-        // Non-critical: cache is already updated, external store failure is tolerable
+      this.documentSource.storeByReference(documentRef, this.clone(document)).catch((error: unknown) => {
+        // The cache is already updated, so resolution here keeps working, but the document did not
+        // reach the remote store: tell the operator instead of swallowing it.
+        const message = error instanceof Error ? error.message : String(error);
+        try {
+          this.emitEvent({ did, stage: 'error', durationMs: 0, message: `storeByReference failed: ${message}` });
+        } catch {
+          // An event handler that throws must not become an unhandled rejection.
+        }
       });
     }
   }
@@ -139,6 +154,20 @@ export class UniversalResolverClient implements DIDResolver {
     return this.clone(resolved);
   }
 
+  /**
+   * The verified did:webvh log behind `did`: from the cache while the entry is fresh, otherwise fetched and verified
+   * (rejecting when it cannot be, with no fallback). `undefined` when the cached entry holds only a document that was
+   * registered without its log.
+   */
+  public async resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined> {
+    if (!this.isDidWebvh(did)) {
+      return undefined;
+    }
+    await this.resolve(did);
+    const webvh = this.cache.get(did)?.webvh;
+    return webvh ? JSON.parse(JSON.stringify(webvh)) as DidWebvhResolution : undefined;
+  }
+
   public remove(did: string): void {
     this.cache.delete(did);
     this.fallbackResolver?.remove(did);
@@ -204,9 +233,9 @@ export class UniversalResolverClient implements DIDResolver {
   /**
    * did:webvh resolution: fetch `did.jsonl` from the URL derived from the DID,
    * verify the whole log with the did:webvh adapter, and return the latest
-   * state. Only availability failures (fetch error, log not found) may fall
-   * back; an invalid DID, a log that fails verification or a deactivated DID
-   * never does.
+   * state. There is no fallback to another resolver: a fetch error, a missing
+   * log, an invalid DID, a log that fails verification, a log that contradicts
+   * the one held locally and a deactivated DID all fail closed.
    */
   private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<AgentDIDDocument> {
     let logUrl: string;
@@ -233,11 +262,13 @@ export class UniversalResolverClient implements DIDResolver {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
-      return this.resolveWithFallback(did, message, startedAt);
+      throw new Error(`did:webvh log could not be fetched for ${did}: ${message}`);
     }
 
     if (logText === null) {
-      return this.resolveWithFallback(did, `DID log not found for did:webvh URL: ${logUrl}`, startedAt);
+      const message = `DID log not found for did:webvh URL: ${logUrl}`;
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(message);
     }
 
     let resolved;
@@ -247,6 +278,8 @@ export class UniversalResolverClient implements DIDResolver {
       const message = error instanceof Error ? error.message : String(error);
       throw this.integrityFailure(did, `did:webvh log verification failed for ${did}: ${message}`, startedAt);
     }
+
+    resolved = await this.reconcileWithLocalLog(did, resolved, startedAt);
 
     if (resolved.metadata.deactivated) {
       const message = `DID is deactivated: ${did}`;
@@ -262,17 +295,71 @@ export class UniversalResolverClient implements DIDResolver {
       message: `versionId=${resolved.metadata.versionId}`
     });
 
-    this.cachePut(did, document, now + this.cacheTtlMs);
+    this.cachePut(did, document, now + this.cacheTtlMs, {
+      document,
+      log: resolved.log,
+      versionId: resolved.metadata.versionId,
+      updateKeys: [...resolved.metadata.updateKeys],
+      lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log)
+    });
 
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
 
     return this.clone(document);
   }
 
+  /**
+   * Applies the rule for a fetched log against the log the caller holds: the longer one wins and a log
+   * that is not a prefix or an extension of the other is an integrity failure (never a fallback).
+   */
+  private async reconcileWithLocalLog(
+    did: string,
+    fetched: Awaited<ReturnType<typeof resolveDidWebvhLog>>,
+    startedAt: number
+  ): Promise<Awaited<ReturnType<typeof resolveDidWebvhLog>>> {
+    const local = this.config.didWebvhLocalLog?.(did);
+    if (local === undefined) {
+      return fetched;
+    }
+    let relation;
+    try {
+      relation = compareDidWebvhLogs(local, fetched.log);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw this.integrityFailure(did, `did:webvh log comparison failed for ${did}: ${message}`, startedAt);
+    }
+    if (relation === 'diverged') {
+      throw this.integrityFailure(
+        did,
+        `The did:webvh log fetched for ${did} contradicts the log held locally (not a prefix or an extension)`,
+        startedAt
+      );
+    }
+    if (relation === 'prefix') {
+      this.emitEvent({
+        did,
+        stage: 'source-fetched',
+        durationMs: Date.now() - startedAt,
+        message: 'fetched did:webvh log is older than the local one; using the local log'
+      });
+      try {
+        return await resolveDidWebvhLog(local, { did });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw this.integrityFailure(did, `did:webvh log verification failed for ${did}: ${message}`, startedAt);
+      }
+    }
+    return fetched;
+  }
+
   /** Stores a copy of `document`, keeping the cache within `maxCacheEntries`. */
-  private cachePut(did: string, document: AgentDIDDocument, expiresAt: number): void {
+  private cachePut(did: string, document: AgentDIDDocument, expiresAt: number, webvh?: DidWebvhResolution): void {
     this.cache.delete(did);
-    this.cache.set(did, { document: this.clone(document), expiresAt });
+    this.cache.set(did, {
+      document: this.clone(document),
+      expiresAt,
+      ...(webvh ? { webvh: JSON.parse(JSON.stringify(webvh)) as DidWebvhResolution } : {})
+    });
     if (this.cache.size <= this.maxCacheEntries) {
       return;
     }

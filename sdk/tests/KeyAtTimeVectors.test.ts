@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { AgentDidClient, checkDidWebvhKeyAtTime, KeyAtTimeResult, VerificationRelationship } from '../src';
+import { AgentDidClient, checkDidWebvhKeyAtTime, KeyAtTimeResult, messageSigningInput, VerificationRelationship } from '../src';
 import { LocalKeySigner } from '../src/core/signer';
 import { encodePublicKeyMultibase } from '../src/crypto/multibase';
 import { createDidWebvhLog, deactivateDidWebvhLog, updateDidWebvhLog } from '../src/webvh/adapter';
@@ -285,7 +285,8 @@ async function generate(): Promise<Fixture> {
     }
   ];
 
-  const payload = new TextEncoder().encode(INPUTS.payload);
+  // Payload signatures cover the domain prefix of signMessage (RFC-001 §7)
+  const payload = messageSigningInput(INPUTS.payload);
   return {
     formatVersion: 1,
     description:

@@ -1,0 +1,134 @@
+{
+  "formatVersion": 1,
+  "description": "Ed25519 verification vectors of RFC-001 §7. A vector with valid=false must be rejected by every SDK; valid=true ones must verify. Regenerate with scripts/regenerate-ed25519-verification-vectors.js.",
+  "vectors": [
+    {
+      "name": "valid-0",
+      "description": "An ordinary signature by a key in the prime-order subgroup",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62b7e009670331f18331e005395c259ecd30492a7153c002c5580e80a522d77707",
+      "valid": true
+    },
+    {
+      "name": "wrong-message-0",
+      "description": "A valid signature over a different message",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6e6f7420746865207369676e6564206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62b7e009670331f18331e005395c259ecd30492a7153c002c5580e80a522d77707",
+      "valid": false
+    },
+    {
+      "name": "non-canonical-s-0",
+      "description": "The ordinary signature with S replaced by S + L (S must be below the group order)",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62a4b4ffc31d9403dc077dfddb3a1f7de230492a7153c002c5580e80a522d77717",
+      "valid": false
+    },
+    {
+      "name": "torsion-in-public-key-0",
+      "description": "Public key A + T where T has order 8 (a torsion component in the key)",
+      "publicKey": "9beabac92bfb051369c5cab8ec54fb8879885d533c2d13624ae0a75208b78790",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62120c9443df2a81173e88be9a50ccbe0c251c1a3d392ec84c89513211ccd4760d",
+      "valid": false
+    },
+    {
+      "name": "torsion-in-r-0",
+      "description": "Signature point R + T where T has order 8 (a torsion component in R)",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "7cfa96fcc1782864a11c5fef7a66ae5d3b50f3053841312a6c262e13270e145d5448a819cd3750d89942b8c9329e27c6c2e2c0b8772a65af0a61fb1f0886c307",
+      "valid": false
+    },
+    {
+      "name": "small-order-public-key-0",
+      "description": "The identity as public key, R = identity and S = 0: valid under ZIP-215 for any message",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "valid": false
+    },
+    {
+      "name": "valid-1",
+      "description": "An ordinary signature by a key in the prime-order subgroup",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652031",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b628b6458a8e788ad45ad5ee1e5e474130a9fb317c857b4944e188687f29d77950e",
+      "valid": true
+    },
+    {
+      "name": "wrong-message-1",
+      "description": "A valid signature over a different message",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6e6f7420746865207369676e6564206d6573736167652031",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b628b6458a8e788ad45ad5ee1e5e474130a9fb317c857b4944e188687f29d77950e",
+      "valid": false
+    },
+    {
+      "name": "non-canonical-s-1",
+      "description": "The ordinary signature with S replaced by S + L (S must be below the group order)",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652031",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b6278384e0502ecbf9d83fbd888c36ef21e9fb317c857b4944e188687f29d77951e",
+      "valid": false
+    },
+    {
+      "name": "torsion-in-public-key-1",
+      "description": "Public key A + T where T has order 8 (a torsion component in the key)",
+      "publicKey": "9beabac92bfb051369c5cab8ec54fb8879885d533c2d13624ae0a75208b78790",
+      "message": "6564323535313920766563746f72206d6573736167652031",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62aa0530b12f3233e85f842949cf120214353b9062f342ab67e5854096b1f7f400",
+      "valid": false
+    },
+    {
+      "name": "torsion-in-r-1",
+      "description": "Signature point R + T where T has order 8 (a torsion component in R)",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652031",
+      "signature": "7cfa96fcc1782864a11c5fef7a66ae5d3b50f3053841312a6c262e13270e145d5263da1696f7918568005012303e6bfeefba75ebcff9084a21aff7b45f331607",
+      "valid": false
+    },
+    {
+      "name": "small-order-public-key-1",
+      "description": "The identity as public key, R = identity and S = 0: valid under ZIP-215 for any message",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "6564323535313920766563746f72206d6573736167652031",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "valid": false
+    },
+    {
+      "name": "non-canonical-small-order-public-key",
+      "description": "The identity encoded non-canonically (y = 1 + p) as public key, R = identity, S = 0",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "valid": false
+    },
+    {
+      "name": "signature-too-short",
+      "description": "A 63-byte signature",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62b7e009670331f18331e005395c259ecd30492a7153c002c5580e80a522d777",
+      "valid": false
+    },
+    {
+      "name": "signature-too-long",
+      "description": "A 65-byte signature",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f9199365781",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62b7e009670331f18331e005395c259ecd30492a7153c002c5580e80a522d7770700",
+      "valid": false
+    },
+    {
+      "name": "public-key-too-short",
+      "description": "A 31-byte public key",
+      "publicKey": "f83a18951bba0429e1f3e6071ad3a98207e83572b6a56b7f231a2f91993657",
+      "message": "6564323535313920766563746f72206d6573736167652030",
+      "signature": "27866e73ab30985f17cd82eb6f7f25a788739185eda7664b6eff35f7bb726b62b7e009670331f18331e005395c259ecd30492a7153c002c5580e80a522d77707",
+      "valid": false
+    }
+  ]
+}

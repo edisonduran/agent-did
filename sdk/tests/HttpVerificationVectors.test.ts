@@ -55,7 +55,8 @@ function buildDocument(): AgentDIDDocument {
   return {
     '@context': context,
     id: fixture.did,
-    controller: fixture.controller,
+    // Self-controlled: the vectors test the HTTP rules, and a document-only resolver cannot prove a controller binding
+    controller: fixture.did,
     created: '2024-01-01T00:00:00.000Z',
     updated: '2024-01-01T00:00:00.000Z',
     agentMetadata: meta('HttpVerificationFixtureBot'),

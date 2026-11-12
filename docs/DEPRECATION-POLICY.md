@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Agent-DID has now frozen the public contract for the `1.0.0-rc` release train (currently `1.0.0-rc.4`). That is late enough that compatibility rules must be explicit even though the final stable tag is still pending release validation.
+Agent-DID has now frozen the public contract for the `1.0.0-rc` release train (currently `1.0.0-rc.5`). That is late enough that compatibility rules must be explicit even though the final stable tag is still pending release validation.
 
 This policy defines how the project communicates deprecations, breaking changes, and support expectations across:
 
@@ -13,7 +13,7 @@ This policy defines how the project communicates deprecations, breaking changes,
 
 ## Current Compatibility Phase
 
-Agent-DID is currently in the **`1.0.0-rc.N` release-candidate phase** (latest: `1.0.0-rc.4`).
+Agent-DID is currently in the **`1.0.0-rc.N` release-candidate phase** (latest: `1.0.0-rc.5`).
 
 That means:
 

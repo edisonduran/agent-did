@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from agent_did_sdk.resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 from agent_did_sdk.resolver.jsonrpc_source import JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig
@@ -11,13 +12,13 @@ from agent_did_sdk.resolver.jsonrpc_source import JsonRpcDIDDocumentSource, Json
 class TestHttpSourceSSRF:
     async def test_reject_file_protocol(self) -> None:
         source = HttpDIDDocumentSource()
-        result = await source.get_by_reference("file:///etc/passwd")
-        assert result is None
+        with pytest.raises(RuntimeError):
+            await source.get_by_reference("file:///etc/passwd")
 
     async def test_reject_data_protocol(self) -> None:
         source = HttpDIDDocumentSource()
-        result = await source.get_by_reference("data:text/html,<h1>evil</h1>")
-        assert result is None
+        with pytest.raises(RuntimeError):
+            await source.get_by_reference("data:text/html,<h1>evil</h1>")
 
     async def test_accept_https(self) -> None:
         async def handler(request: httpx.Request) -> httpx.Response:

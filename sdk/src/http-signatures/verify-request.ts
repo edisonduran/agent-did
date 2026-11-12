@@ -23,7 +23,12 @@ import { NonceStore } from '../core/nonce-store';
 import { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, computeContentDigest } from '../core/http-profile';
 
 /** What the injected cryptographic check found. */
-export type SignatureCheckOutcome = 'valid' | 'invalid' | 'key_not_authorized' | 'did_resolution_failed';
+export type SignatureCheckOutcome =
+  | 'valid'
+  | 'invalid'
+  | 'key_not_authorized'
+  | 'did_resolution_failed'
+  | 'controller_not_bound';
 
 export interface VerifyRequestDeps {
   /** Verifies `signatureHex` over `payload` by `keyId` under the DID `did`. */
@@ -148,8 +153,9 @@ export async function verifyAgentDidHttpRequest(
     if (outcome !== 'valid') {
       fail(
         outcome === 'did_resolution_failed' ? 'did_resolution_failed'
-          : outcome === 'key_not_authorized' ? 'keyid_not_authorized'
-            : 'signature_invalid',
+          : outcome === 'controller_not_bound' ? 'controller_not_bound'
+            : outcome === 'key_not_authorized' ? 'keyid_not_authorized'
+              : 'signature_invalid',
         true
       );
       continue;

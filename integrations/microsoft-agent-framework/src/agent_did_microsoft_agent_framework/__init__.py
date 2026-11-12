@@ -3,13 +3,18 @@
 from .config import AgentDidExposureConfig, AgentDidMicrosoftAgentFrameworkConfig
 from .context import build_agent_did_instructions, compose_instructions
 from .handoff import (
+    HANDOFF_ENVELOPE_TYPE,
+    HANDOFF_MAX_AGE_SECONDS,
+    HANDOFF_MAX_FUTURE_SKEW_SECONDS,
     HANDOFF_TTL_DEFAULTS,
     ActionClass,
     SignedHandoffMessage,
     VerificationBlockedCallback,
     VerificationBlockedError,
+    build_handoff_envelope,
     build_handoff_verifier_executor,
     build_handoff_verifier_function,
+    sign_handoff,
 )
 from .integration import (
     AgentDidMicrosoftAgentFrameworkIntegration,
@@ -42,12 +47,16 @@ __all__ = [
     "AgentDidMicrosoftAgentFrameworkIntegration",
     "AgentDidMicrosoftAgentFrameworkObservabilityEvent",
     "AgentDidWorkflowBuilder",
+    "HANDOFF_ENVELOPE_TYPE",
+    "HANDOFF_MAX_AGE_SECONDS",
+    "HANDOFF_MAX_FUTURE_SKEW_SECONDS",
     "HANDOFF_TTL_DEFAULTS",
     "SignedHandoffMessage",
     "VerificationBlockedCallback",
     "VerificationBlockedError",
     "build_agent_did_identity_snapshot",
     "build_agent_did_instructions",
+    "build_handoff_envelope",
     "build_handoff_verifier_executor",
     "build_handoff_verifier_function",
     "compose_event_handlers",
@@ -60,4 +69,5 @@ __all__ = [
     "create_opentelemetry_tracer",
     "sanitize_observability_attributes",
     "serialize_observability_event",
+    "sign_handoff",
 ]

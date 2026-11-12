@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Agent-DID: an identity layer for AI agents (W3C DID/VC, `did:webvh` as the canonical path, Ed25519, HTTP Message Signatures). The repo is a monorepo holding the spec, two SDKs that must stay in parity and six framework integrations. The deferred EVM profile (contracts, `@agentdid/evm`, `agent-did-evm`) lives in `edisonduran/agent-did-evm`. Current train: `1.0.0-rc.4` published (breaking RC: did:webvh v1.0, RFC 9421, JCS; rc.4 changes the SDK API, not the wire).
+Agent-DID: an identity layer for AI agents (W3C DID/VC, `did:webvh` as the canonical path, Ed25519, HTTP Message Signatures). The repo is a monorepo holding the spec, two SDKs that must stay in parity and six framework integrations. The deferred EVM profile (contracts, `@agentdid/evm`, `agent-did-evm`) lives in `edisonduran/agent-did-evm`. Current train: `1.0.0-rc.5` in preparation (rc.4 is the last published) (breaking RC: did:webvh v1.0, RFC 9421, JCS; rc.5 changes payload signatures and rotated documents, then the wire is frozen).
 
 Maintainers may keep session-specific context in `CLAUDE.local.md`, which is gitignored. Read it when present.
 

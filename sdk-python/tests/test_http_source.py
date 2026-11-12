@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import httpx
+import pytest
 
 from agent_did_sdk.resolver.http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 
@@ -56,13 +57,13 @@ class TestHttpDIDDocumentSource:
 
     async def test_ssrf_reject_file(self) -> None:
         source = HttpDIDDocumentSource()
-        doc = await source.get_by_reference("file:///etc/passwd")
-        assert doc is None
+        with pytest.raises(RuntimeError):
+            await source.get_by_reference("file:///etc/passwd")
 
     async def test_ssrf_reject_data(self) -> None:
         source = HttpDIDDocumentSource()
-        doc = await source.get_by_reference("data:text/html,<h1>hi</h1>")
-        assert doc is None
+        with pytest.raises(RuntimeError):
+            await source.get_by_reference("data:text/html,<h1>hi</h1>")
 
     async def test_ipfs_gateway_failover(self) -> None:
         call_count = 0

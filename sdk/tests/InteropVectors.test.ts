@@ -39,7 +39,8 @@ describe('Interoperability Vectors', () => {
   const buildDidDocument = (fixture: (typeof fixtureSet.vectors)[string]): AgentDIDDocument => ({
     '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
     id: fixture.did,
-    controller: fixture.controller,
+    // Self-controlled: the vectors test signatures, and a document-only resolver cannot prove a controller binding
+    controller: fixture.did,
     created: '2026-01-01T00:00:00.000Z',
     updated: '2026-01-01T00:00:00.000Z',
     agentMetadata: {

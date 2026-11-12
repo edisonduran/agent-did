@@ -21,6 +21,14 @@ Design contract (locked):
   ``key_lifecycle``: the signer must re-sign with a current key. Once the TTL
   elapses, the next handoff MUST verify against the agent's current key set.
 
+- Signed envelope: the signature covers a canonical (RFC 8785) JSON envelope with the payload, the sender DID and
+  key id, ``signed_at``, the destination executor id and a nonce, never ``str(payload)``. The verifier rebuilds the
+  envelope from the message, so ``signed_at`` (and with it the TTL), the sender and the destination are what the
+  signer signed. A message signed for another edge does not verify here, a ``(did, nonce)`` pair is accepted once
+  (``nonce_store``; the default is per verifier and per process: pass a shared store when several instances verify)
+  and ``signed_at`` cannot lie in the future beyond a small skew. ``allowed_dids`` is required for
+  ``action_class="irreversible"`` and a warning is logged when a handoff accepts any DID.
+
 This module deliberately delegates ALL key-lifecycle logic to the central SDK
 primitives (``AgentDidClient.verify_signature`` and
 ``AgentDidClient.verify_signature_at_time``). It must not re-implement the
@@ -30,6 +38,9 @@ the SDK is the single source of truth and this helper inherits any change for fr
 
 from __future__ import annotations
 
+import logging
+import math
+import secrets
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -40,12 +51,18 @@ from agent_did_sdk import (
     AgentDidClient,
     AgentIdentity,
     IdentityCompositionError,
+    InMemoryNonceStore,
+    NonceStore,
     VerificationRelationship,
     VerifySignatureAtTimeResult,
+    canonicalize_json,
 )
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
+from .snapshot import RuntimeIdentity, get_active_authentication_key_id
+
+_LOGGER = logging.getLogger(__name__)
 
 ActionClass = Literal["irreversible", "compensable", "reversible"]
 
@@ -55,7 +72,44 @@ HANDOFF_TTL_DEFAULTS: dict[ActionClass, int] = {
     "reversible": 300,
 }
 
+HANDOFF_ENVELOPE_TYPE = "agent-did/handoff/v1"
+"""``type`` member of the signed handoff envelope."""
+
+HANDOFF_MAX_AGE_SECONDS = 3600
+"""A handoff signed longer ago than this is refused. It is also how long its nonce is remembered, so a captured
+message cannot be replayed once the nonce store has forgotten it."""
+
+HANDOFF_MAX_FUTURE_SKEW_SECONDS = 30
+"""``signed_at`` is asserted by the signer: a value further in the future than this is refused."""
+
 VerificationBlockedCallback = Callable[["VerificationBlockedError"], Any]
+
+
+def build_handoff_envelope(
+    *,
+    did: str,
+    key_id: str | None,
+    signed_at: float,
+    destination: str,
+    nonce: str,
+    payload: Any,
+) -> str:
+    """The canonical (RFC 8785) JSON text a handoff signature covers.
+
+    ``payload`` must be JSON-serializable; anything else raises ``TypeError`` or ``ValueError``. The text is signed
+    with ``AgentIdentity.sign_message`` (so it also carries that method's domain prefix).
+    """
+    return canonicalize_json(
+        {
+            "type": HANDOFF_ENVELOPE_TYPE,
+            "did": did,
+            "keyId": key_id,
+            "signedAtMs": int(round(signed_at * 1000)),
+            "destination": destination,
+            "nonce": nonce,
+            "payload": payload,
+        }
+    )
 
 
 async def _default_verify_signature_at_time(
@@ -88,6 +142,45 @@ class SignedHandoffMessage:
     signed_at: float
     key_id: str | None = None
     trust_domain: str | None = None
+    nonce: str | None = None
+    """Random single-use value covered by the signature. Required: a message without one is refused."""
+    destination: str | None = None
+    """Id of the executor this message is signed for (the verifier's downstream executor). Required."""
+
+
+async def sign_handoff(
+    *,
+    agent_identity: AgentIdentity,
+    runtime_identity: RuntimeIdentity,
+    payload: Any,
+    destination: str,
+    trust_domain: str | None = None,
+    signed_at: float | None = None,
+    nonce: str | None = None,
+) -> SignedHandoffMessage:
+    """Sign ``payload`` for the handoff edge whose downstream executor id is ``destination``.
+
+    The signature covers :func:`build_handoff_envelope` (payload, DID, key id, ``signed_at``, destination, nonce).
+    ``payload`` must be JSON-serializable.
+    """
+    key_id = get_active_authentication_key_id(runtime_identity)
+    document = runtime_identity.document
+    moment = time.time() if signed_at is None else signed_at
+    single_use = nonce if nonce is not None else secrets.token_hex(16)
+    envelope = build_handoff_envelope(
+        did=document.id, key_id=key_id, signed_at=moment, destination=destination, nonce=single_use, payload=payload
+    )
+    signature = await agent_identity.sign_message(envelope, runtime_identity.agent_private_key)
+    return SignedHandoffMessage(
+        payload=payload,
+        did=document.id,
+        signature=signature,
+        signed_at=moment,
+        key_id=key_id,
+        trust_domain=trust_domain,
+        nonce=single_use,
+        destination=destination,
+    )
 
 
 class VerificationBlockedError(Exception):
@@ -128,6 +221,8 @@ class _VerifierContext:
     verify_signature: Callable[..., Any] = field(default=AgentIdentity.verify_signature)
     verify_signature_at_time: Callable[..., Any] = field(default=_default_verify_signature_at_time)
     now: Callable[[], float] = field(default=time.time)
+    nonce_store: NonceStore = field(default_factory=InMemoryNonceStore)
+    max_age_seconds: int = HANDOFF_MAX_AGE_SECONDS
 
 
 def _resolve_executor_id(executor: Any) -> str:
@@ -255,6 +350,15 @@ def build_handoff_verifier_function(ctx: _VerifierContext) -> Callable[..., Any]
             await _emit_block_outcome(ctx, wf_ctx, error)
             return
 
+        envelope_problem = _check_envelope_fields(ctx, message)
+        if envelope_problem is not None:
+            gate, note = envelope_problem
+            error = _build_block_error(
+                failing_gates=[gate], checked_did=message.did, action_class=ctx.action_class, enforcement_note=note
+            )
+            await _emit_block_outcome(ctx, wf_ctx, error)
+            return
+
         outcome = await _run_signature_verification(ctx, message)
         if not outcome.valid:
             error = _build_block_error(
@@ -266,6 +370,18 @@ def build_handoff_verifier_function(ctx: _VerifierContext) -> Callable[..., Any]
             await _emit_block_outcome(ctx, wf_ctx, error)
             return
 
+        # The nonce is recorded only for a message whose signature verified, so garbage cannot burn nonces.
+        remembered_until = int(message.signed_at + ctx.max_age_seconds) + 1
+        if not await ctx.nonce_store.check_and_store(f"{message.did}|{message.nonce}", remembered_until):
+            error = _build_block_error(
+                failing_gates=["replay"],
+                checked_did=message.did,
+                action_class=ctx.action_class,
+                enforcement_note=f"Handoff nonce already used for {message.did} (replay), or the nonce store is full",
+            )
+            await _emit_block_outcome(ctx, wf_ctx, error)
+            return
+
         _emit_verified(
             ctx.observer, ctx,
             from_did=message.did, used_historical=outcome.used_key_at_time, staleness_seconds=outcome.staleness,
@@ -273,6 +389,25 @@ def build_handoff_verifier_function(ctx: _VerifierContext) -> Callable[..., Any]
         await wf_ctx.send_message(message.payload)
 
     return _verifier
+
+
+def _check_envelope_fields(ctx: _VerifierContext, message: SignedHandoffMessage) -> tuple[str, str] | None:
+    """Checks that need no cryptography: ``(gate, note)`` for the first one that fails, else ``None``."""
+    if message.destination != ctx.to_executor_id:
+        return (
+            "destination",
+            f"Handoff is signed for {message.destination!r}, not for this edge's executor {ctx.to_executor_id!r}",
+        )
+    if not isinstance(message.nonce, str) or not message.nonce:
+        return "nonce", "Handoff message carries no nonce"
+    now = ctx.now()
+    if not math.isfinite(message.signed_at) or not math.isfinite(now):
+        return "signed_at", "Handoff signed_at is not a finite time"
+    if message.signed_at > now + HANDOFF_MAX_FUTURE_SKEW_SECONDS:
+        return "signed_at", "Handoff signed_at lies in the future beyond the allowed skew"
+    if now - message.signed_at > ctx.max_age_seconds:
+        return "signed_at", f"Handoff is older than {ctx.max_age_seconds}s and is refused"
+    return None
 
 
 async def _emit_unsigned_outcome(ctx: _VerifierContext, wf_ctx: Any, message: Any) -> None:
@@ -310,6 +445,8 @@ class _SignatureOutcome:
 
 
 def _block_note(outcome: _SignatureOutcome, ttl_seconds: int, did: str) -> str:
+    if outcome.gate == "payload":
+        return "Handoff payload is not JSON-serializable, so it cannot match a signed envelope"
     if outcome.past_ttl:
         return (
             f"Signature past action-class TTL ({ttl_seconds}s) and the previous key "
@@ -332,7 +469,18 @@ def _signed_at_rfc3339(signed_at: float) -> str:
 
 
 async def _run_signature_verification(ctx: _VerifierContext, message: SignedHandoffMessage) -> _SignatureOutcome:
-    payload_str = message.payload if isinstance(message.payload, str) else str(message.payload)
+    try:
+        payload_str = build_handoff_envelope(
+            did=message.did,
+            key_id=message.key_id,
+            signed_at=message.signed_at,
+            destination=str(message.destination),
+            nonce=str(message.nonce),
+            payload=message.payload,
+        )
+    except (TypeError, ValueError, OverflowError):
+        # A payload that is not JSON-serializable cannot have been signed: there is no str(obj) fallback.
+        return _SignatureOutcome(valid=False, staleness=0.0, gate="payload")
     staleness = max(0.0, ctx.now() - message.signed_at)
 
     if staleness > ctx.ttl_seconds:
@@ -410,8 +558,23 @@ def build_handoff_verifier_executor(
     client: AgentDidClient | None = None,
     executor_id: str | None = None,
     output_type: Any = object,
+    nonce_store: NonceStore | None = None,
 ) -> FunctionExecutor:
-    """Build the ``FunctionExecutor`` that enforces verification at a handoff edge."""
+    """Build the ``FunctionExecutor`` that enforces verification at a handoff edge.
+
+    ``allowed_dids`` is required for ``action_class="irreversible"``; for the other classes a warning is logged when
+    it is ``None`` because the handoff then accepts any DID that resolves and signs. ``nonce_store`` records the
+    ``(did, nonce)`` pairs accepted: the default is an in-memory store of this verifier in this process, so pass a
+    shared store when several workflow instances verify the same edge.
+    """
+
+    if action_class == "irreversible" and allowed_dids is None and require_signature:
+        raise ValueError("allowed_dids is required when action_class is 'irreversible'")
+    if allowed_dids is None and require_signature:
+        _LOGGER.warning(
+            "add_verified_handoff accepts any DID that resolves and signs (allowed_dids is None); "
+            "pass allowed_dids to restrict the senders of this edge"
+        )
 
     from_id = _resolve_executor_id(from_executor)
     to_id = _resolve_executor_id(to_executor)
@@ -440,6 +603,7 @@ def build_handoff_verifier_executor(
         cross_domain=cross_domain,
         on_verification_blocked=on_verification_blocked,
         observer=observer,
+        nonce_store=nonce_store if nonce_store is not None else InMemoryNonceStore(),
         **client_verifiers,
     )
 
@@ -478,6 +642,11 @@ __all__ = [
     "SignedHandoffMessage",
     "VerificationBlockedCallback",
     "VerificationBlockedError",
+    "HANDOFF_ENVELOPE_TYPE",
+    "HANDOFF_MAX_AGE_SECONDS",
+    "HANDOFF_MAX_FUTURE_SKEW_SECONDS",
+    "build_handoff_envelope",
     "build_handoff_verifier_executor",
     "build_handoff_verifier_function",
+    "sign_handoff",
 ]

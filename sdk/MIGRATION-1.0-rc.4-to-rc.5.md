@@ -161,6 +161,36 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 
 `@agentdid/sdk` now declares `exports`: the package root (`import` -> `dist/index.mjs`, `require` -> `dist/index.js`, types) and `./package.json`. ES module projects can `import { AgentIdentity } from '@agentdid/sdk'`; `require` keeps working and returns the same objects. Deep imports such as `@agentdid/sdk/dist/core/AgentIdentity` stop resolving: import from the package root.
 
+## 15. Controller binding: an agent verifies only if its controller endorsed its last log entry
+
+A did:webvh agent whose document names a `controller` other than itself verifies only if the proof of the last entry of its log was made by a key that is active under `capabilityInvocation` of the controller's document (RFC-001 §6.6 item 7). Verification fails with `controller_not_bound` otherwise, and when the controller does not resolve or the verifier does not have the agent's log (a resolver that returns only documents cannot prove the binding).
+
+- Agents created under the SDK's local bootstrap controller are bound out of the box. A bootstrap controller created in rc.4 does not list its key under `capabilityInvocation`: add it with `addVerificationMethod(did, { signer })` (the same key can be added under a new id), then give each agent one new entry signed by that key (any `updateDidDocument`).
+- Agents with an explicit controller (`webvh.controllerDid` / `controllerSigner`): the controller's published DID document must list the signing key under `capabilityInvocation`.
+- Verifiers must hold the agent's log: fetched by the production resolver, or loaded with `importDidWebvhHistory`.
+- Rotating the controller's key without unbinding its agents: (1) `addVerificationMethod(controllerDid, { signer: newKey })`; (2) for each agent `rotateControllerKey(agentDid, { newControllerSigner })` and then `updateDidDocument(agentDid, patch, { controllerSigner: newKey })`; (3) `rotateVerificationMethod(controllerDid, { signer: newKey })`. Retiring the old key before step 2 unbinds the agents. With pre-rotation, the committed key that signs the agent's next entry must already be listed under the controller's `capabilityInvocation`.
+- `AgentDidClient` gains `resolveDidWebvhState` (the verified log, `updateKeys`, the keys that signed the last entry and the provenance) and `addVerificationMethod`.
+
+## 16. Resolution and import of did:webvh logs
+
+- `importDidWebvhHistory` rejects a log that does not extend the one stored in the client (an older prefix or a different history); the same log is a no-op. Import the newer log, or use a fresh client.
+- did:webvh resolution through `UniversalResolverClient` has no fallback: a DID whose log cannot be fetched (or is not found) fails closed. DIDs that relied on the fallback to the pre-production in-memory resolver now need a reachable log host, or a fresh import within the cache TTL.
+- A DID created or changed in the client is resolved from its local log. A test that replaced the document of such a DID through a custom resolver must use a separate verifier client holding the documents and logs it wants resolved.
+- A target blocked by the SSRF policy now fails with `blocked by SSRF policy` instead of returning "not found".
+
+## 17. Rotation, key ids and public key encodings
+
+- `rotateVerificationMethod` removes the retired keys from every verification relationship. Documents of DIDs rotated in rc.4 still list them; run any `updateDidDocument` to republish the document without them.
+- `signHttpRequest` requires `verificationMethodId`: pass `document.authentication[0]` or the id the rotation returned (the `#key-1` default named the wrong key after a rotation).
+- The new key of a rotation can live in a KMS/HSM: `rotateVerificationMethod(did, { signer })`; the result's private key is then empty.
+- `publicKeyMultibase` is decoded only as `z` + Base58btc(`0xed01` + key): the SDK 0.x `z`+hex form and raw keys without the multicodec prefix are rejected. Re-encode such documents.
+- Ed25519 signatures with non-canonical or torsion-carrying points are rejected in both SDKs (RFC-001 §7, `fixtures/ed25519-verification-vectors.json`). A signature that is not valid hex, or an empty key id, fails verification instead of throwing or being ignored.
+
+## 18. Breaking: payload signatures carry a domain prefix; verified handoffs sign an envelope
+
+- `signMessage` signs `agent-did/v1/message` + a line feed + the payload, and `verifySignature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
+- Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -178,3 +208,10 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 - [ ] Calls to `verifyHistoricalSignature` are replaced with `verifySignatureAtTime`, and `indeterminate` is handled as not accepted.
 - [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.
 - [ ] Direct users of the did:webvh adapter read `result.versionNumber` instead of `result.metadata.versionNumber`.
+- [ ] Every `signHttpRequest` call passes `verificationMethodId`.
+- [ ] Stored payload signatures are re-signed with rc.5 (the signed bytes carry the `agent-did/v1/message` prefix).
+- [ ] Agents with an explicit controller are listed under the controller's `capabilityInvocation`; bootstrap controllers from rc.4 get the key added (`addVerificationMethod`).
+- [ ] Verifiers hold the agent's did:webvh log (production resolver or `importDidWebvhHistory`); no code relies on a fallback for did:webvh.
+- [ ] DIDs rotated in rc.4 were republished once (`updateDidDocument`) so retired keys leave the relationships.
+- [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
+- [ ] ES module projects import from the package root only (no deep imports).

@@ -31,13 +31,15 @@ async function emit() {
     url: URL_,
     body: BODY,
     agentPrivateKey,
-    agentDid: document.id
+    agentDid: document.id, verificationMethodId: `${document.id}#key-1`
   });
   const controllerChain = await client.resolveControllerChain(document.id);
   process.stdout.write(JSON.stringify({
     producer: 'typescript',
     document,
     controllerDocuments: controllerChain.filter((d) => d.id !== document.id),
+    // The did:webvh logs of the agent and its controllers: the verifier checks them and the controller binding from the logs
+    logs: controllerChain.map((d) => client.exportDidWebvhHistory(d.id)),
     keyId: document.verificationMethod[0].id,
     message: { payload: MESSAGE, signatureHex },
     http: { method: 'POST', url: URL_, body: BODY, headers }
@@ -46,11 +48,8 @@ async function emit() {
 
 async function verify() {
   const bundle = JSON.parse(fs.readFileSync(0, 'utf8'));
-  const resolver = new sdk.InMemoryDIDResolver();
-  for (const doc of [bundle.document, ...bundle.controllerDocuments]) resolver.registerDocument(doc);
-  const registry = new sdk.InMemoryAgentRegistry();
-  await registry.register(bundle.document.id, bundle.document.controller, 'hash://sha256/roundtrip');
-  const client = new sdk.AgentDidClient({ resolver, registry });
+  const client = new sdk.AgentDidClient();
+  for (const log of bundle.logs) await client.importDidWebvhHistory(log);
 
   const results = {
     message: await client.verifySignature(bundle.document.id, bundle.message.payload, bundle.message.signatureHex, bundle.keyId),

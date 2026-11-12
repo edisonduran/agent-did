@@ -39,7 +39,7 @@ async def main() -> None:
             url="https://api.example.com/tasks",
             body='{"taskId":7}',
             agent_private_key=created.agent_private_key,
-            agent_did=created.document.id,
+            agent_did=created.document.id, verification_method_id=f"{created.document.id}#key-1",
         )
     )
 
