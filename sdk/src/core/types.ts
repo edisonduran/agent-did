@@ -101,6 +101,11 @@ export interface AddVerificationMethodResult {
   verificationMethodId: string;
   /** Empty when `signer` was given. */
   agentPrivateKey: string;
+  /**
+   * The external signer given for the agent key (`signer`), when one was: the private key never left it and
+   * `agentPrivateKey` is empty. Integrations sign with it. It lives only in this process and is not serialized.
+   */
+  signer?: import('./signer').AgentSigner;
 }
 
 export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOptions {
@@ -198,6 +203,11 @@ export interface CreateAgentResult {
   /** The Ed25519 private key (hex) — present only in demo mode (no external signer). */
   agentPrivateKey: string;
   /**
+   * The external signer given for the agent key (`signer`), when one was: the private key never left it and
+   * `agentPrivateKey` is empty. Integrations sign with it. It lives only in this process and is not serialized.
+   */
+  signer?: import('./signer').AgentSigner;
+  /**
    * Ed25519 private key (hex) of the local bootstrap controller. Present only when this call
    * created the bootstrap controller document (implicit `did:webvh` profile, controller not yet
    * registered). It is randomly generated and returned only once; store it securely or discard it.
@@ -238,7 +248,13 @@ export interface UpdateAgentDocumentParams {
 export interface RotateVerificationMethodResult {
   document: AgentDIDDocument;
   verificationMethodId: string;
+  /** Empty when `signer` was given. */
   agentPrivateKey: string;
+  /**
+   * The external signer given for the agent key (`signer`), when one was: the private key never left it and
+   * `agentPrivateKey` is empty. Integrations sign with it. It lives only in this process and is not serialized.
+   */
+  signer?: import('./signer').AgentSigner;
 }
 
 export type AgentDocumentHistoryAction = 'created' | 'updated' | 'rotated-key' | 'revoked';

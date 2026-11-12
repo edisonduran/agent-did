@@ -13,9 +13,10 @@ value AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did'
 value AGENT_DID_MESSAGE_SIGNING_PREFIX = 'agent-did/v1/message\n'
 
 ## AddVerificationMethodResult
-class AddVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, verificationMethodId: str, agentPrivateKey: str) -> None
+class AddVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, verificationMethodId: str, agentPrivateKey: str, signer: typing.Any | None = None) -> None
   attr agent_private_key: str
   attr document: AgentDIDDocument
+  attr signer: Any | None
   attr verification_method_id: str
   member model_config = {'populate_by_name': True}
 
@@ -228,11 +229,12 @@ class CreateAgentParams(*, name: str, description: str | None = None, version: s
   member model_config = {'arbitrary_types_allowed': True}
 
 ## CreateAgentResult
-class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str, controllerPrivateKey: str | None = None, metadataCommitmentSalts: agent_did_sdk.core.types.MetadataCommitmentSalts | None = None) -> None
+class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, agentPrivateKey: str, signer: typing.Any | None = None, controllerPrivateKey: str | None = None, metadataCommitmentSalts: agent_did_sdk.core.types.MetadataCommitmentSalts | None = None) -> None
   attr agent_private_key: str
   attr controller_private_key: str | None
   attr document: AgentDIDDocument
   attr metadata_commitment_salts: MetadataCommitmentSalts | None
+  attr signer: Any | None
   member model_config = {'populate_by_name': True}
 
 ## CreateDidWebvhOptions
@@ -496,9 +498,10 @@ class ResolverResolutionEvent(did: 'str', stage: 'ResolverResolutionStage', dura
 value ResolverResolutionStage = typing.Literal['cache-hit', 'cache-miss', 'registry-lookup', 'source-fetch', 'source-fetched', 'fallback', 'resolved', 'error']
 
 ## RotateVerificationMethodResult
-class RotateVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, verificationMethodId: str, agentPrivateKey: str) -> None
+class RotateVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, verificationMethodId: str, agentPrivateKey: str, signer: typing.Any | None = None) -> None
   attr agent_private_key: str
   attr document: AgentDIDDocument
+  attr signer: Any | None
   attr verification_method_id: str
   member model_config = {'populate_by_name': True}
 

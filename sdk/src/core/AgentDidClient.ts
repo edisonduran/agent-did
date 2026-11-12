@@ -64,6 +64,15 @@ import { normalizeTimestampToIso } from './time';
 import { messageSigningInput } from './message-signing';
 import { assertBoundToController, ControllerBindingError } from './controller-binding';
 
+/** Attaches the external agent-key signer to a result without making it enumerable: it is not copied by a spread
+ * and never reaches `JSON.stringify`. */
+function withSigner<T extends object>(result: T, signer: AgentSigner | undefined): T & { signer?: AgentSigner } {
+  if (signer) {
+    Object.defineProperty(result, 'signer', { value: signer, enumerable: false, writable: false, configurable: false });
+  }
+  return result;
+}
+
 export interface ProductionResolverProfileConfig {
   registry: AgentRegistry;
   documentSource: DIDDocumentSource;
@@ -281,12 +290,12 @@ export class AgentDidClient {
     await this.registry.register(document.id, document.controller, computeDocumentReference(document));
     this.appendHistory(document, 'created');
 
-    return {
+    return withSigner({
       document,
       agentPrivateKey: agent.privateKeyHex,
       ...(controllerPrivateKey ? { controllerPrivateKey } : {}),
       metadataCommitmentSalts: agent.metadataCommitmentSalts
-    };
+    }, params.signer);
   }
 
   private requireWebvhCreateOptions(params: CreateAgentParams): NonNullable<CreateAgentParams['webvh']> {
@@ -759,11 +768,11 @@ export class AgentDidClient {
     await this.registry.setDocumentReference(did, computeDocumentReference(updatedDocument));
     this.appendHistory(updatedDocument, 'rotated-key');
 
-    return {
+    return withSigner({
       document: updatedDocument,
       verificationMethodId: rotated.verificationMethodId,
       agentPrivateKey: rotated.agentPrivateKey
-    };
+    }, options.signer);
   }
 
   /**
@@ -794,11 +803,11 @@ export class AgentDidClient {
     await this.registry.setDocumentReference(did, computeDocumentReference(updatedDocument));
     this.appendHistory(updatedDocument, 'updated');
 
-    return {
+    return withSigner({
       document: updatedDocument,
       verificationMethodId: added.verificationMethodId,
       agentPrivateKey: added.agentPrivateKey
-    };
+    }, options.signer);
   }
 
   /**

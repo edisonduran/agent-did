@@ -17,6 +17,35 @@ const DEFAULT_EXPOSURE = {
   rotateKeys: false,
 };
 
+/**
+ * What the runtime identity signs with: its external signer (KMS, HSM) when it has one, else its private key (hex).
+ */
+function runtimeSigningKey(runtimeIdentity) {
+  if (runtimeIdentity.signer) {
+    return runtimeIdentity.signer;
+  }
+  if (!runtimeIdentity.agentPrivateKey) {
+    throw new Error("The runtime identity has no private key and no signer to sign with");
+  }
+  return runtimeIdentity.agentPrivateKey;
+}
+
+/** `signer` or `agentPrivateKey` for `signHttpRequest`, from runtimeSigningKey. */
+function runtimeSigningParams(runtimeIdentity) {
+  const key = runtimeSigningKey(runtimeIdentity);
+  return typeof key === "string" ? { agentPrivateKey: key } : { signer: key };
+}
+
+/** A tool can only rotate to a key it generates locally; an external signer is rotated by its operator. */
+function assertRotatableByTool(runtimeIdentity) {
+  if (runtimeIdentity.signer) {
+    throw new Error(
+      "This agent signs with an external signer: rotate its key with " +
+        "client.rotateVerificationMethod(did, { signer }), not with the rotate_key tool"
+    );
+  }
+}
+
 function withPrefix(prefix, name) {
   return `${prefix}_${name}`;
 }
@@ -327,7 +356,7 @@ function createAgentDidTools(options) {
         const toolName = withPrefix(toolPrefix, "sign_payload");
         emitToolStarted(observer, { toolName, did: currentDid, inputs: { payload } });
         try {
-          const signature = await options.agentIdentity.signMessage(payload, options.runtimeIdentity.agentPrivateKey);
+          const signature = await options.agentIdentity.signMessage(payload, runtimeSigningKey(options.runtimeIdentity));
           const keyId = getActiveVerificationMethodId(options.runtimeIdentity);
           emitToolSucceeded(observer, {
             toolName,
@@ -371,7 +400,7 @@ function createAgentDidTools(options) {
             method,
             url,
             body,
-            agentPrivateKey: options.runtimeIdentity.agentPrivateKey,
+            ...runtimeSigningParams(options.runtimeIdentity),
             agentDid: options.runtimeIdentity.document.id,
             verificationMethodId: keyId,
             // The SDK applies its own target policy too: without this, allowPrivateNetworkTargets would not reach it
@@ -448,6 +477,7 @@ function createAgentDidTools(options) {
         const toolName = withPrefix(toolPrefix, "rotate_key");
         emitToolStarted(observer, { toolName, did: currentDid });
         try {
+          assertRotatableByTool(options.runtimeIdentity);
           const rotated = await options.agentIdentity.client.rotateVerificationMethod(options.runtimeIdentity.document.id);
           const updatedIdentity = {
             ...options.runtimeIdentity,

@@ -191,6 +191,12 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `signMessage` signs `agent-did/v1/message` + a line feed + the payload, and `verifySignature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 23. Integrations sign with the agent's external signer
+
+- `createAgent` / `create`, `rotateVerificationMethod` and `addVerificationMethod` return the `signer` you passed for the agent key as `result.signer` (non-enumerable: `JSON.stringify` and object spread skip it). The LangChain JS integration signs payloads and HTTP requests with it when present; before, an agent created with a KMS or HSM signer could not sign through the integration.
+- The `rotate_key` tool refuses an agent whose key lives in an external signer: rotate it with `client.rotateVerificationMethod(did, { signer: newSigner })` and pass the result to the integration.
+- `JSON.stringify(localKeySigner)` is `{"type":"LocalKeySigner"}`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

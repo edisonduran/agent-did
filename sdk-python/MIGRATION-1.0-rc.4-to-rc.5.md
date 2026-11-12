@@ -217,6 +217,11 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `sign_message` signs `agent-did/v1/message` + a line feed + the payload, and `verify_signature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 23. Integrations sign with the agent's external signer
+
+- `create`, `rotate_verification_method` and `add_verification_method` return the `signer` you passed for the agent key as `result.signer` (excluded from `model_dump` / `model_dump_json`). The A2A, LangChain, CrewAI, Semantic Kernel and Microsoft Agent Framework integrations sign payloads, HTTP requests and handoffs with it when present; before, an agent created with a KMS or HSM signer failed with `The seed must be exactly 32 bytes long`.
+- The `rotate_key` tools refuse an agent whose key lives in an external signer: rotate it with `client.rotate_verification_method(did, signer=new_signer)` and pass the result to the integration.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

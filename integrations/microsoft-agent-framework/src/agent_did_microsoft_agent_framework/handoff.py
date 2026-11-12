@@ -60,7 +60,7 @@ from agent_did_sdk import (
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
-from .snapshot import RuntimeIdentity, get_active_authentication_key_id
+from .snapshot import RuntimeIdentity, get_active_authentication_key_id, runtime_signing_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ async def sign_handoff(
     envelope = build_handoff_envelope(
         did=document.id, key_id=key_id, signed_at=moment, destination=destination, nonce=single_use, payload=payload
     )
-    signature = await agent_identity.sign_message(envelope, runtime_identity.agent_private_key)
+    signature = await agent_identity.sign_message(envelope, runtime_signing_key(runtime_identity))
     return SignedHandoffMessage(
         payload=payload,
         did=document.id,

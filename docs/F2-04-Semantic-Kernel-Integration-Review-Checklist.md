@@ -82,6 +82,7 @@ Semantic Kernel review is complete when the scaffold state is accurately describ
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | Review gate: an agent created with an external signer signs through the tools; tool rotation refuses it. |
 | 2026-11-12 | `sign_http_request` raises `ValueError` when the runtime identity has no active authentication key, because the SDK now requires the verification method id (same behavior as the A2A client). Type-check fix; no other change to the integration surface. |
 | 2026-11-12 | RC metadata moved to the `1.0.0rc5` release train (npm `1.0.0-rc.5`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-04 | Semantic Kernel README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |
