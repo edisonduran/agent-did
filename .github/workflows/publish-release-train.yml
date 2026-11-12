@@ -69,6 +69,9 @@ jobs:
       - name: Build TypeScript SDK
         run: npm --prefix sdk run build
 
+      - name: Check the ESM wrapper and the package exports map
+        run: npm --prefix sdk run esm:check
+
       - name: Pack TypeScript SDK tarball
         working-directory: sdk
         run: npm pack
