@@ -247,6 +247,10 @@ async def resolve_did_webvh_log(
     Checks the SCID, entry hash chain, ``updateKeys`` proofs and version
     times. Raises :class:`DidWebvhError` on any verification failure; it never
     returns a partially verified result.
+
+    With *version_id*, *version_number* or *version_time* it returns that version of the log. The whole log
+    is still verified, and ``metadata.deactivated`` describes the DID, not the selected version: it is true
+    for every version of a deactivated DID (DID Core section 7.1.2).
     """
     entries = _parse_log(log)
     serialized = _serialize(entries)
@@ -257,28 +261,23 @@ async def resolve_did_webvh_log(
         except ValueError:
             raise DidWebvhError("invalidOptions", f"Invalid versionTime: {version_time}") from None
 
-    try:
-        state, meta = await DidResolver(WebvhVerifier()).resolve_state(
-            None,
-            _TextHistory(serialized),
+    # Resolving the latest version verifies every entry. The reference resolver returns a selected version
+    # even when a later entry fails verification, so the selection below only runs on a fully verified log.
+    latest, meta = await _resolve_verified_state(serialized)
+    state = latest
+    if version_id is not None or version_number is not None or version_time is not None:
+        state, meta = await _resolve_verified_state(
+            serialized,
             version_id=version_id,
             version_number=str(version_number) if version_number is not None else None,
             version_time=version_time,
         )
-    except ResolutionError as err:
-        raise DidWebvhError(_map_resolution_error(err.error), _resolution_message(err)) from None
-    except InvalidDocumentState as err:
-        raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {err}") from None
-    except AsyncTextReadError as err:
-        raise DidWebvhError("notFound", f"did:webvh log verification failed: {err}") from None
-    except Exception as err:  # noqa: BLE001 - fail closed on any library defect
-        raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {type(err).__name__}") from None
 
     document = state.document_copy()
     signed_state = state.document_copy()
     if not state.deactivated:
-        # Implicit #files and #whois services, as didwebvh-ts adds them. A
-        # deactivated DID resolves to the raw state of its last entry in both SDKs.
+        # Implicit #files and #whois services, as didwebvh-ts adds them. The entry that
+        # deactivates the DID resolves to its raw state in both SDKs.
         extend_document_services(document, did_base_url(state.document_id, files=True))
     if did is not None and document.get("id") != did:
         raise DidWebvhError("invalidDid", f"did:webvh log belongs to {document.get('id')}, not {did}")
@@ -294,7 +293,7 @@ async def resolve_did_webvh_log(
         scid=state.scid,
         update_keys=list(state.update_keys),
         next_key_hashes=list(state.next_key_hashes or []),
-        deactivated=state.deactivated,
+        deactivated=latest.deactivated,
         ttl=str(ttl) if ttl is not None else _DEFAULT_TTL,
     )
     return DidWebvhLogResult(
@@ -329,6 +328,21 @@ async def _read_text(text: str) -> AsyncIterator[Any]:
 async def _no_witness_log() -> AsyncIterator[Any]:
     raise AsyncTextReadError("did:webvh witnesses are not supported by Agent-DID yet")
     yield  # pragma: no cover
+
+
+async def _resolve_verified_state(serialized: str, **selection: str | None) -> tuple[DocumentState, Any]:
+    """Run the reference resolver over log text and map its failures to :class:`DidWebvhError`."""
+    try:
+        state, meta = await DidResolver(WebvhVerifier()).resolve_state(None, _TextHistory(serialized), **selection)
+    except ResolutionError as err:
+        raise DidWebvhError(_map_resolution_error(err.error), _resolution_message(err)) from None
+    except InvalidDocumentState as err:
+        raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {err}") from None
+    except AsyncTextReadError as err:
+        raise DidWebvhError("notFound", f"did:webvh log verification failed: {err}") from None
+    except Exception as err:  # noqa: BLE001 - fail closed on any library defect
+        raise DidWebvhError("invalidDid", f"did:webvh log verification failed: {type(err).__name__}") from None
+    return state, meta
 
 
 async def _load_last_state(log: str) -> DocumentState:

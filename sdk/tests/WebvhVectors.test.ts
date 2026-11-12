@@ -31,6 +31,36 @@ interface ResolvableVector {
   log: string;
   /** What both adapters must return when resolving `log`. */
   resolved: { document: Record<string, unknown>; metadata: Record<string, unknown>; versionNumber: number };
+  /**
+   * What both adapters must return for each version of `log`, selected by `versionNumber`, `versionId` or
+   * `versionTime`. Present on the deactivated logs: `metadata.deactivated` is true for every version, and the
+   * entry that deactivates the DID resolves to its raw state.
+   */
+  versions?: ResolvedVersion[];
+}
+
+interface ResolvedVersion {
+  versionNumber: number;
+  versionId: string;
+  versionTime: string;
+  document: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+async function withVersions(vector: ResolvableVector): Promise<ResolvableVector> {
+  const versions: ResolvedVersion[] = [];
+  for (const [index, line] of lines(vector.log).entries()) {
+    const entry = JSON.parse(line) as { versionId: string; versionTime: string };
+    const resolved = await resolveDidWebvhLog(vector.log, { versionNumber: index + 1 });
+    versions.push({
+      versionNumber: index + 1,
+      versionId: entry.versionId,
+      versionTime: entry.versionTime,
+      document: resolved.document,
+      metadata: { ...resolved.metadata },
+    });
+  }
+  return { ...vector, versions };
 }
 
 function vector(name: string, result: DidWebvhLogResult): ResolvableVector {
@@ -218,9 +248,9 @@ async function witnessDeclaredLog(inputs: WebvhVectors['inputs']): Promise<strin
  * pre-rotated DID was deactivated in one entry. They are valid did:webvh v1.0 logs that both SDKs must keep
  * resolving, and the adapters no longer write them, so regeneration carries them over from the fixture.
  */
-function legacyVectors(): ResolvableVector[] {
+function legacyVectors(): Promise<ResolvableVector[]> {
   const existing = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as WebvhVectors;
-  return existing.resolveOnly.filter((vector) => vector.name.startsWith('legacy-'));
+  return Promise.all(existing.resolveOnly.filter((vector) => vector.name.startsWith('legacy-')).map(withVersions));
 }
 
 async function generateVectors(): Promise<WebvhVectors> {
@@ -246,9 +276,9 @@ async function generateVectors(): Promise<WebvhVectors> {
       vector('prerotation-rotate', preRotated),
     ],
     resolveOnly: [
-      vector('deactivate-with-rotated-key', deactivated),
-      vector('prerotation-deactivate', preRotationDeactivated),
-      ...legacyVectors(),
+      await withVersions(vector('deactivate-with-rotated-key', deactivated)),
+      await withVersions(vector('prerotation-deactivate', preRotationDeactivated)),
+      ...(await legacyVectors()),
     ],
     negative: [
       {
@@ -330,6 +360,7 @@ const VECTORS: WebvhVectors | undefined = WRITE_MODE
 const RESOLVABLE: Array<[string, ResolvableVector]> = VECTORS
   ? [...VECTORS.deterministic, ...VECTORS.resolveOnly].map((vector) => [vector.name, vector])
   : [];
+const VERSIONED: Array<[string, ResolvableVector]> = RESOLVABLE.filter(([, vector]) => vector.versions !== undefined);
 const NEGATIVE: Array<[string, string]> = VECTORS ? VECTORS.negative.map((vector) => [vector.name, vector.log]) : [];
 
 describe('did:webvh cross-SDK log vectors', () => {
@@ -361,6 +392,37 @@ describe('did:webvh cross-SDK log vectors', () => {
     expect(resolved.document).toEqual(vector.resolved.document);
     expect({ ...resolved.metadata }).toEqual(vector.resolved.metadata);
     expect(resolved.versionNumber).toBe(vector.resolved.versionNumber);
+  });
+
+  it('has per-version expectations for every deactivated log', () => {
+    const deactivated = RESOLVABLE.filter(([, vector]) => vector.deactivated === true);
+    expect(deactivated.length).toBeGreaterThan(0);
+    expect(VERSIONED.map(([name]) => name)).toEqual(deactivated.map(([name]) => name));
+  });
+
+  it.each(VERSIONED)('resolves every version of %s by number, id and time', async (_name, vector) => {
+    const versions = vector.versions as ResolvedVersion[];
+    expect(versions).toHaveLength(lines(vector.log).length);
+    for (const version of versions) {
+      const selections = [
+        { versionNumber: version.versionNumber },
+        { versionId: version.versionId },
+        { versionTime: version.versionTime },
+      ];
+      for (const selection of selections) {
+        const resolved = await resolveDidWebvhLog(vector.log, selection);
+        expect(resolved.versionNumber).toBe(version.versionNumber);
+        expect(resolved.document).toEqual(version.document);
+        expect({ ...resolved.metadata }).toEqual(version.metadata);
+        expect(resolved.metadata.deactivated).toBe(true);
+      }
+    }
+  });
+
+  it.each(NEGATIVE)('rejects %s at every selected version', async (_name, log) => {
+    for (let versionNumber = 1; versionNumber <= lines(log).length; versionNumber += 1) {
+      await expect(resolveDidWebvhLog(log, { versionNumber })).rejects.toBeInstanceOf(DidWebvhError);
+    }
   });
 
   it.each(NEGATIVE)('rejects %s', async (_name, log) => {

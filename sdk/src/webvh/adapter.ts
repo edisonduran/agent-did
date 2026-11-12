@@ -243,6 +243,10 @@ export async function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams)
  * Verifies a `did.jsonl` log (SCID, entry hash chain, `updateKeys` proofs,
  * version times) and returns the resolved document. Throws `DidWebvhError` on
  * any verification failure; it never returns a partially verified result.
+ *
+ * With `versionId`, `versionNumber` or `versionTime` it returns that version of the log. The whole log is
+ * still verified, and `metadata.deactivated` describes the DID, not the selected version: it is true for
+ * every version of a deactivated DID (DID Core section 7.1.2).
  */
 export async function resolveDidWebvhLog(
   logText: string,
@@ -274,11 +278,10 @@ export async function resolveDidWebvhLog(
 
   const resolutionError = result.didResolutionMetadata?.error;
   const meta = result.didDocumentMetadata as Record<string, unknown>;
-  // A deactivated DID resolves with metadata only; the document is the state
-  // of the (already verified) deactivation entry.
-  const resolvedDocument =
-    result.didDocument ??
-    (meta?.deactivated === true ? log.find((entry) => entry.versionId === meta.versionId)?.state : undefined);
+  // The entry that deactivates the DID resolves to its raw (already verified) state. The library returns no
+  // document for it without a version selector, and one with the implicit services when it is selected.
+  const resolvedEntry = log.find((entry) => entry.versionId === meta?.versionId);
+  const resolvedDocument = resolvedEntry?.parameters?.deactivated === true ? resolvedEntry.state : result.didDocument;
   if (resolutionError || !resolvedDocument) {
     const problem = (result.didResolutionMetadata as { problemDetails?: { detail?: string } }).problemDetails;
     throw new DidWebvhError(
