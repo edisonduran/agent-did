@@ -98,6 +98,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | LangChain JS `sign_http_request` passes `allowPrivateNetworkTargets` to the SDK target policy and rejects IPv6 private literals (`URL.hostname` keeps the brackets); LangChain Python gets the matching IPv6 test. Tool behavior is aligned in both packages. |
 | 2026-11-05 | LangChain TS did:wba demo and test queue a final model response, because newer `@langchain/core` `fakeModel` throws once its response queue is empty. Test fixtures only; no change to the integration surface and no TS/Python parity impact. |
 | 2026-11-04 | LangChain Python README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |
 | 2026-11-04 | M-09: LangChain TS and Python examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
