@@ -195,7 +195,8 @@ class BearerTokenHttpDIDDocumentSource(config: 'BearerTokenHttpDIDDocumentSource
   def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## BearerTokenHttpDIDDocumentSourceConfig
-class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+class BearerTokenHttpDIDDocumentSourceConfig(allowed_origins: 'list[str] | None' = None, token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+  attr allowed_origins: list[str] | None
   attr did_log_store_method: str | None
   attr get_token: Callable[[], str | Awaitable[str]] | None
   attr header_name: str
@@ -280,7 +281,8 @@ class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
 value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptions', 'invalidInput', 'unauthorized']
 
 ## DidWebvhResolution
-class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]') -> None
+class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False) -> None
+  attr deactivated: bool
   attr document: AgentDIDDocument
   attr last_entry_signer_keys: list[str]
   attr log: str
@@ -288,7 +290,7 @@ class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: '
   attr version_id: str
 
 ## DidWebvhState
-class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
+class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
   attr provenance: Literal['local', 'imported', 'fetched']
 
 ## DocumentIntegrityError

@@ -30,14 +30,20 @@ _SHA256_DOCUMENT_REF_PREFIX = "hash://sha256/"
 
 
 class _CachedDocument:
-    __slots__ = ("document", "expires_at", "webvh")
+    __slots__ = ("deactivated", "document", "expires_at", "webvh")
 
     def __init__(
-        self, document: AgentDIDDocument, expires_at: float, webvh: DidWebvhResolution | None = None
+        self,
+        document: AgentDIDDocument,
+        expires_at: float,
+        webvh: DidWebvhResolution | None = None,
+        deactivated: bool = False,
     ) -> None:
         self.document = document
         self.expires_at = expires_at
         self.webvh = webvh
+        # The did:webvh log ends in a deactivation entry: ``resolve`` raises, ``resolve_did_webvh_log`` returns it.
+        self.deactivated = deactivated
 
 
 class UniversalResolverClient:
@@ -103,6 +109,8 @@ class UniversalResolverClient:
             self._cache[did] = self._cache.pop(did)
             self._hits += 1
             self._emit(did, "cache-hit", started)
+            if cached.deactivated:
+                raise self._deactivated_error(did, started)
             return cached.document.model_copy(deep=True)
 
         self._misses += 1
@@ -152,13 +160,27 @@ class UniversalResolverClient:
 
     async def resolve_did_webvh_log(self, did: str) -> DidWebvhResolution | None:
         """The verified did:webvh log behind *did*: from the cache while the entry is fresh, otherwise fetched and
-        verified (raising when it cannot be, with no fallback). ``None`` when the cached entry holds only a document
-        that was registered without its log."""
+        verified (raising when it cannot be, with no fallback). The log of a deactivated DID is returned with
+        ``deactivated=True``. ``None`` when the cached entry holds only a document that was registered without its
+        log."""
         if not self._is_did_webvh(did):
             return None
-        await self.resolve(did)
+        started = self._now_ms()
         entry = self._cache.get(did)
-        return entry.webvh if entry is not None else None
+        if entry is not None and entry.expires_at > started:
+            self._cache[did] = self._cache.pop(did)
+            self._hits += 1
+            self._emit(did, "cache-hit", started)
+        else:
+            self._misses += 1
+            self._emit(did, "cache-miss", started)
+            entry = await self._load_did_webvh(did, started, started)
+        return entry.webvh
+
+    def _deactivated_error(self, did: str, started: float) -> ValueError:
+        msg = f"DID is deactivated: {did}"
+        self._emit(did, "error", started, message=msg)
+        return ValueError(msg)
 
     def remove(self, did: str) -> None:
         self._cache.pop(did, None)
@@ -173,11 +195,16 @@ class UniversalResolverClient:
     # -- Private helpers ------------------------------------------------------
 
     def _cache_put(
-        self, did: str, document: AgentDIDDocument, expires_at: float, webvh: DidWebvhResolution | None = None
+        self,
+        did: str,
+        document: AgentDIDDocument,
+        expires_at: float,
+        webvh: DidWebvhResolution | None = None,
+        deactivated: bool = False,
     ) -> None:
         """Store ``document`` (already a copy), keeping the cache within ``max_cache_entries``."""
         self._cache.pop(did, None)
-        self._cache[did] = _CachedDocument(document, expires_at, webvh)
+        self._cache[did] = _CachedDocument(document, expires_at, webvh, deactivated)
         if len(self._cache) <= self._max_cache_entries:
             return
         now = self._now_ms()
@@ -225,6 +252,14 @@ class UniversalResolverClient:
         There is no fallback to another resolver: a fetch error, a missing log, an invalid DID, a log that
         fails verification, a log that contradicts the one held locally and a deactivated DID all fail closed.
         """
+        entry = await self._load_did_webvh(did, started, now)
+        if entry.deactivated:
+            raise self._deactivated_error(did, started)
+        self._emit(did, "resolved", started)
+        return entry.document.model_copy(deep=True)
+
+    async def _load_did_webvh(self, did: str, started: float, now: float) -> _CachedDocument:
+        """Fetch, verify and cache the did:webvh log behind *did*, deactivated or not; return the cache entry."""
         try:
             log_url = derive_did_webvh_log_url(did)
         except DidWebvhError as exc:
@@ -259,11 +294,7 @@ class UniversalResolverClient:
             raise self._integrity_failure(did, f"did:webvh log verification failed for {did}: {exc}", started) from None
 
         resolved = await self._reconcile_with_local_log(did, resolved, started)
-
-        if resolved.metadata.deactivated:
-            msg = f"DID is deactivated: {did}"
-            self._emit(did, "error", started, message=msg)
-            raise ValueError(msg)
+        deactivated = bool(resolved.metadata.deactivated)
 
         try:
             document = AgentDIDDocument.model_validate(resolved.state)
@@ -283,10 +314,11 @@ class UniversalResolverClient:
                 version_id=resolved.metadata.version_id,
                 update_keys=list(resolved.metadata.update_keys),
                 last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
+                deactivated=deactivated,
             ),
+            deactivated,
         )
-        self._emit(did, "resolved", started)
-        return document.model_copy(deep=True)
+        return self._cache[did]
 
     async def _reconcile_with_local_log(
         self, did: str, fetched: DidWebvhLogResult, started: float

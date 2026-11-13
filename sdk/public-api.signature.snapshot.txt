@@ -174,20 +174,23 @@ export declare class AgentDidClient {
      */
     verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
     /**
-     * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), using the
-     * DID's did:webvh log as created or imported in this client (`importDidWebvhHistory`).
+     * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), against the
+     * DID's verified did:webvh log as `resolveDidWebvhState` gives it: the local log for a DID created or changed in
+     * this client, otherwise the log the resolver fetches (the longer of it and a log imported with
+     * `importDidWebvhHistory`), and the imported log only when the resolver does not fetch logs. A key retired by a
+     * later entry of the log host is therefore seen even when an older log was imported.
      *
      * - `valid`: the signature verifies and the key was authorized for `requiredPurpose` at `statedTime`, with no
      *   later change that retires it, or with `trustedTimeNotAfter` earlier than that change.
-     * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, or the log fails
-     *   verification.
+     * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, the log cannot be
+     *   fetched or fails verification (`did_resolution_failed`), or the controller binding does not hold now.
      * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
-     *   time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+     *   time evidence, or no did:webvh log is available for the DID. Do not accept it.
      *
      * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
      */
     verifySignatureAtTime(did: string, payload: string, signature: string, keyId: string, options: VerifySignatureAtTimeOptions): Promise<VerifySignatureAtTimeResult>;
-    /** The binding of `did` (and of its controllers) to its controller chain as it is now, from the client's own log. */
+    /** The binding of `did` (and of its controllers) to its controller chain as it is now. */
     private assertDidWebvhBoundNow;
     /**
      * Resolves a DID into its corresponding Agent-DID Document.
@@ -568,7 +571,8 @@ export declare class InMemoryNonceStore implements NonceStore {
  * - Host names are resolved once, at connection time, and the connection is refused when any
  *   resolved address is not globally routable. The address that was validated is the address that
  *   is connected to, so a DNS answer that changes after the check (rebinding) cannot redirect the
- *   request. TLS still verifies the original host name.
+ *   request. TLS still verifies the original host name. Each request opens its own connection, never a pooled
+ *   one, so a socket another part of the process opened to the same host is not reused unchecked.
  *
  * - Every request has one deadline (`timeoutMs`) covering lookup, connection and the whole body,
  *   and a maximum body size (`maxResponseBytes`). It asks for an unencoded body and rejects any
@@ -997,8 +1001,9 @@ export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' |
 /**
  * Result of `verifySignatureAtTime`. `valid` only when the signature verifies and the key was authorized at
  * the stated time. Treat `indeterminate` as not accepted.
- * - `did_resolution_failed`: the stored did:webvh log failed verification.
+ * - `did_resolution_failed`: the did:webvh log (or a controller's) could not be fetched or failed verification.
  * - `key_not_authorized`: the key was not authorized at the stated time (see `key.reason`).
+ * - `controller_not_bound`: the controller binding does not hold now (RFC-001 §6.6 item 7).
  * - `signature_invalid`: the signature does not verify with the key.
  */
 export type VerifySignatureAtTimeResult = {
@@ -1266,6 +1271,13 @@ import { AgentDIDDocument } from '../core/types';
 import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
 import { DIDDocumentSource } from './types';
 export interface BearerTokenHttpDIDDocumentSourceConfig {
+    /**
+     * Origins (`https://storage.example.com`, port included when it is not the default) the credential may be sent
+     * to. Required and non-empty: a request to any other origin is refused before the token is resolved, so a source
+     * that is also given URLs derived from a DID (`wbaDocumentSource`, `webvhDocumentSource`) cannot hand the token
+     * to the DID's host.
+     */
+    allowedOrigins: string[];
     token?: string;
     getToken?: () => string | Promise<string>;
     headerName?: string;
@@ -1284,6 +1296,7 @@ export declare class BearerTokenHttpDIDDocumentSource implements DIDDocumentSour
     private readonly scheme;
     private readonly token;
     private readonly getToken;
+    private readonly allowedOrigins;
     constructor(config: BearerTokenHttpDIDDocumentSourceConfig);
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
     storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
@@ -1493,6 +1506,8 @@ export interface DidWebvhResolution {
     updateKeys: string[];
     /** Multikeys (`z6Mk...`) that signed the last entry. */
     lastEntrySignerKeys: string[];
+    /** `true` when the log ends in a deactivation entry. A resolver that leaves it out reports an active DID. */
+    deactivated?: boolean;
 }
 /** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
 export interface DidWebvhState extends DidWebvhResolution {
@@ -1510,7 +1525,9 @@ export interface DIDResolver {
     /**
      * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document
      * (for example a document registered without its log). A resolver that fetches logs implements this so the
-     * controller binding can be checked; failing to fetch rejects (fail closed).
+     * controller binding and a key at a stated time can be checked; failing to fetch rejects (fail closed). The log
+     * of a deactivated DID is returned with `deactivated: true` (`resolve` rejects it), so the history before the
+     * deactivation can still be checked.
      */
     resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
 }
@@ -1598,10 +1615,11 @@ export declare class UniversalResolverClient implements DIDResolver {
     resolve(did: string): Promise<AgentDIDDocument>;
     /**
      * The verified did:webvh log behind `did`: from the cache while the entry is fresh, otherwise fetched and verified
-     * (rejecting when it cannot be, with no fallback). `undefined` when the cached entry holds only a document that was
-     * registered without its log.
+     * (rejecting when it cannot be, with no fallback). The log of a deactivated DID is returned with
+     * `deactivated: true`. `undefined` when the cached entry holds only a document that was registered without its log.
      */
     resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined>;
+    private deactivatedError;
     remove(did: string): void;
     getCacheStats(): ResolverCacheStats;
     private resolveWithFallback;
@@ -1614,6 +1632,8 @@ export declare class UniversalResolverClient implements DIDResolver {
      * the one held locally and a deactivated DID all fail closed.
      */
     private resolveDidWebvh;
+    /** Fetches, verifies and caches the did:webvh log behind `did`, deactivated or not, and returns the cache entry. */
+    private loadDidWebvh;
     /**
      * Applies the rule for a fetched log against the log the caller holds: the longer one wins and a log
      * that is not a prefix or an extension of the other is an integrity failure (never a fallback).

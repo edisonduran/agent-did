@@ -367,7 +367,8 @@ class VerifySignatureAtTimeResult:
     """Result of ``verify_signature_at_time``. ``valid`` only when the signature verifies and the key was
     authorized at the stated time. Treat ``indeterminate`` as not accepted.
 
-    ``reason`` (for ``invalid``): ``did_resolution_failed`` (the stored did:webvh log failed verification),
+    ``reason`` (for ``invalid``): ``did_resolution_failed`` (the did:webvh log, or a controller's, could not be
+    fetched or failed verification),
     ``key_not_authorized`` (see ``key.reason``), ``controller_not_bound`` (the agent is not bound to its controller
     now, RFC-001 §6.6 item 7) or ``signature_invalid``.
     """

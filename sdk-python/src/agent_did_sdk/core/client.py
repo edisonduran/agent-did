@@ -428,12 +428,14 @@ class AgentDidClient:
         of the agent's did:webvh log was signed by a key that is active now under ``capabilityInvocation`` of the
         controller (RFC-001 §6.6 item 7). Fails closed with :class:`ControllerBindingError`, also when no log is
         available to check."""
-        for agent, controller in zip(chain, chain[1:], strict=False):
+        for index, (agent, controller) in enumerate(zip(chain, chain[1:], strict=False)):
             state = await self.resolve_did_webvh_state(agent.id) if agent.id.startswith("did:webvh:") else None
             if state is None:
                 raise ControllerBindingError(
                     agent.id, controller.id, "no did:webvh log is available to check the binding"
                 )
+            if state.deactivated and index > 0:
+                raise ControllerBindingError(agent.id, controller.id, "the controller DID is deactivated")
             assert_bound_to_controller(agent, state.last_entry_signer_keys, controller)
 
     async def resolve_did_webvh_state(self, did: str) -> DidWebvhState | None:
@@ -458,6 +460,7 @@ class AgentDidClient:
                 version_id=fetched.version_id,
                 update_keys=fetched.update_keys,
                 last_entry_signer_keys=fetched.last_entry_signer_keys,
+                deactivated=fetched.deactivated,
                 provenance="fetched",
             )
         return await self._did_webvh_state_from_log(did, local, "imported") if local is not None else None
@@ -472,13 +475,13 @@ class AgentDidClient:
             version_id=resolved.metadata.version_id,
             update_keys=list(resolved.metadata.update_keys),
             last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
+            deactivated=bool(resolved.metadata.deactivated),
             provenance=provenance,
         )
 
-    async def _assert_did_webvh_bound_now(self, did: str) -> None:
-        """The binding of *did* (and of its controllers) as it is now, from the client's own log."""
-        state = await self.resolve_did_webvh_state(did)
-        if state is None or not state.document.controller or state.document.controller.strip() == did:
+    async def _assert_did_webvh_bound_now(self, did: str, state: DidWebvhState) -> None:
+        """The binding of *did* (and of its controllers) to its controller chain as it is now."""
+        if not state.document.controller or state.document.controller.strip() == did:
             return
         controller_did = state.document.controller.strip()
         try:
@@ -572,26 +575,32 @@ class AgentDidClient:
     ) -> VerifySignatureAtTimeResult:
         """Verify a signature made with *key_id* at the time the signed artifact states (RFC-001 §6.2.2).
 
-        Uses the DID's did:webvh log as created or imported in this client (``import_did_webvh_history``).
+        Checks against the DID's verified did:webvh log as :meth:`resolve_did_webvh_state` gives it: the local log
+        for a DID created or changed in this client, otherwise the log the resolver fetches (the longer of it and a
+        log imported with ``import_did_webvh_history``), and the imported log only when the resolver does not fetch
+        logs. A key retired by a later entry of the log host is therefore seen even when an older log was imported.
 
         * ``valid``: the signature verifies and the key was authorized for *required_purpose* at *stated_time*,
           with no later change that retires it, or with *trusted_time_not_after* earlier than that change.
-        * ``invalid``: the signature does not verify, the key was not authorized at *stated_time*, or the log
-          fails verification.
+        * ``invalid``: the signature does not verify, the key was not authorized at *stated_time*, the log cannot
+          be fetched or fails verification (``did_resolution_failed``), or the controller binding does not hold now.
         * ``indeterminate``: the key was retired or the DID deactivated after *stated_time* and there is no
-          trusted time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+          trusted time evidence, or no did:webvh log is available for the DID. Do not accept it.
 
         The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
         """
-        log = self._did_webvh_log_store.get(did) if did.startswith("did:webvh:") else None
-        if log is None:
+        try:
+            state = await self.resolve_did_webvh_state(did)
+        except Exception:  # noqa: BLE001 - any resolution failure fails closed
+            return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed")
+        if state is None:
             return VerifySignatureAtTimeResult(
                 status="indeterminate",
                 key=KeyAtTimeResult(status="indeterminate", key_id=key_id, reason="history_unavailable"),
             )
         try:
             key = await check_did_webvh_key_at_time(
-                log,
+                state.log,
                 key_id=key_id,
                 stated_time=stated_time,
                 required_purpose=required_purpose,
@@ -604,9 +613,11 @@ class AgentDidClient:
         if result.status == "valid":
             # The binding is evaluated against the controller as it is now, never at the stated time
             try:
-                await self._assert_did_webvh_bound_now(did)
+                await self._assert_did_webvh_bound_now(did, state)
             except ControllerBindingError:
                 return VerifySignatureAtTimeResult(status="invalid", reason="controller_not_bound", key=result.key)
+            except Exception:  # noqa: BLE001 - a controller that cannot be resolved fails closed
+                return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed", key=result.key)
         return result
 
     async def resolve(self, did: str) -> AgentDIDDocument:

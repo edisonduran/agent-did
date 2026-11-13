@@ -50,6 +50,7 @@ class TestBearerTokenHttpDIDDocumentSource:
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         source = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            allowed_origins=["https://secured.example"],
             token="secret-token",
             http_client=client,
             reference_to_url=lambda document_ref: f"https://secured.example/{document_ref.replace(':', '_')}.json",
@@ -75,6 +76,7 @@ class TestBearerTokenHttpDIDDocumentSource:
         did_log = json.dumps({"versionId": "1-QmBearerScid", "state": _make_document()})
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         source = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            allowed_origins=["https://secured.example"],
             get_token=get_token,
             http_client=client,
             reference_to_url=lambda document_ref: f"https://secured.example/{document_ref.replace(':', '_')}.jsonl",
@@ -104,6 +106,7 @@ class TestBearerHttpSecurity:
         url = "http://10.0.0.5/agents/bearer-bot.json"
 
         blocked = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            allowed_origins=["http://10.0.0.5"],
             token="t", reference_to_url=lambda ref: url, http_client=client,
         ))
         with pytest.raises(RuntimeError, match="private/reserved"):
@@ -111,6 +114,7 @@ class TestBearerHttpSecurity:
         assert seen == []
 
         allowed = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            allowed_origins=["http://10.0.0.5"],
             token="t",
             reference_to_url=lambda ref: url,
             http_client=client,
@@ -119,3 +123,45 @@ class TestBearerHttpSecurity:
         assert await allowed.get_by_reference("ref") is not None
         assert seen == [url]
         await client.aclose()
+
+
+class TestBearerAllowedOrigins:
+    async def test_refuses_an_origin_outside_allowed_origins_before_resolving_the_token(self) -> None:
+        seen: list[str] = []
+        calls: list[int] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(str(request.url))
+            return httpx.Response(200, json=_make_document())
+
+        def get_token() -> str:
+            calls.append(1)
+            return "secret-token"
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        source = BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+            allowed_origins=["https://Secured.Example:443/ignored-path"],
+            get_token=get_token,
+            http_client=client,
+        ))
+
+        with pytest.raises(RuntimeError, match="refuses to send credentials to https://attacker.example"):
+            await source.get_did_log_by_reference("https://attacker.example/agents/bot/did.jsonl")
+        with pytest.raises(RuntimeError, match="not in allowed_origins"):
+            await source.get_by_reference("https://secured.example:8443/doc.json")
+        assert calls == []
+        assert seen == []
+
+        assert await source.get_by_reference("https://secured.example/doc.json") is not None
+        assert seen == ["https://secured.example/doc.json"]
+        await client.aclose()
+
+    def test_requires_a_non_empty_list_of_http_origins(self) -> None:
+        with pytest.raises(TypeError, match="requires allowed_origins"):
+            BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(token="t"))
+        with pytest.raises(TypeError, match="requires allowed_origins"):
+            BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(token="t", allowed_origins=[]))
+        with pytest.raises(TypeError, match="not an http"):
+            BearerTokenHttpDIDDocumentSource(
+                BearerTokenHttpDIDDocumentSourceConfig(token="t", allowed_origins=["ftp://x.example"])
+            )
