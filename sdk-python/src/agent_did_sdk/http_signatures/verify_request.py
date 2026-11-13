@@ -21,6 +21,7 @@ from ..core.http_signatures import (
     build_signature_base,
     parse_signature_header,
     parse_signature_input_header,
+    request_url_form_problem,
 )
 from ..core.identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT
 from ..core.nonce_store import NonceStore
@@ -62,6 +63,8 @@ async def verify_agent_did_http_request(
     signature_agent = headers.get("signature-agent")
     if not headers.get("signature") or not headers.get("signature-input") or not signature_agent:
         return _reject("missing_headers")
+    if request_url_form_problem(params.url) is not None:
+        return _reject("url_not_normalized")
     if headers.get("content-digest") != compute_content_digest(params.body):
         return _reject("digest_mismatch")
 

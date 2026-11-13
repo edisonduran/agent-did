@@ -202,6 +202,11 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `JsonRpcDIDDocumentSource.getByReference` throws when an endpoint is blocked by the target policy, as `HttpDIDDocumentSource` does. It returned `null` ("not found") before. It returns `null` only when every endpoint answers "not found".
 - The default `fetch` opens a connection of its own for each request to a host name and no longer shares the process-wide keep-alive pool.
 
+## 20. Breaking: HTTP signatures need a request URL in normalized form; payload signature hex is strict
+
+- `signHttpRequest` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `requestUrlFormProblem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
+- A payload signature passed to `verifySignature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -228,3 +233,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] Code that treated a `null` from `JsonRpcDIDDocumentSource` with a blocked endpoint as "not found" handles the error.
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
+- [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).

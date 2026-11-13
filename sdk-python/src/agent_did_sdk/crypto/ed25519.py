@@ -16,6 +16,8 @@ own check of torsion in ``A`` is only probabilistic). TypeScript parity: ``sdk/s
 
 from __future__ import annotations
 
+import re
+
 from nacl.bindings import crypto_core_ed25519_is_valid_point
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
@@ -37,3 +39,14 @@ def verify_ed25519(signature: bytes, message: bytes, public_key: bytes) -> bool:
     except (BadSignatureError, ValueError, TypeError):
         return False
     return True
+
+
+_SIGNATURE_HEX = re.compile(r"[0-9a-fA-F]{128}")
+
+
+def decode_signature_hex(signature: str) -> bytes:
+    """Decode a payload signature written as hex: exactly 128 hex digits (64 bytes), nothing else (no spaces, no
+    prefix). Raises ``ValueError`` otherwise, so both SDKs accept the same strings."""
+    if not isinstance(signature, str) or _SIGNATURE_HEX.fullmatch(signature) is None:
+        raise ValueError("A signature must be 128 hex digits")
+    return bytes.fromhex(signature)

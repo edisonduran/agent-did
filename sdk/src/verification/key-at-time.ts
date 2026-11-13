@@ -8,7 +8,6 @@
  *
  * Python parity: `sdk-python/src/agent_did_sdk/verification/key_at_time.py`.
  */
-import { hexToBytes } from '@noble/hashes/utils';
 import {
   DID_VERIFICATION_RELATIONSHIPS,
   REQUIRED_RELATIONSHIP_BY_ARTIFACT
@@ -20,7 +19,7 @@ import {
   VerificationRelationship,
   VerifySignatureAtTimeResult
 } from '../core/types';
-import { verifyEd25519 } from '../crypto/ed25519-verify';
+import { decodeSignatureHex, verifyEd25519 } from '../crypto/ed25519-verify';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
 import { resolveDidWebvhLog } from '../webvh/adapter';
 
@@ -226,7 +225,7 @@ export function signatureResultForKey(
   let verified = false;
   try {
     verified = verifyEd25519(
-      hexToBytes(signature),
+      decodeSignatureHex(signature),
       typeof payload === 'string' ? new TextEncoder().encode(payload) : payload,
       decodePublicKeyMultibase(key.publicKeyMultibase)
     );

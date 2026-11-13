@@ -239,6 +239,7 @@ class VerifyHttpRequestSignatureParams(BaseModel):
 
 HttpSignatureRejection = Literal[
     "missing_headers",
+    "url_not_normalized",
     "malformed_headers",
     "digest_mismatch",
     "tag_mismatch",
@@ -262,6 +263,8 @@ HttpSignatureRejection = Literal[
 signatures, the reason is the one of the first signature that has ``tag="agent-did"`` (else the first).
 
 * ``missing_headers``: ``Signature``, ``Signature-Input`` or ``Signature-Agent`` is absent.
+* ``url_not_normalized``: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
+  ``request_url_form_problem``); the SDK refuses to sign such a URL too.
 * ``malformed_headers``: ``Signature`` / ``Signature-Input`` do not parse, or no signature has a matching label.
 * ``digest_mismatch``: ``Content-Digest`` is absent or is not exactly the SHA-256 of the body.
 * ``tag_mismatch``: the ``tag`` parameter is not ``agent-did`` (for example another profile's signature).

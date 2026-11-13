@@ -300,6 +300,8 @@ export interface VerifyHttpRequestSignatureParams {
  * first signature).
  *
  * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `url_not_normalized`: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
+ *   `requestUrlFormProblem`); the SDK refuses to sign such a URL too.
  * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
  * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
  * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
@@ -323,6 +325,7 @@ export interface VerifyHttpRequestSignatureParams {
  */
 export type HttpSignatureRejection =
   | 'missing_headers'
+  | 'url_not_normalized'
   | 'malformed_headers'
   | 'digest_mismatch'
   | 'tag_mismatch'

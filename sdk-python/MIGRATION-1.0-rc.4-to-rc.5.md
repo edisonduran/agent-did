@@ -230,6 +230,11 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 
 - `JsonRpcDIDDocumentSource.get_by_reference` raises when every endpoint is blocked by the target policy, as `HttpDIDDocumentSource` does. It returned `None` ("not found") before. It returns `None` only when every endpoint answers "not found".
 
+## 20. Breaking: HTTP signatures need a request URL in normalized form; payload signature hex is strict
+
+- `sign_http_request` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `request_url_form_problem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
+- A payload signature passed to `verify_signature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -256,3 +261,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] Microsoft Agent Framework handoffs are signed with `sign_handoff` and edges that move irreversible actions set `allowed_dids`.
 - [ ] Every `BearerTokenHttpDIDDocumentSourceConfig` lists its `allowed_origins`.
 - [ ] Code that treated a `None` from `JsonRpcDIDDocumentSource` with blocked endpoints as "not found" handles the error.
+- [ ] Every URL passed to `sign_http_request` is percent-encoded and normalized (`request_url_form_problem` returns nothing for it).
