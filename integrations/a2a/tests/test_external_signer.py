@@ -26,7 +26,9 @@ async def test_signs_a2a_requests_through_an_external_signer() -> None:
     client = AgentDidClient()
     identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client))
     runtime_identity = await identity.create(
-        CreateAgentParams(name="KmsSender", core_model="gpt-4.1-mini", system_prompt="kms test", signer=_ExternalSigner())
+        CreateAgentParams(
+            name="KmsSender", core_model="gpt-4.1-mini", system_prompt="kms test", signer=_ExternalSigner()
+        )
     )
     assert runtime_identity.agent_private_key == ""
 
