@@ -177,9 +177,17 @@ jobs:
       - name: Resolve npm dist-tag
         id: npm_meta
         shell: bash
+        env:
+          # Passed as data, never interpolated into the script
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_NPM_TAG: ${{ inputs.npm_tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "dist_tag=${{ inputs.npm_tag }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [[ ! "$INPUT_NPM_TAG" =~ ^[a-z][a-z0-9._-]{0,49}$ ]]; then
+              echo "Invalid npm dist-tag: $INPUT_NPM_TAG" >&2
+              exit 1
+            fi
+            echo "dist_tag=$INPUT_NPM_TAG" >> "$GITHUB_OUTPUT"
           elif [[ "${GITHUB_REF_NAME#v}" == *-* ]]; then
             echo "dist_tag=next" >> "$GITHUB_OUTPUT"
           else
