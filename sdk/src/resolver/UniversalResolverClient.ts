@@ -1,5 +1,6 @@
 import { AgentDIDDocument } from '../core/types';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
+import { agentDidDocumentProblem } from '../core/document-guard';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
 import {
@@ -173,6 +174,11 @@ export class UniversalResolverClient implements DIDResolver {
     this.fallbackResolver?.remove(did);
   }
 
+  /** Drops the cached resolution of `did` (not the fallback resolver's documents): the next resolution fetches. */
+  public evict(did: string): void {
+    this.cache.delete(did);
+  }
+
   public getCacheStats(): ResolverCacheStats {
     return {
       hits: this.hits,
@@ -207,18 +213,25 @@ export class UniversalResolverClient implements DIDResolver {
       message: `url=${documentUrl}`
     });
 
-    const resolved = await this.wbaDocumentSource.getByReference(documentUrl).catch(async (error) => {
+    // Like did:webvh, a did:wba DID is answered only by its own host: no fallback to another resolver, which could
+    // keep serving a copy the host has since changed.
+    let resolved: AgentDIDDocument | null;
+    try {
+      resolved = await this.wbaDocumentSource.getByReference(documentUrl);
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
-      return this.resolveWithFallback(did, message, startedAt);
-    });
+      throw new Error(`did:wba document could not be fetched for ${did}: ${message}`);
+    }
 
     if (!resolved) {
-      return this.resolveWithFallback(did, `Document not found for did:wba URL: ${documentUrl}`, startedAt);
+      const message = `Document not found for did:wba URL: ${documentUrl}`;
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(message);
     }
 
     if (resolved.id !== did) {
-      throw new Error(`Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`);
+      throw this.integrityFailure(did, `Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`, startedAt);
     }
 
     this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
@@ -287,6 +300,10 @@ export class UniversalResolverClient implements DIDResolver {
       throw new Error(message);
     }
 
+    const problem = agentDidDocumentProblem(resolved.state);
+    if (problem !== undefined) {
+      throw this.integrityFailure(did, `did:webvh state for ${did} is not an Agent-DID document: ${problem}`, startedAt);
+    }
     const document = resolved.state as unknown as AgentDIDDocument;
     this.emitEvent({
       did,

@@ -792,5 +792,74 @@ def test_the_envelope_is_canonical_json_with_the_documented_members() -> None:
     )
     assert envelope == (
         '{"destination":"d","did":"did:example:a","keyId":"did:example:a#key-1","nonce":"n",'
-        '"payload":{"a":2,"b":1},"signedAtMs":1500,"type":"agent-did/handoff/v1"}'
+        '"payload":{"a":2,"b":1},"signedAtMs":1500,"trustDomain":null,"type":"agent-did/handoff/v1"}'
     )
+
+
+
+def test_the_trust_domain_is_part_of_the_signed_envelope(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", trust_domain="contoso")
+    sent, _ = _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert sent == ["approve"]
+
+    msg.trust_domain = "fabrikam"
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["signature"]
+
+
+def test_the_maximum_age_depends_on_the_action_class_and_irreversible_cannot_be_widened() -> None:
+    from agent_did_microsoft_agent_framework.handoff import HANDOFF_MAX_AGE_DEFAULTS, _resolve_effective_max_age
+
+    assert HANDOFF_MAX_AGE_DEFAULTS == {"irreversible": 60, "compensable": 600, "reversible": 3600}
+    assert _resolve_effective_max_age("irreversible", None) == 60
+    assert _resolve_effective_max_age("irreversible", 3600) == 60
+    assert _resolve_effective_max_age("irreversible", 10) == 10
+    assert _resolve_effective_max_age("reversible", 7200) == 7200
+    with pytest.raises(ValueError):
+        _resolve_effective_max_age("compensable", 0)
+
+
+def test_an_irreversible_handoff_older_than_its_maximum_age_is_refused(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve", signed_at=time.time() - 120)
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer, max_age_seconds=60)), msg)
+    assert exc.value.failing_gates == ["signed_at"]
+    sent, _ = _run_verifier(build_handoff_verifier_function(_real_ctx(observer, max_age_seconds=3600)), msg)
+    assert sent == ["approve"]
+
+
+def test_the_builder_applies_the_action_class_maximum_age() -> None:
+    observer, events = _make_observer()
+    build_handoff_verifier_executor(
+        from_executor="a",
+        to_executor="b",
+        action_class="irreversible",
+        ttl_seconds=None,
+        allowed_dids=["did:example:a"],
+        require_signature=True,
+        cross_domain=None,
+        on_verification_blocked=None,
+        observer=observer,
+        max_age_seconds=3600,
+    )
+    created = [event for event in events if event["event_type"] == "agent_did.workflow.verifier_created"]
+    assert created[-1]["max_age_seconds"] == 60
+
+
+def test_a_fresh_verification_drops_the_cached_resolution_first(integration) -> None:
+    observer, _events = _make_observer()
+    evicted: list[str] = []
+    msg = _sign(integration, "approve")
+
+    fresh = _real_ctx(observer, ttl_seconds=0, evict_cached_resolution=evicted.append)
+    sent, _ = _run_verifier(build_handoff_verifier_function(fresh), msg)
+    assert sent == ["approve"]
+    assert evicted == [msg.did]
+
+    evicted.clear()
+    cached = _real_ctx(observer, evict_cached_resolution=evicted.append)
+    _run_verifier(build_handoff_verifier_function(cached), _sign(integration, "approve"))
+    assert evicted == []

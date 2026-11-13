@@ -44,6 +44,7 @@ class AgentDIDDocument(*, context: list[str], id: str, controller: str, created:
 class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def add_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None, signer: 'AgentSigner | None' = None, relationships: 'list[SigningVerificationPurpose] | None' = None) -> 'AddVerificationMethodResult'
   def create_agent(self, controller_signer: 'AgentSigner', params: 'CreateAgentParams') -> 'CreateAgentResult'
+  def evict_cached_resolution(self, did: 'str') -> 'None'
   def export_did_webvh_history(self, did: 'str') -> 'str'
   def get_did_webvh_controller_keys(self, did: 'str') -> 'DidWebvhControllerKeys'
   def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
@@ -363,7 +364,7 @@ class InMemoryDIDResolver() -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
 
 ## InMemoryNonceStore
-class InMemoryNonceStore(*, max_entries: 'int' = 100000, now: 'Callable[[], int] | None' = None) -> 'None'
+class InMemoryNonceStore(*, max_entries: 'int' = 100000, max_entries_per_scope: 'int' = 10000, now: 'Callable[[], int] | None' = None) -> 'None'
   def check_and_store(self, key: 'str', expires_at: 'int') -> 'bool'
   property size
 
@@ -564,6 +565,7 @@ class Token(value: 'str') -> None
 
 ## UniversalResolverClient
 class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
+  def evict(self, did: 'str') -> 'None'
   def get_cache_stats(self) -> 'ResolverCacheStats'
   def register_document(self, document: 'AgentDIDDocument') -> 'None'
   def remove(self, did: 'str') -> 'None'

@@ -217,6 +217,14 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `sign_message` signs `agent-did/v1/message` + a line feed + the payload, and `verify_signature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 24. Smaller changes from the review
+
+- Lifecycle operations of one DID run one at a time in a client; nothing to change unless you relied on parallel updates overwriting each other.
+- did:wba: a host that cannot be reached or has no document fails, without the fallback resolver; a document for another DID is a `DocumentIntegrityError`.
+- `InMemoryNonceStore` takes `max_entries_per_scope` (default 10 000 per `keyid`); a client's default store follows `clock`.
+- `evict_cached_resolution(did)` drops a cached resolution. Integrations sign with the first active `assertionMethod` key.
+- Microsoft Agent Framework: an irreversible handoff older than 60 s is refused (`HANDOFF_MAX_AGE_DEFAULTS`; `max_age_seconds` lowers it, or raises it for the other classes), and handoffs signed by rc.5 pre-releases without `trust_domain` in the envelope do not verify: re-sign them with `sign_handoff`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

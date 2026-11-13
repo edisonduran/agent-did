@@ -165,6 +165,10 @@ class UniversalResolverClient:
         if self._fallback:
             self._fallback.remove(did)
 
+    def evict(self, did: str) -> None:
+        """Drop the cached resolution of *did* (not the fallback resolver's documents): the next resolution fetches."""
+        self._cache.pop(did, None)
+
     # -- Extra ----------------------------------------------------------------
 
     def get_cache_stats(self) -> ResolverCacheStats:
@@ -201,18 +205,24 @@ class UniversalResolverClient:
         document_url = self._derive_did_wba_document_url(did)
         self._emit(did, "source-fetch", started, message=f"url={document_url}")
 
+        # Like did:webvh, a did:wba DID is answered only by its own host: no fallback to another resolver, which could
+        # keep serving a copy the host has since changed.
         try:
             resolved = await self._wba_source.get_by_reference(document_url)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - availability failure: fail closed
             msg = str(exc)
             self._emit(did, "error", started, message=msg)
-            return await self._fallback_resolve(did, msg, started)
+            raise ValueError(f"did:wba document could not be fetched for {did}: {msg}") from exc
 
         if resolved is None:
-            return await self._fallback_resolve(did, f"Document not found for did:wba URL: {document_url}", started)
+            msg = f"Document not found for did:wba URL: {document_url}"
+            self._emit(did, "error", started, message=msg)
+            raise ValueError(msg)
 
         if resolved.id != did:
-            raise ValueError(f"Resolved document DID mismatch. Expected {did}, got {resolved.id}")
+            raise self._integrity_failure(
+                did, f"Resolved document DID mismatch. Expected {did}, got {resolved.id}", started
+            )
 
         self._emit(did, "source-fetched", started)
         self._cache_put(did, resolved.model_copy(deep=True), now + self._cache_ttl_ms)

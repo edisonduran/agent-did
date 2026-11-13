@@ -2,6 +2,7 @@
  * Pure helpers that build the documents and history derived from did:webvh logs.
  * No state and no I/O: `AgentDidClient` owns the stores and calls these.
  */
+import { assertAgentDidDocument } from '../core/document-guard';
 import {
   AdditionalVerificationRelationship,
   AgentDIDDocument,
@@ -119,6 +120,12 @@ export function buildBootstrapControllerTemplate(params: {
   };
 }
 
+/** `true` when a key that was active in `previous` carries a `deactivated` time in `next`. */
+function retiresAKey(previous: AgentDIDDocument, next: AgentDIDDocument): boolean {
+  const active = new Set(previous.verificationMethod.filter((method) => !method.deactivated).map((method) => method.id));
+  return next.verificationMethod.some((method) => Boolean(method.deactivated) && active.has(method.id));
+}
+
 /** History entries for a verified did:webvh log, one per log entry. */
 export function historyFromDidWebvhLog(log: string): AgentDocumentHistoryEntry[] {
   let previous: AgentDIDDocument | undefined;
@@ -129,15 +136,17 @@ export function historyFromDidWebvhLog(log: string): AgentDocumentHistoryEntry[]
       const entry = JSON.parse(line) as {
         versionTime: string;
         parameters?: { deactivated?: boolean };
-        state: AgentDIDDocument;
+        state: unknown;
       };
+      assertAgentDidDocument(entry.state, `The state of did:webvh log entry ${index + 1}`);
       const document = cloneDocument(entry.state);
       let action: AgentDocumentHistoryAction = 'updated';
       if (index === 0 || !previous) {
         action = 'created';
       } else if (entry.parameters?.deactivated === true) {
         action = 'revoked';
-      } else if (document.verificationMethod.length !== previous.verificationMethod.length) {
+      } else if (retiresAKey(previous, document)) {
+        // A rotation retires a key (it gains a `deactivated` time); adding a key alone is an update
         action = 'rotated-key';
       }
       previous = document;

@@ -37,6 +37,11 @@ export interface DIDResolver {
    * controller binding can be checked; failing to fetch rejects (fail closed).
    */
   resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
+  /**
+   * Optional: drops what a caching resolver holds for `did`, so the next resolution fetches it again. Unlike
+   * `remove`, it never deletes a document the resolver is the only source of.
+   */
+  evict?(did: string): void;
 }
 
 export interface DIDDocumentSource {

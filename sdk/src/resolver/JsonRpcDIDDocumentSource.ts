@@ -1,3 +1,4 @@
+import { assertAgentDidDocument } from '../core/document-guard';
 import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
@@ -99,7 +100,8 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
           continue;
         }
 
-        return responseBody.result as AgentDIDDocument;
+        assertAgentDidDocument(responseBody.result, `The JSON-RPC result of ${endpoint}`);
+        return responseBody.result;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         errors.push(`${endpoint}: ${message}`);

@@ -1,3 +1,4 @@
+import { assertAgentDidDocument } from '../core/document-guard';
 import path from 'node:path';
 import { AgentDIDDocument } from '../core/types';
 import { DIDDocumentSource } from './types';
@@ -42,7 +43,9 @@ export class FilesystemDIDDocumentSource implements DIDDocumentSource {
       try {
         const rawDocument = await fs.readFile(candidatePath, 'utf8');
         allMissing = false;
-        return JSON.parse(rawDocument) as AgentDIDDocument;
+        const parsed: unknown = JSON.parse(rawDocument);
+        assertAgentDidDocument(parsed, `The file ${candidatePath}`);
+        return parsed;
       } catch (error) {
         if (this.isMissingFile(error)) {
           continue;

@@ -100,3 +100,20 @@ describe('AwsSigV4S3DIDDocumentSource', () => {
     );
   });
 });
+
+
+describe('AwsSigV4S3DIDDocumentSource canonical order', () => {
+  it('sorts query parameters by byte value, as SigV4 requires (parity: test_aws_sigv4_s3_source.py)', () => {
+    const source = new AwsSigV4S3DIDDocumentSource({
+      bucket: 'b',
+      endpoint: 'https://s3.us-east-1.amazonaws.com',
+      region: 'us-east-1',
+      accessKeyId: 'AKIDEXAMPLE',
+      secretAccessKey: 'secret'
+    });
+    const canonical = (source as unknown as { buildCanonicalQuery(url: URL): string }).buildCanonicalQuery(
+      new URL('https://s3.example/k?b=1&B=1&a_b=1&a-b=1&a=2&a=10')
+    );
+    expect(canonical).toBe('B=1&a=10&a=2&a-b=1&a_b=1&b=1');
+  });
+});

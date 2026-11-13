@@ -14,6 +14,12 @@ Design contract (locked):
 - Cross-domain hops always force a fresh verification (TTL collapses to 0).
 - ``action_class="irreversible"`` always forces a fresh verification regardless of
   any larger TTL the caller may try to override.
+- A fresh verification (TTL 0: irreversible or cross-domain) first drops the resolver's cached resolution of the
+  sender (``AgentDidClient.evict_cached_resolution``), so a key retired or a DID revoked within the resolver cache
+  TTL is seen. The other edges use the resolver cache (``cache_ttl_ms``, 60 s by default).
+- The action-class TTL is a grace window for key rotation, not the maximum age of a message: that is
+  ``max_age_seconds``, by default ``HANDOFF_MAX_AGE_DEFAULTS[action_class]`` (60 s for irreversible, 600 s for
+  compensable, 3600 s for reversible). It can be lowered for any class and raised only for the non-irreversible ones.
 - Key-rotation race: inside the action-class TTL window, a signature that does not
   verify against the current key set is checked against the DID's did:webvh log at
   ``signed_at`` (RFC-001 §6.2.2). ``signed_at`` is asserted by the signer, so a key
@@ -60,7 +66,7 @@ from agent_did_sdk import (
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
-from .snapshot import RuntimeIdentity, get_active_authentication_key_id
+from .snapshot import RuntimeIdentity, get_active_signing_key_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -76,8 +82,16 @@ HANDOFF_ENVELOPE_TYPE = "agent-did/handoff/v1"
 """``type`` member of the signed handoff envelope."""
 
 HANDOFF_MAX_AGE_SECONDS = 3600
-"""A handoff signed longer ago than this is refused. It is also how long its nonce is remembered, so a captured
-message cannot be replayed once the nonce store has forgotten it."""
+"""The largest default maximum age (``reversible``). A handoff signed longer ago than its edge's maximum age is
+refused; that age is also how long its nonce is remembered, so a captured message cannot be replayed once the nonce
+store has forgotten it."""
+
+HANDOFF_MAX_AGE_DEFAULTS: dict[ActionClass, int] = {
+    "irreversible": 60,
+    "compensable": 600,
+    "reversible": HANDOFF_MAX_AGE_SECONDS,
+}
+"""Default maximum age of a handoff message per action class (``max_age_seconds``)."""
 
 HANDOFF_MAX_FUTURE_SKEW_SECONDS = 30
 """``signed_at`` is asserted by the signer: a value further in the future than this is refused."""
@@ -93,6 +107,7 @@ def build_handoff_envelope(
     destination: str,
     nonce: str,
     payload: Any,
+    trust_domain: str | None = None,
 ) -> str:
     """The canonical (RFC 8785) JSON text a handoff signature covers.
 
@@ -107,6 +122,7 @@ def build_handoff_envelope(
             "signedAtMs": int(round(signed_at * 1000)),
             "destination": destination,
             "nonce": nonce,
+            "trustDomain": trust_domain,
             "payload": payload,
         }
     )
@@ -163,12 +179,18 @@ async def sign_handoff(
     The signature covers :func:`build_handoff_envelope` (payload, DID, key id, ``signed_at``, destination, nonce).
     ``payload`` must be JSON-serializable.
     """
-    key_id = get_active_authentication_key_id(runtime_identity)
+    key_id = get_active_signing_key_id(runtime_identity)
     document = runtime_identity.document
     moment = time.time() if signed_at is None else signed_at
     single_use = nonce if nonce is not None else secrets.token_hex(16)
     envelope = build_handoff_envelope(
-        did=document.id, key_id=key_id, signed_at=moment, destination=destination, nonce=single_use, payload=payload
+        did=document.id,
+        key_id=key_id,
+        signed_at=moment,
+        destination=destination,
+        nonce=single_use,
+        payload=payload,
+        trust_domain=trust_domain,
     )
     signature = await agent_identity.sign_message(envelope, runtime_identity.agent_private_key)
     return SignedHandoffMessage(
@@ -223,6 +245,8 @@ class _VerifierContext:
     now: Callable[[], float] = field(default=time.time)
     nonce_store: NonceStore = field(default_factory=InMemoryNonceStore)
     max_age_seconds: int = HANDOFF_MAX_AGE_SECONDS
+    evict_cached_resolution: Callable[[str], None] | None = None
+    """Called with the sender DID before a fresh verification (TTL 0), so it is not answered from a cache."""
 
 
 def _resolve_executor_id(executor: Any) -> str:
@@ -242,6 +266,18 @@ def _resolve_effective_ttl(
     if ttl_seconds is not None:
         return max(0, int(ttl_seconds))
     return HANDOFF_TTL_DEFAULTS[action_class]
+
+
+def _resolve_effective_max_age(action_class: ActionClass, max_age_seconds: int | None) -> int:
+    default = HANDOFF_MAX_AGE_DEFAULTS[action_class]
+    if max_age_seconds is None:
+        return default
+    if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int) or max_age_seconds <= 0:
+        raise ValueError("max_age_seconds must be a positive integer")
+    if action_class == "irreversible":
+        # Irreversible handoffs can only be made stricter.
+        return min(max_age_seconds, default)
+    return max_age_seconds
 
 
 def _build_block_error(
@@ -359,6 +395,8 @@ def build_handoff_verifier_function(ctx: _VerifierContext) -> Callable[..., Any]
             await _emit_block_outcome(ctx, wf_ctx, error)
             return
 
+        if ctx.ttl_seconds == 0 and ctx.evict_cached_resolution is not None:
+            ctx.evict_cached_resolution(message.did)
         outcome = await _run_signature_verification(ctx, message)
         if not outcome.valid:
             error = _build_block_error(
@@ -477,6 +515,7 @@ async def _run_signature_verification(ctx: _VerifierContext, message: SignedHand
             destination=str(message.destination),
             nonce=str(message.nonce),
             payload=message.payload,
+            trust_domain=message.trust_domain,
         )
     except (TypeError, ValueError, OverflowError):
         # A payload that is not JSON-serializable cannot have been signed: there is no str(obj) fallback.
@@ -559,13 +598,15 @@ def build_handoff_verifier_executor(
     executor_id: str | None = None,
     output_type: Any = object,
     nonce_store: NonceStore | None = None,
+    max_age_seconds: int | None = None,
 ) -> FunctionExecutor:
     """Build the ``FunctionExecutor`` that enforces verification at a handoff edge.
 
     ``allowed_dids`` is required for ``action_class="irreversible"``; for the other classes a warning is logged when
     it is ``None`` because the handoff then accepts any DID that resolves and signs. ``nonce_store`` records the
     ``(did, nonce)`` pairs accepted: the default is an in-memory store of this verifier in this process, so pass a
-    shared store when several workflow instances verify the same edge.
+    shared store when several workflow instances verify the same edge. ``max_age_seconds`` is the oldest
+    ``signed_at`` accepted (default ``HANDOFF_MAX_AGE_DEFAULTS[action_class]``; an irreversible edge can only lower it).
     """
 
     if action_class == "irreversible" and allowed_dids is None and require_signature:
@@ -584,6 +625,11 @@ def build_handoff_verifier_executor(
         cross_domain = bool(from_domain and to_domain and from_domain != to_domain)
 
     effective_ttl = _resolve_effective_ttl(action_class, ttl_seconds, cross_domain)
+    effective_max_age = _resolve_effective_max_age(action_class, max_age_seconds)
+
+    def evict_cached_resolution(did: str) -> None:
+        # Looked up at call time so that ``AgentIdentity.set_default_client`` is honoured.
+        (client if client is not None else AgentIdentity.get_default_client()).evict_cached_resolution(did)
 
     verify_signature: Callable[..., Any] = (
         client.verify_signature if client is not None else AgentIdentity.verify_signature
@@ -604,6 +650,8 @@ def build_handoff_verifier_executor(
         nonce_store=nonce_store if nonce_store is not None else InMemoryNonceStore(),
         verify_signature=verify_signature,
         verify_signature_at_time=verify_signature_at_time,
+        max_age_seconds=effective_max_age,
+        evict_cached_resolution=evict_cached_resolution,
     )
 
     verifier_func = build_handoff_verifier_function(ctx)
@@ -627,6 +675,7 @@ def build_handoff_verifier_executor(
             "to_executor": to_id,
             "action_class": action_class,
             "ttl_seconds": effective_ttl,
+            "max_age_seconds": effective_max_age,
             "cross_domain": cross_domain,
             "allowed_did_count": len(ctx.allowed_dids) if ctx.allowed_dids else 0,
             "require_signature": require_signature,
@@ -637,6 +686,7 @@ def build_handoff_verifier_executor(
 
 __all__ = [
     "ActionClass",
+    "HANDOFF_MAX_AGE_DEFAULTS",
     "HANDOFF_TTL_DEFAULTS",
     "SignedHandoffMessage",
     "VerificationBlockedCallback",

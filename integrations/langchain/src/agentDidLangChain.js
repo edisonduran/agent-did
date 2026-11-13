@@ -21,6 +21,19 @@ function withPrefix(prefix, name) {
   return `${prefix}_${name}`;
 }
 
+/**
+ * The key the agent signs payloads and HTTP requests with: the key of the last rotation, else the first active key
+ * under `assertionMethod`, the relationship verifiers require for both (RFC-001 §6.2.1.3).
+ */
+function getActiveSigningKeyId(runtimeIdentity) {
+  if (runtimeIdentity.verificationMethodId) {
+    return runtimeIdentity.verificationMethodId;
+  }
+  const document = runtimeIdentity.document;
+  const retired = new Set(document.verificationMethod.filter((method) => method.deactivated).map((method) => method.id));
+  return (document.assertionMethod ?? []).find((keyId) => !retired.has(keyId));
+}
+
 function getActiveVerificationMethodId(runtimeIdentity) {
   return runtimeIdentity.verificationMethodId ?? runtimeIdentity.document.authentication[0];
 }
@@ -328,7 +341,7 @@ function createAgentDidTools(options) {
         emitToolStarted(observer, { toolName, did: currentDid, inputs: { payload } });
         try {
           const signature = await options.agentIdentity.signMessage(payload, options.runtimeIdentity.agentPrivateKey);
-          const keyId = getActiveVerificationMethodId(options.runtimeIdentity);
+          const keyId = getActiveSigningKeyId(options.runtimeIdentity);
           emitToolSucceeded(observer, {
             toolName,
             did: currentDid,
@@ -366,7 +379,7 @@ function createAgentDidTools(options) {
         });
         try {
           validateHttpTarget(url, options.allowPrivateNetworkTargets === true);
-          const keyId = getActiveVerificationMethodId(options.runtimeIdentity);
+          const keyId = getActiveSigningKeyId(options.runtimeIdentity);
           const headers = await options.agentIdentity.signHttpRequest({
             method,
             url,

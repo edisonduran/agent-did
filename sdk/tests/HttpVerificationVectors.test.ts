@@ -87,7 +87,10 @@ function buildController(): AgentDIDDocument {
   };
 }
 
-async function clientAt(now: number): Promise<{ client: AgentDidClient; nonceStore: InMemoryNonceStore }> {
+async function clientAt(
+  now: number,
+  withStore = true
+): Promise<{ client: AgentDidClient; nonceStore: InMemoryNonceStore }> {
   const document = buildDocument();
   const resolver = new InMemoryDIDResolver();
   resolver.registerDocument(document);
@@ -96,7 +99,12 @@ async function clientAt(now: number): Promise<{ client: AgentDidClient; nonceSto
   await registry.register(document.id, document.controller, 'hash://sha256/http-verification-fixture');
   // The store's own clock must match the vector clock, or its entries expire at once.
   const nonceStore = new InMemoryNonceStore({ now: () => now });
-  const client = new AgentDidClient({ resolver, registry, nonceStore, clock: () => new Date(now * 1000) });
+  const client = new AgentDidClient({
+    resolver,
+    registry,
+    ...(withStore ? { nonceStore } : {}),
+    clock: () => new Date(now * 1000)
+  });
   return { client, nonceStore };
 }
 
@@ -145,5 +153,16 @@ describe('HTTP verification vectors (RFC-001 §6.5)', () => {
         nonceStore: fresh.nonceStore
       })
     ).resolves.toBe(vector.expected);
+  });
+});
+
+describe('the default nonce store of a client', () => {
+  it('reads the client clock, so a replay is rejected at the client time', async () => {
+    const vector = fixture.vectors.find((candidate) => candidate.id === 'valid') as HttpVector;
+    const { client } = await clientAt(fixture.clock, false);
+    const verify = () => client.verifyHttpRequestSignature({ ...vector.request, headers: vector.headers });
+
+    await expect(verify()).resolves.toBe(true);
+    await expect(verify()).resolves.toBe(false);
   });
 });

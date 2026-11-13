@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-12 | LangChain TS y Python firman con la primera clave activa de `assertionMethod` (`getActiveSigningKeyId` / `get_active_signing_key_id`), la relacion que exige el verificador, en lugar de `authentication[0]`. Parity mantenida. |
 | 2026-11-05 | El demo y el test `did:wba` de LangChain TS encolan una respuesta final del modelo, porque el `fakeModel` de `@langchain/core` mas reciente falla cuando se agota la cola. Solo fixtures de test; sin cambios en la superficie publica ni en la parity con Python. |
 | 2026-11-04 | LangChain Python README quickstart now imports `LocalKeySigner` (the snippet used it without importing it). Documentation only; no change to the integration surface. |
 | 2026-11-04 | M-09: LangChain TS and Python examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |
