@@ -292,6 +292,18 @@ export interface VerifyHttpRequestSignatureParams {
    * use a shared store when several verifier instances serve the same agents.
    */
   nonceStore?: import('./nonce-store').NonceStore;
+  /**
+   * Accept only these `Signature-Agent` DIDs (exact match). Checked before any resolution, so a request from any
+   * other DID costs no network call. A valid signature only proves which DID signed: without `allowedDids` or
+   * `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job (read
+   * `result.did` / `result.controllers`).
+   */
+  allowedDids?: readonly string[];
+  /**
+   * Accept only agents whose controller chain (`result.controllers`) includes one of these DIDs, for example the
+   * organization that operates them. Checked after the signature verifies. When both lists are set, both apply.
+   */
+  allowedControllers?: readonly string[];
 }
 
 /**
@@ -322,6 +334,8 @@ export interface VerifyHttpRequestSignatureParams {
  *   the document does not have, or a key listed only under another relationship).
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
+ * - `did_not_allowed`: `allowedDids` is set and the `Signature-Agent` DID is not in it.
+ * - `controller_not_allowed`: `allowedControllers` is set and no DID of the controller chain is in it.
  */
 export type HttpSignatureRejection =
   | 'missing_headers'
@@ -343,14 +357,24 @@ export type HttpSignatureRejection =
   | 'controller_not_bound'
   | 'keyid_not_authorized'
   | 'signature_invalid'
-  | 'nonce_replayed';
+  | 'nonce_replayed'
+  | 'did_not_allowed'
+  | 'controller_not_allowed';
 
 /**
  * Result of `verifyHttpRequestSignatureDetailed`. Always test `result.ok`: the object itself is
  * truthy for a rejection too, which is why `verifyHttpRequestSignature` keeps returning a boolean.
  */
 export type VerifyHttpRequestSignatureResult =
-  | { ok: true }
+  | {
+      ok: true;
+      /** The `Signature-Agent` DID: who signed. A valid signature does not make it authorized. */
+      did: string;
+      /** The verification method that signed (`keyid`). */
+      keyId: string;
+      /** The controller chain of `did`, nearest first (empty for a DID that controls itself). */
+      controllers: string[];
+    }
   | { ok: false; reason: HttpSignatureRejection };
 
 /**

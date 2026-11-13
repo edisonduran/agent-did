@@ -57,7 +57,7 @@ import {
 } from '../lifecycle/documents';
 import { verifyWithActiveKeys } from '../verification/signature';
 import { checkDidWebvhKeyAtTime, signatureResultForKey } from '../verification/key-at-time';
-import { SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
+import { SignatureCheck, SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
 import { IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
@@ -505,28 +505,30 @@ export class AgentDidClient {
     });
   }
 
-  /** `verifySignature` that tells apart the ways a verification can fail. */
+  /** `verifySignature` that tells apart the ways a verification can fail, with the controller chain. */
   private async checkSignature(
     did: string,
     payload: string,
     signature: string,
     keyId: string,
     requiredPurpose: VerificationRelationship
-  ): Promise<SignatureCheckOutcome> {
+  ): Promise<SignatureCheck> {
     let verificationChain: AgentDIDDocument[];
     try {
       verificationChain = await this.resolveActiveVerificationChain(did);
     } catch (error) {
-      return error instanceof ControllerBindingError ? 'controller_not_bound' : 'did_resolution_failed';
+      return { outcome: error instanceof ControllerBindingError ? 'controller_not_bound' : 'did_resolution_failed' };
     }
+    let outcome: SignatureCheckOutcome;
     try {
-      return verifyWithActiveKeys(verificationChain[0], payload, signature, keyId, requiredPurpose) ? 'valid' : 'invalid';
+      outcome = verifyWithActiveKeys(verificationChain[0], payload, signature, keyId, requiredPurpose) ? 'valid' : 'invalid';
     } catch (error) {
       if (error instanceof IdentityCompositionError) {
-        return 'key_not_authorized';
+        return { outcome: 'key_not_authorized' };
       }
       throw error;
     }
+    return { outcome, controllers: verificationChain.slice(1).map((document) => document.id) };
   }
 
   /**

@@ -84,13 +84,24 @@ signed = await integration.send_task(
     message={"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
 )
 
-# Verify an incoming request
+# Verify an incoming request. A valid signature only proves which DID signed it:
+# accept only the senders (or the controllers of senders) you trust.
 is_valid = await integration.verify_request(
     method="POST",
     url="https://my-agent.example.com/a2a",
     headers=incoming_headers,
     body=incoming_body,
+    allowed_controllers=["did:webvh:...:partner.example.com:organizations:partner"],
 )
+
+# Or learn who signed and decide yourself
+from agent_did_a2a import verify_a2a_request_detailed
+
+result = await verify_a2a_request_detailed(
+    agent_identity=identity, method="POST", url=url, headers=incoming_headers, body=incoming_body
+)
+if result.ok:
+    print(result.did, result.key_id, result.controllers)
 ```
 
 ## Examples

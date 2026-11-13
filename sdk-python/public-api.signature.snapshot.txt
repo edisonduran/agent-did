@@ -339,7 +339,7 @@ class HttpSecurityOptions(*, allow_private_targets: 'bool' = False, timeout_ms: 
 class HttpSignatureError(...)
 
 ## HttpSignatureRejection
-value HttpSignatureRejection = typing.Literal['missing_headers', 'url_not_normalized', 'malformed_headers', 'digest_mismatch', 'tag_mismatch', 'alg_unsupported', 'params_missing', 'keyid_not_bound', 'components_missing', 'components_order', 'created_skew', 'expires_before_created', 'lifetime_exceeded', 'expired', 'signed_component_missing', 'did_resolution_failed', 'controller_not_bound', 'keyid_not_authorized', 'signature_invalid', 'nonce_replayed']
+value HttpSignatureRejection = typing.Literal['missing_headers', 'url_not_normalized', 'malformed_headers', 'digest_mismatch', 'tag_mismatch', 'alg_unsupported', 'params_missing', 'keyid_not_bound', 'components_missing', 'components_order', 'created_skew', 'expires_before_created', 'lifetime_exceeded', 'expired', 'signed_component_missing', 'did_resolution_failed', 'controller_not_bound', 'keyid_not_authorized', 'signature_invalid', 'nonce_replayed', 'did_not_allowed', 'controller_not_allowed']
 
 ## HttpTargetValidationOptions
 class HttpTargetValidationOptions(*, allow_private_targets: 'bool' = False) -> 'None'
@@ -620,7 +620,9 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
 
 ## VerifyHttpRequestSignatureParams
-class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
+class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None, allowed_dids: list[str] | None = None, allowed_controllers: list[str] | None = None) -> None
+  attr allowed_controllers: list[str] | None
+  attr allowed_dids: list[str] | None
   attr body: str | bytes | None
   attr headers: dict[str, str]
   attr max_created_skew_seconds: int | None
@@ -631,7 +633,10 @@ class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | byt
   member model_config = {'arbitrary_types_allowed': True}
 
 ## VerifyHttpRequestSignatureResult
-class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejection | None' = None) -> None
+class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejection | None' = None, did: 'str | None' = None, key_id: 'str | None' = None, controllers: 'list[str]' = <factory>) -> None
+  attr controllers: list[str]
+  attr did: str | None
+  attr key_id: str | None
   attr ok: bool
   attr reason: HttpSignatureRejection | None
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -235,6 +235,14 @@ class VerifyHttpRequestSignatureParams(BaseModel):
     """Maximum lifetime of a signature (``expires - created``), in seconds (default: 300)."""
     nonce_store: Any | None = None
     """Replay store (``NonceStore``). Defaults to a process-wide ``InMemoryNonceStore``."""
+    allowed_dids: list[str] | None = None
+    """Accept only these ``Signature-Agent`` DIDs (exact match). Checked before any resolution, so a request from any
+    other DID costs no network call. A valid signature only proves which DID signed: without ``allowed_dids`` or
+    ``allowed_controllers``, any DID with a valid key passes, and authorization is the caller's job (read
+    ``result.did`` / ``result.controllers``)."""
+    allowed_controllers: list[str] | None = None
+    """Accept only agents whose controller chain (``result.controllers``) includes one of these DIDs, for example the
+    organization that operates them. Checked after the signature verifies. When both lists are set, both apply."""
 
 
 HttpSignatureRejection = Literal[
@@ -258,6 +266,8 @@ HttpSignatureRejection = Literal[
     "keyid_not_authorized",
     "signature_invalid",
     "nonce_replayed",
+    "did_not_allowed",
+    "controller_not_allowed",
 ]
 """Why ``verify_http_request_signature_detailed`` rejected a request. When the request carries several
 signatures, the reason is the one of the first signature that has ``tag="agent-did"`` (else the first).
@@ -284,6 +294,8 @@ signatures, the reason is the one of the first signature that has ``tag="agent-d
 * ``keyid_not_authorized``: ``keyid`` is not an ``assertionMethod`` key of the DID document.
 * ``signature_invalid``: the signature does not verify, or the key is no longer active.
 * ``nonce_replayed``: the ``(keyid, nonce)`` pair was already seen.
+* ``did_not_allowed``: ``allowed_dids`` is set and the ``Signature-Agent`` DID is not in it.
+* ``controller_not_allowed``: ``allowed_controllers`` is set and no DID of the controller chain is in it.
 """
 
 
@@ -294,6 +306,14 @@ class VerifyHttpRequestSignatureResult:
 
     ok: bool
     reason: HttpSignatureRejection | None = None
+    did: str | None = None
+    """For an accepted request, the ``Signature-Agent`` DID: who signed. A valid signature does not make it
+    authorized."""
+    key_id: str | None = None
+    """For an accepted request, the verification method that signed (``keyid``)."""
+    controllers: list[str] = field(default_factory=list)
+    """For an accepted request, the controller chain of ``did``, nearest first (empty for a DID that controls
+    itself)."""
 
 
 KeyAtTimeStatus = Literal["authorized", "not_authorized", "indeterminate"]

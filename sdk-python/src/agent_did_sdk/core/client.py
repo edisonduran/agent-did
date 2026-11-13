@@ -14,7 +14,7 @@ from nacl.signing import SigningKey
 
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
 from ..crypto.multibase import did_key_from_public_key
-from ..http_signatures.verify_request import SignatureCheckOutcome, verify_agent_did_http_request
+from ..http_signatures.verify_request import SignatureCheck, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
     build_added_key_document,
@@ -529,19 +529,21 @@ class AgentDidClient:
         signature: str,
         key_id: str,
         required_purpose: VerificationRelationship,
-    ) -> SignatureCheckOutcome:
-        """``verify_signature`` that tells apart the ways a verification can fail."""
+    ) -> SignatureCheck:
+        """``verify_signature`` that tells apart the ways a verification can fail, with the controller chain."""
         try:
             verification_chain = await self._resolve_active_verification_chain(did)
         except ControllerBindingError:
-            return "controller_not_bound"
+            return SignatureCheck("controller_not_bound")
         except Exception:
-            return "did_resolution_failed"
+            return SignatureCheck("did_resolution_failed")
         try:
             valid = verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
         except IdentityCompositionError:
-            return "key_not_authorized"
-        return "valid" if valid else "invalid"
+            return SignatureCheck("key_not_authorized")
+        if not valid:
+            return SignatureCheck("invalid")
+        return SignatureCheck("valid", tuple(document.id for document in verification_chain[1:]))
 
     async def verify_signature(
         self,

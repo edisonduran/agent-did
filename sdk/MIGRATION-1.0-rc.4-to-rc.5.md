@@ -207,6 +207,15 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `signHttpRequest` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `requestUrlFormProblem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
 - A payload signature passed to `verifySignature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
 
+## 21. New: who signed an HTTP request, and allow-lists (optional)
+
+- An accepted `verifyHttpRequestSignatureDetailed` result is `{ ok: true, did, keyId, controllers }`. `HttpSignatureRejection` gains `did_not_allowed` and `controller_not_allowed`: a `switch` that lists every reason needs the two new cases.
+- A valid signature proves which DID signed, not that you should accept it. Pass `allowedDids` (the `Signature-Agent` DIDs you accept; checked before any resolution) and/or `allowedControllers` (accept agents operated by these controllers), or read `result.did` and decide yourself.
+
+```ts
+const result = await client.verifyHttpRequestSignatureDetailed({ ...request, allowedControllers: [partnerOrgDid] });
+```
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -234,3 +243,4 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
 - [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
+- [ ] Every HTTP verifier either passes `allowedDids` / `allowedControllers` or checks `result.did` before trusting the request.

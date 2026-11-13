@@ -14,6 +14,7 @@ from .jsonrpc import (
     parse_jsonrpc_response,
     sign_a2a_request,
     verify_a2a_request,
+    verify_a2a_request_detailed,
 )
 from .observability import (
     AgentDidA2AObservabilityEvent,
@@ -51,6 +52,7 @@ __all__ = [
     "parse_jsonrpc_response",
     "sign_a2a_request",
     "verify_a2a_request",
+    "verify_a2a_request_detailed",
     # Observability
     "AgentDidA2AObservabilityEvent",
     "compose_event_handlers",
