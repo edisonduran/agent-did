@@ -360,6 +360,43 @@ add('reject-authority-differs', '§6.5 item 4', 'The request host differs from t
 add('reject-path-differs', '§6.5 item 4', 'The request path differs from the signed one.', { request: request2({ url: 'https://api.example.com/v1/admin?mode=fixture' }), expected: false });
 add('reject-query-differs', '§6.5 item 4', 'The request query differs from the signed one.', { request: request2({ url: 'https://api.example.com/v1/verify?mode=other' }), expected: false });
 
+// Request URL form (§6.5 item 4): only URLs every parser derives the same components from are signed or accepted.
+{
+  const req = { ...REQUEST, url: "https://api.example.com/v1/caf%C3%A9/a:b@c;d=e,f!$&'()*+~_-?q=hello%20world&r=x/y?z:@!$()*+,;=" };
+  add('accept-url-percent-encoded', '§6.5 item 4 (URL form)', 'A path and query with percent-encoded octets and every other character the normalized form allows.', {
+    request: req,
+    build: buildHeaders({ signedRequest: req }),
+    expected: true
+  });
+}
+const URL_FORM_CASES = [
+  ['space-in-query', 'https://api.example.com/v1/verify?mode=hello world', 'A space in the query (it must be sent as %20).'],
+  ['dot-segment', 'https://api.example.com/v1/../v1/verify?mode=fixture', 'A `..` path segment.'],
+  ['encoded-dot-segment', 'https://api.example.com/v1/%2e%2E/v1/verify?mode=fixture', 'A percent-encoded `..` path segment.'],
+  ['non-ascii-path', 'https://api.example.com/v1/café?mode=fixture', 'A non-ASCII character in the path (it must be percent-encoded as UTF-8).'],
+  ['non-ascii-host', 'https://bücher.example/v1/verify?mode=fixture', 'An internationalized host name that is not in its ASCII (punycode) form.'],
+  ['uppercase-host', 'https://API.example.com/v1/verify?mode=fixture', 'An uppercase host name.'],
+  ['uppercase-scheme', 'HTTPS://api.example.com/v1/verify?mode=fixture', 'An uppercase scheme.'],
+  ['fragment', 'https://api.example.com/v1/verify?mode=fixture#top', 'A fragment.'],
+  ['user-info', 'https://user@api.example.com/v1/verify?mode=fixture', 'User information before the host.'],
+  ['empty-query', 'https://api.example.com/v1/verify?', 'A `?` with an empty query.'],
+  ['apostrophe-in-query', "https://api.example.com/v1/verify?mode='fixture'", "A `'` in the query (it must be sent as %27)."],
+  ['bad-percent-encoding', 'https://api.example.com/v1/%zz?mode=fixture', 'A `%` that is not followed by two hex digits.'],
+  ['backslash', 'https://api.example.com\\v1\\verify?mode=fixture', 'Backslashes instead of slashes.'],
+  ['non-canonical-ipv4', 'https://0x5d.0xb8.0xd8.0x22/v1/verify?mode=fixture', 'An IPv4 host written in hexadecimal.'],
+  ['non-canonical-ipv6', 'https://[2001:db8:0:0::1]/v1/verify?mode=fixture', 'An IPv6 host that is not in its RFC 5952 canonical form.'],
+  ['leading-zero-port', 'https://api.example.com:0443/v1/verify?mode=fixture', 'A port with a leading zero.']
+];
+for (const [id, url, description] of URL_FORM_CASES) {
+  // Signed over the form a WHATWG parser derives, so only the URL form rule can reject it
+  const signed = { ...REQUEST, url: new URL(url).href.replace(/#.*$/u, '') };
+  add(`reject-url-${id}`, '§6.5 item 4 (URL form)', `${description} The SDKs refuse to sign such a URL and reject it with \`url_not_normalized\`.`, {
+    request: { ...REQUEST, url },
+    build: buildHeaders({ signedRequest: signed }),
+    expected: false
+  });
+}
+
 // Replay
 add('reject-replayed-nonce', '§6.5 item 6', 'The same request is verified twice with one nonce store: the second `(keyid, nonce)` is a replay.', {
   expectedSequence: [true, false]
@@ -406,6 +443,9 @@ const REASONS = {
 };
 for (const component of FULL_COMPONENTS) {
   REASONS[`reject-component-dropped-${component.replace('@', '')}`] = 'components_missing';
+}
+for (const [id] of URL_FORM_CASES) {
+  REASONS[`reject-url-${id}`] = 'url_not_normalized';
 }
 for (const vector of vectors) {
   if (vector.expectedSequence) {

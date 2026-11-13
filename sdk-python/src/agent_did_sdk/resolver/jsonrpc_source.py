@@ -51,16 +51,14 @@ class JsonRpcDIDDocumentSource:
         })
 
         errors: list[str] = []
-        had_valid = False
 
         for endpoint in self._endpoints:
             try:
                 validate_http_target(endpoint, self._http_security)
             except ValueError as ve:
+                # Blocked by policy is not "not found": the document may well exist.
                 errors.append(f"{endpoint}: {ve}")
                 continue
-
-            had_valid = True
 
             try:
                 client = self._client or create_safe_client(self._http_security)
@@ -93,7 +91,8 @@ class JsonRpcDIDDocumentSource:
             except Exception as exc:
                 errors.append(f"{endpoint}: {exc}")
 
-        if not errors or not had_valid:
+        # ``None`` only when every endpoint answered "not found"
+        if not errors:
             return None
 
         raise RuntimeError(f"Failed to resolve DID document via JSON-RPC endpoints. {' | '.join(errors)}")

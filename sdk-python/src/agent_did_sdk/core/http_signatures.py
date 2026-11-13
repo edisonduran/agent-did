@@ -10,6 +10,7 @@ TypeScript parity: ``sdk/src/core/http-signatures.ts``.
 from __future__ import annotations
 
 import base64
+import ipaddress
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -226,6 +227,71 @@ def _header_value(request: HttpRequestLike, name: str) -> str:
     return combined
 
 
+# The request URL must already be in the form every URL parser derives the same components from (RFC-001 §6.5
+# item 4): an http(s) URL with a lowercase scheme and host, no user info and no fragment, a path and query of
+# unreserved, sub-delimiter, ':' and '@' characters and percent-encoded octets (no "'" in the query), no dot
+# segments, and an IP address host only in canonical form. Anything else is refused, never normalized.
+_REQUEST_URL_FORM = re.compile(
+    r"^(https?)://([a-z0-9._-]+|\[[0-9a-f:]+\])(?::([1-9][0-9]{0,4}))?"
+    r"((?:/[A-Za-z0-9\-._~!$&'()*+,;=:@%]*)*)(\?[A-Za-z0-9\-._~!$&()*+,;=:@%/?]*)?$"
+)
+_DOT_SEGMENTS = frozenset({".", "..", "%2e", "%2e%2e", ".%2e", "%2e."})
+_CANONICAL_IPV4 = re.compile(
+    r"^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+)
+_NUMERIC_LABEL = re.compile(r"^(?:0x[0-9a-f]*|[0-9]+)$")
+_BAD_PERCENT = re.compile(r"%(?![0-9A-Fa-f]{2})")
+
+
+def _canonical_ipv6(literal: str) -> str | None:
+    """RFC 5952 text of an IPv6 address (lowercase, no leading zeros, the first longest run of two or more zero
+    groups compressed), as the WHATWG URL serializer writes it; ``None`` when *literal* is not an address."""
+    try:
+        groups = [group.lstrip("0") or "0" for group in ipaddress.IPv6Address(literal).exploded.split(":")]
+    except ValueError:
+        return None
+    best_start, best_len, start = -1, 0, -1
+    for index, group in enumerate([*groups, "x"]):
+        if group == "0":
+            start = index if start < 0 else start
+            continue
+        if start >= 0 and index - start > best_len:
+            best_start, best_len = start, index - start
+        start = -1
+    if best_len < 2:
+        return ":".join(groups)
+    return ":".join(groups[:best_start]) + "::" + ":".join(groups[best_start + best_len:])
+
+
+def request_url_form_problem(url: str) -> str | None:
+    """Why *url* is not a request URL in normalized form (RFC-001 §6.5 item 4), or ``None`` when it is."""
+    if "#" in url:
+        return "it has a fragment"
+    match = _REQUEST_URL_FORM.fullmatch(url)
+    if match is None:
+        return (
+            "it is not an http(s) URL with a lowercase scheme and ASCII host, no user info, and only unreserved, "
+            "sub-delimiter, ':', '@' and percent-encoded characters in the path and query"
+        )
+    _, host, port, path, query = match.groups()
+    if _BAD_PERCENT.search(url):
+        return "it has a '%' that is not followed by two hex digits"
+    if any(segment.lower() in _DOT_SEGMENTS for segment in path.split("/")):
+        return "it has a '.' or '..' path segment"
+    if query == "?":
+        return "it has an empty query"
+    if port is not None and int(port) > 65535:
+        return "its port is out of range"
+    if host.startswith("["):
+        return None if _canonical_ipv6(host[1:-1]) == host[1:-1] else "its IPv6 host is not in canonical form"
+    labels = host.split(".")
+    if any(not label for label in labels):
+        return "its host has an empty label"
+    if _NUMERIC_LABEL.fullmatch(labels[-1]) and not _CANONICAL_IPV4.fullmatch(host):
+        return "its IPv4 host is not in canonical dotted-decimal form"
+    return None
+
+
 def _derived_component_value(request: HttpRequestLike, name: str) -> str:
     parts = urlsplit(request.url)
     path = parts.path or "/"
@@ -249,6 +315,10 @@ def _derived_component_value(request: HttpRequestLike, name: str) -> str:
 
 def build_signature_base(request: HttpRequestLike, signature_input: SignatureInput) -> str:
     """Build the RFC 9421 signature base for *signature_input* over *request*."""
+    if any(component.startswith("@") and component != "@method" for component in signature_input.components):
+        problem = request_url_form_problem(request.url)
+        if problem is not None:
+            raise HttpSignatureError(f"The request URL is not in normalized form: {problem}")
     seen: set[str] = set()
     lines: list[str] = []
     for component in signature_input.components:

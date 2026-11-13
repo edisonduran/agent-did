@@ -196,7 +196,8 @@ class BearerTokenHttpDIDDocumentSource(config: 'BearerTokenHttpDIDDocumentSource
   def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## BearerTokenHttpDIDDocumentSourceConfig
-class BearerTokenHttpDIDDocumentSourceConfig(token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+class BearerTokenHttpDIDDocumentSourceConfig(allowed_origins: 'list[str] | None' = None, token: 'str | None' = None, get_token: 'Callable[[], str | Awaitable[str]] | None' = None, header_name: 'str' = 'authorization', scheme: 'str' = 'Bearer', reference_to_url: 'Callable[[str], str] | None' = None, reference_to_urls: 'Callable[[str], list[str]] | None' = None, http_client: 'httpx.AsyncClient | None' = None, ipfs_gateways: 'list[str] | None' = None, http_security: 'HttpTargetValidationOptions | None' = None, store_method: 'str' = 'PUT', did_log_store_method: 'str | None' = None) -> None
+  attr allowed_origins: list[str] | None
   attr did_log_store_method: str | None
   attr get_token: Callable[[], str | Awaitable[str]] | None
   attr header_name: str
@@ -282,7 +283,8 @@ class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
 value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptions', 'invalidInput', 'unauthorized']
 
 ## DidWebvhResolution
-class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]') -> None
+class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False) -> None
+  attr deactivated: bool
   attr document: AgentDIDDocument
   attr last_entry_signer_keys: list[str]
   attr log: str
@@ -290,7 +292,7 @@ class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: '
   attr version_id: str
 
 ## DidWebvhState
-class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
+class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
   attr provenance: Literal['local', 'imported', 'fetched']
 
 ## DocumentIntegrityError
@@ -339,7 +341,7 @@ class HttpSecurityOptions(*, allow_private_targets: 'bool' = False, timeout_ms: 
 class HttpSignatureError(...)
 
 ## HttpSignatureRejection
-value HttpSignatureRejection = typing.Literal['missing_headers', 'malformed_headers', 'digest_mismatch', 'tag_mismatch', 'alg_unsupported', 'params_missing', 'keyid_not_bound', 'components_missing', 'components_order', 'created_skew', 'expires_before_created', 'lifetime_exceeded', 'expired', 'signed_component_missing', 'did_resolution_failed', 'controller_not_bound', 'keyid_not_authorized', 'signature_invalid', 'nonce_replayed']
+value HttpSignatureRejection = typing.Literal['missing_headers', 'url_not_normalized', 'malformed_headers', 'digest_mismatch', 'tag_mismatch', 'alg_unsupported', 'params_missing', 'keyid_not_bound', 'components_missing', 'components_order', 'created_skew', 'expires_before_created', 'lifetime_exceeded', 'expired', 'signed_component_missing', 'did_resolution_failed', 'controller_not_bound', 'keyid_not_authorized', 'signature_invalid', 'nonce_replayed', 'did_not_allowed', 'controller_not_allowed']
 
 ## HttpTargetValidationOptions
 class HttpTargetValidationOptions(*, allow_private_targets: 'bool' = False) -> 'None'
@@ -621,7 +623,9 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
 
 ## VerifyHttpRequestSignatureParams
-class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None) -> None
+class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None, allowed_dids: list[str] | None = None, allowed_controllers: list[str] | None = None) -> None
+  attr allowed_controllers: list[str] | None
+  attr allowed_dids: list[str] | None
   attr body: str | bytes | None
   attr headers: dict[str, str]
   attr max_created_skew_seconds: int | None
@@ -632,7 +636,10 @@ class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | byt
   member model_config = {'arbitrary_types_allowed': True}
 
 ## VerifyHttpRequestSignatureResult
-class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejection | None' = None) -> None
+class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejection | None' = None, did: 'str | None' = None, key_id: 'str | None' = None, controllers: 'list[str]' = <factory>) -> None
+  attr controllers: list[str]
+  attr did: str | None
+  attr key_id: str | None
   attr ok: bool
   attr reason: HttpSignatureRejection | None
 
@@ -726,6 +733,9 @@ def parse_signature_header(value: 'str') -> 'dict[str, bytes]'
 
 ## parse_signature_input_header
 def parse_signature_input_header(value: 'str') -> 'dict[str, SignatureInput]'
+
+## request_url_form_problem
+def request_url_form_problem(url: 'str') -> 'str | None'
 
 ## required_relationship_for
 def required_relationship_for(artifact: 'SignedArtifactKind') -> 'SigningVerificationPurpose'

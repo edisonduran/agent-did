@@ -49,8 +49,7 @@ describe('Security Edge Cases', () => {
         endpoints: ['file:///etc/passwd'],
       });
 
-      const result = await source.getByReference('hash://sha256/test');
-      expect(result).toBeNull();
+      await expect(source.getByReference('hash://sha256/test')).rejects.toThrow('blocked by SSRF policy');
     });
 
     it('should reject javascript: protocol endpoints', async () => {
@@ -61,8 +60,7 @@ describe('Security Edge Cases', () => {
       const source = new JsonRpcDIDDocumentSource({
         endpoints: ['javascript:alert(1)'],
       });
-      const result = await source.getByReference('hash://sha256/test');
-      expect(result).toBeNull();
+      await expect(source.getByReference('hash://sha256/test')).rejects.toThrow('blocked by SSRF policy');
     });
   });
 });

@@ -38,8 +38,10 @@ from .http_profile import compute_content_digest
 from .http_security import validate_http_target
 from .http_signatures import (
     HttpRequestLike,
+    HttpSignatureError,
     SignatureInput,
     build_signature_base,
+    request_url_form_problem,
     serialize_signature,
     serialize_signature_input,
 )
@@ -129,6 +131,11 @@ class AgentIdentity:
             raise ValueError("HTTP method is required")
         if not (params.url and params.url.strip()):
             raise ValueError("HTTP URL is required")
+
+        # Only a URL in normalized form is signed: a verifier with another URL parser must derive the same components
+        url_problem = request_url_form_problem(params.url)
+        if url_problem is not None:
+            raise HttpSignatureError(f"The request URL is not in normalized form: {url_problem}")
 
         validate_http_target(params.url, params.http_security)
 

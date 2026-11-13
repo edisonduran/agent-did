@@ -165,7 +165,7 @@ export declare class AgentDidClient {
      * (see `HttpSignatureRejection`). Test `result.ok`: the result object is truthy for a rejection too.
      */
     verifyHttpRequestSignatureDetailed(params: VerifyHttpRequestSignatureParams): Promise<VerifyHttpRequestSignatureResult>;
-    /** `verifySignature` that tells apart the ways a verification can fail. */
+    /** `verifySignature` that tells apart the ways a verification can fail, with the controller chain. */
     private checkSignature;
     /**
      * Verifies that a payload signature (`signMessage`, which covers `AGENT_DID_MESSAGE_SIGNING_PREFIX + payload`)
@@ -174,20 +174,23 @@ export declare class AgentDidClient {
      */
     verifySignature(did: string, payload: string, signature: string, keyId?: string, requiredPurpose?: VerificationRelationship): Promise<boolean>;
     /**
-     * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), using the
-     * DID's did:webvh log as created or imported in this client (`importDidWebvhHistory`).
+     * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), against the
+     * DID's verified did:webvh log as `resolveDidWebvhState` gives it: the local log for a DID created or changed in
+     * this client, otherwise the log the resolver fetches (the longer of it and a log imported with
+     * `importDidWebvhHistory`), and the imported log only when the resolver does not fetch logs. A key retired by a
+     * later entry of the log host is therefore seen even when an older log was imported.
      *
      * - `valid`: the signature verifies and the key was authorized for `requiredPurpose` at `statedTime`, with no
      *   later change that retires it, or with `trustedTimeNotAfter` earlier than that change.
-     * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, or the log fails
-     *   verification.
+     * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, the log cannot be
+     *   fetched or fails verification (`did_resolution_failed`), or the controller binding does not hold now.
      * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
-     *   time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+     *   time evidence, or no did:webvh log is available for the DID. Do not accept it.
      *
      * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
      */
     verifySignatureAtTime(did: string, payload: string, signature: string, keyId: string, options: VerifySignatureAtTimeOptions): Promise<VerifySignatureAtTimeResult>;
-    /** The binding of `did` (and of its controllers) to its controller chain as it is now, from the client's own log. */
+    /** The binding of `did` (and of its controllers) to its controller chain as it is now. */
     private assertDidWebvhBoundNow;
     /**
      * Resolves a DID into its corresponding Agent-DID Document.
@@ -460,6 +463,8 @@ export declare function parseSignatureInputHeader(value: string): Map<string, Si
 /** Parses a `Signature` field value into its members (label → signature bytes). */
 export declare function parseSignatureHeader(value: string): Map<string, Uint8Array>;
 export declare function getSignatureParam(input: SignatureInput, name: string): SignatureParamValue | undefined;
+/** Why `url` is not a request URL in normalized form, or `undefined` when it is. */
+export declare function requestUrlFormProblem(url: string): string | undefined;
 /** Builds the RFC 9421 signature base for `input` over `request`. */
 export declare function buildSignatureBase(request: HttpRequestLike, input: SignatureInput): string;
 
@@ -566,7 +571,8 @@ export declare class InMemoryNonceStore implements NonceStore {
  * - Host names are resolved once, at connection time, and the connection is refused when any
  *   resolved address is not globally routable. The address that was validated is the address that
  *   is connected to, so a DNS answer that changes after the check (rebinding) cannot redirect the
- *   request. TLS still verifies the original host name.
+ *   request. TLS still verifies the original host name. Each request opens its own connection, never a pooled
+ *   one, so a socket another part of the process opened to the same host is not reused unchecked.
  *
  * - Every request has one deadline (`timeoutMs`) covering lookup, connection and the whole body,
  *   and a maximum body size (`maxResponseBytes`). It asks for an unencoded body and rejects any
@@ -904,6 +910,18 @@ export interface VerifyHttpRequestSignatureParams {
      * use a shared store when several verifier instances serve the same agents.
      */
     nonceStore?: import('./nonce-store').NonceStore;
+    /**
+     * Accept only these `Signature-Agent` DIDs (exact match). Checked before any resolution, so a request from any
+     * other DID costs no network call. A valid signature only proves which DID signed: without `allowedDids` or
+     * `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job (read
+     * `result.did` / `result.controllers`).
+     */
+    allowedDids?: readonly string[];
+    /**
+     * Accept only agents whose controller chain (`result.controllers`) includes one of these DIDs, for example the
+     * organization that operates them. Checked after the signature verifies. When both lists are set, both apply.
+     */
+    allowedControllers?: readonly string[];
 }
 /**
  * Why `verifyHttpRequestSignatureDetailed` rejected a request. When the request carries several
@@ -911,6 +929,8 @@ export interface VerifyHttpRequestSignatureParams {
  * first signature).
  *
  * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `url_not_normalized`: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
+ *   `requestUrlFormProblem`); the SDK refuses to sign such a URL too.
  * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
  * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
  * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
@@ -931,14 +951,22 @@ export interface VerifyHttpRequestSignatureParams {
  *   the document does not have, or a key listed only under another relationship).
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
+ * - `did_not_allowed`: `allowedDids` is set and the `Signature-Agent` DID is not in it.
+ * - `controller_not_allowed`: `allowedControllers` is set and no DID of the controller chain is in it.
  */
-export type HttpSignatureRejection = 'missing_headers' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed';
+export type HttpSignatureRejection = 'missing_headers' | 'url_not_normalized' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed' | 'did_not_allowed' | 'controller_not_allowed';
 /**
  * Result of `verifyHttpRequestSignatureDetailed`. Always test `result.ok`: the object itself is
  * truthy for a rejection too, which is why `verifyHttpRequestSignature` keeps returning a boolean.
  */
 export type VerifyHttpRequestSignatureResult = {
     ok: true;
+    /** The `Signature-Agent` DID: who signed. A valid signature does not make it authorized. */
+    did: string;
+    /** The verification method that signed (`keyid`). */
+    keyId: string;
+    /** The controller chain of `did`, nearest first (empty for a DID that controls itself). */
+    controllers: string[];
 } | {
     ok: false;
     reason: HttpSignatureRejection;
@@ -1013,8 +1041,9 @@ export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' |
 /**
  * Result of `verifySignatureAtTime`. `valid` only when the signature verifies and the key was authorized at
  * the stated time. Treat `indeterminate` as not accepted.
- * - `did_resolution_failed`: the stored did:webvh log failed verification.
+ * - `did_resolution_failed`: the did:webvh log (or a controller's) could not be fetched or failed verification.
  * - `key_not_authorized`: the key was not authorized at the stated time (see `key.reason`).
+ * - `controller_not_bound`: the controller binding does not hold now (RFC-001 §6.6 item 7).
  * - `signature_invalid`: the signature does not verify with the key.
  */
 export type VerifySignatureAtTimeResult = {
@@ -1043,6 +1072,11 @@ export declare function bytesToBase64(bytes: Uint8Array): string;
 ## crypto/ed25519-verify.d.ts
 /** Verifies an Ed25519 signature under the SDK rule above. Never throws; malformed input is `false`. */
 export declare function verifyEd25519(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): boolean;
+/**
+ * Decodes a payload signature written as hex: exactly 128 hex digits (64 bytes), nothing else (no spaces, no
+ * prefix). Throws otherwise, so both SDKs accept the same strings.
+ */
+export declare function decodeSignatureHex(signature: string): Uint8Array;
 
 ## crypto/hash.d.ts
 /**
@@ -1139,9 +1173,14 @@ import { VerificationRelationship, VerifyHttpRequestSignatureParams, VerifyHttpR
 import { NonceStore } from '../core/nonce-store';
 /** What the injected cryptographic check found. */
 export type SignatureCheckOutcome = 'valid' | 'invalid' | 'key_not_authorized' | 'did_resolution_failed' | 'controller_not_bound';
+/** What the injected check found and, for a valid signature, the controller chain of the DID (nearest first). */
+export interface SignatureCheck {
+    outcome: SignatureCheckOutcome;
+    controllers?: string[];
+}
 export interface VerifyRequestDeps {
     /** Verifies `signatureHex` over `payload` by `keyId` under the DID `did`. */
-    verifySignature: (did: string, payload: string, signatureHex: string, keyId: string, purpose: VerificationRelationship) => Promise<SignatureCheckOutcome>;
+    verifySignature: (did: string, payload: string, signatureHex: string, keyId: string, purpose: VerificationRelationship) => Promise<SignatureCheck>;
     nonceStore: NonceStore;
     now: Date;
 }
@@ -1184,7 +1223,7 @@ export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
-export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, serializeSignatureInput } from './core/http-signatures';
+export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, requestUrlFormProblem, serializeSignatureInput } from './core/http-signatures';
 
 ## lifecycle/documents.d.ts
 import { AddedKeyRelationship, AgentDIDDocument, UpdateAgentDocumentParams } from '../core/types';
@@ -1277,6 +1316,13 @@ import { AgentDIDDocument } from '../core/types';
 import { HttpDIDDocumentSourceConfig } from './HttpDIDDocumentSource';
 import { DIDDocumentSource } from './types';
 export interface BearerTokenHttpDIDDocumentSourceConfig {
+    /**
+     * Origins (`https://storage.example.com`, port included when it is not the default) the credential may be sent
+     * to. Required and non-empty: a request to any other origin is refused before the token is resolved, so a source
+     * that is also given URLs derived from a DID (`wbaDocumentSource`, `webvhDocumentSource`) cannot hand the token
+     * to the DID's host.
+     */
+    allowedOrigins: string[];
     token?: string;
     getToken?: () => string | Promise<string>;
     headerName?: string;
@@ -1295,6 +1341,7 @@ export declare class BearerTokenHttpDIDDocumentSource implements DIDDocumentSour
     private readonly scheme;
     private readonly token;
     private readonly getToken;
+    private readonly allowedOrigins;
     constructor(config: BearerTokenHttpDIDDocumentSourceConfig);
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
     storeByReference(documentRef: string, document: AgentDIDDocument): Promise<void>;
@@ -1504,6 +1551,8 @@ export interface DidWebvhResolution {
     updateKeys: string[];
     /** Multikeys (`z6Mk...`) that signed the last entry. */
     lastEntrySignerKeys: string[];
+    /** `true` when the log ends in a deactivation entry. A resolver that leaves it out reports an active DID. */
+    deactivated?: boolean;
 }
 /** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
 export interface DidWebvhState extends DidWebvhResolution {
@@ -1521,7 +1570,9 @@ export interface DIDResolver {
     /**
      * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document
      * (for example a document registered without its log). A resolver that fetches logs implements this so the
-     * controller binding can be checked; failing to fetch rejects (fail closed).
+     * controller binding and a key at a stated time can be checked; failing to fetch rejects (fail closed). The log
+     * of a deactivated DID is returned with `deactivated: true` (`resolve` rejects it), so the history before the
+     * deactivation can still be checked.
      */
     resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
 }
@@ -1609,10 +1660,11 @@ export declare class UniversalResolverClient implements DIDResolver {
     resolve(did: string): Promise<AgentDIDDocument>;
     /**
      * The verified did:webvh log behind `did`: from the cache while the entry is fresh, otherwise fetched and verified
-     * (rejecting when it cannot be, with no fallback). `undefined` when the cached entry holds only a document that was
-     * registered without its log.
+     * (rejecting when it cannot be, with no fallback). The log of a deactivated DID is returned with
+     * `deactivated: true`. `undefined` when the cached entry holds only a document that was registered without its log.
      */
     resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined>;
+    private deactivatedError;
     remove(did: string): void;
     getCacheStats(): ResolverCacheStats;
     private resolveWithFallback;
@@ -1625,6 +1677,8 @@ export declare class UniversalResolverClient implements DIDResolver {
      * the one held locally and a deactivated DID all fail closed.
      */
     private resolveDidWebvh;
+    /** Fetches, verifies and caches the did:webvh log behind `did`, deactivated or not, and returns the cache entry. */
+    private loadDidWebvh;
     /**
      * Applies the rule for a fetched log against the log the caller holds: the longer one wins and a log
      * that is not a prefix or an extension of the other is an integrity failure (never a fallback).
@@ -1701,6 +1755,10 @@ export declare function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtT
 export declare function signatureResultForKey(key: KeyAtTimeResult, payload: string | Uint8Array, signature: string): VerifySignatureAtTimeResult;
 
 ## verification/signature.d.ts
+/**
+ * Signature verification against an already resolved, active DID document. Resolution,
+ * revocation and controller-chain checks stay in `AgentDidClient`.
+ */
 import { AgentDIDDocument, VerificationRelationship } from '../core/types';
 /**
  * Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given).

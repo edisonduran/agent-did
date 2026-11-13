@@ -191,6 +191,31 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `signMessage` signs `agent-did/v1/message` + a line feed + the payload, and `verifySignature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 19. Breaking: `BearerTokenHttpDIDDocumentSource` needs `allowedOrigins`; JSON-RPC and pinned connections
+
+- `BearerTokenHttpDIDDocumentSource` requires `allowedOrigins`, the origins its credential may be sent to (`https://host`, with the port when it is not the default). A request to any other origin is refused before the token is resolved, so the source can serve as `wbaDocumentSource` or `webvhDocumentSource` (whose URLs come from the DID) without handing the token to the DID's host:
+
+  ```ts
+  new BearerTokenHttpDIDDocumentSource({ token, allowedOrigins: ['https://storage.example.com'] });
+  ```
+
+- `JsonRpcDIDDocumentSource.getByReference` throws when an endpoint is blocked by the target policy, as `HttpDIDDocumentSource` does. It returned `null` ("not found") before. It returns `null` only when every endpoint answers "not found".
+- The default `fetch` opens a connection of its own for each request to a host name and no longer shares the process-wide keep-alive pool.
+
+## 20. Breaking: HTTP signatures need a request URL in normalized form; payload signature hex is strict
+
+- `signHttpRequest` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `requestUrlFormProblem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
+- A payload signature passed to `verifySignature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
+
+## 21. New: who signed an HTTP request, and allow-lists (optional)
+
+- An accepted `verifyHttpRequestSignatureDetailed` result is `{ ok: true, did, keyId, controllers }`. `HttpSignatureRejection` gains `did_not_allowed` and `controller_not_allowed`: a `switch` that lists every reason needs the two new cases.
+- A valid signature proves which DID signed, not that you should accept it. Pass `allowedDids` (the `Signature-Agent` DIDs you accept; checked before any resolution) and/or `allowedControllers` (accept agents operated by these controllers), or read `result.did` and decide yourself.
+
+```ts
+const result = await client.verifyHttpRequestSignatureDetailed({ ...request, allowedControllers: [partnerOrgDid] });
+```
+
 ## 23. Integrations sign with the agent's external signer
 
 - `createAgent` / `create`, `rotateVerificationMethod` and `addVerificationMethod` return the `signer` you passed for the agent key as `result.signer` (non-enumerable: `JSON.stringify` and object spread skip it). The LangChain JS integration signs payloads and HTTP requests with it when present; before, an agent created with a KMS or HSM signer could not sign through the integration.
@@ -219,5 +244,9 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] Agents with an explicit controller are listed under the controller's `capabilityInvocation`; bootstrap controllers from rc.4 get the key added (`addVerificationMethod`).
 - [ ] Verifiers hold the agent's did:webvh log (production resolver or `importDidWebvhHistory`); no code relies on a fallback for did:webvh.
 - [ ] DIDs rotated in rc.4 were republished once (`updateDidDocument`) so retired keys leave the relationships.
+- [ ] Every `BearerTokenHttpDIDDocumentSource` lists its `allowedOrigins`.
+- [ ] Code that treated a `null` from `JsonRpcDIDDocumentSource` with a blocked endpoint as "not found" handles the error.
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
+- [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
+- [ ] Every HTTP verifier either passes `allowedDids` / `allowedControllers` or checks `result.did` before trusting the request.

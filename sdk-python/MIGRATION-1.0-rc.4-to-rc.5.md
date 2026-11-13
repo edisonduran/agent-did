@@ -57,6 +57,7 @@ The `UniversalResolverClient` cache is now bounded: `max_cache_entries` (default
 
 ```python
 BearerTokenHttpDIDDocumentSourceConfig(
+    allowed_origins=["https://storage.example.com"],  # required since rc.5, see section 19
     token="...",
     http_security=HttpTargetValidationOptions(allow_private_targets=True),
 )
@@ -217,6 +218,34 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `sign_message` signs `agent-did/v1/message` + a line feed + the payload, and `verify_signature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 19. Breaking: `BearerTokenHttpDIDDocumentSource` needs `allowed_origins`; JSON-RPC
+
+- `BearerTokenHttpDIDDocumentSourceConfig` requires `allowed_origins`, the origins its credential may be sent to (`https://host`, with the port when it is not the default). A request to any other origin is refused before the token is resolved, so the source can serve as `wba_document_source` or `webvh_document_source` (whose URLs come from the DID) without handing the token to the DID's host. Constructing the source without it raises `TypeError`:
+
+  ```python
+  BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+      token=token, allowed_origins=["https://storage.example.com"],
+  ))
+  ```
+
+- `JsonRpcDIDDocumentSource.get_by_reference` raises when every endpoint is blocked by the target policy, as `HttpDIDDocumentSource` does. It returned `None` ("not found") before. It returns `None` only when every endpoint answers "not found".
+
+## 20. Breaking: HTTP signatures need a request URL in normalized form; payload signature hex is strict
+
+- `sign_http_request` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `request_url_form_problem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
+- A payload signature passed to `verify_signature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
+
+## 21. New: who signed an HTTP request, and allow-lists (optional)
+
+- An accepted `verify_http_request_signature_detailed` result carries `did`, `key_id` and `controllers` (the controller chain, nearest first). `HttpSignatureRejection` gains `did_not_allowed` and `controller_not_allowed`.
+- A valid signature proves which DID signed, not that you should accept it. Pass `allowed_dids` (the `Signature-Agent` DIDs you accept; checked before any resolution) and/or `allowed_controllers` (accept agents operated by these controllers), or read `result.did` and decide yourself. A2A: `verify_a2a_request(..., allowed_controllers=[...])`, or `verify_a2a_request_detailed`.
+
+```python
+result = await client.verify_http_request_signature_detailed(
+    VerifyHttpRequestSignatureParams(**request, allowed_controllers=[partner_org_did])
+)
+```
+
 ## 23. Integrations sign with the agent's external signer
 
 - `create`, `rotate_verification_method` and `add_verification_method` return the `signer` you passed for the agent key as `result.signer` (excluded from `model_dump` / `model_dump_json`). The A2A, LangChain, CrewAI, Semantic Kernel and Microsoft Agent Framework integrations sign payloads, HTTP requests and handoffs with it when present; before, an agent created with a KMS or HSM signer failed with `The seed must be exactly 32 bytes long`.
@@ -246,3 +275,7 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] DIDs rotated in rc.4 were republished once (`update_did_document`) so retired keys leave the relationships.
 - [ ] `FilesystemDIDDocumentSource` has a `root_directory` or a mapping; `create` no longer passes `did_method` or `network`.
 - [ ] Microsoft Agent Framework handoffs are signed with `sign_handoff` and edges that move irreversible actions set `allowed_dids`.
+- [ ] Every `BearerTokenHttpDIDDocumentSourceConfig` lists its `allowed_origins`.
+- [ ] Code that treated a `None` from `JsonRpcDIDDocumentSource` with blocked endpoints as "not found" handles the error.
+- [ ] Every URL passed to `sign_http_request` is percent-encoded and normalized (`request_url_form_problem` returns nothing for it).
+- [ ] Every HTTP verifier either passes `allowed_dids` / `allowed_controllers` or checks `result.did` before trusting the request.

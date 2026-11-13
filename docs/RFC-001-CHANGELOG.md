@@ -14,6 +14,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 - §4.2 / §6.6 item 3: a key deactivated by rotation is removed from every verification relationship; verifiers reject it even when an older document lists it.
 - §6.6 item 4: a held `did:webvh` log is replaced only by an extension of it; no fallback source for `did:webvh`.
 - §7.2: `signMessage` signs `agent-did/v1/message\n` plus the payload (domain separation from HTTP request signatures and log proofs), and the Ed25519 verification rule is stated (`fixtures/ed25519-verification-vectors.json`).
+- §6.5 item 4: the request URL of an HTTP signature must be in normalized form (lowercase ASCII host, no user information or fragment, only unreserved, sub-delimiter, `:`, `@` and percent-encoded characters in the path and query, no dot segments, canonical IP hosts). Signers refuse other URLs and verifiers reject them (`url_not_normalized`), so implementations with different URL parsers derive the same signature base. New vectors in `fixtures/http-verification-vectors.json`.
 - Wire change: payload signatures and the content of rotated documents change in rc.5; the wire freeze of [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) starts at this release.
 
 ---
