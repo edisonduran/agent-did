@@ -312,6 +312,8 @@ export interface VerifyHttpRequestSignatureParams {
  * first signature).
  *
  * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `url_not_normalized`: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
+ *   `requestUrlFormProblem`); the SDK refuses to sign such a URL too.
  * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
  * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
  * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
@@ -337,6 +339,7 @@ export interface VerifyHttpRequestSignatureParams {
  */
 export type HttpSignatureRejection =
   | 'missing_headers'
+  | 'url_not_normalized'
   | 'malformed_headers'
   | 'digest_mismatch'
   | 'tag_mismatch'
@@ -461,8 +464,9 @@ export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' |
 /**
  * Result of `verifySignatureAtTime`. `valid` only when the signature verifies and the key was authorized at
  * the stated time. Treat `indeterminate` as not accepted.
- * - `did_resolution_failed`: the stored did:webvh log failed verification.
+ * - `did_resolution_failed`: the did:webvh log (or a controller's) could not be fetched or failed verification.
  * - `key_not_authorized`: the key was not authorized at the stated time (see `key.reason`).
+ * - `controller_not_bound`: the controller binding does not hold now (RFC-001 §6.6 item 7).
  * - `signature_invalid`: the signature does not verify with the key.
  */
 export type VerifySignatureAtTimeResult =

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from ..core.identity_composition import assert_key_purpose, assert_signing_purpose, get_relationship_key_ids
 from ..core.types import AgentDIDDocument, VerificationRelationship
-from ..crypto.ed25519 import verify_ed25519
+from ..crypto.ed25519 import decode_signature_hex, verify_ed25519
 from ..crypto.multibase import decode_public_key_multibase
 
 
@@ -33,7 +33,7 @@ def verify_with_active_keys(
 
     message_bytes = payload.encode("utf-8") if isinstance(payload, str) else payload
     try:
-        sig_bytes = bytes.fromhex(signature)
+        sig_bytes = decode_signature_hex(signature)
     except ValueError:
         return False
 

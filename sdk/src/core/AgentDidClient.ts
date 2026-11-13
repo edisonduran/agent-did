@@ -426,6 +426,9 @@ export class AgentDidClient {
       if (!state) {
         throw new ControllerBindingError(agent.id, controller.id, 'no did:webvh log is available to check the binding');
       }
+      if (state.deactivated && index > 0) {
+        throw new ControllerBindingError(agent.id, controller.id, 'the controller DID is deactivated');
+      }
       assertBoundToController(agent, state.lastEntrySignerKeys, controller);
     }
   }
@@ -464,6 +467,7 @@ export class AgentDidClient {
       versionId: resolved.metadata.versionId,
       updateKeys: [...resolved.metadata.updateKeys],
       lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log),
+      deactivated: resolved.metadata.deactivated,
       provenance
     };
   }
@@ -550,15 +554,18 @@ export class AgentDidClient {
   }
 
   /**
-   * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), using the
-   * DID's did:webvh log as created or imported in this client (`importDidWebvhHistory`).
+   * Verifies a signature made with `keyId` at the time the signed artifact states (RFC-001 §6.2.2), against the
+   * DID's verified did:webvh log as `resolveDidWebvhState` gives it: the local log for a DID created or changed in
+   * this client, otherwise the log the resolver fetches (the longer of it and a log imported with
+   * `importDidWebvhHistory`), and the imported log only when the resolver does not fetch logs. A key retired by a
+   * later entry of the log host is therefore seen even when an older log was imported.
    *
    * - `valid`: the signature verifies and the key was authorized for `requiredPurpose` at `statedTime`, with no
    *   later change that retires it, or with `trustedTimeNotAfter` earlier than that change.
-   * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, or the log fails
-   *   verification.
+   * - `invalid`: the signature does not verify, the key was not authorized at `statedTime`, the log cannot be
+   *   fetched or fails verification (`did_resolution_failed`), or the controller binding does not hold now.
    * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
-   *   time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+   *   time evidence, or no did:webvh log is available for the DID. Do not accept it.
    *
    * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
    */
@@ -569,13 +576,18 @@ export class AgentDidClient {
     keyId: string,
     options: VerifySignatureAtTimeOptions
   ): Promise<VerifySignatureAtTimeResult> {
-    const log = did.startsWith('did:webvh:') ? this.didWebvhLogStore.get(did) : undefined;
-    if (log === undefined) {
+    let state: DidWebvhState | undefined;
+    try {
+      state = await this.resolveDidWebvhState(did);
+    } catch {
+      return { status: 'invalid', reason: 'did_resolution_failed' };
+    }
+    if (state === undefined) {
       return { status: 'indeterminate', key: { status: 'indeterminate', keyId, reason: 'history_unavailable' } };
     }
     let key;
     try {
-      key = await checkDidWebvhKeyAtTime(log, { ...options, did, keyId });
+      key = await checkDidWebvhKeyAtTime(state.log, { ...options, did, keyId });
     } catch (error) {
       if (error instanceof TypeError) {
         throw error;
@@ -586,21 +598,20 @@ export class AgentDidClient {
     if (result.status === 'valid') {
       // The binding is evaluated against the controller as it is now, never at the stated time
       try {
-        await this.assertDidWebvhBoundNow(did);
+        await this.assertDidWebvhBoundNow(did, state);
       } catch (error) {
         if (error instanceof ControllerBindingError) {
           return { status: 'invalid', reason: 'controller_not_bound', key: result.key };
         }
-        throw error;
+        return { status: 'invalid', reason: 'did_resolution_failed', key: result.key };
       }
     }
     return result;
   }
 
-  /** The binding of `did` (and of its controllers) to its controller chain as it is now, from the client's own log. */
-  private async assertDidWebvhBoundNow(did: string): Promise<void> {
-    const state = await this.resolveDidWebvhState(did);
-    const document = state?.document;
+  /** The binding of `did` (and of its controllers) to its controller chain as it is now. */
+  private async assertDidWebvhBoundNow(did: string, state: DidWebvhState): Promise<void> {
+    const document = state.document;
     if (!document || !document.controller?.trim() || document.controller === did) {
       return;
     }

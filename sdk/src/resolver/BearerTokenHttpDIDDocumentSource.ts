@@ -6,7 +6,39 @@ import { DIDDocumentSource } from './types';
 type FetchLike = NonNullable<HttpDIDDocumentSourceConfig['fetchFn']>;
 type FetchLikeInit = NonNullable<Parameters<FetchLike>[1]>;
 
+/** `scheme://host[:port]` of an http(s) URL as WHATWG `URL.origin` gives it, or `undefined`. */
+function originOf(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeAllowedOrigins(origins: string[] | undefined): ReadonlySet<string> {
+  if (!Array.isArray(origins) || origins.length === 0) {
+    throw new TypeError('BearerTokenHttpDIDDocumentSource requires allowedOrigins: the origins the credential may be sent to');
+  }
+  return new Set(
+    origins.map((entry) => {
+      const origin = originOf(entry);
+      if (origin === undefined) {
+        throw new TypeError(`allowedOrigins entry is not an http(s) origin: ${entry}`);
+      }
+      return origin;
+    })
+  );
+}
+
 export interface BearerTokenHttpDIDDocumentSourceConfig {
+  /**
+   * Origins (`https://storage.example.com`, port included when it is not the default) the credential may be sent
+   * to. Required and non-empty: a request to any other origin is refused before the token is resolved, so a source
+   * that is also given URLs derived from a DID (`wbaDocumentSource`, `webvhDocumentSource`) cannot hand the token
+   * to the DID's host.
+   */
+  allowedOrigins: string[];
   token?: string;
   getToken?: () => string | Promise<string>;
   headerName?: string;
@@ -26,8 +58,10 @@ export class BearerTokenHttpDIDDocumentSource implements DIDDocumentSource {
   private readonly scheme: string;
   private readonly token: string | undefined;
   private readonly getToken: (() => string | Promise<string>) | undefined;
+  private readonly allowedOrigins: ReadonlySet<string>;
 
   constructor(config: BearerTokenHttpDIDDocumentSourceConfig) {
+    this.allowedOrigins = normalizeAllowedOrigins(config.allowedOrigins);
     this.headerName = (config.headerName || 'authorization').toLowerCase();
     this.scheme = config.scheme === undefined ? 'Bearer' : config.scheme;
     this.token = config.token;
@@ -67,6 +101,12 @@ export class BearerTokenHttpDIDDocumentSource implements DIDDocumentSource {
     }
 
     return async (url: string, init?: FetchLikeInit) => {
+      const origin = originOf(url);
+      if (origin === undefined || !this.allowedOrigins.has(origin)) {
+        throw new Error(
+          `BearerTokenHttpDIDDocumentSource refuses to send credentials to ${origin ?? 'an invalid URL'}: not in allowedOrigins`
+        );
+      }
       const token = await this.resolveToken();
       const headers = Object.fromEntries(
         Object.entries(init?.headers || {}).map(([key, value]) => [key.toLowerCase(), value])

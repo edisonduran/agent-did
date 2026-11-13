@@ -6,6 +6,7 @@ import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import cast
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -14,9 +15,45 @@ from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
 from .http_source import HttpDIDDocumentSource, HttpDIDDocumentSourceConfig
 
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin_of(url: str) -> str | None:
+    """``scheme://host[:port]`` of an http(s) URL, lowercased and without a default port, or ``None``."""
+    try:
+        parts = urlsplit(url.strip())
+        port = parts.port
+    except ValueError:
+        return None
+    scheme = parts.scheme.lower()
+    host = parts.hostname
+    if scheme not in _DEFAULT_PORTS or not host:
+        return None
+    host = f"[{host}]" if ":" in host else host.lower()
+    return f"{scheme}://{host}" if port is None or port == _DEFAULT_PORTS[scheme] else f"{scheme}://{host}:{port}"
+
+
+def _normalize_allowed_origins(origins: list[str] | None) -> frozenset[str]:
+    if not origins:
+        raise TypeError(
+            "BearerTokenHttpDIDDocumentSource requires allowed_origins: the origins the credential may be sent to"
+        )
+    normalized = set()
+    for entry in origins:
+        origin = _origin_of(entry)
+        if origin is None:
+            raise TypeError(f"allowed_origins entry is not an http(s) origin: {entry}")
+        normalized.add(origin)
+    return frozenset(normalized)
+
 
 @dataclass
 class BearerTokenHttpDIDDocumentSourceConfig:
+    allowed_origins: list[str] | None = None
+    """Origins (``https://storage.example.com``, port included when it is not the default) the credential may be
+    sent to. Required and non-empty: a request to any other origin is refused before the token is resolved, so a
+    source that is also given URLs derived from a DID (``wba_document_source``, ``webvh_document_source``) cannot
+    hand the token to the DID's host."""
     token: str | None = None
     get_token: Callable[[], str | Awaitable[str]] | None = None
     header_name: str = "authorization"
@@ -34,8 +71,10 @@ class _BearerAuthAsyncClient:
     def __init__(self, config: BearerTokenHttpDIDDocumentSourceConfig) -> None:
         self._config = config
         self._client = config.http_client
+        self._allowed_origins = _normalize_allowed_origins(config.allowed_origins)
 
     async def get(self, url: str) -> httpx.Response:
+        self._assert_allowed(url)
         headers = await self._build_headers({})
         client, should_close = self._acquire_client()
         try:
@@ -51,6 +90,7 @@ class _BearerAuthAsyncClient:
         content: str | bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
+        self._assert_allowed(url)
         merged_headers = await self._build_headers(headers or {})
         client, should_close = self._acquire_client()
         try:
@@ -61,6 +101,14 @@ class _BearerAuthAsyncClient:
 
     async def aclose(self) -> None:
         return None
+
+    def _assert_allowed(self, url: str) -> None:
+        origin = _origin_of(url)
+        if origin is None or origin not in self._allowed_origins:
+            raise RuntimeError(
+                "BearerTokenHttpDIDDocumentSource refuses to send credentials to "
+                f"{origin or 'an invalid URL'}: not in allowed_origins"
+            )
 
     def _acquire_client(self) -> tuple[httpx.AsyncClient, bool]:
         if self._client is not None:

@@ -1075,6 +1075,345 @@
       "reason": "signature_invalid"
     },
     {
+      "id": "accept-url-percent-encoded",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A path and query with percent-encoded octets and every other character the normalized form allows.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/caf%C3%A9/a:b@c;d=e,f!$&'()*+~_-?q=hello%20world&r=x/y?z:@!$()*+,;=",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:y+Yae0+x39a518nTo+sxttq2Qp6FZ4piIJK/LV1gSVoc8amdn/6hZcdiRTWuGokSxDPuZnuk8bQSHHJfKXXgCA==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/caf%C3%A9/a:b@c;d=e,f!$&'()*+~_-\n\"@query\": ?q=hello%20world&r=x/y?z:@!$()*+,;=\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": true
+    },
+    {
+      "id": "reject-url-space-in-query",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A space in the query (it must be sent as %20). The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/verify?mode=hello world",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:k3yuwg0D4v1/syaP8RAMIODQ67tuwefz8PK/KrPBDMtW1tdwZv3RtwBTIluY955ABl82AWKV+KdbFyh6e3RoBw==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=hello%20world\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-dot-segment",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A `..` path segment. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/../v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-encoded-dot-segment",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A percent-encoded `..` path segment. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/%2e%2E/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-non-ascii-path",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A non-ASCII character in the path (it must be percent-encoded as UTF-8). The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/café?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:uO3WjBSnae3rpX5V2xKGllwlbjN+o0mL4u1rMrJV8tnJO1gM31QP8S7re/PVgL3YfvXIEZYwOx7IqxUA3n+5Cw==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/caf%C3%A9\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-non-ascii-host",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "An internationalized host name that is not in its ASCII (punycode) form. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://bücher.example/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:W3wRtIMLi56KoVISTXgPiQE1uB43rcMDYilx11kJHYvfVXPO5+GlvD/fVjhO73JsiQ1Tv6051/CTrhHt3IQpAQ==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": xn--bcher-kva.example\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-uppercase-host",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "An uppercase host name. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://API.example.com/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-uppercase-scheme",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "An uppercase scheme. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "HTTPS://api.example.com/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-fragment",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A fragment. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/verify?mode=fixture#top",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-user-info",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "User information before the host. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://user@api.example.com/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-empty-query",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A `?` with an empty query. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/verify?",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:Jwwvur0j0R9d3F/X8Xd2E/RkDm2nd8fGRG5fEqcmY1UNd0U9ygq9JQGjUZYQYaFZAHcAvJfgKRFz1YiE4t6CAg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-apostrophe-in-query",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A `'` in the query (it must be sent as %27). The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/verify?mode='fixture'",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:a4JutQLuIsaI2Vw0Flmn8eu3c5WOoVtSGcga0LaX6VcY9lHB61ZcmXyVerB3sOLICqFMPdZSA1w93MBWq51KAQ==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=%27fixture%27\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-bad-percent-encoding",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A `%` that is not followed by two hex digits. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com/v1/%zz?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:hPYrGp5ZdMWWKpM9Q8f4fX2/FmyXn36pRo1QJtmdGH8MK9f8DQNHokCwGfjmfz2PoCgkT9hKPZfC2JkkdnegAg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/%zz\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-backslash",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "Backslashes instead of slashes. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com\\v1\\verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-non-canonical-ipv4",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "An IPv4 host written in hexadecimal. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://0x5d.0xb8.0xd8.0x22/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:RVEXAajZFI6HFH/H977HgS0PyY3NUcEo/vojQgNKxW94TN9y8P4OfwiV3mK72G3yHlQ70RvVoXBmDClySZXnBQ==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": 93.184.216.34\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-non-canonical-ipv6",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "An IPv6 host that is not in its RFC 5952 canonical form. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://[2001:db8:0:0::1]/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:2U6IJcmvTjUp6QNRtqKcksWFdNlXGGUY6py4AqpLqDBX7jdynArJiceIyVDHPfEzXPU1dKBFmEUmiuHqXrvDBA==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": [2001:db8::1]\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
+      "id": "reject-url-leading-zero-port",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "A port with a leading zero. The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.com:0443/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:m2vUDBes5OQI3qVMp68UPhxDty6FKDu3Ep96RwqZZjp/kmEHbTxFSGmxvZvsKReAWEnLlXHuL/lPBVrfk4fICg==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Signature-Agent": "did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"signature-agent\": did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": false,
+      "reason": "url_not_normalized"
+    },
+    {
       "id": "reject-replayed-nonce",
       "rule": "§6.5 item 6",
       "description": "The same request is verified twice with one nonce store: the second `(keyid, nonce)` is a replay.",

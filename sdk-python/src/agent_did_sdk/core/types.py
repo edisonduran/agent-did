@@ -247,6 +247,7 @@ class VerifyHttpRequestSignatureParams(BaseModel):
 
 HttpSignatureRejection = Literal[
     "missing_headers",
+    "url_not_normalized",
     "malformed_headers",
     "digest_mismatch",
     "tag_mismatch",
@@ -272,6 +273,8 @@ HttpSignatureRejection = Literal[
 signatures, the reason is the one of the first signature that has ``tag="agent-did"`` (else the first).
 
 * ``missing_headers``: ``Signature``, ``Signature-Input`` or ``Signature-Agent`` is absent.
+* ``url_not_normalized``: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
+  ``request_url_form_problem``); the SDK refuses to sign such a URL too.
 * ``malformed_headers``: ``Signature`` / ``Signature-Input`` do not parse, or no signature has a matching label.
 * ``digest_mismatch``: ``Content-Digest`` is absent or is not exactly the SHA-256 of the body.
 * ``tag_mismatch``: the ``tag`` parameter is not ``agent-did`` (for example another profile's signature).
@@ -384,7 +387,8 @@ class VerifySignatureAtTimeResult:
     """Result of ``verify_signature_at_time``. ``valid`` only when the signature verifies and the key was
     authorized at the stated time. Treat ``indeterminate`` as not accepted.
 
-    ``reason`` (for ``invalid``): ``did_resolution_failed`` (the stored did:webvh log failed verification),
+    ``reason`` (for ``invalid``): ``did_resolution_failed`` (the did:webvh log, or a controller's, could not be
+    fetched or failed verification),
     ``key_not_authorized`` (see ``key.reason``), ``controller_not_bound`` (the agent is not bound to its controller
     now, RFC-001 §6.6 item 7) or ``signature_invalid``.
     """

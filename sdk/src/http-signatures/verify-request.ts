@@ -17,6 +17,7 @@ import {
   getSignatureParam,
   parseSignatureHeader,
   parseSignatureInputHeader,
+  requestUrlFormProblem,
   SignatureInput
 } from '../core/http-signatures';
 import { NonceStore } from '../core/nonce-store';
@@ -66,6 +67,9 @@ export async function verifyAgentDidHttpRequest(
   const signatureAgent = headers['signature-agent'];
   if (!headers['signature'] || !headers['signature-input'] || !signatureAgent) {
     return reject('missing_headers');
+  }
+  if (requestUrlFormProblem(params.url) !== undefined) {
+    return reject('url_not_normalized');
   }
   // Before any resolution: a DID outside the list costs no network call
   if (params.allowedDids !== undefined && !params.allowedDids.includes(signatureAgent)) {
