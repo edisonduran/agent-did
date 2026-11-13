@@ -35,13 +35,13 @@ class TestJsonRpcSourceSSRF:
         source = JsonRpcDIDDocumentSource(JsonRpcDIDDocumentSourceConfig(
             endpoints=["file:///etc/passwd"],
         ))
-        result = await source.get_by_reference("hash://sha256/abc")
-        assert result is None
+        with pytest.raises(RuntimeError, match="Failed to resolve DID document via JSON-RPC endpoints"):
+            await source.get_by_reference("hash://sha256/abc")
 
     async def test_reject_javascript(self) -> None:
         source = JsonRpcDIDDocumentSource(JsonRpcDIDDocumentSourceConfig(
             endpoints=["javascript:alert(1)"],
         ))
-        result = await source.get_by_reference("hash://sha256/abc")
-        assert result is None
+        with pytest.raises(RuntimeError, match="Failed to resolve DID document via JSON-RPC endpoints"):
+            await source.get_by_reference("hash://sha256/abc")
 

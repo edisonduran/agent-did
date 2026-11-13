@@ -57,6 +57,7 @@ The `UniversalResolverClient` cache is now bounded: `max_cache_entries` (default
 
 ```python
 BearerTokenHttpDIDDocumentSourceConfig(
+    allowed_origins=["https://storage.example.com"],  # required since rc.5, see section 19
     token="...",
     http_security=HttpTargetValidationOptions(allow_private_targets=True),
 )
@@ -217,6 +218,18 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `sign_message` signs `agent-did/v1/message` + a line feed + the payload, and `verify_signature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
+## 19. Breaking: `BearerTokenHttpDIDDocumentSource` needs `allowed_origins`; JSON-RPC
+
+- `BearerTokenHttpDIDDocumentSourceConfig` requires `allowed_origins`, the origins its credential may be sent to (`https://host`, with the port when it is not the default). A request to any other origin is refused before the token is resolved, so the source can serve as `wba_document_source` or `webvh_document_source` (whose URLs come from the DID) without handing the token to the DID's host. Constructing the source without it raises `TypeError`:
+
+  ```python
+  BearerTokenHttpDIDDocumentSource(BearerTokenHttpDIDDocumentSourceConfig(
+      token=token, allowed_origins=["https://storage.example.com"],
+  ))
+  ```
+
+- `JsonRpcDIDDocumentSource.get_by_reference` raises when every endpoint is blocked by the target policy, as `HttpDIDDocumentSource` does. It returned `None` ("not found") before. It returns `None` only when every endpoint answers "not found".
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -241,3 +254,5 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - [ ] DIDs rotated in rc.4 were republished once (`update_did_document`) so retired keys leave the relationships.
 - [ ] `FilesystemDIDDocumentSource` has a `root_directory` or a mapping; `create` no longer passes `did_method` or `network`.
 - [ ] Microsoft Agent Framework handoffs are signed with `sign_handoff` and edges that move irreversible actions set `allowed_dids`.
+- [ ] Every `BearerTokenHttpDIDDocumentSourceConfig` lists its `allowed_origins`.
+- [ ] Code that treated a `None` from `JsonRpcDIDDocumentSource` with blocked endpoints as "not found" handles the error.
