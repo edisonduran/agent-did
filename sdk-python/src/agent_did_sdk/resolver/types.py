@@ -23,6 +23,8 @@ class DidWebvhResolution:
     """The ``updateKeys`` in force after the last entry."""
     last_entry_signer_keys: list[str]
     """Multikeys (``z6Mk...``) that signed the last entry: the keys that endorsed the current document."""
+    deactivated: bool = False
+    """``True`` when the log ends in a deactivation entry."""
 
 
 @dataclass(frozen=True)
@@ -38,9 +40,10 @@ class DidWebvhState(DidWebvhResolution):
 @runtime_checkable
 class DIDResolver(Protocol):
     """A DID resolver. A resolver that fetches did:webvh logs may also implement
-    ``async resolve_did_webvh_log(did) -> DidWebvhResolution | None`` so the controller binding can be checked;
-    it rejects when the log cannot be fetched or verified (fail closed) and returns ``None`` when it holds only the
-    document."""
+    ``async resolve_did_webvh_log(did) -> DidWebvhResolution | None`` so the controller binding and a key at a
+    stated time can be checked; it rejects when the log cannot be fetched or verified (fail closed) and returns
+    ``None`` when it holds only the document. The log of a deactivated DID is returned with ``deactivated=True``
+    (``resolve`` rejects it), so the history before the deactivation can still be checked."""
 
     def register_document(self, document: AgentDIDDocument) -> None: ...
     async def resolve(self, did: str) -> AgentDIDDocument: ...

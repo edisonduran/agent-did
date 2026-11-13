@@ -15,6 +15,8 @@ export interface DidWebvhResolution {
   updateKeys: string[];
   /** Multikeys (`z6Mk...`) that signed the last entry. */
   lastEntrySignerKeys: string[];
+  /** `true` when the log ends in a deactivation entry. A resolver that leaves it out reports an active DID. */
+  deactivated?: boolean;
 }
 
 /** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
@@ -34,7 +36,9 @@ export interface DIDResolver {
   /**
    * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document
    * (for example a document registered without its log). A resolver that fetches logs implements this so the
-   * controller binding can be checked; failing to fetch rejects (fail closed).
+   * controller binding and a key at a stated time can be checked; failing to fetch rejects (fail closed). The log
+   * of a deactivated DID is returned with `deactivated: true` (`resolve` rejects it), so the history before the
+   * deactivation can still be checked.
    */
   resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
 }

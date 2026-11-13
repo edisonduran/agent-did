@@ -280,7 +280,8 @@ class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
 value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptions', 'invalidInput', 'unauthorized']
 
 ## DidWebvhResolution
-class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]') -> None
+class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False) -> None
+  attr deactivated: bool
   attr document: AgentDIDDocument
   attr last_entry_signer_keys: list[str]
   attr log: str
@@ -288,7 +289,7 @@ class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: '
   attr version_id: str
 
 ## DidWebvhState
-class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
+class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
   attr provenance: Literal['local', 'imported', 'fetched']
 
 ## DocumentIntegrityError
