@@ -98,6 +98,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | Parity review covers signing through an external signer (`runtimeIdentity.signer` / `runtime_identity.signer`) and the refusal of tool rotation for such an agent in both packages. |
 | 2026-11-12 | LangChain Python `sign_http_request` raises `ValueError` when the runtime identity has no active authentication key, because the SDK now requires the verification method id; the did:wba demo sorts its imports. Type-check and lint fix; no other change to the integration surface. |
 | 2026-11-12 | RC metadata moved to the `1.0.0rc5` release train (npm `1.0.0-rc.5`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-12 | LangChain Python did:wba demo and test encode the Ed25519 public key as base58btc multibase (`encode_public_key_multibase`) instead of `z` + hex, a form the SDK no longer decodes. Test fixtures only; no change to the integration surface. |

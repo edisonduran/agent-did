@@ -16,7 +16,7 @@ from agent_did_sdk import AgentIdentity, SignHttpRequestParams, VerifyHttpReques
 from agent_did_sdk.core.types import VerifyHttpRequestSignatureResult
 from pydantic import BaseModel, ConfigDict, Field
 
-from .snapshot import RuntimeIdentity, get_active_authentication_key_id
+from .snapshot import RuntimeIdentity, get_active_authentication_key_id, runtime_signing_params
 
 # --- JSON-RPC 2.0 Models ---
 
@@ -118,7 +118,7 @@ async def sign_a2a_request(
             url=target_url,
             body=body,
             agent_did=agent_did,
-            agent_private_key=runtime_identity.agent_private_key,
+            **runtime_signing_params(runtime_identity),
             verification_method_id=key_id,
         )
     )

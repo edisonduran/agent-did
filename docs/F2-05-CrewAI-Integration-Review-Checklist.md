@@ -85,6 +85,7 @@ CrewAI review is complete when the current package state is accurately described
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | Review gate: an agent created with an external signer signs through the tools; tool rotation refuses it. |
 | 2026-11-12 | `sign_http_request` raises `ValueError` when the runtime identity has no active authentication key, because the SDK now requires the verification method id (same behavior as the A2A client). Type-check fix; no other change to the integration surface. |
 | 2026-11-12 | RC metadata moved to the `1.0.0rc5` release train (npm `1.0.0-rc.5`); pins the matching `agent-did-sdk`. No functional changes to the integration surface. |
 | 2026-11-04 | M-09: CrewAI examples and tests create identities with an Ed25519 `LocalKeySigner` controller (`controllerSigner` / `controller_signer`) instead of an EVM wallet or address. No change to the integration surface; see `sdk/MIGRATION-1.0-rc.3-to-rc.4.md`. |

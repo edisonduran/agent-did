@@ -274,6 +274,7 @@ class AgentDidClient:
         return CreateAgentResult(
             document=document,
             agent_private_key=private_key_hex,
+            signer=params.signer,
             controller_private_key=controller_private_key,
             metadata_commitment_salts=metadata_commitment_salts,
         )
@@ -753,7 +754,7 @@ class AgentDidClient:
         await self._registry.set_document_reference(did, compute_document_reference(updated))
         self._append_history(updated, "updated")
         return AddVerificationMethodResult(
-            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex
+            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex, signer=signer
         )
 
     async def rotate_verification_method(
@@ -777,7 +778,7 @@ class AgentDidClient:
         self._append_history(updated, "rotated-key")
 
         return RotateVerificationMethodResult(
-            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex
+            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex, signer=signer
         )
 
     def get_document_history(self, did: str) -> list[AgentDocumentHistoryEntry]:

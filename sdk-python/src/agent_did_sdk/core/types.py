@@ -152,6 +152,9 @@ class CreateAgentResult(BaseModel):
 
     document: AgentDIDDocument
     agent_private_key: str = Field(alias="agentPrivateKey")
+    signer: Any | None = Field(default=None, exclude=True, repr=False)
+    """The external signer (``AgentSigner``) given for the agent key, when one was: the private key never left it and
+    ``agent_private_key`` is empty. Integrations sign with it. It lives only in this process and is not serialized."""
     controller_private_key: str | None = Field(default=None, alias="controllerPrivateKey")
     """Ed25519 private key (hex) of the local bootstrap controller.
 
@@ -189,6 +192,9 @@ class AddVerificationMethodResult(BaseModel):
     verification_method_id: str = Field(alias="verificationMethodId")
     agent_private_key: str = Field(alias="agentPrivateKey")
     """Empty when a ``signer`` was given."""
+    signer: Any | None = Field(default=None, exclude=True, repr=False)
+    """The external signer (``AgentSigner``) given for the agent key, when one was: the private key never left it and
+    ``agent_private_key`` is empty. Integrations sign with it. It lives only in this process and is not serialized."""
 
 
 class RotateVerificationMethodResult(BaseModel):
@@ -197,6 +203,10 @@ class RotateVerificationMethodResult(BaseModel):
     document: AgentDIDDocument
     verification_method_id: str = Field(alias="verificationMethodId")
     agent_private_key: str = Field(alias="agentPrivateKey")
+    """Empty when a ``signer`` was given."""
+    signer: Any | None = Field(default=None, exclude=True, repr=False)
+    """The external signer (``AgentSigner``) given for the agent key, when one was: the private key never left it and
+    ``agent_private_key`` is empty. Integrations sign with it. It lives only in this process and is not serialized."""
 
 
 # ---------------------------------------------------------------------------

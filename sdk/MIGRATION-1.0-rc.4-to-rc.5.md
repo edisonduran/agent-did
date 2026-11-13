@@ -216,6 +216,12 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 const result = await client.verifyHttpRequestSignatureDetailed({ ...request, allowedControllers: [partnerOrgDid] });
 ```
 
+## 23. Integrations sign with the agent's external signer
+
+- `createAgent` / `create`, `rotateVerificationMethod` and `addVerificationMethod` return the `signer` you passed for the agent key as `result.signer` (non-enumerable: `JSON.stringify` and object spread skip it). The LangChain JS integration signs payloads and HTTP requests with it when present; before, an agent created with a KMS or HSM signer could not sign through the integration.
+- The `rotate_key` tool refuses an agent whose key lives in an external signer: rotate it with `client.rotateVerificationMethod(did, { signer: newSigner })` and pass the result to the integration.
+- `JSON.stringify(localKeySigner)` is `{"type":"LocalKeySigner"}`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

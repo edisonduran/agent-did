@@ -246,6 +246,11 @@ result = await client.verify_http_request_signature_detailed(
 )
 ```
 
+## 23. Integrations sign with the agent's external signer
+
+- `create`, `rotate_verification_method` and `add_verification_method` return the `signer` you passed for the agent key as `result.signer` (excluded from `model_dump` / `model_dump_json`). The A2A, LangChain, CrewAI, Semantic Kernel and Microsoft Agent Framework integrations sign payloads, HTTP requests and handoffs with it when present; before, an agent created with a KMS or HSM signer failed with `The seed must be exactly 32 bytes long`.
+- The `rotate_key` tools refuse an agent whose key lives in an external signer: rotate it with `client.rotate_verification_method(did, signer=new_signer)` and pass the result to the integration.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

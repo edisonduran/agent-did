@@ -20,8 +20,11 @@ from .observability import AgentDidObserver
 from .snapshot import (
     RuntimeIdentity,
     RuntimeIdentityHandle,
+    assert_rotatable_by_tool,
     build_agent_did_identity_snapshot,
     get_active_authentication_key_id,
+    runtime_signing_key,
+    runtime_signing_params,
 )
 
 MAX_PAYLOAD_BYTES = 1_048_576
@@ -363,7 +366,8 @@ def _create_sign_payload_runner(context: _ToolRuntimeContext, tool_name: str) ->
     async def sign_payload(payload: str) -> dict[str, Any]:
         _emit_tool_started(context, tool_name=tool_name, inputs={"payload": payload})
         try:
-            signature = await context.agent_identity.sign_message(payload, context.runtime_identity.agent_private_key)
+            signing_key = runtime_signing_key(context.runtime_identity)
+            signature = await context.agent_identity.sign_message(payload, signing_key)
             key_id = get_active_authentication_key_id(context.runtime_identity)
             _emit_tool_succeeded(
                 context,
@@ -398,7 +402,7 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
                     url=url,
                     body=body,
                     agent_did=context.current_did,
-                    agent_private_key=context.runtime_identity.agent_private_key,
+                    **runtime_signing_params(context.runtime_identity),
                     verification_method_id=key_id,
                 )
             )
@@ -447,6 +451,7 @@ def _create_rotate_key_runner(context: _ToolRuntimeContext, tool_name: str) -> R
         _emit_tool_started(context, tool_name=tool_name)
         try:
             client = context.agent_identity.client
+            assert_rotatable_by_tool(context.runtime_identity)
             context.runtime_identity = await client.rotate_verification_method(context.current_did)
             _emit_identity_snapshot_refreshed(context, reason="tool:rotate_key")
             _emit_tool_succeeded(

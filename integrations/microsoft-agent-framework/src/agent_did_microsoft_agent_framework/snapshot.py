@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from agent_did_sdk import CreateAgentResult, RotateVerificationMethodResult
+from typing import Any, cast
+
+from agent_did_sdk import AgentSigner, CreateAgentResult, RotateVerificationMethodResult
 from pydantic import BaseModel, ConfigDict
 
 RuntimeIdentity = CreateAgentResult | RotateVerificationMethodResult
@@ -48,3 +50,30 @@ def build_agent_did_identity_snapshot(runtime_identity: RuntimeIdentity) -> Agen
         created=document.created,
         updated=document.updated,
     )
+
+
+def runtime_signing_key(runtime_identity: RuntimeIdentity) -> str | AgentSigner:
+    """What the runtime identity signs with: its external signer (KMS, HSM) when it has one, else its private key
+    (hex). Raises when it has neither."""
+    signer = getattr(runtime_identity, "signer", None)
+    if signer is not None:
+        return cast(AgentSigner, signer)
+    if not runtime_identity.agent_private_key:
+        raise ValueError("The runtime identity has no private key and no signer to sign with")
+    return runtime_identity.agent_private_key
+
+
+def runtime_signing_params(runtime_identity: RuntimeIdentity) -> dict[str, Any]:
+    """``signer`` or ``agent_private_key`` for ``SignHttpRequestParams``, from :func:`runtime_signing_key`."""
+    key = runtime_signing_key(runtime_identity)
+    return {"agent_private_key": key} if isinstance(key, str) else {"signer": key}
+
+
+def assert_rotatable_by_tool(runtime_identity: RuntimeIdentity) -> None:
+    """A tool can only rotate to a key it generates locally. An agent whose key lives in an external signer is
+    rotated by its operator with ``AgentDidClient.rotate_verification_method(did, signer=...)``."""
+    if getattr(runtime_identity, "signer", None) is not None:
+        raise ValueError(
+            "This agent signs with an external signer: rotate its key with "
+            "AgentDidClient.rotate_verification_method(did, signer=<new signer>), not with the rotate_key tool"
+        )
