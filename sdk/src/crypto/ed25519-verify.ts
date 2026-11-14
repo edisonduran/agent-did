@@ -14,6 +14,7 @@
  * does not depend on which one a library implements. Python parity: `sdk-python/src/agent_did_sdk/crypto/ed25519.py`.
  */
 import { ed25519 } from '@noble/curves/ed25519';
+import { hexToBytes } from '@noble/hashes/utils';
 
 function isAcceptablePoint(encoded: Uint8Array): boolean {
   try {
@@ -38,4 +39,17 @@ export function verifyEd25519(signature: Uint8Array, message: Uint8Array, public
   } catch {
     return false;
   }
+}
+
+const SIGNATURE_HEX = /^[0-9a-fA-F]{128}$/u;
+
+/**
+ * Decodes a payload signature written as hex: exactly 128 hex digits (64 bytes), nothing else (no spaces, no
+ * prefix). Throws otherwise, so both SDKs accept the same strings.
+ */
+export function decodeSignatureHex(signature: string): Uint8Array {
+  if (!SIGNATURE_HEX.test(signature)) {
+    throw new TypeError('A signature must be 128 hex digits');
+  }
+  return hexToBytes(signature);
 }

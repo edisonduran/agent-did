@@ -105,6 +105,7 @@ En este flujo el SDK usa el path web-native canonico y bootstrappea el controlle
 
 ## Seguridad por defecto
 
+- Un agente creado con `signer` externo (KMS, HSM) firma a traves de ese signer (`runtimeIdentity.signer`); `rotate_key` lo rechaza: rote la clave con `client.rotateVerificationMethod(did, { signer })`.
 - `signPayload` y `rotateKeys` vienen deshabilitados por defecto.
 - `signHttp` tambien es opt-in y puede habilitarse para que el agente firme solicitudes salientes sin exponer la clave privada al modelo.
 - Los destinos HTTP privados, loopback o con credenciales embebidas se rechazan por defecto.

@@ -6,7 +6,8 @@
  * - Host names are resolved once, at connection time, and the connection is refused when any
  *   resolved address is not globally routable. The address that was validated is the address that
  *   is connected to, so a DNS answer that changes after the check (rebinding) cannot redirect the
- *   request. TLS still verifies the original host name.
+ *   request. TLS still verifies the original host name. Each request opens its own connection, never a pooled
+ *   one, so a socket another part of the process opened to the same host is not reused unchecked.
  *
  * - Every request has one deadline (`timeoutMs`) covering lookup, connection and the whole body,
  *   and a maximum body size (`maxResponseBytes`). It asks for an unencoded body and rejects any
@@ -186,7 +187,10 @@ async function pinnedRequest(
         path: `${parsed.pathname}${parsed.search}`,
         method: String(init.method || 'GET').toUpperCase(),
         headers,
-        lookup: validatedLookup as never
+        lookup: validatedLookup as never,
+        // A connection of its own: a pooled keep-alive socket to the same host and port (from the global agent,
+        // opened by other code in the process) would be reused without going through `validatedLookup`.
+        agent: false
       },
       (res) => {
         try {

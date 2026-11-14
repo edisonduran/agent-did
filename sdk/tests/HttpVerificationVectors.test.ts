@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { AgentDidClient } from '../src/core/AgentDidClient';
+import { AgentIdentity } from '../src/core/AgentIdentity';
 import { InMemoryNonceStore } from '../src/core/nonce-store';
 import { AgentDIDDocument, VerificationRelationship } from '../src/core/types';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
@@ -87,7 +88,10 @@ function buildController(): AgentDIDDocument {
   };
 }
 
-async function clientAt(now: number): Promise<{ client: AgentDidClient; nonceStore: InMemoryNonceStore }> {
+async function clientAt(
+  now: number,
+  withStore = true
+): Promise<{ client: AgentDidClient; nonceStore: InMemoryNonceStore }> {
   const document = buildDocument();
   const resolver = new InMemoryDIDResolver();
   resolver.registerDocument(document);
@@ -96,7 +100,12 @@ async function clientAt(now: number): Promise<{ client: AgentDidClient; nonceSto
   await registry.register(document.id, document.controller, 'hash://sha256/http-verification-fixture');
   // The store's own clock must match the vector clock, or its entries expire at once.
   const nonceStore = new InMemoryNonceStore({ now: () => now });
-  const client = new AgentDidClient({ resolver, registry, nonceStore, clock: () => new Date(now * 1000) });
+  const client = new AgentDidClient({
+    resolver,
+    registry,
+    ...(withStore ? { nonceStore } : {}),
+    clock: () => new Date(now * 1000)
+  });
   return { client, nonceStore };
 }
 
@@ -145,5 +154,38 @@ describe('HTTP verification vectors (RFC-001 §6.5)', () => {
         nonceStore: fresh.nonceStore
       })
     ).resolves.toBe(vector.expected);
+  });
+});
+
+describe('the default nonce store of a client', () => {
+  it('reads the client clock, so a replay is rejected at the client time', async () => {
+    const vector = fixture.vectors.find((candidate) => candidate.id === 'valid') as HttpVector;
+    const { client } = await clientAt(fixture.clock, false);
+    const verify = () => client.verifyHttpRequestSignature({ ...vector.request, headers: vector.headers });
+
+    await expect(verify()).resolves.toBe(true);
+    await expect(verify()).resolves.toBe(false);
+  });
+});
+
+describe('request URLs that are not in normalized form (RFC-001 §6.5 item 4)', () => {
+  const notNormalized = fixture.vectors.filter((vector) => vector.reason === 'url_not_normalized');
+  const seed = new Uint8Array(32).fill(7);
+  const privateKeyHex = Buffer.from(seed).toString('hex');
+
+  it('has vectors to check', () => {
+    expect(notNormalized.length).toBeGreaterThan(10);
+  });
+
+  it.each(notNormalized.map((vector) => [vector.id, vector] as const))('%s is refused by the signer', async (_id, vector) => {
+    const identity = new AgentIdentity({ controllerSigner: undefined as never });
+    await expect(
+      identity.signHttpRequest({
+        ...vector.request,
+        agentDid: fixture.did,
+        agentPrivateKey: privateKeyHex,
+        verificationMethodId: `${fixture.did}#key-1`
+      })
+    ).rejects.toThrow(/normalized form/u);
   });
 });

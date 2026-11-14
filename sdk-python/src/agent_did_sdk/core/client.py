@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import functools
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Concatenate, Literal, ParamSpec, TypeVar
 
 import httpx
 from nacl.signing import SigningKey
 
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
 from ..crypto.multibase import did_key_from_public_key
-from ..http_signatures.verify_request import SignatureCheckOutcome, verify_agent_did_http_request
+from ..http_signatures.verify_request import SignatureCheck, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
     build_added_key_document,
@@ -42,6 +43,7 @@ from ..verification.key_at_time import check_did_webvh_key_at_time, signature_re
 from ..verification.signature import verify_with_active_keys
 from ..webvh.adapter import (
     DidWebvhError,
+    DidWebvhLogResult,
     compare_did_webvh_logs,
     create_did_webvh_log,
     deactivate_did_webvh_log,
@@ -85,6 +87,21 @@ from .types import (
     VerifySignatureAtTimeResult,
 )
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _one_operation_per_did(
+    method: Callable[Concatenate[AgentDidClient, str, _P], Awaitable[_R]],
+) -> Callable[Concatenate[AgentDidClient, str, _P], Awaitable[_R]]:
+    """Run a lifecycle operation of a DID only after every earlier one of the same DID in this client has finished."""
+
+    @functools.wraps(method)
+    async def serialized(self: AgentDidClient, did: str, /, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        async with self._did_locks.setdefault(did, asyncio.Lock()):
+            return await method(self, did, *args, **kwargs)
+
+    return serialized
 
 @dataclass
 class ProductionResolverProfileConfig:
@@ -152,7 +169,10 @@ class AgentDidClient:
         opts = options or AgentDidClientOptions()
         self._resolver: DIDResolver = opts.resolver or InMemoryDIDResolver()
         self._registry: AgentRegistry = opts.registry or InMemoryAgentRegistry()
-        self._nonce_store: NonceStore = opts.nonce_store or InMemoryNonceStore()
+        # The default store reads the client's clock, like the signature window it protects
+        self._nonce_store: NonceStore = opts.nonce_store or InMemoryNonceStore(
+            now=lambda: int(self._clock().timestamp())
+        )
         self._clock: Callable[[], datetime] = opts.clock or (lambda: datetime.now(timezone.utc))
         self._webvh_domain: str = opts.webvh_domain
         self._history_store: dict[str, list[AgentDocumentHistoryEntry]] = {}
@@ -166,6 +186,8 @@ class AgentDidClient:
         # Local bootstrap controllers, keyed by lowercase controller wallet address.
         self._bootstrap_controllers: dict[str, tuple[str, AgentSigner]] = {}
         self._bootstrap_controller_locks: dict[str, asyncio.Lock] = {}
+        # One lifecycle operation (update, rotation, revocation, import) at a time per DID, so none is lost.
+        self._did_locks: dict[str, asyncio.Lock] = {}
 
     def _now_iso_timestamp(self) -> str:
         return normalize_timestamp_to_iso(self._clock().isoformat())  # type: ignore[return-value]
@@ -274,6 +296,7 @@ class AgentDidClient:
         return CreateAgentResult(
             document=document,
             agent_private_key=private_key_hex,
+            signer=params.signer,
             controller_private_key=controller_private_key,
             metadata_commitment_salts=metadata_commitment_salts,
         )
@@ -354,6 +377,7 @@ class AgentDidClient:
             self._did_webvh_signer_store[did] = signer
         return AgentDIDDocument.model_validate(updated.state)
 
+    @_one_operation_per_did
     async def rotate_controller_key(
         self,
         did: str,
@@ -428,12 +452,14 @@ class AgentDidClient:
         of the agent's did:webvh log was signed by a key that is active now under ``capabilityInvocation`` of the
         controller (RFC-001 §6.6 item 7). Fails closed with :class:`ControllerBindingError`, also when no log is
         available to check."""
-        for agent, controller in zip(chain, chain[1:], strict=False):
+        for index, (agent, controller) in enumerate(zip(chain, chain[1:], strict=False)):
             state = await self.resolve_did_webvh_state(agent.id) if agent.id.startswith("did:webvh:") else None
             if state is None:
                 raise ControllerBindingError(
                     agent.id, controller.id, "no did:webvh log is available to check the binding"
                 )
+            if state.deactivated and index > 0:
+                raise ControllerBindingError(agent.id, controller.id, "the controller DID is deactivated")
             assert_bound_to_controller(agent, state.last_entry_signer_keys, controller)
 
     async def resolve_did_webvh_state(self, did: str) -> DidWebvhState | None:
@@ -458,6 +484,7 @@ class AgentDidClient:
                 version_id=fetched.version_id,
                 update_keys=fetched.update_keys,
                 last_entry_signer_keys=fetched.last_entry_signer_keys,
+                deactivated=fetched.deactivated,
                 provenance="fetched",
             )
         return await self._did_webvh_state_from_log(did, local, "imported") if local is not None else None
@@ -472,13 +499,13 @@ class AgentDidClient:
             version_id=resolved.metadata.version_id,
             update_keys=list(resolved.metadata.update_keys),
             last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
+            deactivated=bool(resolved.metadata.deactivated),
             provenance=provenance,
         )
 
-    async def _assert_did_webvh_bound_now(self, did: str) -> None:
-        """The binding of *did* (and of its controllers) as it is now, from the client's own log."""
-        state = await self.resolve_did_webvh_state(did)
-        if state is None or not state.document.controller or state.document.controller.strip() == did:
+    async def _assert_did_webvh_bound_now(self, did: str, state: DidWebvhState) -> None:
+        """The binding of *did* (and of its controllers) to its controller chain as it is now."""
+        if not state.document.controller or state.document.controller.strip() == did:
             return
         controller_did = state.document.controller.strip()
         try:
@@ -526,19 +553,21 @@ class AgentDidClient:
         signature: str,
         key_id: str,
         required_purpose: VerificationRelationship,
-    ) -> SignatureCheckOutcome:
-        """``verify_signature`` that tells apart the ways a verification can fail."""
+    ) -> SignatureCheck:
+        """``verify_signature`` that tells apart the ways a verification can fail, with the controller chain."""
         try:
             verification_chain = await self._resolve_active_verification_chain(did)
         except ControllerBindingError:
-            return "controller_not_bound"
+            return SignatureCheck("controller_not_bound")
         except Exception:
-            return "did_resolution_failed"
+            return SignatureCheck("did_resolution_failed")
         try:
             valid = verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
         except IdentityCompositionError:
-            return "key_not_authorized"
-        return "valid" if valid else "invalid"
+            return SignatureCheck("key_not_authorized")
+        if not valid:
+            return SignatureCheck("invalid")
+        return SignatureCheck("valid", tuple(document.id for document in verification_chain[1:]))
 
     async def verify_signature(
         self,
@@ -572,26 +601,32 @@ class AgentDidClient:
     ) -> VerifySignatureAtTimeResult:
         """Verify a signature made with *key_id* at the time the signed artifact states (RFC-001 §6.2.2).
 
-        Uses the DID's did:webvh log as created or imported in this client (``import_did_webvh_history``).
+        Checks against the DID's verified did:webvh log as :meth:`resolve_did_webvh_state` gives it: the local log
+        for a DID created or changed in this client, otherwise the log the resolver fetches (the longer of it and a
+        log imported with ``import_did_webvh_history``), and the imported log only when the resolver does not fetch
+        logs. A key retired by a later entry of the log host is therefore seen even when an older log was imported.
 
         * ``valid``: the signature verifies and the key was authorized for *required_purpose* at *stated_time*,
           with no later change that retires it, or with *trusted_time_not_after* earlier than that change.
-        * ``invalid``: the signature does not verify, the key was not authorized at *stated_time*, or the log
-          fails verification.
+        * ``invalid``: the signature does not verify, the key was not authorized at *stated_time*, the log cannot
+          be fetched or fails verification (``did_resolution_failed``), or the controller binding does not hold now.
         * ``indeterminate``: the key was retired or the DID deactivated after *stated_time* and there is no
-          trusted time evidence, or this client has no did:webvh log for the DID. Do not accept it.
+          trusted time evidence, or no did:webvh log is available for the DID. Do not accept it.
 
         The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
         """
-        log = self._did_webvh_log_store.get(did) if did.startswith("did:webvh:") else None
-        if log is None:
+        try:
+            state = await self.resolve_did_webvh_state(did)
+        except Exception:  # noqa: BLE001 - any resolution failure fails closed
+            return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed")
+        if state is None:
             return VerifySignatureAtTimeResult(
                 status="indeterminate",
                 key=KeyAtTimeResult(status="indeterminate", key_id=key_id, reason="history_unavailable"),
             )
         try:
             key = await check_did_webvh_key_at_time(
-                log,
+                state.log,
                 key_id=key_id,
                 stated_time=stated_time,
                 required_purpose=required_purpose,
@@ -604,10 +639,20 @@ class AgentDidClient:
         if result.status == "valid":
             # The binding is evaluated against the controller as it is now, never at the stated time
             try:
-                await self._assert_did_webvh_bound_now(did)
+                await self._assert_did_webvh_bound_now(did, state)
             except ControllerBindingError:
                 return VerifySignatureAtTimeResult(status="invalid", reason="controller_not_bound", key=result.key)
+            except Exception:  # noqa: BLE001 - a controller that cannot be resolved fails closed
+                return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed", key=result.key)
         return result
+
+    def evict_cached_resolution(self, did: str) -> None:
+        """Drop the resolver's cached resolution of *did*, so the next verification fetches and verifies it again (for a
+        check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
+        not cache (no ``evict`` method)."""
+        evict = getattr(self._resolver, "evict", None)
+        if callable(evict):
+            evict(did)
 
     async def resolve(self, did: str) -> AgentDIDDocument:
         if did.startswith("did:webvh:"):
@@ -675,6 +720,7 @@ class AgentDidClient:
 
             current_did = controller_did
 
+    @_one_operation_per_did
     async def revoke_did(self, did: str, *, controller_signer: AgentSigner | None = None) -> None:
         """Revoke a DID.
 
@@ -691,6 +737,7 @@ class AgentDidClient:
         await self._registry.revoke(did)
         self._append_history(existing, "revoked")
 
+    @_one_operation_per_did
     async def update_did_document(
         self,
         did: str,
@@ -711,6 +758,7 @@ class AgentDidClient:
         self._append_history(updated, "updated")
         return updated
 
+    @_one_operation_per_did
     async def add_verification_method(
         self,
         did: str,
@@ -740,9 +788,10 @@ class AgentDidClient:
         await self._registry.set_document_reference(did, compute_document_reference(updated))
         self._append_history(updated, "updated")
         return AddVerificationMethodResult(
-            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex
+            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex, signer=signer
         )
 
+    @_one_operation_per_did
     async def rotate_verification_method(
         self, did: str, *, controller_signer: AgentSigner | None = None, signer: AgentSigner | None = None
     ) -> RotateVerificationMethodResult:
@@ -764,7 +813,7 @@ class AgentDidClient:
         self._append_history(updated, "rotated-key")
 
         return RotateVerificationMethodResult(
-            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex
+            document=updated, verification_method_id=vm_id, agent_private_key=private_key_hex, signer=signer
         )
 
     def get_document_history(self, did: str) -> list[AgentDocumentHistoryEntry]:
@@ -788,6 +837,10 @@ class AgentDidClient:
         its controller signer (``controller_signer=``).
         """
         resolved = await resolve_did_webvh_log(did_log)
+        async with self._did_locks.setdefault(resolved.did, asyncio.Lock()):
+            return await self._import_resolved_did_webvh_log(resolved)
+
+    async def _import_resolved_did_webvh_log(self, resolved: DidWebvhLogResult) -> AgentDIDDocument:
         did = resolved.did
         latest = AgentDIDDocument.model_validate(resolved.state)
         document_ref = compute_document_reference(latest)

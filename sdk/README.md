@@ -144,10 +144,10 @@ When `signer` is provided, `result.agentPrivateKey` is empty string — the priv
 
 ## Signatures at a Stated Time
 
-After key rotation, old keys are marked `deactivated` but kept in the log. To check a signature against the key the DID had at the time the signed artifact states (RFC-001 §6.2.2), use the DID's did:webvh log:
+After key rotation, old keys are marked `deactivated` but kept in the log. To check a signature against the key the DID had at the time the signed artifact states (RFC-001 §6.2.2), use the DID's did:webvh log. With the production resolver (`useProductionResolver`) the client fetches and verifies the log from the DID's host, so later rotations and a deactivation are seen once the resolver cache entry expires; a log imported with `importDidWebvhHistory` is used as is only when the resolver does not fetch logs (the in-memory default):
 
 ```ts
-await client.importDidWebvhHistory(didLog); // not needed for DIDs created by this client
+// await client.importDidWebvhHistory(didLog); // only without a resolver that fetches logs
 const result = await client.verifySignatureAtTime(did, payload, signatureHex, `${did}#key-1`, {
   statedTime: '2026-01-02T10:00:00Z',            // from the artifact; asserted by the signer
   // trustedTimeNotAfter: '2026-01-02T10:00:05Z' // only from evidence you trust, e.g. a verified RFC 3161 token
@@ -173,6 +173,7 @@ This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edison
 
 - Default resolver is in-memory (not persistent) — use production resolver for real deployments
 - Default replay store (`InMemoryNonceStore`) is per process — use a shared `NonceStore` when more than one instance verifies HTTP signatures
+- did:webvh domains: every label must have at least two characters and start with a letter (`x.com` and `3m.com` are refused). The Python did:webvh library (`did-webvh`) refuses other labels, and both SDKs accept only what both libraries resolve
 - Optional EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
 - EVM timestamps consumed as Unix-string, SDK normalizes to ISO-8601
 

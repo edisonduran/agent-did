@@ -1,5 +1,6 @@
 import { AgentDIDDocument } from '../core/types';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
+import { agentDidDocumentProblem } from '../core/document-guard';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
 import {
@@ -25,6 +26,8 @@ interface CachedDocument {
   expiresAt: number;
   /** Set when the document came from a verified did:webvh log fetched by this resolver. */
   webvh?: DidWebvhResolution;
+  /** The did:webvh log ends in a deactivation entry: `resolve` rejects, `resolveDidWebvhLog` returns the log. */
+  deactivated?: boolean;
 }
 
 export class UniversalResolverClient implements DIDResolver {
@@ -88,6 +91,9 @@ export class UniversalResolverClient implements DIDResolver {
       this.cache.set(did, cached);
       this.hits += 1;
       this.emitEvent({ did, stage: 'cache-hit', durationMs: Date.now() - startedAt });
+      if (cached.deactivated) {
+        throw this.deactivatedError(did, startedAt);
+      }
       return this.clone(cached.document);
     }
 
@@ -156,21 +162,42 @@ export class UniversalResolverClient implements DIDResolver {
 
   /**
    * The verified did:webvh log behind `did`: from the cache while the entry is fresh, otherwise fetched and verified
-   * (rejecting when it cannot be, with no fallback). `undefined` when the cached entry holds only a document that was
-   * registered without its log.
+   * (rejecting when it cannot be, with no fallback). The log of a deactivated DID is returned with
+   * `deactivated: true`. `undefined` when the cached entry holds only a document that was registered without its log.
    */
   public async resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined> {
     if (!this.isDidWebvh(did)) {
       return undefined;
     }
-    await this.resolve(did);
-    const webvh = this.cache.get(did)?.webvh;
-    return webvh ? JSON.parse(JSON.stringify(webvh)) as DidWebvhResolution : undefined;
+    const startedAt = Date.now();
+    let entry = this.cache.get(did);
+    if (entry && entry.expiresAt > startedAt) {
+      this.cache.delete(did);
+      this.cache.set(did, entry);
+      this.hits += 1;
+      this.emitEvent({ did, stage: 'cache-hit', durationMs: Date.now() - startedAt });
+    } else {
+      this.misses += 1;
+      this.emitEvent({ did, stage: 'cache-miss', durationMs: Date.now() - startedAt });
+      entry = await this.loadDidWebvh(did, startedAt, startedAt);
+    }
+    return entry.webvh ? JSON.parse(JSON.stringify(entry.webvh)) as DidWebvhResolution : undefined;
+  }
+
+  private deactivatedError(did: string, startedAt: number): Error {
+    const message = `DID is deactivated: ${did}`;
+    this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+    return new Error(message);
   }
 
   public remove(did: string): void {
     this.cache.delete(did);
     this.fallbackResolver?.remove(did);
+  }
+
+  /** Drops the cached resolution of `did` (not the fallback resolver's documents): the next resolution fetches. */
+  public evict(did: string): void {
+    this.cache.delete(did);
   }
 
   public getCacheStats(): ResolverCacheStats {
@@ -207,18 +234,25 @@ export class UniversalResolverClient implements DIDResolver {
       message: `url=${documentUrl}`
     });
 
-    const resolved = await this.wbaDocumentSource.getByReference(documentUrl).catch(async (error) => {
+    // Like did:webvh, a did:wba DID is answered only by its own host: no fallback to another resolver, which could
+    // keep serving a copy the host has since changed.
+    let resolved: AgentDIDDocument | null;
+    try {
+      resolved = await this.wbaDocumentSource.getByReference(documentUrl);
+    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
-      return this.resolveWithFallback(did, message, startedAt);
-    });
+      throw new Error(`did:wba document could not be fetched for ${did}: ${message}`);
+    }
 
     if (!resolved) {
-      return this.resolveWithFallback(did, `Document not found for did:wba URL: ${documentUrl}`, startedAt);
+      const message = `Document not found for did:wba URL: ${documentUrl}`;
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(message);
     }
 
     if (resolved.id !== did) {
-      throw new Error(`Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`);
+      throw this.integrityFailure(did, `Resolved document DID mismatch. Expected ${did}, got ${resolved.id}`, startedAt);
     }
 
     this.emitEvent({ did, stage: 'source-fetched', durationMs: Date.now() - startedAt });
@@ -238,6 +272,16 @@ export class UniversalResolverClient implements DIDResolver {
    * the one held locally and a deactivated DID all fail closed.
    */
   private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<AgentDIDDocument> {
+    const entry = await this.loadDidWebvh(did, startedAt, now);
+    if (entry.deactivated) {
+      throw this.deactivatedError(did, startedAt);
+    }
+    this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
+    return this.clone(entry.document);
+  }
+
+  /** Fetches, verifies and caches the did:webvh log behind `did`, deactivated or not, and returns the cache entry. */
+  private async loadDidWebvh(did: string, startedAt: number, now: number): Promise<CachedDocument> {
     let logUrl: string;
     try {
       logUrl = deriveDidWebvhLogUrl(did);
@@ -281,13 +325,12 @@ export class UniversalResolverClient implements DIDResolver {
 
     resolved = await this.reconcileWithLocalLog(did, resolved, startedAt);
 
-    if (resolved.metadata.deactivated) {
-      const message = `DID is deactivated: ${did}`;
-      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
-      throw new Error(message);
+    const problem = agentDidDocumentProblem(resolved.state);
+    if (problem !== undefined) {
+      throw this.integrityFailure(did, `did:webvh state for ${did} is not an Agent-DID document: ${problem}`, startedAt);
     }
-
     const document = resolved.state as unknown as AgentDIDDocument;
+    const deactivated = resolved.metadata.deactivated;
     this.emitEvent({
       did,
       stage: 'source-fetched',
@@ -300,12 +343,11 @@ export class UniversalResolverClient implements DIDResolver {
       log: resolved.log,
       versionId: resolved.metadata.versionId,
       updateKeys: [...resolved.metadata.updateKeys],
-      lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log)
-    });
+      lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log),
+      deactivated
+    }, deactivated);
 
-    this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
-
-    return this.clone(document);
+    return this.cache.get(did) as CachedDocument;
   }
 
   /**
@@ -353,12 +395,19 @@ export class UniversalResolverClient implements DIDResolver {
   }
 
   /** Stores a copy of `document`, keeping the cache within `maxCacheEntries`. */
-  private cachePut(did: string, document: AgentDIDDocument, expiresAt: number, webvh?: DidWebvhResolution): void {
+  private cachePut(
+    did: string,
+    document: AgentDIDDocument,
+    expiresAt: number,
+    webvh?: DidWebvhResolution,
+    deactivated = false
+  ): void {
     this.cache.delete(did);
     this.cache.set(did, {
       document: this.clone(document),
       expiresAt,
-      ...(webvh ? { webvh: JSON.parse(JSON.stringify(webvh)) as DidWebvhResolution } : {})
+      ...(webvh ? { webvh: JSON.parse(JSON.stringify(webvh)) as DidWebvhResolution } : {}),
+      ...(deactivated ? { deactivated: true } : {})
     });
     if (this.cache.size <= this.maxCacheEntries) {
       return;

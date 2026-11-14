@@ -225,6 +225,58 @@ function headerValue(request: HttpRequestLike, name: string): string {
   return combined;
 }
 
+// The request URL must already be in the form every URL parser derives the same components from (RFC-001 §6.5
+// item 4): an http(s) URL with a lowercase scheme and host, no user info and no fragment, a path and query of
+// unreserved, sub-delimiter, ':' and '@' characters and percent-encoded octets (no "'" in the query), no dot
+// segments, and an IP address host only in canonical form. Anything else is refused, never normalized.
+const REQUEST_URL_FORM =
+  /^(https?):\/\/([a-z0-9._-]+|\[[0-9a-f:]+\])(?::([1-9][0-9]{0,4}))?((?:\/[A-Za-z0-9\-._~!$&'()*+,;=:@%]*)*)(\?[A-Za-z0-9\-._~!$&()*+,;=:@%/?]*)?$/u;
+const DOT_SEGMENTS = new Set(['.', '..', '%2e', '%2e%2e', '.%2e', '%2e.']);
+const CANONICAL_IPV4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/u;
+const NUMERIC_LABEL = /^(?:0x[0-9a-f]*|[0-9]+)$/u;
+
+/** Why `url` is not a request URL in normalized form, or `undefined` when it is. */
+export function requestUrlFormProblem(url: string): string | undefined {
+  if (url.includes('#')) {
+    return 'it has a fragment';
+  }
+  const match = REQUEST_URL_FORM.exec(url);
+  if (!match) {
+    return 'it is not an http(s) URL with a lowercase scheme and ASCII host, no user info, and only unreserved, '
+      + "sub-delimiter, ':', '@' and percent-encoded characters in the path and query";
+  }
+  const [, , host, port, path, query] = match;
+  if (/%(?![0-9A-Fa-f]{2})/u.test(url)) {
+    return "it has a '%' that is not followed by two hex digits";
+  }
+  if (path.split('/').some((segment) => DOT_SEGMENTS.has(segment.toLowerCase()))) {
+    return "it has a '.' or '..' path segment";
+  }
+  if (query === '?') {
+    return 'it has an empty query';
+  }
+  if (port !== undefined && Number(port) > 65535) {
+    return 'its port is out of range';
+  }
+  if (host.startsWith('[')) {
+    let canonical: string | undefined;
+    try {
+      canonical = new URL(`http://${host}/`).hostname;
+    } catch {
+      canonical = undefined;
+    }
+    return canonical === host ? undefined : 'its IPv6 host is not in canonical form';
+  }
+  const labels = host.split('.');
+  if (labels.some((label) => label.length === 0)) {
+    return 'its host has an empty label';
+  }
+  if (NUMERIC_LABEL.test(labels[labels.length - 1]) && !CANONICAL_IPV4.test(host)) {
+    return 'its IPv4 host is not in canonical dotted-decimal form';
+  }
+  return undefined;
+}
+
 function derivedComponentValue(request: HttpRequestLike, name: string): string {
   const url = new URL(request.url);
   switch (name) {
@@ -249,6 +301,12 @@ function derivedComponentValue(request: HttpRequestLike, name: string): string {
 
 /** Builds the RFC 9421 signature base for `input` over `request`. */
 export function buildSignatureBase(request: HttpRequestLike, input: SignatureInput): string {
+  if (input.components.some((component) => component.startsWith('@') && component !== '@method')) {
+    const problem = requestUrlFormProblem(request.url);
+    if (problem !== undefined) {
+      throw new HttpSignatureError(`The request URL is not in normalized form: ${problem}`);
+    }
+  }
   const seen = new Set<string>();
   const lines: string[] = [];
   for (const component of input.components) {

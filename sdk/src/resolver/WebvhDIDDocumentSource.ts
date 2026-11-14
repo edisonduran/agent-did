@@ -1,3 +1,4 @@
+import { assertAgentDidDocument } from '../core/document-guard';
 import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
@@ -47,7 +48,8 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
 
     try {
       const resolved = await resolveDidWebvhLog(logText);
-      return resolved.state as unknown as AgentDIDDocument;
+      assertAgentDidDocument(resolved.state, `The did:webvh state at ${documentRef}`);
+      return resolved.state;
     } catch (error) {
       if (error instanceof DidWebvhError) {
         throw new DocumentIntegrityError(error.message);

@@ -91,6 +91,7 @@ PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
 ProductionJsonRpcResolverProfileConfig
 ProductionResolverProfileConfig
+requestUrlFormProblem
 REQUIRED_RELATIONSHIP_BY_ARTIFACT
 requiredRelationshipFor
 ResolverCacheStats

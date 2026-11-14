@@ -2,9 +2,8 @@
  * Signature verification against an already resolved, active DID document. Resolution,
  * revocation and controller-chain checks stay in `AgentDidClient`.
  */
-import { hexToBytes } from '@noble/hashes/utils';
 import { AgentDIDDocument, VerificationRelationship } from '../core/types';
-import { verifyEd25519 } from '../crypto/ed25519-verify';
+import { decodeSignatureHex, verifyEd25519 } from '../crypto/ed25519-verify';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
 import { assertKeyPurpose, assertSigningPurpose, getRelationshipKeyIds } from '../core/identity-composition';
 
@@ -33,7 +32,7 @@ export function verifyWithActiveKeys(
   const messageBytes = typeof payload === 'string' ? new TextEncoder().encode(payload) : payload;
   let signatureBytes: Uint8Array;
   try {
-    signatureBytes = hexToBytes(signature);
+    signatureBytes = decodeSignatureHex(signature);
   } catch {
     return false;
   }
