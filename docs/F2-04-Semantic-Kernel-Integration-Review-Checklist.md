@@ -82,6 +82,7 @@ Semantic Kernel review is complete when the scaffold state is accurately describ
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | Review gate: runtime tests enable every opt-in tool they call. |
 | 2026-11-12 | Review gate: the default exposure is `current_identity` only; `resolve_did` and `verify_signatures` are opt-in. |
 | 2026-11-12 | Review gate: signing tools use an `assertionMethod` key. |
 | 2026-11-12 | Review gate: an agent created with an external signer signs through the tools; tool rotation refuses it. |

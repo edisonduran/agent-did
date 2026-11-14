@@ -244,9 +244,14 @@ class _VerifierContext:
     verify_signature_at_time: Callable[..., Any] = field(default=_default_verify_signature_at_time)
     now: Callable[[], float] = field(default=time.time)
     nonce_store: NonceStore = field(default_factory=InMemoryNonceStore)
-    max_age_seconds: int = HANDOFF_MAX_AGE_SECONDS
+    max_age_seconds: int = 0
+    """Oldest ``signed_at`` accepted; 0 means the default of ``action_class``. Resolved in ``__post_init__`` with
+    the same rules as ``add_verified_handoff``, so a context built directly cannot widen an irreversible edge."""
     evict_cached_resolution: Callable[[str], None] | None = None
     """Called with the sender DID before a fresh verification (TTL 0), so it is not answered from a cache."""
+
+    def __post_init__(self) -> None:
+        self.max_age_seconds = _resolve_effective_max_age(self.action_class, self.max_age_seconds or None)
 
 
 def _resolve_executor_id(executor: Any) -> str:

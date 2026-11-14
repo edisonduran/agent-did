@@ -295,8 +295,8 @@ def test_irreversible_action_with_stale_signature_forces_reverify() -> None:
         )
     )
     msg = _signed(
-        payload="x", did="did:wba:agent", signature="00", signed_at=900.0
-    )  # 100s old > 30s TTL
+        payload="x", did="did:wba:agent", signature="00", signed_at=950.0
+    )  # 50s old: past the 30s TTL, within the 60s maximum age
     with pytest.raises(VerificationBlockedError) as exc:
         _run_verifier(verifier, msg)
     assert exc.value.failing_gates == ["key_lifecycle"]
@@ -819,6 +819,19 @@ def test_the_maximum_age_depends_on_the_action_class_and_irreversible_cannot_be_
     assert _resolve_effective_max_age("reversible", 7200) == 7200
     with pytest.raises(ValueError):
         _resolve_effective_max_age("compensable", 0)
+
+
+def test_a_context_built_without_a_maximum_age_uses_the_action_class_default() -> None:
+    observer, _events = _make_observer()
+    assert _ctx(observer=observer, action_class="irreversible").max_age_seconds == 60
+    assert _ctx(observer=observer, action_class="reversible").max_age_seconds == 3600
+    verifier = build_handoff_verifier_function(
+        _ctx(observer=observer, action_class="irreversible", ttl_seconds=30, now=lambda: 10_000.0)
+    )
+    msg = _signed(payload="x", did="did:wba:agent", signature="00", signed_at=10_000.0 - 3480)
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(verifier, msg)
+    assert exc.value.failing_gates == ["signed_at"]
 
 
 def test_an_irreversible_handoff_older_than_its_maximum_age_is_refused(integration) -> None:

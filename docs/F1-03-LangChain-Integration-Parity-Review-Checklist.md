@@ -98,6 +98,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | LangChain JS minor dependency bump (#237: `@langchain/core` 1.3.7 and `langchain` 1.6.4 in the lockfile, `langsmith` `^0.12.0`); no change to tools or API. |
 | 2026-11-12 | `resolveDid` / `resolve_did` and `verifySignatures` / `verify_signatures` are opt-in in both LangChain packages; parity review covers the same default exposure in TS and Python and the explicit opt-in in the `did:wba` demos. |
 | 2026-11-12 | LangChain JS dependencies: `zod` `^4.6.7` and Jest 30; no change to the tool surface, so parity is unchanged. |
 | 2026-11-12 | Parity review covers the signing key choice: both packages sign with the first active `assertionMethod` key. |
