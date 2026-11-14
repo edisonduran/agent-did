@@ -43,7 +43,9 @@ class DIDResolver(Protocol):
     ``async resolve_did_webvh_log(did) -> DidWebvhResolution | None`` so the controller binding and a key at a
     stated time can be checked; it rejects when the log cannot be fetched or verified (fail closed) and returns
     ``None`` when it holds only the document. The log of a deactivated DID is returned with ``deactivated=True``
-    (``resolve`` rejects it), so the history before the deactivation can still be checked."""
+    (``resolve`` rejects it), so the history before the deactivation can still be checked. A caching resolver may
+    also implement ``evict(did) -> None``, which drops what it holds for *did* so the next resolution fetches it
+    again (unlike ``remove``, it never deletes a document it is the only source of)."""
 
     def register_document(self, document: AgentDIDDocument) -> None: ...
     async def resolve(self, did: str) -> AgentDIDDocument: ...

@@ -222,6 +222,14 @@ const result = await client.verifyHttpRequestSignatureDetailed({ ...request, all
 - The `rotate_key` tool refuses an agent whose key lives in an external signer: rotate it with `client.rotateVerificationMethod(did, { signer: newSigner })` and pass the result to the integration.
 - `JSON.stringify(localKeySigner)` is `{"type":"LocalKeySigner"}`.
 
+## 24. Smaller changes from the review
+
+- Lifecycle operations of one DID run one at a time in a client; nothing to change unless you relied on parallel updates overwriting each other.
+- Documents from outside the process (did:webvh logs, HTTP, JSON-RPC, files) are checked at runtime; a malformed one now fails with `... is not an Agent-DID document: ...`.
+- did:wba: a host that cannot be reached or has no document fails, without the fallback resolver; a document for another DID is a `DocumentIntegrityError`.
+- `InMemoryNonceStore` takes `maxEntriesPerScope` (default 10 000 per `keyid`); a client's default store follows `clock`.
+- `evictCachedResolution(did)` drops a cached resolution. LangChain JS signs with the first active `assertionMethod` key.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

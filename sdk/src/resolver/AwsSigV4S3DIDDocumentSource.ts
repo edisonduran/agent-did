@@ -26,6 +26,14 @@ type FetchLikeInit = NonNullable<Parameters<FetchLike>[1]>;
 const utf8 = (value: string): Uint8Array => new TextEncoder().encode(value);
 const EMPTY_PAYLOAD_HASH = bytesToHex(sha256(utf8('')));
 
+/**
+ * SigV4 sorts by byte value. The sorted strings are ASCII here (lowercase header names, RFC 3986-encoded query
+ * parts), so UTF-16 code-unit order is byte order; `localeCompare` is not (it ignores case and orders `-`/`_`).
+ */
+function compareBytes(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
   private readonly source: S3CompatibleDIDDocumentSource;
 
@@ -123,7 +131,7 @@ export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
     return Object.fromEntries(
       Object.entries(headers)
         .map(([key, value]) => [key.toLowerCase(), value.trim().replace(/\s+/gu, ' ')])
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareBytes(left, right))
     );
   }
 
@@ -146,10 +154,10 @@ export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
       .map(([key, value]) => [this.encodeRfc3986(key), this.encodeRfc3986(value)] as const)
       .sort(([leftKey, leftValue], [rightKey, rightValue]) => {
         if (leftKey === rightKey) {
-          return leftValue.localeCompare(rightValue);
+          return compareBytes(leftValue, rightValue);
         }
 
-        return leftKey.localeCompare(rightKey);
+        return compareBytes(leftKey, rightKey);
       })
       .map(([key, value]) => `${key}=${value}`)
       .join('&');

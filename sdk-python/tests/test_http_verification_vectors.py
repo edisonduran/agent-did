@@ -96,7 +96,7 @@ def _controller_document() -> AgentDIDDocument:
     )
 
 
-async def _client_at(now: int) -> tuple[AgentDidClient, InMemoryNonceStore]:
+async def _client_at(now: int, with_store: bool = True) -> tuple[AgentDidClient, InMemoryNonceStore]:
     document = _agent_document()
     resolver = InMemoryDIDResolver()
     resolver.register_document(document)
@@ -109,7 +109,7 @@ async def _client_at(now: int) -> tuple[AgentDidClient, InMemoryNonceStore]:
         AgentDidClientOptions(
             resolver=resolver,
             registry=registry,
-            nonce_store=nonce_store,
+            nonce_store=nonce_store if with_store else None,
             clock=lambda: datetime.fromtimestamp(now, tz=timezone.utc),
         )
     )
@@ -157,6 +157,21 @@ async def test_http_verification_vector(vector: dict[str, Any]) -> None:
     # The boolean method gives the same verdict (fresh client: its nonce store is not shared).
     fresh, fresh_store = await _client_at(now)
     assert await fresh.verify_http_request_signature(_params(vector, fresh_store)) is vector["expected"]
+
+
+async def test_the_default_nonce_store_reads_the_client_clock() -> None:
+    vector = next(candidate for candidate in FIXTURE["vectors"] if candidate["id"] == "valid")
+    client, _ = await _client_at(FIXTURE["clock"], with_store=False)
+    params = VerifyHttpRequestSignatureParams(
+        method=vector["request"]["method"],
+        url=vector["request"]["url"],
+        body=vector["request"]["body"],
+        headers=vector["headers"],
+    )
+
+    assert await client.verify_http_request_signature(params) is True
+    assert await client.verify_http_request_signature(params) is False
+
 
 NOT_NORMALIZED = [vector for vector in FIXTURE["vectors"] if vector.get("reason") == "url_not_normalized"]
 

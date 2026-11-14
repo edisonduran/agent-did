@@ -251,6 +251,14 @@ result = await client.verify_http_request_signature_detailed(
 - `create`, `rotate_verification_method` and `add_verification_method` return the `signer` you passed for the agent key as `result.signer` (excluded from `model_dump` / `model_dump_json`). The A2A, LangChain, CrewAI, Semantic Kernel and Microsoft Agent Framework integrations sign payloads, HTTP requests and handoffs with it when present; before, an agent created with a KMS or HSM signer failed with `The seed must be exactly 32 bytes long`.
 - The `rotate_key` tools refuse an agent whose key lives in an external signer: rotate it with `client.rotate_verification_method(did, signer=new_signer)` and pass the result to the integration.
 
+## 24. Smaller changes from the review
+
+- Lifecycle operations of one DID run one at a time in a client; nothing to change unless you relied on parallel updates overwriting each other.
+- did:wba: a host that cannot be reached or has no document fails, without the fallback resolver; a document for another DID is a `DocumentIntegrityError`.
+- `InMemoryNonceStore` takes `max_entries_per_scope` (default 10 000 per `keyid`); a client's default store follows `clock`.
+- `evict_cached_resolution(did)` drops a cached resolution. Integrations sign with the first active `assertionMethod` key.
+- Microsoft Agent Framework: an irreversible handoff older than 60 s is refused (`HANDOFF_MAX_AGE_DEFAULTS`; `max_age_seconds` lowers it, or raises it for the other classes), and handoffs signed by rc.5 pre-releases without `trust_domain` in the envelope do not verify: re-sign them with `sign_handoff`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

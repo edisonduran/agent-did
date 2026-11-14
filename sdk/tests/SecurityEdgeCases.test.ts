@@ -26,11 +26,8 @@ describe('Security Edge Cases', () => {
     });
 
     it('should accept https: protocol URLs', async () => {
-      const fetchFn = jest.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ id: 'did:agent:polygon:0xtest' }),
-      });
+      // 404: the protocol was accepted and the request sent (parity: test_security_edge_cases.py)
+      const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 404 });
 
       const source = new HttpDIDDocumentSource({
         fetchFn,
@@ -38,7 +35,7 @@ describe('Security Edge Cases', () => {
       });
 
       const result = await source.getByReference('hash://sha256/test');
-      expect(result).toBeDefined();
+      expect(result).toBeNull();
       expect(fetchFn).toHaveBeenCalledTimes(1);
     });
   });
