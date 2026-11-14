@@ -207,6 +207,15 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 - `signHttpRequest` refuses, with `HttpSignatureError`, a URL that is not already percent-encoded and normalized: spaces or non-ASCII characters (send `%20`, `%C3%A9`), an internationalized host that is not in punycode, an uppercase scheme or host, user information, a fragment, `.` or `..` path segments, an empty `?`, a `'` in the query (`%27`), or an IP host that is not in canonical form. Verification rejects such a request with the reason `url_not_normalized`. `requestUrlFormProblem(url)` returns why a URL is refused (or nothing). Build the URL from encoded parts before signing and send exactly that URL.
 - A payload signature passed to `verifySignature` must be exactly 128 hex digits, without spaces or a `0x` prefix.
 
+## 21. New: who signed an HTTP request, and allow-lists (optional)
+
+- An accepted `verifyHttpRequestSignatureDetailed` result is `{ ok: true, did, keyId, controllers }`. `HttpSignatureRejection` gains `did_not_allowed` and `controller_not_allowed`: a `switch` that lists every reason needs the two new cases.
+- A valid signature proves which DID signed, not that you should accept it. Pass `allowedDids` (the `Signature-Agent` DIDs you accept; checked before any resolution) and/or `allowedControllers` (accept agents operated by these controllers), or read `result.did` and decide yourself.
+
+```ts
+const result = await client.verifyHttpRequestSignatureDetailed({ ...request, allowedControllers: [partnerOrgDid] });
+```
+
 ## 22. Resolution limits; integration tools that resolve DIDs are opt-in
 
 - The universal resolver remembers a failed did:webvh / did:wba resolution for 5 s (`resolutionLimits.negativeCacheTtlMs`, 0 turns it off), shares one fetch between concurrent resolutions of the same DID and runs at most 16 fetches at once (`maxConcurrentFetches`). Code that retries a failing DID within 5 s gets the same error without a new request.
@@ -216,6 +225,26 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 ```ts
 client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHosts: ['*.partner.example'] } });
 ```
+
+## 23. Integrations sign with the agent's external signer
+
+- `createAgent` / `create`, `rotateVerificationMethod` and `addVerificationMethod` return the `signer` you passed for the agent key as `result.signer` (non-enumerable: `JSON.stringify` and object spread skip it). The LangChain JS integration signs payloads and HTTP requests with it when present; before, an agent created with a KMS or HSM signer could not sign through the integration.
+- The `rotate_key` tool refuses an agent whose key lives in an external signer: rotate it with `client.rotateVerificationMethod(did, { signer: newSigner })` and pass the result to the integration.
+- `JSON.stringify(localKeySigner)` is `{"type":"LocalKeySigner"}`.
+
+## 24. Smaller changes from the review
+
+- Lifecycle operations of one DID run one at a time in a client; nothing to change unless you relied on parallel updates overwriting each other.
+- Documents from outside the process (did:webvh logs, HTTP, JSON-RPC, files) are checked at runtime; a malformed one now fails with `... is not an Agent-DID document: ...`.
+- did:wba: a host that cannot be reached or has no document fails, without the fallback resolver; a document for another DID is a `DocumentIntegrityError`.
+- `InMemoryNonceStore` takes `maxEntriesPerScope` (default 10 000 per `keyid`); a client's default store follows `clock`.
+- `evictCachedResolution(did)` drops a cached resolution. LangChain JS signs with the first active `assertionMethod` key.
+
+## 25. Packaging
+
+- `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
+- `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
+
 
 ## Checklist
 
@@ -244,4 +273,5 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
 - [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
+- [ ] Every HTTP verifier either passes `allowedDids` / `allowedControllers` or checks `result.did` before trusting the request.
 - [ ] Agents that use the LangChain `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `resolutionLimits.allowedHosts`.

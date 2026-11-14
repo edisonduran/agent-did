@@ -31,6 +31,12 @@ export type SignatureCheckOutcome =
   | 'did_resolution_failed'
   | 'controller_not_bound';
 
+/** What the injected check found and, for a valid signature, the controller chain of the DID (nearest first). */
+export interface SignatureCheck {
+  outcome: SignatureCheckOutcome;
+  controllers?: string[];
+}
+
 export interface VerifyRequestDeps {
   /** Verifies `signatureHex` over `payload` by `keyId` under the DID `did`. */
   verifySignature: (
@@ -39,12 +45,11 @@ export interface VerifyRequestDeps {
     signatureHex: string,
     keyId: string,
     purpose: VerificationRelationship
-  ) => Promise<SignatureCheckOutcome>;
+  ) => Promise<SignatureCheck>;
   nonceStore: NonceStore;
   now: Date;
 }
 
-const OK: VerifyHttpRequestSignatureResult = { ok: true };
 const reject = (reason: HttpSignatureRejection): VerifyHttpRequestSignatureResult => ({ ok: false, reason });
 
 /** RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow. */
@@ -65,6 +70,10 @@ export async function verifyAgentDidHttpRequest(
   }
   if (requestUrlFormProblem(params.url) !== undefined) {
     return reject('url_not_normalized');
+  }
+  // Before any resolution: a DID outside the list costs no network call
+  if (params.allowedDids !== undefined && !params.allowedDids.includes(signatureAgent)) {
+    return reject('did_not_allowed');
   }
   if (headers['content-digest'] !== computeContentDigest(params.body)) {
     return reject('digest_mismatch');
@@ -153,7 +162,13 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
-    const outcome = await deps.verifySignature(signatureAgent, signatureBase, bytesToHex(signature), keyId, REQUIRED_RELATIONSHIP_BY_ARTIFACT.http_request);
+    const { outcome, controllers = [] } = await deps.verifySignature(
+      signatureAgent,
+      signatureBase,
+      bytesToHex(signature),
+      keyId,
+      REQUIRED_RELATIONSHIP_BY_ARTIFACT.http_request
+    );
     if (outcome !== 'valid') {
       fail(
         outcome === 'did_resolution_failed' ? 'did_resolution_failed'
@@ -165,8 +180,18 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
-    // Record the nonce only for a valid signature, so forged requests cannot burn nonces.
-    return await nonceStore.checkAndStore(`${keyId} ${nonce}`, expires) ? OK : reject('nonce_replayed');
+    if (
+      params.allowedControllers !== undefined &&
+      !controllers.some((controller) => params.allowedControllers?.includes(controller))
+    ) {
+      fail('controller_not_allowed', true);
+      continue;
+    }
+
+    // Record the nonce only for an accepted signature, so forged or refused requests cannot burn nonces.
+    return await nonceStore.checkAndStore(`${keyId} ${nonce}`, expires)
+      ? { ok: true, did: signatureAgent, keyId, controllers }
+      : reject('nonce_replayed');
   }
 
   const chosen = failures.find((failure) => failure.tagged) ?? failures[0];

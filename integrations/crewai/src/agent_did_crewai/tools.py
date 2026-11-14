@@ -20,8 +20,11 @@ from .observability import AgentDidObserver
 from .snapshot import (
     RuntimeIdentity,
     RuntimeIdentityHandle,
+    assert_rotatable_by_tool,
     build_agent_did_identity_snapshot,
-    get_active_authentication_key_id,
+    get_active_signing_key_id,
+    runtime_signing_key,
+    runtime_signing_params,
 )
 
 MAX_PAYLOAD_BYTES = 1_048_576
@@ -363,8 +366,9 @@ def _create_sign_payload_runner(context: _ToolRuntimeContext, tool_name: str) ->
     async def sign_payload(payload: str) -> dict[str, Any]:
         _emit_tool_started(context, tool_name=tool_name, inputs={"payload": payload})
         try:
-            signature = await context.agent_identity.sign_message(payload, context.runtime_identity.agent_private_key)
-            key_id = get_active_authentication_key_id(context.runtime_identity)
+            signing_key = runtime_signing_key(context.runtime_identity)
+            signature = await context.agent_identity.sign_message(payload, signing_key)
+            key_id = get_active_signing_key_id(context.runtime_identity)
             _emit_tool_succeeded(
                 context,
                 tool_name=tool_name,
@@ -389,16 +393,16 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
         _emit_tool_started(context, tool_name=tool_name, inputs=inputs)
         try:
             _validate_http_target(url, context.allow_private_network_targets)
-            key_id = get_active_authentication_key_id(context.runtime_identity)
+            key_id = get_active_signing_key_id(context.runtime_identity)
             if key_id is None:
-                raise ValueError("The runtime identity has no active authentication key to sign with")
+                raise ValueError("The runtime identity has no active assertionMethod key to sign with")
             headers = await context.agent_identity.sign_http_request(
                 SignHttpRequestParams(
                     method=method,
                     url=url,
                     body=body,
                     agent_did=context.current_did,
-                    agent_private_key=context.runtime_identity.agent_private_key,
+                    **runtime_signing_params(context.runtime_identity),
                     verification_method_id=key_id,
                 )
             )
@@ -406,7 +410,7 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
                 context,
                 tool_name=tool_name,
                 outputs={
-                    "key_id": get_active_authentication_key_id(context.runtime_identity),
+                    "key_id": get_active_signing_key_id(context.runtime_identity),
                     "method": method,
                     "url": url,
                     "header_names": sorted(headers.keys()),
@@ -447,6 +451,7 @@ def _create_rotate_key_runner(context: _ToolRuntimeContext, tool_name: str) -> R
         _emit_tool_started(context, tool_name=tool_name)
         try:
             client = context.agent_identity.client
+            assert_rotatable_by_tool(context.runtime_identity)
             context.runtime_identity = await client.rotate_verification_method(context.current_did)
             _emit_identity_snapshot_refreshed(context, reason="tool:rotate_key")
             _emit_tool_succeeded(

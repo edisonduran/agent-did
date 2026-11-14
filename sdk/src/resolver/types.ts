@@ -41,6 +41,11 @@ export interface DIDResolver {
    * deactivation can still be checked.
    */
   resolveDidWebvhLog?(did: string): Promise<DidWebvhResolution | undefined>;
+  /**
+   * Optional: drops what a caching resolver holds for `did`, so the next resolution fetches it again. Unlike
+   * `remove`, it never deletes a document the resolver is the only source of.
+   */
+  evict?(did: string): void;
 }
 
 export interface DIDDocumentSource {

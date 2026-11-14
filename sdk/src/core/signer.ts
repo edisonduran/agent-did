@@ -32,6 +32,11 @@ export class LocalKeySigner implements AgentSigner {
     return ed25519.getPublicKey(this.privateKeyBytes);
   }
 
+  /** Serializes without the private key, so logging a result or a config that holds this signer cannot leak it. */
+  toJSON(): { type: 'LocalKeySigner' } {
+    return { type: 'LocalKeySigner' };
+  }
+
   /** Generate a new LocalKeySigner with a random key. Returns [signer, privateKeyHex]. */
   static generate(): [LocalKeySigner, string] {
     const privateKeyBytes = ed25519.utils.randomPrivateKey();

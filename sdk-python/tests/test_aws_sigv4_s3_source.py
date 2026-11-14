@@ -103,3 +103,11 @@ class TestAwsSigV4S3DIDDocumentSource:
             in seen_requests[0].headers["authorization"]
         )
         assert seen_requests[0].content.decode("utf-8") == did_log
+
+
+def test_canonical_query_is_sorted_by_byte_value() -> None:
+    """Parity: sdk/tests/AwsSigV4S3DIDDocumentSource.test.ts."""
+    from agent_did_sdk.resolver.aws_sigv4_s3_source import _AwsSigV4AsyncClient
+
+    canonical = _AwsSigV4AsyncClient._canonical_query("b=1&B=1&a_b=1&a-b=1&a=2&a=10")
+    assert canonical == "B=1&a=10&a=2&a-b=1&a_b=1&b=1"

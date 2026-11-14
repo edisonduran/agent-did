@@ -1,1 +1,3 @@
 contexts/* text eol=lf
+# Generated snapshots are compared byte for byte by the API checks: keep them LF on every platform
+*.snapshot.txt text eol=lf

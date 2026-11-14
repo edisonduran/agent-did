@@ -1,7 +1,7 @@
 # Dependabot configuration.
 # - The EVM profile (contracts and adapters) lives in edisonduran/agent-did-evm.
 # - Major bumps of crypto/encoding deps and TypeScript are applied manually (wire/parity impact).
-# - didwebvh-ts is pinned to an exact version in sdk/package.json and gets its own PR: it decides the bytes of
+# - didwebvh-ts (sdk/package.json) and did-webvh (sdk-python/pyproject.toml) are pinned to exact versions and get their own PR: they decide the bytes of
 #   the did:webvh logs the SDK writes, so every release is reviewed against the Python SDK and the shared vectors.
 version: 2
 updates:
@@ -78,6 +78,8 @@ updates:
         update-types:
           - "minor"
           - "patch"
+        exclude-patterns:
+          - "did-webvh"
   - package-ecosystem: "pip"
     directory: "/integrations/a2a"
     schedule:

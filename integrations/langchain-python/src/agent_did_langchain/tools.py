@@ -12,7 +12,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .config import AgentDidExposureConfig
 from .observability import AgentDidObserver
-from .snapshot import RuntimeIdentity, build_agent_did_identity_snapshot, get_active_authentication_key_id
+from .snapshot import (
+    RuntimeIdentity,
+    assert_rotatable_by_tool,
+    build_agent_did_identity_snapshot,
+    get_active_signing_key_id,
+    runtime_signing_key,
+    runtime_signing_params,
+)
 
 MAX_PAYLOAD_BYTES = 1_048_576
 
@@ -306,10 +313,10 @@ def _build_sign_payload_tool(
         current_did = runtime_identity.document.id
         _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs={"payload": payload})
         try:
-            signature = await agent_identity.sign_message(payload, runtime_identity.agent_private_key)
+            signature = await agent_identity.sign_message(payload, runtime_signing_key(runtime_identity))
             result = {
                 "did": runtime_identity.document.id,
-                "key_id": get_active_authentication_key_id(runtime_identity),
+                "key_id": get_active_signing_key_id(runtime_identity),
                 "payload": payload,
                 "signature": signature,
             }
@@ -361,9 +368,9 @@ def _build_sign_http_request_tool(
         try:
             _validate_http_target(url, allow_private_network_targets)
 
-            key_id = get_active_authentication_key_id(runtime_identity)
+            key_id = get_active_signing_key_id(runtime_identity)
             if key_id is None:
-                raise ValueError("The runtime identity has no active authentication key to sign with")
+                raise ValueError("The runtime identity has no active assertionMethod key to sign with")
             http_sec = None
             if allow_private_network_targets:
                 from agent_did_sdk.core.http_security import HttpTargetValidationOptions
@@ -373,7 +380,7 @@ def _build_sign_http_request_tool(
                     method=method,
                     url=url,
                     body=body,
-                    agent_private_key=runtime_identity.agent_private_key,
+                    **runtime_signing_params(runtime_identity),
                     agent_did=runtime_identity.document.id,
                     verification_method_id=key_id,
                     http_security=http_sec,
@@ -428,6 +435,7 @@ def _build_rotate_keys_tool(
         current_did = runtime_identity.document.id
         _emit_tool_started(observer, tool_name=tool_name, did=current_did)
         try:
+            assert_rotatable_by_tool(runtime_identity)
             rotated = await client.rotate_verification_method(runtime_identity.document.id)
             runtime_identity.document = rotated.document
             runtime_identity.agent_private_key = rotated.agent_private_key

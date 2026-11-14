@@ -274,6 +274,7 @@ Este adaptador especializado:
 
 ## Defaults seguros
 
+- Un agente creado con `signer` externo (KMS, HSM) firma a traves de ese signer (`runtime_identity.signer`); `rotate_key` lo rechaza: rote la clave con `client.rotate_verification_method(did, signer=...)`.
 - `current_identity` es la unica tool habilitada por defecto. `resolve_did` y `verify_signatures` hacen que el modelo elija que DID resolver y, con un resolver HTTP, provocan peticiones salientes: desde `1.0.0-rc.5` son opt-in. Al activarlas, limite los hosts del resolver con `resolution_limits=ResolutionLimits(allowed_hosts=[...])`.
 - `sign_http`, `sign_payload`, `rotate_keys` y `document_history` permanecen deshabilitados por defecto.
 - `sign_http` rechaza esquemas no HTTP(S), credenciales embebidas y targets privados o loopback salvo opt-in explicito con `allow_private_network_targets=True`.

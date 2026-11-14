@@ -124,6 +124,12 @@ def build_bootstrap_controller_template(
     }
 
 
+def _retires_a_key(previous: AgentDIDDocument, document: AgentDIDDocument) -> bool:
+    """``True`` when a key that was active in *previous* carries a ``deactivated`` time in *document*."""
+    active = {method.id for method in previous.verification_method if not method.deactivated}
+    return any(method.deactivated and method.id in active for method in document.verification_method)
+
+
 def history_from_did_webvh_log(log: str) -> list[AgentDocumentHistoryEntry]:
     """History entries for a verified did:webvh log, one per log entry."""
     entries: list[AgentDocumentHistoryEntry] = []
@@ -136,7 +142,8 @@ def history_from_did_webvh_log(log: str) -> list[AgentDocumentHistoryEntry]:
             action = "created"
         elif (entry.get("parameters") or {}).get("deactivated") is True:
             action = "revoked"
-        elif len(document.verification_method) != len(previous.verification_method):
+        elif _retires_a_key(previous, document):
+            # A rotation retires a key (it gains a ``deactivated`` time); adding a key alone is an update
             action = "rotated-key"
         entries.append(
             AgentDocumentHistoryEntry(
