@@ -112,6 +112,7 @@ message_signing_input
 normalize_timestamp_to_iso
 parse_signature_header
 parse_signature_input_header
+request_url_form_problem
 required_relationship_for
 serialize_signature_input
 unix_string_to_iso

@@ -66,16 +66,15 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
     });
 
     const errors: string[] = [];
-    let hadValidEndpoint = false;
 
     for (const endpoint of this.endpoints) {
       try {
         validateHttpTarget(endpoint, this.httpSecurity);
       } catch {
+        // Blocked by policy is not "not found": the document may well exist.
+        errors.push(`${endpoint}: blocked by SSRF policy`);
         continue;
       }
-
-      hadValidEndpoint = true;
 
       try {
         const response = await this.transport(endpoint, payload, this.headers);
@@ -108,7 +107,8 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
       }
     }
 
-    if (errors.length === 0 || !hadValidEndpoint) {
+    // `null` only when every endpoint answered "not found"
+    if (errors.length === 0) {
       return null;
     }
 

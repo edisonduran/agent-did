@@ -23,7 +23,7 @@ from ..core.types import (
     VerificationRelationship,
     VerifySignatureAtTimeResult,
 )
-from ..crypto.ed25519 import verify_ed25519
+from ..crypto.ed25519 import decode_signature_hex, verify_ed25519
 from ..crypto.multibase import decode_public_key_multibase
 from ..webvh.adapter import resolve_did_webvh_log
 
@@ -213,7 +213,7 @@ def signature_result_for_key(
         return VerifySignatureAtTimeResult(status="indeterminate", key=key)
     try:
         verified = verify_ed25519(
-            bytes.fromhex(signature),
+            decode_signature_hex(signature),
             payload.encode("utf-8") if isinstance(payload, str) else payload,
             decode_public_key_multibase(key.public_key_multibase),
         )

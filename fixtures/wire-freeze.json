@@ -4,7 +4,7 @@
   "pin": "node scripts/check-wire-freeze.js --write",
   "fixtures": {
     "fixtures/interop-vectors.json": "d47a5c0bdecec6cae0dcb67ff87c6a1e2e55f9655fa83bcf3fef2813c093286f",
-    "fixtures/http-verification-vectors.json": "1106b2599439374a69588f304132f712ca2f2a4165ee34865ad75858a549c0d9",
+    "fixtures/http-verification-vectors.json": "6f022631e257af1688eab9f70e81134e12adfe6bad5bccfaa4b66b8aa9b0109a",
     "fixtures/canonical-document-reference.json": "e0e02aca16c5095d67726a159229c6b54178034336dcea52fd9e5c7f6e30d258",
     "fixtures/jcs-vectors.json": "65636f1e47bc7e9a557ce934a5bc737a4492148de19a957b188794647009f156",
     "fixtures/metadata-commitment-vectors.json": "30e59bb7b2c02563bfafa31a954522b046a316c2d300265bdbbed9747342d9d6",

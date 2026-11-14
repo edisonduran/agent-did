@@ -195,5 +195,6 @@ export {
   buildSignatureBase,
   parseSignatureHeader,
   parseSignatureInputHeader,
+  requestUrlFormProblem,
   serializeSignatureInput
 } from './core/http-signatures';

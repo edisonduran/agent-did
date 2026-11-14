@@ -32,6 +32,7 @@ describe('BearerTokenHttpDIDDocumentSource', () => {
       json: async () => sampleDocument
     });
     const source = new BearerTokenHttpDIDDocumentSource({
+      allowedOrigins: ['https://secured.example'],
       token: 'secret-token',
       fetchFn,
       referenceToUrl: (ref) => `https://secured.example/${encodeURIComponent(ref)}.json`
@@ -59,6 +60,7 @@ describe('BearerTokenHttpDIDDocumentSource', () => {
     const getToken = jest.fn().mockResolvedValue('refreshed-token');
     const didLog = JSON.stringify({ versionId: '1-QmBearerScid', state: sampleDocument });
     const source = new BearerTokenHttpDIDDocumentSource({
+      allowedOrigins: ['https://secured.example'],
       getToken,
       fetchFn,
       referenceToUrl: (ref) => `https://secured.example/${encodeURIComponent(ref)}.jsonl`,
@@ -78,6 +80,34 @@ describe('BearerTokenHttpDIDDocumentSource', () => {
         },
         body: didLog
       }
+    );
+  });
+
+  it('refuses to send the credential to an origin outside allowedOrigins, before resolving the token', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => sampleDocument });
+    const getToken = jest.fn().mockResolvedValue('secret-token');
+    const source = new BearerTokenHttpDIDDocumentSource({
+      allowedOrigins: ['https://Secured.Example:443/ignored-path'],
+      getToken,
+      fetchFn
+    });
+
+    await expect(source.getDidLogByReference('https://attacker.example/agents/bot/did.jsonl')).rejects.toThrow(
+      /refuses to send credentials to https:\/\/attacker\.example/u
+    );
+    await expect(source.getByReference('https://secured.example:8443/doc.json')).rejects.toThrow(/not in allowedOrigins/u);
+    expect(getToken).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+
+    await source.getByReference('https://secured.example/doc.json');
+    expect(fetchFn).toHaveBeenCalledWith('https://secured.example/doc.json', { headers: { authorization: 'Bearer secret-token' } });
+  });
+
+  it('requires a non-empty list of http(s) origins', () => {
+    expect(() => new BearerTokenHttpDIDDocumentSource({ token: 't' } as never)).toThrow(/requires allowedOrigins/u);
+    expect(() => new BearerTokenHttpDIDDocumentSource({ token: 't', allowedOrigins: [] })).toThrow(/requires allowedOrigins/u);
+    expect(() => new BearerTokenHttpDIDDocumentSource({ token: 't', allowedOrigins: ['ftp://x.example'] })).toThrow(
+      /not an http\(s\) origin/u
     );
   });
 });

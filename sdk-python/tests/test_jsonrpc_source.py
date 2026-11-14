@@ -80,12 +80,25 @@ class TestJsonRpcDIDDocumentSource:
         doc = await source.get_by_reference("hash://sha256/abc")
         assert doc is not None
 
-    async def test_ssrf_reject(self) -> None:
+    async def test_an_endpoint_blocked_by_policy_is_an_error_not_a_missing_document(self) -> None:
         source = JsonRpcDIDDocumentSource(JsonRpcDIDDocumentSourceConfig(
-            endpoints=["file:///etc/passwd", "javascript:alert(1)"],
+            endpoints=["file:///etc/passwd", "http://10.0.0.5/rpc"],
         ))
-        doc = await source.get_by_reference("hash://sha256/abc")
-        assert doc is None
+        with pytest.raises(RuntimeError, match="Failed to resolve DID document via JSON-RPC endpoints"):
+            await source.get_by_reference("hash://sha256/abc")
+
+    async def test_a_blocked_endpoint_next_to_one_answering_not_found_is_an_error(self) -> None:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "error": {"code": 404, "message": "nf"}})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        source = JsonRpcDIDDocumentSource(JsonRpcDIDDocumentSourceConfig(
+            endpoints=["http://10.0.0.5/rpc", "https://rpc.example.com"],
+            http_client=client,
+        ))
+        with pytest.raises(RuntimeError, match="10.0.0.5"):
+            await source.get_by_reference("hash://sha256/abc")
+        await client.aclose()
 
     def test_no_endpoint_raises(self) -> None:
         with pytest.raises(ValueError, match="at least one endpoint"):

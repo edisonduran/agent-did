@@ -19,6 +19,7 @@ from .core.http_signatures import (
     build_signature_base,
     parse_signature_header,
     parse_signature_input_header,
+    request_url_form_problem,
     serialize_signature_input,
 )
 from .core.identity import (
@@ -185,6 +186,7 @@ __all__ = [
     "build_signature_base",
     "parse_signature_header",
     "parse_signature_input_header",
+    "request_url_form_problem",
     "serialize_signature_input",
     "LocalKeySigner",
     # Core HTTP security

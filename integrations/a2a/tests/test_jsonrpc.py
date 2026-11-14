@@ -122,11 +122,14 @@ async def test_verify_a2a_request_uses_the_identity_client() -> None:
     from unittest.mock import AsyncMock
 
     from agent_did_sdk import AgentDidClient
+    from agent_did_sdk.core.types import VerifyHttpRequestSignatureResult
 
     from agent_did_a2a.jsonrpc import verify_a2a_request
 
     client = AgentDidClient()
-    client.verify_http_request_signature = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    client.verify_http_request_signature_detailed = AsyncMock(  # type: ignore[method-assign]
+        return_value=VerifyHttpRequestSignatureResult(ok=True, did="did:webvh:x", key_id="did:webvh:x#key-1")
+    )
     identity = AgentIdentity(
         AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client)
     )
@@ -134,4 +137,50 @@ async def test_verify_a2a_request_uses_the_identity_client() -> None:
     assert await verify_a2a_request(
         agent_identity=identity, method="POST", url="https://example.com/a2a", headers={}, body="{}"
     )
-    client.verify_http_request_signature.assert_awaited_once()
+    client.verify_http_request_signature_detailed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_verify_a2a_request_detailed_says_who_signed_and_applies_the_allow_lists() -> None:
+    from agent_did_sdk import AgentDidClient
+
+    from agent_did_a2a.jsonrpc import verify_a2a_request, verify_a2a_request_detailed
+
+    client = AgentDidClient()
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0], client=client))
+    runtime_identity = await identity.create(
+        CreateAgentParams(name="A2ASender", core_model="gpt-4.1-mini", system_prompt="verify test")
+    )
+    request = build_task_send_request(
+        request_id=1, task_id="task-verify-001", message={"role": "user", "parts": [{"type": "text", "text": "Hi"}]}
+    )
+    signed = await sign_a2a_request(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,
+        target_url="https://remote-agent.example.com/a2a",
+        jsonrpc_request=request,
+    )
+    did = runtime_identity.document.id
+
+    def verify_args() -> dict[str, object]:
+        return {
+            "agent_identity": identity,
+            "method": signed.method,
+            "url": signed.url,
+            "headers": dict(signed.headers),
+            "body": signed.body,
+        }
+
+    result = await verify_a2a_request_detailed(**verify_args())  # type: ignore[arg-type]
+    assert result.ok is True
+    assert result.did == did
+    assert result.controllers == [runtime_identity.document.controller]
+
+    refused = await verify_a2a_request_detailed(
+        **verify_args(), allowed_dids=["did:webvh:QmOther:example.com:agents:other"]  # type: ignore[arg-type]
+    )
+    assert refused.ok is False
+    assert refused.reason == "did_not_allowed"
+    assert not await verify_a2a_request(
+        **verify_args(), allowed_controllers=["did:webvh:QmOther:example.com:organizations:o"]  # type: ignore[arg-type]
+    )
