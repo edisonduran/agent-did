@@ -230,6 +230,11 @@ const result = await client.verifyHttpRequestSignatureDetailed({ ...request, all
 - `InMemoryNonceStore` takes `maxEntriesPerScope` (default 10 000 per `keyid`); a client's default store follows `clock`.
 - `evictCachedResolution(did)` drops a cached resolution. LangChain JS signs with the first active `assertionMethod` key.
 
+## 25. Packaging
+
+- `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
+- `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

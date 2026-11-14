@@ -20,6 +20,8 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Security :: Cryptography",
   "Typing :: Typed",
 ]
@@ -33,7 +35,7 @@ dependencies = [
   "http-sf>=1.5,<2",
   # did:webvh v1.0 reference implementation (ADR-002). Pulls aries-askar, which
   # has no musllinux or Windows ARM64 wheels; see README "Platform support".
-  "did-webvh>=1.0.1,<1.1",
+  "did-webvh==1.0.1",  # exact, like didwebvh-ts: each upstream release lands in its own PR
 ]
 
 [project.optional-dependencies]

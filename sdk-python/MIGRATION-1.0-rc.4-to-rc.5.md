@@ -259,6 +259,11 @@ result = await client.verify_http_request_signature_detailed(
 - `evict_cached_resolution(did)` drops a cached resolution. Integrations sign with the first active `assertionMethod` key.
 - Microsoft Agent Framework: an irreversible handoff older than 60 s is refused (`HANDOFF_MAX_AGE_DEFAULTS`; `max_age_seconds` lowers it, or raises it for the other classes), and handoffs signed by rc.5 pre-releases without `trust_domain` in the envelope do not verify: re-sign them with `sign_handoff`.
 
+## 25. Packaging
+
+- `agent-did-sdk` requires `did-webvh==1.0.1` exactly. An environment that installed another 1.0.x release of `did-webvh` gets 1.0.1.
+- Python 3.13 and 3.14 are tested and listed in the classifiers.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

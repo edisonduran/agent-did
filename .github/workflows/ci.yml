@@ -33,6 +33,32 @@ permissions:
   contents: read
 
 jobs:
+  node-floor:
+    # `engines` is >=22.12.0: test the SDK on that exact version too, not only on Node 24
+    name: Node 22.12.0 - SDK Build & Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Install SDK dependencies
+        run: npm --prefix sdk ci
+
+      - name: Run TypeScript SDK tests
+        run: npm --prefix sdk test -- --runInBand
+
+      - name: Build TypeScript SDK and check the ESM wrapper
+        run: npm --prefix sdk run build && npm --prefix sdk run esm:check
+
   validate:
     name: Node 24 - Build, Test & RFC-001 Conformance
     runs-on: ubuntu-24.04
