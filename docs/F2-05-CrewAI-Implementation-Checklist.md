@@ -78,6 +78,7 @@ F2-05 is complete for repo scope when the package has a functional factory, expl
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | `resolve_did` and `verify_signatures` are opt-in (default `False`), like the signing tools: the model chose which DID to resolve and, with an HTTP resolver, triggered outbound requests. Tests and README enable them explicitly and recommend `allowed_hosts` on the resolver. |
 | 2026-11-12 | Tools sign with the first active `assertionMethod` key (`get_active_signing_key_id`), which verifiers require, instead of `authentication[0]`. |
 | 2026-11-12 | Tools sign payloads and HTTP requests with the runtime identity's external `signer` (KMS, HSM) when it has one; `rotate_key` refuses such an agent. New test `test_external_signer.py`. |
 | 2026-11-12 | `sign_http_request` raises `ValueError` when the runtime identity has no active authentication key, because the SDK now requires the verification method id (same behavior as the A2A client). Type-check fix; no other change to the integration surface. |

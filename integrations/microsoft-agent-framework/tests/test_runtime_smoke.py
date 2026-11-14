@@ -62,7 +62,7 @@ def test_real_agent_framework_runtime_accepts_agent_did_bundle() -> None:
     integration = create_agent_did_microsoft_agent_framework_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_payload": True},
+        expose={"resolve_did": True, "verify_signatures": True, "sign_payload": True},
     )
 
     agent = integration.create_agent(
@@ -104,7 +104,13 @@ def test_real_agent_framework_runtime_supports_multistep_workflow_orchestration(
     integration = create_agent_did_microsoft_agent_framework_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_payload": True, "rotate_keys": True, "document_history": True},
+        expose={
+            "resolve_did": True,
+            "verify_signatures": True,
+            "sign_payload": True,
+            "rotate_keys": True,
+            "document_history": True,
+        },
     )
 
     current_identity_tool = integration.get_tool("agent_did_get_current_identity")

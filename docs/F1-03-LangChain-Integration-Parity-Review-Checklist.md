@@ -98,6 +98,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | `resolveDid` / `resolve_did` and `verifySignatures` / `verify_signatures` are opt-in in both LangChain packages; parity review covers the same default exposure in TS and Python and the explicit opt-in in the `did:wba` demos. |
 | 2026-11-12 | LangChain JS dependencies: `zod` `^4.6.7` and Jest 30; no change to the tool surface, so parity is unchanged. |
 | 2026-11-12 | Parity review covers the signing key choice: both packages sign with the first active `assertionMethod` key. |
 | 2026-11-12 | Parity review covers signing through an external signer (`runtimeIdentity.signer` / `runtime_identity.signer`) and the refusal of tool rotation for such an agent in both packages. |

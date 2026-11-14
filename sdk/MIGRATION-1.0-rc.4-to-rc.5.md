@@ -216,6 +216,16 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 const result = await client.verifyHttpRequestSignatureDetailed({ ...request, allowedControllers: [partnerOrgDid] });
 ```
 
+## 22. Resolution limits; integration tools that resolve DIDs are opt-in
+
+- The universal resolver remembers a failed did:webvh / did:wba resolution for 5 s (`resolutionLimits.negativeCacheTtlMs`, 0 turns it off), shares one fetch between concurrent resolutions of the same DID and runs at most 16 fetches at once (`maxConcurrentFetches`). Code that retries a failing DID within 5 s gets the same error without a new request.
+- New optional `resolutionLimits.allowedHosts` (on `UniversalResolverConfig` and the `useProductionResolver*` profiles): only DIDs on these hosts are fetched. Set it on verifiers that know their peers.
+- LangChain JS: `expose.resolveDid` and `expose.verifySignatures` default to `false`. Set them to `true` where the agent needs them, together with `allowedHosts`.
+
+```ts
+client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHosts: ['*.partner.example'] } });
+```
+
 ## 23. Integrations sign with the agent's external signer
 
 - `createAgent` / `create`, `rotateVerificationMethod` and `addVerificationMethod` return the `signer` you passed for the agent key as `result.signer` (non-enumerable: `JSON.stringify` and object spread skip it). The LangChain JS integration signs payloads and HTTP requests with it when present; before, an agent created with a KMS or HSM signer could not sign through the integration.
@@ -234,6 +244,7 @@ const result = await client.verifyHttpRequestSignatureDetailed({ ...request, all
 
 - `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
 - `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
+
 
 ## Checklist
 
@@ -263,3 +274,4 @@ const result = await client.verifyHttpRequestSignatureDetailed({ ...request, all
 - [ ] ES module projects import from the package root only (no deep imports).
 - [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
 - [ ] Every HTTP verifier either passes `allowedDids` / `allowedControllers` or checks `result.did` before trusting the request.
+- [ ] Agents that use the LangChain `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `resolutionLimits.allowedHosts`.

@@ -34,6 +34,7 @@ from ..resolver.types import (
     DIDResolver,
     DidWebvhResolution,
     DidWebvhState,
+    ResolutionLimits,
     ResolverResolutionEvent,
     UniversalResolverConfig,
 )
@@ -113,6 +114,7 @@ class ProductionResolverProfileConfig:
     max_cache_entries: int | None = None
     on_resolution_event: object | None = None
     unverified_document_ref_schemes: list[str] | None = None
+    resolution_limits: ResolutionLimits | None = None
 
 
 @dataclass
@@ -127,6 +129,7 @@ class ProductionHttpResolverProfileConfig:
     on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
     http_security: HttpTargetValidationOptions | None = None
     unverified_document_ref_schemes: list[str] | None = None
+    resolution_limits: ResolutionLimits | None = None
 
 
 @dataclass
@@ -142,6 +145,7 @@ class ProductionJsonRpcResolverProfileConfig:
     http_client: httpx.AsyncClient | None = None
     on_resolution_event: Callable[[ResolverResolutionEvent], None] | None = None
     http_security: HttpTargetValidationOptions | None = None
+    resolution_limits: ResolutionLimits | None = None
 
 
 @dataclass
@@ -932,6 +936,7 @@ class AgentDidClient:
                 ),
                 on_resolution_event=config.on_resolution_event,  # type: ignore[arg-type]
                 unverified_document_ref_schemes=config.unverified_document_ref_schemes,
+                resolution_limits=config.resolution_limits,
             )
         )
 
@@ -963,6 +968,7 @@ class AgentDidClient:
                 max_cache_entries=config.max_cache_entries,
                 on_resolution_event=config.on_resolution_event,
                 unverified_document_ref_schemes=config.unverified_document_ref_schemes,
+                resolution_limits=config.resolution_limits,
             )
         )
 
@@ -985,6 +991,7 @@ class AgentDidClient:
                 cache_ttl_ms=config.cache_ttl_ms,
                 max_cache_entries=config.max_cache_entries,
                 on_resolution_event=config.on_resolution_event,
+                resolution_limits=config.resolution_limits,
             )
         )
 

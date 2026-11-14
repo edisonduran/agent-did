@@ -128,6 +128,7 @@ La parity de integraciones LangChain TS vs Python se considera mantenida cuando:
 
 | Fecha | Cambio |
 |-------|--------|
+| 2026-11-12 | `resolveDid` / `resolve_did` y `verifySignatures` / `verify_signatures` pasan a ser opt-in en LangChain TS y Python (el modelo elegia que DID resolver y, con un resolver HTTP, provocaba peticiones salientes). Tests, demos `did:wba` y README activan ambas tools de forma explicita y recomiendan `allowedHosts` en el resolver. Parity mantenida. |
 | 2026-11-12 | LangChain JS pasa a `zod` `^4.6.7` (corrige GHSA-mrhx-c7xc-m3w5 de zod 3) y a Jest 30; sin cambios en la superficie de tools ni en Python. |
 | 2026-11-12 | LangChain TS y Python firman con la primera clave activa de `assertionMethod` (`getActiveSigningKeyId` / `get_active_signing_key_id`), la relacion que exige el verificador, en lugar de `authentication[0]`. Parity mantenida. |
 | 2026-11-12 | LangChain TS y Python firman payloads y requests HTTP con el `signer` externo del runtime identity (KMS, HSM) cuando existe, y `rotate_key` lo rechaza para ese agente. Tests `externalSigner` / `test_external_signer` en ambos paquetes. Parity mantenida. |

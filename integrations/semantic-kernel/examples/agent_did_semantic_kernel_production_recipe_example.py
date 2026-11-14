@@ -58,7 +58,13 @@ async def main() -> None:
     integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_payload": True, "rotate_keys": True, "document_history": True, "sign_http": True},
+        expose={
+            "verify_signatures": True,
+            "sign_payload": True,
+            "rotate_keys": True,
+            "document_history": True,
+            "sign_http": True,
+        },
         observability_handler=compose_event_handlers(
             lambda event: local_events.append(serialize_observability_event(event, include_timestamp=False)),
             create_json_logger_event_handler(

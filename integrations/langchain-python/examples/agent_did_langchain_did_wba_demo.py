@@ -135,7 +135,7 @@ async def main() -> None:
         integration = create_agent_did_langchain_integration(
             agent_identity=identity,
             runtime_identity=runtime_identity,
-            expose={"sign_http": True},
+            expose={"resolve_did": True, "verify_signatures": True, "sign_http": True},
             additional_system_context=(
                 "Resolve remote did:wba partners before delegating work and sign only explicit outbound HTTP requests."
             ),

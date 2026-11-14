@@ -85,6 +85,7 @@ CrewAI review is complete when the current package state is accurately described
 
 | Date | Change |
 |------|--------|
+| 2026-11-12 | Review gate: the default exposure is `current_identity` only; `resolve_did` and `verify_signatures` are opt-in. |
 | 2026-11-12 | Review gate: signing tools use an `assertionMethod` key. |
 | 2026-11-12 | Review gate: an agent created with an external signer signs through the tools; tool rotation refuses it. |
 | 2026-11-12 | `sign_http_request` raises `ValueError` when the runtime identity has no active authentication key, because the SDK now requires the verification method id (same behavior as the A2A client). Type-check fix; no other change to the integration surface. |

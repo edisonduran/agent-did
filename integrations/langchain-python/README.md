@@ -345,6 +345,7 @@ integration = create_agent_did_langchain_integration(
     agent_identity=agent_identity,
     runtime_identity=runtime_identity,
     expose={
+        "resolve_did": True,
         "verify_signatures": True,
         "sign_http": True,
         "rotate_keys": False,

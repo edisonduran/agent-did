@@ -246,6 +246,18 @@ result = await client.verify_http_request_signature_detailed(
 )
 ```
 
+## 22. Resolution limits; integration tools that resolve DIDs are opt-in
+
+- The universal resolver remembers a failed did:webvh / did:wba resolution for 5 s (`ResolutionLimits.negative_cache_ttl_ms`, 0 turns it off), shares one fetch between concurrent resolutions of the same DID and runs at most 16 fetches at once (`max_concurrent_fetches`). Code that retries a failing DID within 5 s gets the same error without a new request.
+- New optional `ResolutionLimits.allowed_hosts` (`UniversalResolverConfig.resolution_limits` and the `use_production_resolver*` profiles): only DIDs on these hosts are fetched. Set it on verifiers that know their peers.
+- LangChain Python, CrewAI, Semantic Kernel and Microsoft Agent Framework: `expose["resolve_did"]` and `expose["verify_signatures"]` default to `False`. Set them to `True` where the agent needs them, together with `allowed_hosts`.
+
+```python
+client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
+    registry=registry, resolution_limits=ResolutionLimits(allowed_hosts=["*.partner.example"]),
+))
+```
+
 ## 23. Integrations sign with the agent's external signer
 
 - `create`, `rotate_verification_method` and `add_verification_method` return the `signer` you passed for the agent key as `result.signer` (excluded from `model_dump` / `model_dump_json`). The A2A, LangChain, CrewAI, Semantic Kernel and Microsoft Agent Framework integrations sign payloads, HTTP requests and handoffs with it when present; before, an agent created with a KMS or HSM signer failed with `The seed must be exactly 32 bytes long`.
@@ -263,6 +275,7 @@ result = await client.verify_http_request_signature_detailed(
 
 - `agent-did-sdk` requires `did-webvh==1.0.1` exactly. An environment that installed another 1.0.x release of `did-webvh` gets 1.0.1.
 - Python 3.13 and 3.14 are tested and listed in the classifiers.
+
 
 ## Checklist
 
@@ -292,3 +305,4 @@ result = await client.verify_http_request_signature_detailed(
 - [ ] Code that treated a `None` from `JsonRpcDIDDocumentSource` with blocked endpoints as "not found" handles the error.
 - [ ] Every URL passed to `sign_http_request` is percent-encoded and normalized (`request_url_form_problem` returns nothing for it).
 - [ ] Every HTTP verifier either passes `allowed_dids` / `allowed_controllers` or checks `result.did` before trusting the request.
+- [ ] Agents that use the `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `ResolutionLimits.allowed_hosts`.

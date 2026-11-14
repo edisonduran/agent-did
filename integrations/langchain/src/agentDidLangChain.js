@@ -9,8 +9,8 @@ const MAX_PAYLOAD_BYTES = 1048576; // 1 MB
 
 const DEFAULT_EXPOSURE = {
   currentIdentity: true,
-  resolveDid: true,
-  verifySignatures: true,
+  resolveDid: false,
+  verifySignatures: false,
   signPayload: false,
   signHttp: false,
   documentHistory: false,
