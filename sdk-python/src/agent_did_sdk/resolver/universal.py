@@ -269,12 +269,15 @@ class UniversalResolverClient:
 
     def remove(self, did: str) -> None:
         self._cache.pop(did, None)
+        self._negative_cache.pop(did, None)
         if self._fallback:
             self._fallback.remove(did)
 
     def evict(self, did: str) -> None:
-        """Drop the cached resolution of *did* (not the fallback resolver's documents): the next resolution fetches."""
+        """Drop the cached resolution of *did*, including a remembered failure (not the fallback resolver's
+        documents): the next resolution fetches."""
         self._cache.pop(did, None)
+        self._negative_cache.pop(did, None)
 
     # -- Extra ----------------------------------------------------------------
 

@@ -75,6 +75,21 @@ async def test_answers_a_recent_failure_again_without_fetching_until_it_expires(
     assert source.calls == 2
 
 
+async def test_fetches_again_after_evict_or_remove_even_within_the_negative_cache_ttl() -> None:
+    source = _LogSource(_failing)
+    resolver = _resolver(source, ResolutionLimits(negative_cache_ttl_ms=5_000))
+
+    with pytest.raises(ValueError, match="could not be fetched"):
+        await resolver.resolve(DID)
+    resolver.evict(DID)
+    with pytest.raises(ValueError, match="could not be fetched"):
+        await resolver.resolve(DID)
+    resolver.remove(DID)
+    with pytest.raises(ValueError, match="could not be fetched"):
+        await resolver.resolve(DID)
+    assert source.calls == 3
+
+
 async def test_does_not_remember_failures_when_the_negative_cache_is_off() -> None:
     source = _LogSource(_failing)
     resolver = _resolver(source, ResolutionLimits(negative_cache_ttl_ms=0))

@@ -302,12 +302,17 @@ export class UniversalResolverClient implements DIDResolver {
 
   public remove(did: string): void {
     this.cache.delete(did);
+    this.negativeCache.delete(did);
     this.fallbackResolver?.remove(did);
   }
 
-  /** Drops the cached resolution of `did` (not the fallback resolver's documents): the next resolution fetches. */
+  /**
+   * Drops the cached resolution of `did`, including a remembered failure (not the fallback resolver's documents):
+   * the next resolution fetches.
+   */
   public evict(did: string): void {
     this.cache.delete(did);
+    this.negativeCache.delete(did);
   }
 
   public getCacheStats(): ResolverCacheStats {

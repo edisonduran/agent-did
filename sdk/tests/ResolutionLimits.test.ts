@@ -46,6 +46,19 @@ describe('resolution limits of the universal resolver', () => {
     expect(source).toHaveBeenCalledTimes(2);
   });
 
+  it('fetches again after evict or remove, even within the negative cache TTL', async () => {
+    const source = jest.fn().mockRejectedValue(new Error('connect ETIMEDOUT'));
+    const resolver = resolverWith(source, { negativeCacheTtlMs: 5_000 });
+    const did = 'did:webvh:QmScid:host.example.com:agents:a';
+
+    await expect(resolver.resolve(did)).rejects.toThrow(/could not be fetched/u);
+    resolver.evict(did);
+    await expect(resolver.resolve(did)).rejects.toThrow(/could not be fetched/u);
+    resolver.remove(did);
+    await expect(resolver.resolve(did)).rejects.toThrow(/could not be fetched/u);
+    expect(source).toHaveBeenCalledTimes(3);
+  });
+
   it('does not remember failures when the negative cache is off', async () => {
     const source = jest.fn().mockRejectedValue(new Error('connect ETIMEDOUT'));
     const resolver = resolverWith(source, { negativeCacheTtlMs: 0 });
