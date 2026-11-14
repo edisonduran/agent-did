@@ -88,6 +88,7 @@ F2-04 is implementation-ready for release review when the package has a function
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | The real-runtime smoke test enables `resolve_did` and `verify_signatures`, which are opt-in since rc.5. |
 | 2026-11-12 | `resolve_did` and `verify_signatures` are opt-in (default `False`), like the signing tools: the model chose which DID to resolve and, with an HTTP resolver, triggered outbound requests. Tests, the production recipe example and README enable them explicitly. |
 | 2026-11-12 | Tools sign with the first active `assertionMethod` key (`get_active_signing_key_id`), which verifiers require, instead of `authentication[0]`. |
 | 2026-11-12 | Tools sign payloads and HTTP requests with the runtime identity's external `signer` (KMS, HSM) when it has one; `rotate_key` refuses such an agent. New test `test_external_signer.py`. |

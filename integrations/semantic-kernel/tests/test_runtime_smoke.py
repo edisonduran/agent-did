@@ -85,7 +85,13 @@ async def test_real_semantic_kernel_runtime_supports_multistep_identity_lifecycl
     integration = create_agent_did_semantic_kernel_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"sign_payload": True, "document_history": True, "rotate_keys": True},
+        expose={
+            "sign_payload": True,
+            "document_history": True,
+            "rotate_keys": True,
+            "resolve_did": True,
+            "verify_signatures": True,
+        },
     )
     plugin = integration.create_semantic_kernel_plugin(plugin_name="agent_did_runtime")
     kernel = Kernel()
