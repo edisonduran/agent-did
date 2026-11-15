@@ -52,7 +52,7 @@ Run a single test with `npm --prefix sdk test -- AgentIdentity.test.ts -t "name"
 - **Wire/format changes are breaking.** This covers signature bases, the canonicalization behind document hashes, DID log formats and hash URIs. The wire is frozen from `1.0.0-rc.5` to `v1.0.0` (`docs/DEPRECATION-POLICY.md`, `npm run check:wire-freeze`): a wire change needs a new release candidate, an entry in `CHANGELOG.md` and the migration guides (`sdk/MIGRATION-*.md`, `sdk-python/MIGRATION-*.md`).
 - **Crypto hygiene:**
   - Never derive private keys from public data.
-  - Use `@noble/*` in TS and `pynacl`/`hashlib`/`secrets` in Python. Canonical JSON for hashing is RFC 8785 (JCS) only: `canonicalizeJson` / `canonicalize_json` (the latter wraps `rfc8785`).
+  - Use `@noble/*` in TS and `pynacl`/`hashlib`/`secrets` in Python. RFC 3161 tokens (RSA/ECDSA TSAs) are the only exception: `pkijs` in TS and the optional `rfc3161-client` extra in Python (ADR-007). Canonical JSON for hashing is RFC 8785 (JCS) only: `canonicalizeJson` / `canonicalize_json` (the latter wraps `rfc8785`).
   - Do not add new uses of `ethers`/`web3` in the core; EVM is a deferred, optional profile.
   - Integrity failures must never fall back to another resolution source.
   - Do not claim conformance with an external spec (did:webvh, RFC 9421, RFC 8785…) in docs unless a CI job verifies it against that spec's official vectors or an independent implementation.

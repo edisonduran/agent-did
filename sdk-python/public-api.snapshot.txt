@@ -50,6 +50,10 @@ DidWebvhError
 DidWebvhErrorCode
 DidWebvhResolution
 DidWebvhState
+DidWebvhWitnessCollector
+DidWebvhWitnessConfig
+DidWebvhWitnessProofEntry
+DidWebvhWitnessRequest
 DocumentIntegrityError
 FilesystemDIDDocumentSource
 FilesystemDIDDocumentSourceConfig
@@ -83,6 +87,7 @@ PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
 ProductionJsonRpcResolverProfileConfig
 ProductionResolverProfileConfig
+REMOVE_WITNESSES
 REQUIRED_RELATIONSHIP_BY_ARTIFACT
 REVOKED_CONTEXT_TERM
 ResolutionLimits
@@ -100,6 +105,7 @@ SignHttpRequestParams
 SignatureInput
 SignedArtifactKind
 SigningVerificationPurpose
+TimestampRejection
 Token
 UniversalResolverClient
 UniversalResolverConfig
@@ -115,6 +121,7 @@ VerifyIdentityCompositionParams
 VerifyIdentityCompositionResult
 VerifySignatureAtTimeRejection
 VerifySignatureAtTimeResult
+VerifyTimestampTokenResult
 WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig
 agent_did_http_signature_components
@@ -123,7 +130,9 @@ assert_signing_purpose
 build_signature_base
 canonicalize_json
 check_did_webvh_key_at_time
+create_did_webvh_witness_proof
 create_metadata_commitment
+create_timestamp_request
 decode_public_key_multibase
 did_key_from_public_key
 did_key_from_public_key
@@ -155,3 +164,4 @@ sign_agent_card
 unix_string_to_iso
 validate_http_target
 verify_metadata_commitment
+verify_timestamp_token

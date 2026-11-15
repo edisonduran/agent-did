@@ -15,6 +15,7 @@ import { createDID, defaultVerifier, prepareDataForSigning } from 'didwebvh-ts';
 import { LocalKeySigner } from '../src/core/signer';
 import {
   createDidWebvhLog,
+  createDidWebvhWitnessProof,
   deactivateDidWebvhLog,
   didWebvhUpdateKeyFor,
   DidWebvhError,
@@ -29,6 +30,8 @@ interface ResolvableVector {
   versionId: string;
   deactivated?: boolean;
   log: string;
+  /** The `did-witness.json` that approves `log` (ADR-007), for logs with witnessed entries. */
+  witnessFile?: string;
   /** What both adapters must return when resolving `log`. */
   resolved: { document: Record<string, unknown>; metadata: Record<string, unknown>; versionNumber: number };
   /**
@@ -51,7 +54,7 @@ async function withVersions(vector: ResolvableVector): Promise<ResolvableVector>
   const versions: ResolvedVersion[] = [];
   for (const [index, line] of lines(vector.log).entries()) {
     const entry = JSON.parse(line) as { versionId: string; versionTime: string };
-    const resolved = await resolveDidWebvhLog(vector.log, { versionNumber: index + 1 });
+    const resolved = await resolveDidWebvhLog(vector.log, { versionNumber: index + 1, ...witnessOf(vector) });
     versions.push({
       versionNumber: index + 1,
       versionId: entry.versionId,
@@ -70,8 +73,13 @@ function vector(name: string, result: DidWebvhLogResult): ResolvableVector {
     versionId: result.metadata.versionId,
     ...(result.metadata.deactivated ? { deactivated: true } : {}),
     log: result.log,
+    ...(result.witnessFile !== undefined ? { witnessFile: result.witnessFile } : {}),
     resolved: { document: result.document, metadata: { ...result.metadata }, versionNumber: result.versionNumber },
   };
+}
+
+function witnessOf(vector: { witnessFile?: string }): { witnessFile?: string } {
+  return vector.witnessFile !== undefined ? { witnessFile: vector.witnessFile } : {};
 }
 
 const FIXTURE_PATH = path.join(__dirname, '..', '..', 'fixtures', 'webvh-log-vectors.json');
@@ -88,6 +96,8 @@ interface WebvhVectors {
     /** Pre-rotation: the key the committed key commits to in turn. */
     followingControllerPrivateKeyHex: string;
     unauthorizedPrivateKeyHex: string;
+    /** Witness keys (ADR-007): their `did:key` DIDs approve the entries of the witnessed vectors. */
+    witnessPrivateKeysHex: string[];
     domain: string;
     pathSegments: string[];
     document: Record<string, unknown>;
@@ -98,7 +108,7 @@ interface WebvhVectors {
   };
   deterministic: ResolvableVector[];
   resolveOnly: ResolvableVector[];
-  negative: Array<{ name: string; reason: string; log: string }>;
+  negative: Array<{ name: string; reason: string; log: string; witnessFile?: string }>;
 }
 
 const INPUTS: WebvhVectors['inputs'] = {
@@ -107,6 +117,7 @@ const INPUTS: WebvhVectors['inputs'] = {
   nextControllerPrivateKeyHex: 'a3'.repeat(32),
   followingControllerPrivateKeyHex: '5d'.repeat(32),
   unauthorizedPrivateKeyHex: 'e7'.repeat(32),
+  witnessPrivateKeysHex: ['1a'.repeat(32), '2b'.repeat(32)],
   domain: 'agents.example.com',
   pathSegments: ['fleet', 'support-bot'],
   document: {
@@ -219,7 +230,7 @@ async function generateDeterministic(inputs: WebvhVectors['inputs']) {
   return { created, updated, rotated, rotatedController, committed, preRotated, following };
 }
 
-/** A genesis entry that declares a witness. Agent-DID does not support witnesses yet, so both SDKs must reject it. */
+/** A genesis entry that declares a witness, without its did-witness.json: both SDKs must reject it. */
 async function witnessDeclaredLog(inputs: WebvhVectors['inputs']): Promise<string> {
   const signer = new LocalKeySigner(inputs.controllerPrivateKeyHex);
   const updateKey = await didWebvhUpdateKeyFor(signer);
@@ -244,19 +255,70 @@ async function witnessDeclaredLog(inputs: WebvhVectors['inputs']): Promise<strin
 }
 
 /**
+ * Witnessed logs (ADR-007): created with a 2-of-2 rule, updated under it with a change to 1-of-1, then updated under
+ * the new rule. Witness proofs carry a creation time, so these are resolve-only vectors.
+ */
+async function witnessedVectors(inputs: WebvhVectors['inputs']) {
+  const controller = new LocalKeySigner(inputs.controllerPrivateKeyHex);
+  const witnessSigners = inputs.witnessPrivateKeysHex.map((hex) => new LocalKeySigner(hex));
+  const witnessDids = await Promise.all(
+    witnessSigners.map(async (signer) => `did:key:${await didWebvhUpdateKeyFor(signer)}`)
+  );
+  const collect = async (request: { log: string; witnessFile?: string; witness: { witnesses: string[] } }) =>
+    Promise.all(
+      witnessSigners
+        .filter((_signer, index) => request.witness.witnesses.includes(witnessDids[index]))
+        .map((signer) => createDidWebvhWitnessProof({ log: request.log, witnessFile: request.witnessFile, signer }))
+    );
+  const created = await createDidWebvhLog({
+    domain: inputs.domain,
+    pathSegments: inputs.pathSegments,
+    document: inputs.document,
+    signer: controller,
+    created: inputs.created,
+    witness: { threshold: 2, witnesses: witnessDids },
+    collectWitnessProofs: collect,
+  });
+  const changed = await updateDidWebvhLog({
+    log: created.log,
+    signer: controller,
+    witnessFile: created.witnessFile,
+    witness: { threshold: 1, witnesses: [witnessDids[0]] },
+    updated: inputs.updated,
+    collectWitnessProofs: collect,
+  });
+  const updated = await updateDidWebvhLog({
+    log: changed.log,
+    signer: controller,
+    witnessFile: changed.witnessFile,
+    document: { ...changed.document, agentMetadata: inputs.updatedAgentMetadata },
+    updated: inputs.rotated,
+    collectWitnessProofs: collect,
+  });
+  return { created, updated };
+}
+
+/**
  * Deactivation logs in the shape earlier releases wrote: the deactivation entry kept `updateKeys`, and a
  * pre-rotated DID was deactivated in one entry. They are valid did:webvh v1.0 logs that both SDKs must keep
  * resolving, and the adapters no longer write them, so regeneration carries them over from the fixture.
  */
 function legacyVectors(): Promise<ResolvableVector[]> {
   const existing = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as WebvhVectors;
-  return Promise.all(existing.resolveOnly.filter((vector) => vector.name.startsWith('legacy-')).map(withVersions));
+  return Promise.all(
+    existing.resolveOnly
+      .filter((vector) => vector.name.startsWith('legacy-'))
+      // The log is carried over; what the adapters return for it is recomputed.
+      .map(async (legacy) => withVersions(vector(legacy.name, await resolveDidWebvhLog(legacy.log))))
+  );
 }
 
 async function generateVectors(): Promise<WebvhVectors> {
   const { created, updated, rotated, rotatedController, committed, preRotated, following } = await generateDeterministic(INPUTS);
   const deactivated = await deactivateDidWebvhLog({ log: rotated.log, signer: rotatedController });
   const preRotationDeactivated = await deactivateDidWebvhLog({ log: preRotated.log, signer: following });
+  const witnessed = await witnessedVectors(INPUTS);
+  const createdApprovals = JSON.parse(witnessed.created.witnessFile as string) as { versionId: string; proof: unknown[] }[];
   const libraryVersion = JSON.parse(
     fs.readFileSync(path.join(__dirname, '..', 'node_modules', 'didwebvh-ts', 'package.json'), 'utf8')
   ).version as string;
@@ -278,6 +340,8 @@ async function generateVectors(): Promise<WebvhVectors> {
     resolveOnly: [
       await withVersions(vector('deactivate-with-rotated-key', deactivated)),
       await withVersions(vector('prerotation-deactivate', preRotationDeactivated)),
+      vector('witness-create', witnessed.created),
+      vector('witness-change-rule', witnessed.updated),
       ...(await legacyVectors()),
     ],
     negative: [
@@ -338,8 +402,14 @@ async function generateVectors(): Promise<WebvhVectors> {
       },
       {
         name: 'witness-declared',
-        reason: 'log declares witnesses, which Agent-DID does not support yet; must be rejected without network access',
+        reason: 'log declares a witness and no did-witness.json is supplied; must be rejected without network access',
         log: await witnessDeclaredLog(INPUTS),
+      },
+      {
+        name: 'witness-threshold-not-met',
+        reason: 'genesis entry under a 2-of-2 witness rule with only one approval in did-witness.json',
+        log: witnessed.created.log,
+        witnessFile: JSON.stringify([{ ...createdApprovals[0], proof: createdApprovals[0].proof.slice(0, 1) }]),
       },
       {
         name: 'missing-proof',
@@ -361,7 +431,9 @@ const RESOLVABLE: Array<[string, ResolvableVector]> = VECTORS
   ? [...VECTORS.deterministic, ...VECTORS.resolveOnly].map((vector) => [vector.name, vector])
   : [];
 const VERSIONED: Array<[string, ResolvableVector]> = RESOLVABLE.filter(([, vector]) => vector.versions !== undefined);
-const NEGATIVE: Array<[string, string]> = VECTORS ? VECTORS.negative.map((vector) => [vector.name, vector.log]) : [];
+const NEGATIVE: Array<[string, string, string | undefined]> = VECTORS
+  ? VECTORS.negative.map((vector) => [vector.name, vector.log, vector.witnessFile])
+  : [];
 
 describe('did:webvh cross-SDK log vectors', () => {
   if (WRITE_MODE) {
@@ -386,8 +458,9 @@ describe('did:webvh cross-SDK log vectors', () => {
 
   it.each(RESOLVABLE)('resolves %s', async (_name, resolvable) => {
     const vector = resolvable;
-    const resolved = await resolveDidWebvhLog(vector.log, { did: vector.did });
+    const resolved = await resolveDidWebvhLog(vector.log, { did: vector.did, ...witnessOf(vector) });
     expect(resolved.metadata.versionId).toBe(vector.versionId);
+    expect(resolved.witnessFile).toBe(vector.witnessFile);
     expect(resolved.metadata.deactivated).toBe(vector.deactivated === true);
     expect(resolved.document).toEqual(vector.resolved.document);
     expect({ ...resolved.metadata }).toEqual(vector.resolved.metadata);
@@ -410,7 +483,7 @@ describe('did:webvh cross-SDK log vectors', () => {
         { versionTime: version.versionTime },
       ];
       for (const selection of selections) {
-        const resolved = await resolveDidWebvhLog(vector.log, selection);
+        const resolved = await resolveDidWebvhLog(vector.log, { ...selection, ...witnessOf(vector) });
         expect(resolved.versionNumber).toBe(version.versionNumber);
         expect(resolved.document).toEqual(version.document);
         expect({ ...resolved.metadata }).toEqual(version.metadata);
@@ -419,16 +492,18 @@ describe('did:webvh cross-SDK log vectors', () => {
     }
   });
 
-  it.each(NEGATIVE)('rejects %s at every selected version', async (_name, log) => {
+  it.each(NEGATIVE)('rejects %s at every selected version', async (_name, log, witnessFile) => {
     for (let versionNumber = 1; versionNumber <= lines(log).length; versionNumber += 1) {
-      await expect(resolveDidWebvhLog(log, { versionNumber })).rejects.toBeInstanceOf(DidWebvhError);
+      await expect(resolveDidWebvhLog(log, { versionNumber, ...witnessOf({ witnessFile }) })).rejects.toBeInstanceOf(
+        DidWebvhError
+      );
     }
   });
 
-  it.each(NEGATIVE)('rejects %s', async (_name, log) => {
+  it.each(NEGATIVE)('rejects %s', async (_name, log, witnessFile) => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     try {
-      await expect(resolveDidWebvhLog(log)).rejects.toBeInstanceOf(DidWebvhError);
+      await expect(resolveDidWebvhLog(log, witnessOf({ witnessFile }))).rejects.toBeInstanceOf(DidWebvhError);
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
       fetchSpy.mockRestore();

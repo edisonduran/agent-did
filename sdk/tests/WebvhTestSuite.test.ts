@@ -12,7 +12,7 @@ import { deriveDidWebvhLogUrl, DidWebvhError, resolveDidWebvhLog } from '../src/
 
 interface SuiteExpectations {
   commit: string;
-  unsupported: Record<string, string>;
+  witnessed: Record<string, string>;
   didUrlNegative: Record<string, string>;
   vectorDefects: Record<string, string>;
 }
@@ -23,7 +23,8 @@ const EXPECTATIONS = JSON.parse(
 const SUITE_DIR = process.env.DIDWEBVH_TEST_SUITE_DIR;
 const VECTORS = SUITE_DIR ? path.join(SUITE_DIR, 'vectors') : '';
 
-type PositiveCase = [string, { log: string; expected: any; versionNumber?: number }];
+type PositiveCase = [string, { log: string; witnessFile?: string; expected: any; versionNumber?: number }];
+type WitnessedCase = [string, { log: string; witnessFile: string }];
 type RejectCase = [string, string];
 
 /** A valid base58btc SCID, substituted to show the host/path rules (not the SCID) reject the DID. */
@@ -43,9 +44,14 @@ function readLog(dir: string): string | undefined {
   return text.trim().length > 0 ? text : undefined;
 }
 
+function readWitnessFile(dir: string): string | undefined {
+  const file = path.join(dir, 'did-witness.json');
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : undefined;
+}
+
 function collect() {
   const positive: PositiveCase[] = [];
-  const unsupported: RejectCase[] = [];
+  const witnessed: WitnessedCase[] = [];
   const negative: RejectCase[] = [];
   const didUrlNegative: RejectCase[] = [];
   const scenarios = SUITE_DIR ? listDirs(VECTORS) : [];
@@ -63,17 +69,21 @@ function collect() {
       const dir = path.join(VECTORS, scenario, impl);
       const log = readLog(dir);
       if (!log) continue;
+      const witnessFile = readWitnessFile(dir);
       if (isNegative) {
         negative.push([`${scenario}/${impl}`, log]);
-      } else if (scenario in EXPECTATIONS.unsupported) {
-        unsupported.push([`${scenario}/${impl}`, log]);
       } else {
+        if (scenario in EXPECTATIONS.witnessed) {
+          if (witnessFile === undefined) throw new Error(`${scenario}/${impl} has no did-witness.json`);
+          witnessed.push([`${scenario}/${impl}`, { log, witnessFile }]);
+        }
         for (const file of fs.readdirSync(dir).filter((name) => /^resolutionResult(\.\d+)?\.json$/u.test(name)).sort()) {
           const match = /^resolutionResult\.(\d+)\.json$/u.exec(file);
           positive.push([
             `${scenario}/${impl}/${file}`,
             {
               log,
+              witnessFile,
               expected: JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')),
               versionNumber: match ? Number(match[1]) : undefined,
             },
@@ -82,7 +92,7 @@ function collect() {
       }
     }
   }
-  return { scenarios, positive, unsupported, negative, didUrlNegative };
+  return { scenarios, positive, witnessed, negative, didUrlNegative };
 }
 
 const IMPLICIT_SERVICE = /#(files|whois)$/u;
@@ -107,7 +117,7 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
       : EXPECTATIONS.commit;
     expect(head).toBe(EXPECTATIONS.commit);
 
-    for (const listed of [...Object.keys(EXPECTATIONS.unsupported), ...Object.keys(EXPECTATIONS.didUrlNegative)]) {
+    for (const listed of [...Object.keys(EXPECTATIONS.witnessed), ...Object.keys(EXPECTATIONS.didUrlNegative)]) {
       expect(CASES.scenarios).toContain(listed);
     }
     const positiveNames = CASES.positive.map(([name]) => name);
@@ -115,7 +125,7 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
       expect(positiveNames).toContain(listed);
     }
     const covered = new Set(
-      [...CASES.positive, ...CASES.unsupported, ...CASES.negative, ...CASES.didUrlNegative].map(
+      [...CASES.positive, ...CASES.negative, ...CASES.didUrlNegative].map(
         ([name]) => name.split(/[/ ]/u)[0]
       )
     );
@@ -123,8 +133,11 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
     expect(unclassified).toEqual([]);
   });
 
-  it.each(CASES.positive)('resolves %s', async (name, { log, expected, versionNumber }) => {
-    const resolved = await resolveDidWebvhLog(log, versionNumber !== undefined ? { versionNumber } : {});
+  it.each(CASES.positive)('resolves %s', async (name, { log, witnessFile, expected, versionNumber }) => {
+    const resolved = await resolveDidWebvhLog(log, {
+      ...(versionNumber !== undefined ? { versionNumber } : {}),
+      ...(witnessFile !== undefined ? { witnessFile } : {}),
+    });
     const entries = log
       .split(/\r?\n/u)
       .filter((line) => line.trim().length > 0)
@@ -148,10 +161,19 @@ suiteDescribe(`didwebvh-test-suite @ ${EXPECTATIONS.commit.slice(0, 12)}`, () =>
     }
   });
 
-  it.each(CASES.unsupported)('rejects %s (witnesses unsupported)', async (_name, log) => {
+  it.each(CASES.witnessed)('%s fails closed without enough witness approvals', async (_name, { log, witnessFile }) => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     try {
+      // No did-witness.json: rejected without fetching it.
       await expect(resolveDidWebvhLog(log)).rejects.toBeInstanceOf(DidWebvhError);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      // An empty file, and each entry with one proof dropped, fall below a threshold.
+      await expect(resolveDidWebvhLog(log, { witnessFile: '[]' })).rejects.toBeInstanceOf(DidWebvhError);
+      const entries = JSON.parse(witnessFile) as { versionId: string; proof: unknown[] }[];
+      const reduced = entries.map((entry) => ({ ...entry, proof: entry.proof.slice(1) }));
+      await expect(resolveDidWebvhLog(log, { witnessFile: JSON.stringify(reduced) })).rejects.toBeInstanceOf(
+        DidWebvhError
+      );
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
       fetchSpy.mockRestore();
@@ -174,7 +196,7 @@ describe('didwebvh-test-suite expectations fixture', () => {
   it('pins a full commit and gives a reason for every exception', () => {
     expect(EXPECTATIONS.commit).toMatch(/^[0-9a-f]{40}$/u);
     for (const reason of [
-      ...Object.values(EXPECTATIONS.unsupported),
+      ...Object.values(EXPECTATIONS.witnessed),
       ...Object.values(EXPECTATIONS.didUrlNegative),
       ...Object.values(EXPECTATIONS.vectorDefects),
     ]) {

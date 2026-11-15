@@ -342,6 +342,16 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - `verifySignature` / `verifySignatureAtTime` for a DID whose document is not an Agent-DID document fail (`did_resolution_failed`): signatures are verified for agents only.
 - For other DID methods (did:wba, registry sources) controllers must still be Agent-DID documents.
 
+## 37. did:webvh witnesses and RFC 3161 timestamps (new)
+
+[ADR-007](../docs/ADR-007-Witnesses-and-Timestamps.md). Nothing changes for DIDs without witnesses or callers that pass no timestamp token, except the points marked below.
+
+- **Witnesses:** `webvh: { ..., witness: { threshold, witnesses: ['did:key:z6Mk...'] } }` at creation, `client.setDidWebvhWitnesses(did, witness | null)` later. Give the client a collector, `new AgentDidClient({ collectWitnessProofs })`, that obtains the approvals of each governed entry (a witness signs with `createDidWebvhWitnessProof({ log, witnessFile, signer })`); without it, changing a witnessed DID throws before anything is stored. Publish `client.exportDidWebvhWitnessFile(did)` as `did-witness.json` next to `did.jsonl`, before the log.
+- **Changed:** a log that declares witnesses used to be rejected; it now resolves when its `did-witness.json` is available and its approvals reach the thresholds, and fails closed otherwise. Only `WebvhDIDDocumentSource` fetches witness files (`getDidWitnessFileByReference`); a custom `webvhDocumentSource` must implement it to resolve witnessed DIDs.
+- **Changed (types):** `DidWebvhMetadata` has `witnessThreshold` and `witnesses`; `DidWebvhResolution` / `DidWebvhState` have `witnessFile`. `importDidWebvhHistory(log, witnessFile?)`, `saveDidWebvhHistoryToFile(did, path, witnessPath?)`, `loadDidWebvhHistoryFromFile(path, witnessPath?)`, `persistDidWebvhHistoryToSource(did, ref, source, witnessRef?)` and `restoreDidWebvhHistoryFromSource(ref, source, witnessRef?)` take the witness file; the save and persist calls throw for a witnessed DID without it.
+- **Timestamps:** `verifyTimestampToken(token, signatureBytes, { trustAnchors })` and `createTimestampRequest(signatureBytes)`. `verifySignatureAtTime(..., { statedTime, timestampToken, tsaTrustAnchors })` verifies the token over the decoded signature and uses `genTime + accuracy` as `trustedTimeNotAfter`; `trustedTimeNotAfter` together with a token, or a token without anchors, throws `TypeError`. A new result member `{ status: 'invalid', reason: 'timestamp_invalid', timestampRejection }` is added to `VerifySignatureAtTimeResult`; exhaustive switches on `reason` need the new case.
+- **Dependencies:** `pkijs` and `asn1js` (pure JavaScript, WebCrypto) are new runtime dependencies.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -358,6 +368,7 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - [ ] Code that reads `resolveControllerChain` results or `DidWebvhState.document` as `AgentDIDDocument` checks or casts them (controllers may be plain DID Core documents).
 - [ ] Code that reads the controller keys of a revoked did:webvh DID expects an empty list.
 - [ ] Calls to `verifyHistoricalSignature` are replaced with `verifySignatureAtTime`, and `indeterminate` is handled as not accepted.
+- [ ] Custom `webvhDocumentSource` implementations that must resolve witnessed DIDs implement `getDidWitnessFileByReference`; switches on `VerifySignatureAtTimeResult.reason` handle `timestamp_invalid`.
 - [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.
 - [ ] Direct users of the did:webvh adapter read `result.versionNumber` instead of `result.metadata.versionNumber`.
 - [ ] Every `signHttpRequest` call passes `verificationMethodId`.

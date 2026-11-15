@@ -28,6 +28,12 @@ For development:
 pip install -e ".[dev]"
 ```
 
+RFC 3161 timestamp tokens (`verify_timestamp_token`, `create_timestamp_request` and the `timestamp_token` option of `verify_signature_at_time`) need the optional extra, which adds `rfc3161-client` (no Windows ARM64 wheel):
+
+```bash
+pip install "agent-did-sdk[timestamps]==1.0.0rc5"
+```
+
 The optional EVM registry adapter is a separate package, `agent-did-evm`, maintained in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). Up to `1.0.0rc4` it shipped here as `agent_did_sdk.evm` (extra `[evm]`).
 
 ### Platform support
@@ -156,6 +162,12 @@ AgentIdentity.use_production_resolver_from_http(
 Minimal `did:wba` example: `examples/did_wba_resolution.py`
 
 A did:webvh log imported with `import_did_webvh_history` is a copy, not an authority. With a resolver that fetches logs (the production resolver), the next resolution fetches the host's log at once and the longer of the two wins; if the host cannot be reached, the resolution fails closed. The imported log is used as is only when the resolver does not fetch logs (the in-memory default); then nothing tells an older copy (for example one from before a revocation) from the current log, so import logs only from a source you trust to be current.
+
+### did:webvh witnesses and RFC 3161 timestamps
+
+Witnesses ([ADR-007](../docs/ADR-007-Witnesses-and-Timestamps.md)): create with `CreateDidWebvhOptions(..., witness=DidWebvhWitnessConfig(threshold=2, witnesses=["did:key:z6Mk...", "did:key:z6Mk..."]))`, change with `client.set_did_webvh_witnesses(did, rule_or_None)`, and give the client `AgentDidClientOptions(collect_witness_proofs=...)`, an async function that returns each witness's approval (a witness signs with `create_did_webvh_witness_proof`). Publish `client.export_did_webvh_witness_file(did)` as `did-witness.json` before `did.jsonl`. The production resolver fetches it and fails closed when the approvals do not reach a threshold. Watchers are not supported.
+
+Timestamps: `verify_signature_at_time(..., stated_time=..., timestamp_token=tsr, tsa_trust_anchors=[tsa_root_pem])` verifies an RFC 3161 token over the raw signature bytes and uses `genTime + accuracy` as trusted time evidence; a token that does not verify gives `reason="timestamp_invalid"` and `timestamp_rejection`. `create_timestamp_request(signature_bytes)` builds the request; sending it to a TSA is up to you. Revocation of TSA certificates is not checked.
 
 ## Testing
 

@@ -32,6 +32,45 @@ def _declared_distributions() -> set[str]:
     return {_normalize(name) for name in names}
 
 
+def _extra_distributions() -> set[str]:
+    """Distributions of the optional extras users install (``dev`` is for working on the SDK)."""
+    extras = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"].get(
+        "optional-dependencies", {}
+    )
+    names = (
+        re.split(r"[\s<>=!~;\[]", requirement, maxsplit=1)[0]
+        for extra, requirements in extras.items()
+        if extra != "dev"
+        for requirement in requirements
+    )
+    return {_normalize(name) for name in names}
+
+
+def _module_level_imports() -> dict[str, set[str]]:
+    """Top-level names imported when a module is loaded: outside functions and ``if TYPE_CHECKING:`` blocks."""
+    imported: dict[str, set[str]] = {}
+    for path in sorted(SOURCE_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        pending: list[ast.AST] = list(tree.body)
+        while pending:
+            node = pending.pop()
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if isinstance(node, ast.If) and "TYPE_CHECKING" in ast.unparse(node.test):
+                pending.extend(node.orelse)
+                continue
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module]
+            else:
+                pending.extend(ast.iter_child_nodes(node))
+                continue
+            for name in names:
+                imported.setdefault(name.split(".")[0], set()).add(path.relative_to(PACKAGE_ROOT).as_posix())
+    return imported
+
+
 def _imported_modules() -> dict[str, set[str]]:
     """Top-level names of the absolute imports in the package, with the files that import them."""
     imported: dict[str, set[str]] = {}
@@ -68,11 +107,24 @@ def _modules_of(distribution: str) -> set[str]:
 
 def test_every_imported_module_is_a_declared_dependency() -> None:
     allowed = {"agent_did_sdk"} | sys.stdlib_module_names
-    for distribution in _declared_distributions():
+    for distribution in _declared_distributions() | _extra_distributions():
         allowed |= _modules_of(distribution)
     undeclared = {module: sorted(files) for module, files in _imported_modules().items() if module not in allowed}
 
-    assert undeclared == {}, f"imported but not declared in pyproject.toml [project].dependencies: {undeclared}"
+    assert undeclared == {}, f"imported but not declared in pyproject.toml dependencies or extras: {undeclared}"
+
+
+def test_modules_of_optional_extras_are_imported_lazily() -> None:
+    # ``import agent_did_sdk`` must work without the extras: their modules are imported inside the functions that
+    # need them (which raise ImportError naming the extra).
+    base = {"agent_did_sdk"} | sys.stdlib_module_names
+    for distribution in _declared_distributions():
+        base |= _modules_of(distribution)
+    extra_only = set().union(*(_modules_of(name) for name in _extra_distributions())) - base
+    eager = {module: sorted(files) for module, files in _module_level_imports().items() if module in extra_only}
+
+    assert extra_only, "the optional extras provide no modules: is the extra installed?"
+    assert eager == {}, f"modules of optional extras imported at module level: {eager}"
 
 
 def test_the_check_reads_the_declared_dependencies() -> None:

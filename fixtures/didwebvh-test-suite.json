@@ -6,9 +6,9 @@
     "document": "The resolved DID document must equal each implementation's committed resolutionResult didDocument, ignoring the implicit #files and #whois services (their serialization differs between resolvers). A null expected document (deactivated DID) is not compared.",
     "metadata": "versionId and versionTime/updated must match the selected log entry, created the genesis entry, scid the genesis SCID, and deactivated the committed result. Metadata is checked against the log rather than against other resolvers' output."
   },
-  "unsupported": {
-    "witness-threshold": "Witnesses are deferred past 1.0 (ADR-002, condition 7). The adapters must reject these logs instead of resolving them without witness checks.",
-    "witness-update": "Witnesses are deferred past 1.0 (ADR-002, condition 7). The adapters must reject these logs instead of resolving them without witness checks."
+  "witnessed": {
+    "witness-threshold": "Resolved with the scenario's did-witness.json (ADR-007). Each implementation's log must also be rejected without the file, with an empty file and with one proof dropped from every entry.",
+    "witness-update": "Resolved with the scenario's did-witness.json (ADR-007). Each implementation's log must also be rejected without the file, with an empty file and with one proof dropped from every entry."
   },
   "didUrlNegative": {
     "negative-fragment-leaks-into-domain": "DID-to-URL derivation vector (no log). Every `did:` in the script must be rejected by deriveDidWebvhLogUrl / derive_did_webvh_log_url, both as written and with its SCID replaced by a valid base58btc SCID, so the host and path rules are what rejects it.",

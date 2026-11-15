@@ -118,6 +118,12 @@ from .crypto.hash import (
     verify_metadata_commitment,
 )
 from .crypto.multibase import decode_public_key_multibase, did_key_from_public_key, encode_public_key_multibase
+from .crypto.timestamp import (
+    TimestampRejection,
+    VerifyTimestampTokenResult,
+    create_timestamp_request,
+    verify_timestamp_token,
+)
 from .observability import (
     SENSITIVE_FIELD_NAMES,
     SENSITIVE_HEADER_NAMES,
@@ -159,7 +165,16 @@ from .resolver.types import (
 from .resolver.universal import UniversalResolverClient
 from .resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
 from .verification.key_at_time import check_did_webvh_key_at_time
-from .webvh.adapter import DidWebvhError, DidWebvhErrorCode
+from .webvh.adapter import (
+    REMOVE_WITNESSES,
+    DidWebvhError,
+    DidWebvhErrorCode,
+    DidWebvhWitnessCollector,
+    DidWebvhWitnessConfig,
+    DidWebvhWitnessProofEntry,
+    DidWebvhWitnessRequest,
+    create_did_webvh_witness_proof,
+)
 
 __all__ = [
     # Core types
@@ -214,6 +229,16 @@ __all__ = [
     # did:webvh v1.0 errors (log verification, unauthorized controller signer)
     "DidWebvhError",
     "DidWebvhErrorCode",
+    "DidWebvhWitnessCollector",
+    "DidWebvhWitnessConfig",
+    "DidWebvhWitnessProofEntry",
+    "DidWebvhWitnessRequest",
+    "REMOVE_WITNESSES",
+    "create_did_webvh_witness_proof",
+    "TimestampRejection",
+    "VerifyTimestampTokenResult",
+    "create_timestamp_request",
+    "verify_timestamp_token",
     # Identity composition
     "IdentityCompositionError",
     "DID_VERIFICATION_RELATIONSHIPS",

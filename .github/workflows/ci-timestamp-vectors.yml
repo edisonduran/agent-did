@@ -1,0 +1,50 @@
+name: CI — RFC 3161 Timestamp Vectors
+
+# Cross-checks fixtures/timestamp-vectors.json (recorded from FreeTSA, DigiCert
+# and an OpenSSL test TSA) with an independent implementation, `openssl ts
+# -verify` at each token's genTime (ADR-007 D-11d). Both SDKs verify the same
+# vectors in their own test suites (sdk/tests/Timestamp.test.ts,
+# sdk-python/tests/test_timestamp.py).
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ci-timestamp-vectors.yml'
+      - 'fixtures/timestamp-vectors.json'
+      - 'scripts/verify-timestamp-vectors-openssl.js'
+      - 'sdk/src/crypto/timestamp.ts'
+      - 'sdk-python/src/agent_did_sdk/crypto/timestamp.py'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-timestamp-vectors.yml'
+      - 'fixtures/timestamp-vectors.json'
+      - 'scripts/verify-timestamp-vectors-openssl.js'
+      - 'sdk/src/crypto/timestamp.ts'
+      - 'sdk-python/src/agent_did_sdk/crypto/timestamp.py'
+  workflow_dispatch:
+
+concurrency:
+  group: timestamp-vectors-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  openssl:
+    name: Timestamp vectors vs openssl ts -verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: OpenSSL version
+        run: openssl version
+
+      - name: Cross-check the vectors with OpenSSL
+        run: node scripts/verify-timestamp-vectors-openssl.js

@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -29,6 +29,7 @@ from did_webvh.core.hash_utils import DEFAULT_HASH, HashInfo
 from did_webvh.core.proof import di_jcs_canonicalize_input
 from did_webvh.core.resolver import DidResolver, HistoryResolver, ResolutionError
 from did_webvh.core.state import DocumentState, InvalidDocumentState
+from did_webvh.core.witness import verify_witness_proofs
 from did_webvh.history import did_base_url
 from did_webvh.resolver import extend_document_services
 from did_webvh.verify import WebvhVerifier
@@ -61,11 +62,47 @@ class DidWebvhError(ValueError):
 
 
 @dataclass
+class DidWebvhWitnessConfig:
+    """Witnesses of a did:webvh DID (did:webvh v1.0 ``witness`` parameter, ADR-007).
+
+    *threshold* of the *witnesses* (``did:key`` DIDs with Ed25519 keys, no fragment, no repeats) must approve each
+    entry the rule governs before it is published. *threshold* is an integer from 1 to ``len(witnesses)``.
+    """
+
+    threshold: int
+    witnesses: list[str]
+
+
+DidWebvhWitnessProofEntry = dict[str, Any]
+"""One entry of ``did-witness.json``: ``{"versionId": ..., "proof": [...]}``, the witness proofs approving
+``versionId`` (and every earlier entry)."""
+
+
+@dataclass
+class DidWebvhWitnessRequest:
+    """What a witness approval collector is asked to approve: the last entry of *log*."""
+
+    did: str
+    version_id: str
+    """``versionId`` of the entry to approve (the last entry of *log*)."""
+    log: str
+    """The candidate log, ending with the entry to approve. It is not published yet."""
+    witness: DidWebvhWitnessConfig
+    """The witness rule that governs the entry."""
+    witness_file: str | None = None
+    """The ``did-witness.json`` in force before this entry, if the log has one."""
+
+
+DidWebvhWitnessCollector = Callable[[DidWebvhWitnessRequest], Awaitable[list[DidWebvhWitnessProofEntry]]]
+"""Obtains the approvals of an entry from its witnesses (over the network, or in process with
+:func:`create_did_webvh_witness_proof`). Returning fewer approvals than the threshold makes the operation fail."""
+
+
+@dataclass
 class DidWebvhMetadata:
     """Resolution metadata exposed by Agent-DID for a did:webvh log.
 
-    Witness and watcher configuration are deliberately not exposed until the
-    SDK supports them (ADR-002, condition 7). Every value is a string, list or
+    Watcher configuration is deliberately not exposed (ADR-002, condition 7). Every value is a string, list or
     boolean, as DID Core section 7.3 requires of DID document metadata.
     """
 
@@ -82,6 +119,10 @@ class DidWebvhMetadata:
     deactivated: bool = False
     ttl: str = _DEFAULT_TTL
     """Cache TTL in seconds; the did:webvh default (3600) when the log does not set one."""
+    witness_threshold: str = "0"
+    """Witness threshold in force after this version (ADR-007); ``"0"`` when the DID has no witnesses."""
+    witnesses: list[str] = field(default_factory=list)
+    """Witness DIDs in force after this version; empty when the DID has no witnesses."""
 
 
 @dataclass
@@ -96,6 +137,9 @@ class DidWebvhLogResult:
     """Number of the resolved version: the integer prefix of ``metadata.version_id``."""
     log: str
     """The full ``did.jsonl`` text, one entry per line, newline-terminated."""
+    witness_file: str | None = None
+    """The ``did-witness.json`` text that approves the log, when any entry is governed by a witness rule. Publish it
+    next to ``did.jsonl``, and before it: a resolver rejects a witnessed entry without its approvals."""
 
 
 async def did_webvh_update_key_for(signer: AgentSigner) -> str:
@@ -111,6 +155,8 @@ async def create_did_webvh_log(
     path_segments: list[str] | None = None,
     next_update_keys: list[str] | None = None,
     created: str | None = None,
+    witness: DidWebvhWitnessConfig | None = None,
+    collect_witness_proofs: DidWebvhWitnessCollector | None = None,
 ) -> DidWebvhLogResult:
     """Create a v1.0 log whose only update key is *signer*'s key.
 
@@ -119,7 +165,10 @@ async def create_did_webvh_log(
     *next_update_keys* are public keys (Ed25519 multikeys) the next entry will be signed with: only their
     hashes are written to the log (``nextKeyHashes``, pre-rotation), so keep the private keys offline, away
     from *signer*. They must not include the current update key.
+    *witness* names the witnesses that must approve the genesis entry and every later one until the rule changes
+    (ADR-007); *collect_witness_proofs* obtains their approvals and is required with it.
     """
+    witness_param = _witness_parameter(witness) if witness is not None else {}
     host, port = _validate_domain(domain)
     segments = list(path_segments or [])
     for segment in segments:
@@ -144,7 +193,7 @@ async def create_did_webvh_log(
                 "portable": False,
                 "nextKeyHashes": next_key_hashes,
                 "watchers": [],
-                "witness": {},
+                "witness": witness_param,
                 "deactivated": False,
             },
             document=document_text,
@@ -156,7 +205,7 @@ async def create_did_webvh_log(
         raise DidWebvhError("invalidInput", "did:webvh document id must be the {DID} placeholder")
 
     await _sign_state(genesis, signer, update_key)
-    return await resolve_did_webvh_log(_serialize([genesis.history_line()]))
+    return await _finish_witnessed_entry(_serialize([genesis.history_line()]), None, collect_witness_proofs)
 
 
 async def update_did_webvh_log(
@@ -167,6 +216,9 @@ async def update_did_webvh_log(
     update_keys: list[str] | None = None,
     next_update_keys: list[str] | None = None,
     updated: str | None = None,
+    witness: DidWebvhWitnessConfig | None | _Unset = None,
+    witness_file: str | None = None,
+    collect_witness_proofs: DidWebvhWitnessCollector | None = None,
 ) -> DidWebvhLogResult:
     """Append a controller-signed entry.
 
@@ -175,9 +227,18 @@ async def update_did_webvh_log(
     they must all be committed in ``nextKeyHashes`` and default to the signer's key. *next_update_keys* are
     the public keys for the pre-rotation commitment of the NEXT entry: omitted, the commitments in force stay
     as they are; an empty list ends pre-rotation. They must not include any of the update keys this entry sets.
+    *witness* is the new witness rule for the entries after this one (ADR-007): :data:`REMOVE_WITNESSES` removes
+    witnessing and ``None`` keeps the rule in force; the witnesses in force approve this entry. *witness_file* is the
+    current ``did-witness.json`` (required when the log has witnessed entries) and *collect_witness_proofs* obtains
+    the approvals when the new entry is governed by a witness rule.
     """
     entries = _parse_log(log)
-    current = await resolve_did_webvh_log(log)
+    current = await resolve_did_webvh_log(log, witness_file=witness_file)
+    witness_param: dict[str, Any] | None = None
+    if isinstance(witness, _Unset):
+        witness_param = {}
+    elif witness is not None:
+        witness_param = _witness_parameter(witness)
     if update_keys is not None:
         if not update_keys:
             raise DidWebvhError("invalidInput", "update_keys must not be empty; use deactivate_did_webvh_log instead")
@@ -195,8 +256,13 @@ async def update_did_webvh_log(
             f"did:webvh operation failed: Updated DID document id must match expected DID '{current.did}'",
         )
 
-    last_state = await _load_last_state(log)
+    last_state = await _load_last_state(log, current.witness_file)
     params_update: dict[str, Any] = {}
+    if witness_param is not None:
+        # Same member order as didwebvh-ts writes for a rule change.
+        params_update["witness"] = (
+            {"witnesses": witness_param["witnesses"], "threshold": witness_param["threshold"]} if witness_param else {}
+        )
     if effective_update_keys is not None:
         params_update["updateKeys"] = list(effective_update_keys)
     if next_key_hashes is not None:
@@ -208,30 +274,47 @@ async def update_did_webvh_log(
     except ValueError as err:
         raise DidWebvhError("invalidInput", f"did:webvh operation failed: {err}") from None
     await _sign_state(state, signer, signer_key)
-    return await resolve_did_webvh_log(_serialize([*entries, state.history_line()]))
+    return await _finish_witnessed_entry(
+        _serialize([*entries, state.history_line()]), current.witness_file, collect_witness_proofs
+    )
 
 
-async def deactivate_did_webvh_log(*, log: str, signer: AgentSigner) -> DidWebvhLogResult:
+async def deactivate_did_webvh_log(
+    *,
+    log: str,
+    signer: AgentSigner,
+    witness_file: str | None = None,
+    collect_witness_proofs: DidWebvhWitnessCollector | None = None,
+) -> DidWebvhLogResult:
     """Append a controller-signed deactivation entry (``deactivated: true``, ``updateKeys: []``).
 
     While pre-rotation is active this appends two entries, as did:webvh v1.0 requires: an entry under
     pre-rotation must carry the committed keys, so it cannot also empty ``updateKeys``. A committed key first
-    ends pre-rotation and then signs the deactivation.
+    ends pre-rotation and then signs the deactivation. *witness_file* and *collect_witness_proofs* are needed when
+    the DID has witnesses (ADR-007).
     """
-    current = await resolve_did_webvh_log(log)
+    current = await resolve_did_webvh_log(log, witness_file=witness_file)
     if current.metadata.next_key_hashes:
-        current = await update_did_webvh_log(log=log, signer=signer, next_update_keys=[])
+        current = await update_did_webvh_log(
+            log=log,
+            signer=signer,
+            next_update_keys=[],
+            witness_file=witness_file,
+            collect_witness_proofs=collect_witness_proofs,
+        )
     signer_key, _ = await _authorize_signer(signer, current.metadata, None)
 
     entries = _parse_log(current.log)
-    last_state = await _load_last_state(current.log)
+    last_state = await _load_last_state(current.log, current.witness_file)
     try:
         # No key can authorize a later entry.
         state = last_state.create_next(params_update={"updateKeys": [], "nextKeyHashes": [], "deactivated": True})
     except ValueError as err:
         raise DidWebvhError("invalidInput", f"did:webvh operation failed: {err}") from None
     await _sign_state(state, signer, signer_key)
-    return await resolve_did_webvh_log(_serialize([*entries, state.history_line()]))
+    return await _finish_witnessed_entry(
+        _serialize([*entries, state.history_line()]), current.witness_file, collect_witness_proofs
+    )
 
 
 async def resolve_did_webvh_log(
@@ -241,6 +324,7 @@ async def resolve_did_webvh_log(
     version_id: str | None = None,
     version_number: int | None = None,
     version_time: str | None = None,
+    witness_file: str | None = None,
 ) -> DidWebvhLogResult:
     """Verify a ``did.jsonl`` log and return the resolved document.
 
@@ -251,9 +335,19 @@ async def resolve_did_webvh_log(
     With *version_id*, *version_number* or *version_time* it returns that version of the log. The whole log
     is still verified, and ``metadata.deactivated`` describes the DID, not the selected version: it is true
     for every version of a deactivated DID (DID Core section 7.1.2).
+
+    *witness_file* is the ``did-witness.json`` published next to the log (ADR-007). It is required when any entry is
+    governed by a witness rule: without it, or when its approvals do not reach a threshold, resolution fails.
     """
     entries = _parse_log(log)
     serialized = _serialize(entries)
+    requirements = _witness_requirements(entries)
+    if requirements and witness_file is None:
+        raise DidWebvhError(
+            "invalidDid", "did:webvh log has witnessed entries and no witness proofs (did-witness.json) were supplied"
+        )
+    witness_proofs = _parse_witness_file(witness_file) if requirements else []
+    witness_text = json.dumps(witness_proofs) if requirements else None
 
     if version_time is not None:
         try:
@@ -263,11 +357,13 @@ async def resolve_did_webvh_log(
 
     # Resolving the latest version verifies every entry. The reference resolver returns a selected version
     # even when a later entry fails verification, so the selection below only runs on a fully verified log.
-    latest, meta = await _resolve_verified_state(serialized)
+    latest, meta = await _resolve_verified_state(serialized, witness_text)
+    await _check_witness_requirements(entries, requirements, witness_proofs)
     state = latest
     if version_id is not None or version_number is not None or version_time is not None:
         state, meta = await _resolve_verified_state(
             serialized,
+            witness_text,
             version_id=version_id,
             version_number=str(version_number) if version_number is not None else None,
             version_time=version_time,
@@ -295,6 +391,7 @@ async def resolve_did_webvh_log(
         next_key_hashes=list(state.next_key_hashes or []),
         deactivated=latest.deactivated,
         ttl=str(ttl) if ttl is not None else _DEFAULT_TTL,
+        **_witness_metadata(state.params.get("witness")),
     )
     return DidWebvhLogResult(
         did=str(document["id"]),
@@ -303,19 +400,297 @@ async def resolve_did_webvh_log(
         metadata=metadata,
         version_number=state.version_number,
         log=serialized,
+        witness_file=_serialize_witness_file(witness_proofs) if requirements else None,
     )
 
 
-class _TextHistory(HistoryResolver):  # type: ignore[misc]
-    """Feeds already-fetched log text to the reference resolver; never does I/O."""
+class _Unset:
+    """Sentinel type of :data:`REMOVE_WITNESSES`."""
 
-    def __init__(self, text: str) -> None:
+    def __repr__(self) -> str:
+        return "REMOVE_WITNESSES"
+
+
+REMOVE_WITNESSES = _Unset()
+"""Pass as ``witness`` to :func:`update_did_webvh_log` to remove witnessing (``witness: {}``)."""
+
+
+def did_webvh_log_requires_witnesses(log: str) -> bool:
+    """Whether a did:webvh log has entries governed by a witness rule, so resolving it needs its ``did-witness.json``.
+
+    Rule of did:webvh v1.0 (as ``didwebvh-ts`` applies it): an entry is governed by the rule in force before it, or,
+    when there is none, by the rule the entry itself sets. Raises :class:`DidWebvhError` for a malformed log.
+    """
+    return bool(_witness_requirements(_parse_log(log)))
+
+
+def derive_did_webvh_witness_url(did: str) -> str:
+    """The URL of ``did-witness.json`` for a did:webvh DID: next to its ``did.jsonl`` (did:webvh v1.0)."""
+    return derive_did_webvh_log_url(did).removesuffix("did.jsonl") + "did-witness.json"
+
+
+async def create_did_webvh_witness_proof(
+    *, log: str, signer: AgentSigner, witness_file: str | None = None
+) -> DidWebvhWitnessProofEntry:
+    """A witness's approval of the last entry of a candidate log (did:webvh v1.0).
+
+    An ``eddsa-jcs-2022`` proof over ``{"versionId": ...}`` made with the witness's ``did:key``. The candidate log is
+    verified first (every entry, and the approvals of the entries before the last one), so a witness never approves
+    an entry that does not extend a valid log. *witness_file* is the ``did-witness.json`` in force before the entry.
+    """
+    entries = _parse_log(log)
+    proofs = _parse_witness_file(witness_file)
+    if len(entries) > 1:
+        await resolve_did_webvh_log(_serialize(entries[:-1]), witness_file=_serialize_witness_file(proofs))
+    await _resolve_verified_state(_serialize(entries), None, verify_witness=False)
+    tip = entries[-1]
+    rule = next((rule for version_id, rule in _witness_requirements(entries) if version_id == tip["versionId"]), None)
+    if rule is None:
+        raise DidWebvhError(
+            "invalidInput",
+            "did:webvh operation failed: Candidate entry is not governed by an active witness requirement",
+        )
+    witness_key = await did_webvh_update_key_for(signer)
+    witness_did = f"did:key:{witness_key}"
+    if witness_did not in rule.witnesses:
+        raise DidWebvhError(
+            "invalidInput",
+            f"did:webvh operation failed: Witness signer is not a member of the governing witness list: {witness_did}",
+        )
+    options = {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-jcs-2022",
+        "verificationMethod": f"{witness_did}#{witness_key}",
+        "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "proofPurpose": "assertionMethod",
+    }
+    container: dict[str, Any] = {"versionId": tip["versionId"]}
+    data_hash = hashlib.sha256(canonicalize_json(container).encode("utf-8")).digest()
+    options_hash = hashlib.sha256(canonicalize_json(options).encode("utf-8")).digest()
+    signature = bytes.fromhex(await signer.sign(options_hash + data_hash))
+    proof = {**options, "proofValue": "z" + _base58_encode(signature)}
+    entry: DidWebvhWitnessProofEntry = {"versionId": tip["versionId"], "proof": [proof]}
+    validated, _errors = await verify_witness_proofs([entry])
+    if witness_did not in validated:
+        raise DidWebvhError("unauthorized", "Witness signer produced a signature that does not match its public key")
+    return entry
+
+
+@dataclass(frozen=True)
+class _WitnessRule:
+    threshold: int
+    witnesses: tuple[str, ...]
+
+
+def _witness_rule(value: Any) -> _WitnessRule | None:
+    """The active rule of a ``witness`` parameter value, or None when it sets no active rule."""
+    if not isinstance(value, dict):
+        raise DidWebvhError("invalidDid", "did:webvh log verification failed: invalid 'witness' parameter")
+    witnesses = value.get("witnesses")
+    threshold = value.get("threshold", 0)
+    if witnesses is None or witnesses == []:
+        return None
+    if (
+        not isinstance(witnesses, list)
+        or not all(isinstance(item, dict) and isinstance(item.get("id"), str) for item in witnesses)
+        or not isinstance(threshold, int)
+        or isinstance(threshold, bool)
+    ):
+        raise DidWebvhError("invalidDid", "did:webvh log verification failed: invalid 'witness' parameter")
+    if threshold <= 0:
+        return None
+    return _WitnessRule(threshold, tuple(item["id"] for item in witnesses))
+
+
+def _witness_requirements(entries: list[dict[str, Any]]) -> list[tuple[str, _WitnessRule]]:
+    """``(versionId, rule)`` for every entry governed by a witness rule (did:webvh v1.0, as ``didwebvh-ts``)."""
+    requirements: list[tuple[str, _WitnessRule]] = []
+    previous: _WitnessRule | None = None
+    for entry in entries:
+        params = entry.get("parameters")
+        if not isinstance(params, dict):
+            raise DidWebvhError("invalidDid", "did:webvh log verification failed: entry without parameters")
+        if "witness" in params:
+            # Deprecated `witness: null` is tolerated as `{}`, as in didwebvh-ts.
+            current = _witness_rule(params["witness"] if params["witness"] is not None else {})
+        else:
+            current = previous
+        required = previous if previous is not None else (current if "witness" in params else None)
+        if required is not None:
+            requirements.append((str(entry.get("versionId")), required))
+        previous = current
+    return requirements
+
+
+async def _check_witness_requirements(
+    entries: list[dict[str, Any]], requirements: list[tuple[str, _WitnessRule]], proofs: list[DidWebvhWitnessProofEntry]
+) -> None:
+    """Counts the approvals of every governed entry with the rule ``didwebvh-ts`` applies.
+
+    ``did-webvh`` checks each entry against the rule in force before it, so an entry that switches witnessing on is
+    not checked against its own rule. This closes that gap, so both SDKs accept and reject the same logs. An approval
+    of a later entry also approves the earlier ones (did:webvh v1.0).
+    """
+    if not requirements:
+        return
+    validated, _errors = await verify_witness_proofs(proofs)
+    version_ids = [str(entry.get("versionId")) for entry in entries]
+    for version_id, rule in requirements:
+        number = version_ids.index(version_id) + 1
+        approvals = 0
+        for witness in dict.fromkeys(rule.witnesses):
+            approved = validated.get(witness, {})
+            if any(
+                number <= check_number <= len(version_ids) and version_ids[check_number - 1] == check_id
+                for check_number, check_id in approved.items()
+            ):
+                approvals += 1
+        if approvals < rule.threshold:
+            raise DidWebvhError(
+                "invalidDid",
+                f"did:webvh log verification failed: Witness threshold not met for version {version_id}: "
+                f"got {approvals}, need {rule.threshold}",
+            )
+
+
+async def _finish_witnessed_entry(
+    candidate: str, witness_file: str | None, collect: DidWebvhWitnessCollector | None
+) -> DidWebvhLogResult:
+    """Collect the approvals of the last entry of *candidate* when a witness rule governs it, and resolve with them.
+
+    The candidate is never returned without its approvals reaching the threshold.
+    """
+    entries = _parse_log(candidate)
+    tip = entries[-1]
+    rule = next((rule for version_id, rule in _witness_requirements(entries) if version_id == tip["versionId"]), None)
+    if rule is None:
+        return await resolve_did_webvh_log(candidate, witness_file=witness_file)
+    if collect is None:
+        raise DidWebvhError(
+            "invalidInput",
+            f"did:webvh entry {tip['versionId']} needs approval from {rule.threshold} witness(es); "
+            "pass collect_witness_proofs",
+        )
+    approvals = await collect(
+        DidWebvhWitnessRequest(
+            did=str(tip["state"]["id"]),
+            version_id=str(tip["versionId"]),
+            log=candidate,
+            witness=DidWebvhWitnessConfig(threshold=rule.threshold, witnesses=list(rule.witnesses)),
+            witness_file=witness_file,
+        )
+    )
+    if not isinstance(approvals, list):
+        raise DidWebvhError("invalidInput", "collect_witness_proofs must return a list of witness proof entries")
+    new_entries = [_witness_entry(item) for item in approvals]
+    merged = _serialize_witness_file([*_parse_witness_file(witness_file), *new_entries])
+    return await resolve_did_webvh_log(candidate, witness_file=merged)
+
+
+_WITNESS_DID = re.compile(r"^did:key:(z[1-9A-HJ-NP-Za-km-z]+)$")
+
+
+def _witness_parameter(config: DidWebvhWitnessConfig) -> dict[str, Any]:
+    if not isinstance(config, DidWebvhWitnessConfig) or not isinstance(config.witnesses, list):
+        raise DidWebvhError("invalidInput", "witness must be DidWebvhWitnessConfig(threshold, witnesses)")
+    threshold, witnesses = config.threshold, config.witnesses
+    if not witnesses:
+        raise DidWebvhError(
+            "invalidInput", "witness.witnesses must not be empty; pass REMOVE_WITNESSES to remove witnessing"
+        )
+    if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 1 or threshold > len(witnesses):
+        raise DidWebvhError("invalidInput", "witness.threshold must be an integer from 1 to the number of witnesses")
+    seen: set[str] = set()
+    for witness in witnesses:
+        match = _WITNESS_DID.match(witness) if isinstance(witness, str) else None
+        if match is None:
+            raise DidWebvhError("invalidInput", f"witness.witnesses entries must be did:key DIDs: {witness}")
+        try:
+            _validate_update_key(match.group(1))
+        except DidWebvhError:
+            raise DidWebvhError("invalidInput", f"witness DIDs must use Ed25519 keys: {witness}") from None
+        if witness in seen:
+            raise DidWebvhError("invalidInput", f"witness.witnesses must not repeat a DID: {witness}")
+        seen.add(witness)
+    return {"threshold": threshold, "witnesses": [{"id": witness} for witness in witnesses]}
+
+
+def _witness_metadata(value: Any) -> dict[str, Any]:
+    witness = value if isinstance(value, dict) else {}
+    items = witness.get("witnesses")
+    ids = (
+        [item["id"] for item in items if isinstance(item, dict) and isinstance(item.get("id"), str)]
+        if isinstance(items, list)
+        else []
+    )
+    try:
+        threshold = int(witness.get("threshold", 0))
+    except (TypeError, ValueError):
+        threshold = 0
+    active = bool(ids) and threshold > 0
+    return {"witness_threshold": str(threshold) if active else "0", "witnesses": ids if active else []}
+
+
+def _parse_witness_file(witness_file: str | None) -> list[DidWebvhWitnessProofEntry]:
+    if witness_file is None:
+        return []
+    if not isinstance(witness_file, str):
+        raise DidWebvhError("invalidInput", "did:webvh witness file must be a string")
+    try:
+        parsed = json.loads(witness_file)
+    except ValueError:
+        raise DidWebvhError("invalidDid", "did:webvh witness file is not valid JSON") from None
+    if not isinstance(parsed, list):
+        raise DidWebvhError("invalidDid", "did:webvh witness file must be a JSON array")
+    return [_witness_entry(item) for item in parsed]
+
+
+def _witness_entry(entry: Any) -> DidWebvhWitnessProofEntry:
+    if (
+        not isinstance(entry, dict)
+        or not isinstance(entry.get("versionId"), str)
+        or not isinstance(entry.get("proof"), list)
+        or not all(isinstance(proof, dict) for proof in entry["proof"])
+    ):
+        raise DidWebvhError("invalidDid", "did:webvh witness file entries must be { versionId, proof: [ ... ] }")
+    return {"versionId": entry["versionId"], "proof": entry["proof"]}
+
+
+def _compact(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+
+
+def _serialize_witness_file(entries: list[DidWebvhWitnessProofEntry]) -> str:
+    """Serialize witness proof entries as ``didwebvh-ts`` does, merging the proofs of entries with the same
+    ``versionId`` in first-seen order."""
+    merged: list[DidWebvhWitnessProofEntry] = []
+    for entry in entries:
+        proofs = [json.loads(_compact(proof)) for proof in entry["proof"]]
+        existing = next((item for item in merged if item["versionId"] == entry["versionId"]), None)
+        if existing is None:
+            merged.append({"versionId": entry["versionId"], "proof": proofs})
+            continue
+        known = {_compact(proof) for proof in existing["proof"]}
+        for proof in proofs:
+            if _compact(proof) not in known:
+                existing["proof"].append(proof)
+                known.add(_compact(proof))
+    return _compact(merged)
+
+
+class _TextHistory(HistoryResolver):  # type: ignore[misc]
+    """Feeds already-fetched log text (and ``did-witness.json``) to the reference resolver; never does I/O."""
+
+    def __init__(self, text: str, witness_text: str | None = None) -> None:
         self._text = text
+        self._witness_text = witness_text
 
     def resolve_entry_log(self, _document_id: str | None) -> Any:
         return _read_text(self._text)
 
     def resolve_witness_log(self, _document_id: str | None) -> Any:
+        if self._witness_text is not None:
+            return _read_text(self._witness_text)
         return _no_witness_log()
 
 
@@ -326,14 +701,18 @@ async def _read_text(text: str) -> AsyncIterator[Any]:
 
 @asynccontextmanager
 async def _no_witness_log() -> AsyncIterator[Any]:
-    raise AsyncTextReadError("did:webvh witnesses are not supported by Agent-DID yet")
+    raise AsyncTextReadError("did:webvh witness proofs (did-witness.json) must be supplied by the caller")
     yield  # pragma: no cover
 
 
-async def _resolve_verified_state(serialized: str, **selection: str | None) -> tuple[DocumentState, Any]:
+async def _resolve_verified_state(
+    serialized: str, witness_text: str | None, *, verify_witness: bool = True, **selection: str | None
+) -> tuple[DocumentState, Any]:
     """Run the reference resolver over log text and map its failures to :class:`DidWebvhError`."""
     try:
-        state, meta = await DidResolver(WebvhVerifier()).resolve_state(None, _TextHistory(serialized), **selection)
+        state, meta = await DidResolver(WebvhVerifier()).resolve_state(
+            None, _TextHistory(serialized, witness_text), verify_witness=verify_witness, **selection
+        )
     except ResolutionError as err:
         raise DidWebvhError(_map_resolution_error(err.error), _resolution_message(err)) from None
     except InvalidDocumentState as err:
@@ -345,8 +724,10 @@ async def _resolve_verified_state(serialized: str, **selection: str | None) -> t
     return state, meta
 
 
-async def _load_last_state(log: str) -> DocumentState:
-    state, _meta = await DidResolver(WebvhVerifier()).resolve_state(None, _TextHistory(_serialize(_parse_log(log))))
+async def _load_last_state(log: str, witness_file: str | None) -> DocumentState:
+    state, _meta = await DidResolver(WebvhVerifier()).resolve_state(
+        None, _TextHistory(_serialize(_parse_log(log)), witness_file)
+    )
     return state
 
 

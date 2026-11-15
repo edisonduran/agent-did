@@ -11,6 +11,10 @@
     "nextControllerPrivateKeyHex": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
     "followingControllerPrivateKeyHex": "5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d",
     "unauthorizedPrivateKeyHex": "e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7",
+    "witnessPrivateKeysHex": [
+      "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b"
+    ],
     "domain": "agents.example.com",
     "pathSegments": [
       "fleet",
@@ -126,7 +130,9 @@
           ],
           "nextKeyHashes": [],
           "deactivated": false,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 1
       }
@@ -194,7 +200,9 @@
           ],
           "nextKeyHashes": [],
           "deactivated": false,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 2
       }
@@ -262,7 +270,9 @@
           ],
           "nextKeyHashes": [],
           "deactivated": false,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 3
       }
@@ -331,7 +341,9 @@
             "Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa"
           ],
           "deactivated": false,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 1
       }
@@ -400,7 +412,9 @@
             "QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze"
           ],
           "deactivated": false,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 2
       }
@@ -410,9 +424,9 @@
     {
       "name": "deactivate-with-rotated-key",
       "did": "did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot",
-      "versionId": "4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK",
+      "versionId": "4-Qmf4Xw8PuaQSRiKFywSJQXbZLxYhW9cYyZd4c2o2GwXvdU",
       "deactivated": true,
-      "log": "{\"versionId\":\"1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z4oQvFd1JZBMufUDK9xytw4udwQ18Ki8kPcCTVCprcBxZuXVtGN7XCUZcco9sDEgR3hsvwTyDf41YsgaXyWfFC2nX\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5P1zkh2N6A1NDHFBPvywwSeBEDGgperReoVHCGZ4TNZ5A6rGQiURHVPLcpozfZU45ndf8oZ8CwtHbizqMPzRJonW\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"updateKeys\":[\"z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn\"],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z2wjykGSWH49PuqgPoZAhVcVfybZokgJXsd4Z3WT3o2NH4JRDSQMrTUNz9agZa2Aa6Mm7ce4z5xNPDiEaWYrhxSxU\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK\",\"versionTime\":\"2026-11-11T22:32:09Z\",\"parameters\":{\"updateKeys\":[],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn#z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn\",\"created\":\"2026-11-11T22:32:09Z\",\"proofValue\":\"z56kEGxPfqPexbX12JB9H3byngC2fgRf9dwYkfA91ygXdPuJfjDAJuouU89XSABiTg7EK7YRxAaHi3r85yj9LHwdU\",\"proofPurpose\":\"assertionMethod\"}]}\n",
+      "log": "{\"versionId\":\"1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z4oQvFd1JZBMufUDK9xytw4udwQ18Ki8kPcCTVCprcBxZuXVtGN7XCUZcco9sDEgR3hsvwTyDf41YsgaXyWfFC2nX\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5P1zkh2N6A1NDHFBPvywwSeBEDGgperReoVHCGZ4TNZ5A6rGQiURHVPLcpozfZU45ndf8oZ8CwtHbizqMPzRJonW\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"updateKeys\":[\"z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn\"],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z2wjykGSWH49PuqgPoZAhVcVfybZokgJXsd4Z3WT3o2NH4JRDSQMrTUNz9agZa2Aa6Mm7ce4z5xNPDiEaWYrhxSxU\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-Qmf4Xw8PuaQSRiKFywSJQXbZLxYhW9cYyZd4c2o2GwXvdU\",\"versionTime\":\"2026-11-15T18:25:31Z\",\"parameters\":{\"updateKeys\":[],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn#z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z4Pirv2n7N4DRYReCbWpCKJBBTbtTG9DP4Q39mtqZDMQgk9mqAE7oK6WovNufzqdLYPkQMj6fvzaeYcr34GcF185W\",\"proofPurpose\":\"assertionMethod\"}]}\n",
       "resolved": {
         "document": {
           "@context": [
@@ -461,15 +475,17 @@
           ]
         },
         "metadata": {
-          "versionId": "4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK",
-          "versionTime": "2026-11-11T22:32:09Z",
+          "versionId": "4-Qmf4Xw8PuaQSRiKFywSJQXbZLxYhW9cYyZd4c2o2GwXvdU",
+          "versionTime": "2026-11-15T18:25:31Z",
           "created": "2026-01-01T00:00:00Z",
-          "updated": "2026-11-11T22:32:09Z",
+          "updated": "2026-11-15T18:25:31Z",
           "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
           "updateKeys": [],
           "nextKeyHashes": [],
           "deactivated": true,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 4
       },
@@ -534,7 +550,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -598,7 +616,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -662,13 +682,15 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
           "versionNumber": 4,
-          "versionId": "4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK",
-          "versionTime": "2026-11-11T22:32:09Z",
+          "versionId": "4-Qmf4Xw8PuaQSRiKFywSJQXbZLxYhW9cYyZd4c2o2GwXvdU",
+          "versionTime": "2026-11-15T18:25:31Z",
           "document": {
             "@context": [
               "https://www.w3.org/ns/did/v1",
@@ -716,15 +738,17 @@
             ]
           },
           "metadata": {
-            "versionId": "4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK",
-            "versionTime": "2026-11-11T22:32:09Z",
+            "versionId": "4-Qmf4Xw8PuaQSRiKFywSJQXbZLxYhW9cYyZd4c2o2GwXvdU",
+            "versionTime": "2026-11-15T18:25:31Z",
             "created": "2026-01-01T00:00:00Z",
-            "updated": "2026-11-11T22:32:09Z",
+            "updated": "2026-11-15T18:25:31Z",
             "scid": "QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX",
             "updateKeys": [],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         }
       ]
@@ -732,9 +756,9 @@
     {
       "name": "prerotation-deactivate",
       "did": "did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot",
-      "versionId": "4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi",
+      "versionId": "4-Qmcp7eVXUk98FNYJkZDckUajrBnwQeryv8ZtwD882HqqUU",
       "deactivated": true,
-      "log": "{\"versionId\":\"1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[\"Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa\"],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"zXymNLUiJ5GwmpeWJwQ7TpKEktxsEnpsYukMCpEdQJgHdCvxryZAPtgmGkLKQfQ7bMDGhTV6w2Vt7E99VJdMqpNi\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"updateKeys\":[\"z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC\"],\"nextKeyHashes\":[\"QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze\"],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC#z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z331kFAM8VWP5kjuKktwjcBWXvuGrtW1VEkXdwmbK7xqw82BGadg8v2JrphKe61nD1odvUUTKzcngfwgr9wENK5fQ\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-Qmcr5QW3k2UbdmkpEsmVrhp5MA5gazuBt9vUi1bW616Wta\",\"versionTime\":\"2026-11-11T22:32:09Z\",\"parameters\":{\"updateKeys\":[\"z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL\"],\"nextKeyHashes\":[],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL#z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL\",\"created\":\"2026-11-11T22:32:09Z\",\"proofValue\":\"zA6D1R9AHokV1YTMLv7MhHMNfStBWZKmZPdAFxc8UXLpmG6QZXtrMCKuYJWg6nvD26Usu74ya6Fjrr34fuuBGgEX\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi\",\"versionTime\":\"2026-11-11T22:32:10Z\",\"parameters\":{\"updateKeys\":[],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL#z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL\",\"created\":\"2026-11-11T22:32:10Z\",\"proofValue\":\"z2ArLHndejjQuhoo2K1RDL19b6iPtsFm77WFZTzmNKU8iGq8fUfMFxWNvj7pdxPBhgsg7Kya6arpJa4XT64v3jsqF\",\"proofPurpose\":\"assertionMethod\"}]}\n",
+      "log": "{\"versionId\":\"1-QmQ4uMw2G39bXcGk6PsnEYsuRf5gAV2Jfj3N7ZEXGo9pYn\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[\"Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa\"],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"zXymNLUiJ5GwmpeWJwQ7TpKEktxsEnpsYukMCpEdQJgHdCvxryZAPtgmGkLKQfQ7bMDGhTV6w2Vt7E99VJdMqpNi\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmeDRSJhpTX7F3BpPn7rSYNVzHtN3CQDnMYqacHBnaWaTv\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"updateKeys\":[\"z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC\"],\"nextKeyHashes\":[\"QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze\"],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC#z6Mkr6MTfyT6UfHJokwxkyP9V5xkbxYpb7ju2YrRUYRbvQeC\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z331kFAM8VWP5kjuKktwjcBWXvuGrtW1VEkXdwmbK7xqw82BGadg8v2JrphKe61nD1odvUUTKzcngfwgr9wENK5fQ\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-Qmeo3hSWZ4LSCj956nzSDPhmXc4V7eyzA7HCk9jBFSoa6u\",\"versionTime\":\"2026-11-15T18:25:31Z\",\"parameters\":{\"updateKeys\":[\"z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL\"],\"nextKeyHashes\":[],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL#z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z3jcynGSxA7oewpc4hZa6ywCgmwKAm7upa4tjqz6curuMGmXrHjvLgVxbb3dRdRH4FT6RRDbX51oHPwLwc2zSw78t\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-Qmcp7eVXUk98FNYJkZDckUajrBnwQeryv8ZtwD882HqqUU\",\"versionTime\":\"2026-11-15T18:25:32Z\",\"parameters\":{\"updateKeys\":[],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL#z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL\",\"created\":\"2026-11-15T18:25:32Z\",\"proofValue\":\"z3wiaXQKNVndY8NyieP3nU9ZwwxJMzxfmeSiVmwrfc2TaWytKa9BiMMk41qTxnFJUmALPrk9yaSSsDij9z1J5iDxT\",\"proofPurpose\":\"assertionMethod\"}]}\n",
       "resolved": {
         "document": {
           "@context": [
@@ -769,15 +793,17 @@
           }
         },
         "metadata": {
-          "versionId": "4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi",
-          "versionTime": "2026-11-11T22:32:10Z",
+          "versionId": "4-Qmcp7eVXUk98FNYJkZDckUajrBnwQeryv8ZtwD882HqqUU",
+          "versionTime": "2026-11-15T18:25:32Z",
           "created": "2026-01-01T00:00:00Z",
-          "updated": "2026-11-11T22:32:10Z",
+          "updated": "2026-11-15T18:25:32Z",
           "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
           "updateKeys": [],
           "nextKeyHashes": [],
           "deactivated": true,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 4
       },
@@ -844,7 +870,9 @@
               "Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa"
             ],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -909,13 +937,15 @@
               "QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze"
             ],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
           "versionNumber": 3,
-          "versionId": "3-Qmcr5QW3k2UbdmkpEsmVrhp5MA5gazuBt9vUi1bW616Wta",
-          "versionTime": "2026-11-11T22:32:09Z",
+          "versionId": "3-Qmeo3hSWZ4LSCj956nzSDPhmXc4V7eyzA7HCk9jBFSoa6u",
+          "versionTime": "2026-11-15T18:25:31Z",
           "document": {
             "@context": [
               "https://www.w3.org/ns/did/v1",
@@ -962,23 +992,25 @@
             ]
           },
           "metadata": {
-            "versionId": "3-Qmcr5QW3k2UbdmkpEsmVrhp5MA5gazuBt9vUi1bW616Wta",
-            "versionTime": "2026-11-11T22:32:09Z",
+            "versionId": "3-Qmeo3hSWZ4LSCj956nzSDPhmXc4V7eyzA7HCk9jBFSoa6u",
+            "versionTime": "2026-11-15T18:25:31Z",
             "created": "2026-01-01T00:00:00Z",
-            "updated": "2026-11-11T22:32:09Z",
+            "updated": "2026-11-15T18:25:31Z",
             "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
             "updateKeys": [
               "z6MkkoF3Uinyok8qbKA4z1aUCtzWY3K4w25sPVo7BPo9u7hL"
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
           "versionNumber": 4,
-          "versionId": "4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi",
-          "versionTime": "2026-11-11T22:32:10Z",
+          "versionId": "4-Qmcp7eVXUk98FNYJkZDckUajrBnwQeryv8ZtwD882HqqUU",
+          "versionTime": "2026-11-15T18:25:32Z",
           "document": {
             "@context": [
               "https://www.w3.org/ns/did/v1",
@@ -1012,18 +1044,166 @@
             }
           },
           "metadata": {
-            "versionId": "4-QmdkhxZGkvVkw3HESkTvZNtTHWgvLA81SzK3ts5RrXaGBi",
-            "versionTime": "2026-11-11T22:32:10Z",
+            "versionId": "4-Qmcp7eVXUk98FNYJkZDckUajrBnwQeryv8ZtwD882HqqUU",
+            "versionTime": "2026-11-15T18:25:32Z",
             "created": "2026-01-01T00:00:00Z",
-            "updated": "2026-11-11T22:32:10Z",
+            "updated": "2026-11-15T18:25:32Z",
             "scid": "QmX8JzHjgSRWUw8kbnnAS6hURiK5YHZKVwtMyeANw4xdey",
             "updateKeys": [],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         }
       ]
+    },
+    {
+      "name": "witness-create",
+      "did": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot",
+      "versionId": "1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg",
+      "log": "{\"versionId\":\"1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{\"threshold\":2,\"witnesses\":[{\"id\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\"},{\"id\":\"did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk\"}]},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z3HyTEPSq6YxgXmpnNgFbkfXhmhavuVvJA7zfkv8KfDwkBky7dLjzcRF38JCf8cmA9DSrYYTMAp3VnjR4eTg7cRLa\",\"proofPurpose\":\"assertionMethod\"}]}\n",
+      "witnessFile": "[{\"versionId\":\"1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg\",\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA#z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z62CuyGQcMTamBWghPkCPcGqVTeFBobo8yGN2euY6WsvfqGXkEQbjXX8Fii4HqjCLScWpHzv2Xp9yPyGUP1oaUCLm\",\"proofPurpose\":\"assertionMethod\"},{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk#z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z25gdfJApvbkM1qdbQ2V4eSQsux8X2zYeNds7bnbnHwUk58DGE4wk341DeCjuZKTMb54Jrj5s8xaTS41H2U4NV5xq\",\"proofPurpose\":\"assertionMethod\"}]}]",
+      "resolved": {
+        "document": {
+          "@context": [
+            "https://www.w3.org/ns/did/v1",
+            "https://agent-did.org/v1"
+          ],
+          "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot",
+          "controller": "did:webvh:QmControllerScid:controller.example.com",
+          "verificationMethod": [
+            {
+              "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1",
+              "type": "Multikey",
+              "controller": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot",
+              "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+            }
+          ],
+          "authentication": [
+            "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1"
+          ],
+          "assertionMethod": [
+            "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1"
+          ],
+          "agentMetadata": {
+            "name": "support-bot",
+            "version": "1.0.0",
+            "coreModelHash": "hash://hmac-sha256/model-commitment",
+            "systemPromptHash": "hash://hmac-sha256/prompt-commitment",
+            "capabilities": [
+              "read:tickets",
+              "write:replies"
+            ]
+          },
+          "service": [
+            {
+              "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#files",
+              "type": "relativeRef",
+              "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+            },
+            {
+              "@context": "https://identity.foundation/linked-vp/contexts/v1",
+              "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#whois",
+              "type": "LinkedVerifiablePresentation",
+              "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+            }
+          ]
+        },
+        "metadata": {
+          "versionId": "1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg",
+          "versionTime": "2026-01-01T00:00:00Z",
+          "created": "2026-01-01T00:00:00Z",
+          "updated": "2026-01-01T00:00:00Z",
+          "scid": "QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A",
+          "updateKeys": [
+            "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+          ],
+          "nextKeyHashes": [],
+          "deactivated": false,
+          "ttl": "3600",
+          "witnessThreshold": "2",
+          "witnesses": [
+            "did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA",
+            "did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk"
+          ]
+        },
+        "versionNumber": 1
+      }
+    },
+    {
+      "name": "witness-change-rule",
+      "did": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot",
+      "versionId": "3-QmWPUewmdyiW46a9AnkCFa2HtJuzS6Ksws2yVMqpxPFvK2",
+      "log": "{\"versionId\":\"1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{\"threshold\":2,\"witnesses\":[{\"id\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\"},{\"id\":\"did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk\"}]},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z3HyTEPSq6YxgXmpnNgFbkfXhmhavuVvJA7zfkv8KfDwkBky7dLjzcRF38JCf8cmA9DSrYYTMAp3VnjR4eTg7cRLa\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmRKNaQhBRDdqAVKZWKrw7DQanX8x1G18UBX4z9tHq5Rfw\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"witness\":{\"witnesses\":[{\"id\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\"}],\"threshold\":1},\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5GEPymSyxkP6LfTVZ5jsSQUL6ZX1jSibvfemSXd9KkguCt3ZXzEaiBxg5jAgvXphy7xdiR7NP4UzRFW5aS9yLzSY\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmWPUewmdyiW46a9AnkCFa2HtJuzS6Ksws2yVMqpxPFvK2\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z5Ea2HWra9Rx2LULMhNqK5jVddGz45UqRRZxLP6PaSk1hAGZkS3Q6bxQ79p7jddMXpWymf5Vnbsh2MStmxkBYdDFP\",\"proofPurpose\":\"assertionMethod\"}]}\n",
+      "witnessFile": "[{\"versionId\":\"1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg\",\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA#z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z62CuyGQcMTamBWghPkCPcGqVTeFBobo8yGN2euY6WsvfqGXkEQbjXX8Fii4HqjCLScWpHzv2Xp9yPyGUP1oaUCLm\",\"proofPurpose\":\"assertionMethod\"},{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk#z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z25gdfJApvbkM1qdbQ2V4eSQsux8X2zYeNds7bnbnHwUk58DGE4wk341DeCjuZKTMb54Jrj5s8xaTS41H2U4NV5xq\",\"proofPurpose\":\"assertionMethod\"}]},{\"versionId\":\"2-QmRKNaQhBRDdqAVKZWKrw7DQanX8x1G18UBX4z9tHq5Rfw\",\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA#z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z4GSZbKHPTCAMpmhHTZd8FkPkv4trZDmJFq2WBCwYouWLASDXMSM7ngfohR6MvL719xS6XMJuCgQBxtU2mNuvebBW\",\"proofPurpose\":\"assertionMethod\"},{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk#z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z5x25yMff4p4nkBGbDWEa2rvg9z8bLJn1et2TSEJfLKMn7tKG3GuBBcnQon3tqeJwWXKe7uGzBQhNTRQ32fAG5fRF\",\"proofPurpose\":\"assertionMethod\"}]},{\"versionId\":\"3-QmWPUewmdyiW46a9AnkCFa2HtJuzS6Ksws2yVMqpxPFvK2\",\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA#z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"zZ5zFK979E6AEFpx9P8ynthhTnFAn7Np8ryCzMPqkNecsWctujgykyLkcTFNFbeuhmynkXeFpiGruF5stZjQJADr\",\"proofPurpose\":\"assertionMethod\"}]}]",
+      "resolved": {
+        "document": {
+          "@context": [
+            "https://www.w3.org/ns/did/v1",
+            "https://agent-did.org/v1"
+          ],
+          "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot",
+          "controller": "did:webvh:QmControllerScid:controller.example.com",
+          "verificationMethod": [
+            {
+              "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1",
+              "type": "Multikey",
+              "controller": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot",
+              "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+            }
+          ],
+          "authentication": [
+            "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1"
+          ],
+          "assertionMethod": [
+            "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1"
+          ],
+          "agentMetadata": {
+            "name": "support-bot",
+            "version": "1.1.0",
+            "coreModelHash": "hash://hmac-sha256/model-commitment-2",
+            "systemPromptHash": "hash://hmac-sha256/prompt-commitment-2",
+            "capabilities": [
+              "read:tickets",
+              "write:replies",
+              "escalate:human"
+            ]
+          },
+          "service": [
+            {
+              "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#files",
+              "type": "relativeRef",
+              "serviceEndpoint": "https://agents.example.com/fleet/support-bot/"
+            },
+            {
+              "@context": "https://identity.foundation/linked-vp/contexts/v1",
+              "id": "did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#whois",
+              "type": "LinkedVerifiablePresentation",
+              "serviceEndpoint": "https://agents.example.com/fleet/support-bot/whois.vp"
+            }
+          ]
+        },
+        "metadata": {
+          "versionId": "3-QmWPUewmdyiW46a9AnkCFa2HtJuzS6Ksws2yVMqpxPFvK2",
+          "versionTime": "2026-01-03T00:00:00Z",
+          "created": "2026-01-01T00:00:00Z",
+          "updated": "2026-01-03T00:00:00Z",
+          "scid": "QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A",
+          "updateKeys": [
+            "z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh"
+          ],
+          "nextKeyHashes": [],
+          "deactivated": false,
+          "ttl": "3600",
+          "witnessThreshold": "1",
+          "witnesses": [
+            "did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA"
+          ]
+        },
+        "versionNumber": 3
+      }
     },
     {
       "name": "legacy-deactivate-keeping-update-keys",
@@ -1089,7 +1269,9 @@
           ],
           "nextKeyHashes": [],
           "deactivated": true,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 4
       },
@@ -1154,7 +1336,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -1218,7 +1402,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -1282,7 +1468,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -1346,7 +1534,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         }
       ]
@@ -1401,7 +1591,9 @@
           ],
           "nextKeyHashes": [],
           "deactivated": true,
-          "ttl": "3600"
+          "ttl": "3600",
+          "witnessThreshold": "0",
+          "witnesses": []
         },
         "versionNumber": 3
       },
@@ -1468,7 +1660,9 @@
               "Qmdwaq3EJ85NtU7Ac4JRLGr4uqyeQFtgXGE7PUTcX4HPfa"
             ],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -1533,7 +1727,9 @@
               "QmX9uHfeiLhhCBHjz8wpNgvxWpogVsjS9RkrKTZt2vJYze"
             ],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         },
         {
@@ -1583,7 +1779,9 @@
             ],
             "nextKeyHashes": [],
             "deactivated": true,
-            "ttl": "3600"
+            "ttl": "3600",
+            "witnessThreshold": "0",
+            "witnesses": []
           }
         }
       ]
@@ -1618,7 +1816,7 @@
     {
       "name": "rotated-out-signer",
       "reason": "entry after rotation signed by the previous controller key",
-      "log": "{\"versionId\":\"1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z4oQvFd1JZBMufUDK9xytw4udwQ18Ki8kPcCTVCprcBxZuXVtGN7XCUZcco9sDEgR3hsvwTyDf41YsgaXyWfFC2nX\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5P1zkh2N6A1NDHFBPvywwSeBEDGgperReoVHCGZ4TNZ5A6rGQiURHVPLcpozfZU45ndf8oZ8CwtHbizqMPzRJonW\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"updateKeys\":[\"z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn\"],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z2wjykGSWH49PuqgPoZAhVcVfybZokgJXsd4Z3WT3o2NH4JRDSQMrTUNz9agZa2Aa6Mm7ce4z5xNPDiEaWYrhxSxU\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-QmecoWuqFq17Wi1iXTJcy4UNSpUvPWeCkihJw1yjzfwKMK\",\"versionTime\":\"2026-11-11T22:32:09Z\",\"parameters\":{\"updateKeys\":[],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-11-11T22:32:09Z\",\"proofPurpose\":\"assertionMethod\",\"proofValue\":\"z4rKrU6Wf1TobTxA35jktCBkm25TUjhFxhS4RX9M9tMYDKdeqJ7ETq7NDf5F2pBT3Q1o11XEhaAU3LNx3BYfCZmfE\"}]}\n"
+      "log": "{\"versionId\":\"1-QmbMp5aNoRYF8Rf4MBwPBP72LJ7eThQeMR5pYPALnU4GMt\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z4oQvFd1JZBMufUDK9xytw4udwQ18Ki8kPcCTVCprcBxZuXVtGN7XCUZcco9sDEgR3hsvwTyDf41YsgaXyWfFC2nX\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"2-QmZM6fDf3Zww7uCPfjPFGSaUWzhQtxojmKdxd4PaVeuRu2\",\"versionTime\":\"2026-01-02T00:00:00Z\",\"parameters\":{\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-02T00:00:00Z\",\"proofValue\":\"z5P1zkh2N6A1NDHFBPvywwSeBEDGgperReoVHCGZ4TNZ5A6rGQiURHVPLcpozfZU45ndf8oZ8CwtHbizqMPzRJonW\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"3-QmPemeVMthTM7XrxE8i369VbtefM99aF5DpjTqT3xyp25k\",\"versionTime\":\"2026-01-03T00:00:00Z\",\"parameters\":{\"updateKeys\":[\"z6MkpJwJkcAbjmj3TWJRLGLoy99b9ei1cSbHP76V3ZRVqvgn\"],\"watchers\":[]},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-03T00:00:00Z\",\"proofValue\":\"z2wjykGSWH49PuqgPoZAhVcVfybZokgJXsd4Z3WT3o2NH4JRDSQMrTUNz9agZa2Aa6Mm7ce4z5xNPDiEaWYrhxSxU\",\"proofPurpose\":\"assertionMethod\"}]}\n{\"versionId\":\"4-Qmf4Xw8PuaQSRiKFywSJQXbZLxYhW9cYyZd4c2o2GwXvdU\",\"versionTime\":\"2026-11-15T18:25:31Z\",\"parameters\":{\"updateKeys\":[],\"nextKeyHashes\":[],\"deactivated\":true},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.1.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment-2\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment-2\",\"capabilities\":[\"read:tickets\",\"write:replies\",\"escalate:human\"]},\"service\":[{\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#files\",\"type\":\"relativeRef\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/\"},{\"@context\":\"https://identity.foundation/linked-vp/contexts/v1\",\"id\":\"did:webvh:QmScrvcWvVT9NnLgc4SCsGfQ45xXiXaLQsR3UDAG3Cx2PX:agents.example.com:fleet:support-bot#whois\",\"type\":\"LinkedVerifiablePresentation\",\"serviceEndpoint\":\"https://agents.example.com/fleet/support-bot/whois.vp\"}]},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-11-15T18:25:31Z\",\"proofPurpose\":\"assertionMethod\",\"proofValue\":\"zBQe5XQqgBZrNAgS9pmYR6Bb8FNYrcB1sjdoqi936ouQFG6JvoVG28cxJdzVat9YYx1sTtm3mNVXr4Y2fG3Apk5t\"}]}\n"
     },
     {
       "name": "prerotation-signed-by-active-key",
@@ -1637,8 +1835,14 @@
     },
     {
       "name": "witness-declared",
-      "reason": "log declares witnesses, which Agent-DID does not support yet; must be rejected without network access",
+      "reason": "log declares a witness and no did-witness.json is supplied; must be rejected without network access",
       "log": "{\"versionId\":\"1-QmSTcUCChmFNNHW2bmYAAxq5wLyycMraJR3umvTVutfN9x\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmWRhEBiyryGjLAMCb7bAPuocH2rzUmFwZrbc2VnzkGnHL\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{\"threshold\":1,\"witnesses\":[{\"id\":\"did:key:z6MkrzNnnZcLWt1AoPJhX3YjdZyb6DeSne7PbvgFVHar7xeC\"}]},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmWRhEBiyryGjLAMCb7bAPuocH2rzUmFwZrbc2VnzkGnHL:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmWRhEBiyryGjLAMCb7bAPuocH2rzUmFwZrbc2VnzkGnHL:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmWRhEBiyryGjLAMCb7bAPuocH2rzUmFwZrbc2VnzkGnHL:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmWRhEBiyryGjLAMCb7bAPuocH2rzUmFwZrbc2VnzkGnHL:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmWRhEBiyryGjLAMCb7bAPuocH2rzUmFwZrbc2VnzkGnHL:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z5M4x5pcwJxNmsoNxFSnfJpG4WYf1PHAsa2BKHW8fpo4GGZoNP17avCpEuisYp9ixrp9k3R23QjfCc1921p92v2X8\",\"proofPurpose\":\"assertionMethod\"}]}\n"
+    },
+    {
+      "name": "witness-threshold-not-met",
+      "reason": "genesis entry under a 2-of-2 witness rule with only one approval in did-witness.json",
+      "log": "{\"versionId\":\"1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg\",\"versionTime\":\"2026-01-01T00:00:00Z\",\"parameters\":{\"method\":\"did:webvh:1.0\",\"scid\":\"QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A\",\"updateKeys\":[\"z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\"],\"portable\":false,\"nextKeyHashes\":[],\"watchers\":[],\"witness\":{\"threshold\":2,\"witnesses\":[{\"id\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\"},{\"id\":\"did:key:z6Mkj6joiZPz3kKe5PpGNLjCrTphanK4S5PXgpwVQPkyrvVk\"}]},\"deactivated\":false},\"state\":{\"@context\":[\"https://www.w3.org/ns/did/v1\",\"https://agent-did.org/v1\"],\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"controller\":\"did:webvh:QmControllerScid:controller.example.com\",\"verificationMethod\":[{\"id\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\",\"type\":\"Multikey\",\"controller\":\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot\",\"publicKeyMultibase\":\"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\"}],\"authentication\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"assertionMethod\":[\"did:webvh:QmSH7h3cxCLjpvSmLSEXiW31joaCHsqJpunsKUJ1LWe93A:agents.example.com:fleet:support-bot#key-1\"],\"agentMetadata\":{\"name\":\"support-bot\",\"version\":\"1.0.0\",\"coreModelHash\":\"hash://hmac-sha256/model-commitment\",\"systemPromptHash\":\"hash://hmac-sha256/prompt-commitment\",\"capabilities\":[\"read:tickets\",\"write:replies\"]}},\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh#z6MkusVQcvEoEkdMuyHEWX4ioHBhYRJckrD43RYvoEHnX9qh\",\"created\":\"2026-01-01T00:00:00Z\",\"proofValue\":\"z3HyTEPSq6YxgXmpnNgFbkfXhmhavuVvJA7zfkv8KfDwkBky7dLjzcRF38JCf8cmA9DSrYYTMAp3VnjR4eTg7cRLa\",\"proofPurpose\":\"assertionMethod\"}]}\n",
+      "witnessFile": "[{\"versionId\":\"1-QmPLxRqsV73xCBuzy9xaLn6zDpNFysYCppeoFtFPL2gnJg\",\"proof\":[{\"type\":\"DataIntegrityProof\",\"cryptosuite\":\"eddsa-jcs-2022\",\"verificationMethod\":\"did:key:z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA#z6MkmEbJUnLR3xYfgHasnAWCjnbbQk4iZ72cPubf7Yod7wDA\",\"created\":\"2026-11-15T18:25:31Z\",\"proofValue\":\"z62CuyGQcMTamBWghPkCPcGqVTeFBobo8yGN2euY6WsvfqGXkEQbjXX8Fii4HqjCLScWpHzv2Xp9yPyGUP1oaUCLm\",\"proofPurpose\":\"assertionMethod\"}]}]"
     },
     {
       "name": "missing-proof",

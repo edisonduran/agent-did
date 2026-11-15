@@ -407,8 +407,9 @@ class TestDidWebvhCrossSdkVectors:
         ids=lambda vector: vector["name"],
     )
     async def test_resolves(self, vector: dict[str, Any]) -> None:
-        resolved = await resolve_did_webvh_log(vector["log"], did=vector["did"])
+        resolved = await resolve_did_webvh_log(vector["log"], did=vector["did"], witness_file=vector.get("witnessFile"))
         assert resolved.metadata.version_id == vector["versionId"]
+        assert resolved.witness_file == vector.get("witnessFile")
         assert resolved.metadata.deactivated is (vector.get("deactivated") is True)
         assert resolved.document == vector["resolved"]["document"]
         expected = vector["resolved"]["metadata"]
@@ -422,6 +423,8 @@ class TestDidWebvhCrossSdkVectors:
             "nextKeyHashes": resolved.metadata.next_key_hashes,
             "deactivated": resolved.metadata.deactivated,
             "ttl": resolved.metadata.ttl,
+            "witnessThreshold": resolved.metadata.witness_threshold,
+            "witnesses": resolved.metadata.witnesses,
         } == expected
         assert resolved.version_number == vector["resolved"]["versionNumber"]
 
@@ -446,7 +449,9 @@ class TestDidWebvhCrossSdkVectors:
                 {"version_time": version["versionTime"]},
             ]
             for selection in selections:
-                resolved = await resolve_did_webvh_log(vector["log"], **selection)
+                resolved = await resolve_did_webvh_log(
+                    vector["log"], witness_file=vector.get("witnessFile"), **selection
+                )
                 assert resolved.version_number == version["versionNumber"], selection
                 assert resolved.document == version["document"], selection
                 assert {
@@ -459,6 +464,8 @@ class TestDidWebvhCrossSdkVectors:
                     "nextKeyHashes": resolved.metadata.next_key_hashes,
                     "deactivated": resolved.metadata.deactivated,
                     "ttl": resolved.metadata.ttl,
+                    "witnessThreshold": resolved.metadata.witness_threshold,
+                    "witnesses": resolved.metadata.witnesses,
                 } == version["metadata"], selection
                 assert resolved.metadata.deactivated is True
 
@@ -466,12 +473,14 @@ class TestDidWebvhCrossSdkVectors:
     async def test_rejects_at_every_selected_version(self, vector: dict[str, Any]) -> None:
         for version_number in range(1, len(vector["log"].strip().split("\n")) + 1):
             with pytest.raises(DidWebvhError):
-                await resolve_did_webvh_log(vector["log"], version_number=version_number)
+                await resolve_did_webvh_log(
+                    vector["log"], version_number=version_number, witness_file=vector.get("witnessFile")
+                )
 
     @pytest.mark.parametrize("vector", _VECTORS["negative"], ids=lambda vector: vector["name"])
     async def test_rejects(self, vector: dict[str, Any]) -> None:
         with pytest.raises(DidWebvhError):
-            await resolve_did_webvh_log(vector["log"])
+            await resolve_did_webvh_log(vector["log"], witness_file=vector.get("witnessFile"))
 
 
 class TestDeriveDidWebvhLogUrl:

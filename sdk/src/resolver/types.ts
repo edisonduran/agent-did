@@ -20,6 +20,8 @@ export interface DidWebvhResolution {
   lastEntrySignerKeys: string[];
   /** `true` when the log ends in a deactivation entry. A resolver that leaves it out reports an active DID. */
   deactivated?: boolean;
+  /** The `did-witness.json` that approves the log, when it has witnessed entries (ADR-007). */
+  witnessFile?: string;
 }
 
 /** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
@@ -63,6 +65,12 @@ export interface DIDDocumentSource {
   storeByReference?(documentRef: string, document: AgentDIDDocument): Promise<void>;
   getDidLogByReference?(documentRef: string): Promise<string | null>;
   storeDidLogByReference?(documentRef: string, didLog: string): Promise<void>;
+  /**
+   * Fetches the raw `did-witness.json` of a did:webvh DID (ADR-007), by its URL. Needed to resolve a log with witnessed
+   * entries; a source without it cannot resolve such logs (fail closed). The caller verifies the proofs.
+   */
+  getDidWitnessFileByReference?(documentRef: string): Promise<string | null>;
+  storeDidWitnessFileByReference?(documentRef: string, witnessFile: string): Promise<void>;
 }
 
 /** Default maximum number of documents in the `UniversalResolverClient` cache. */
@@ -126,6 +134,8 @@ export interface UniversalResolverConfig {
    * local log wins (a stale host never rolls the DID back), and a log that diverges is an integrity failure.
    */
   didWebvhLocalLog?: (did: string) => string | undefined;
+  /** The `did-witness.json` that goes with `didWebvhLocalLog(did)`, when that log has witnessed entries. */
+  didWebvhLocalWitnessFile?: (did: string) => string | undefined;
   cacheTtlMs?: number;
   /**
    * Maximum documents kept in the cache. When it is full, expired entries are dropped first and

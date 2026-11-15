@@ -65,22 +65,24 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def create_agent(self, controller_signer: 'AgentSigner', params: 'CreateAgentParams') -> 'CreateAgentResult'
   def evict_cached_resolution(self, did: 'str') -> 'None'
   def export_did_webvh_history(self, did: 'str') -> 'str'
+  def export_did_webvh_witness_file(self, did: 'str') -> 'str | None'
   def get_did_webvh_controller_keys(self, did: 'str') -> 'DidWebvhControllerKeys'
   def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
-  def import_did_webvh_history(self, did_log: 'str') -> 'AgentDIDDocument'
+  def import_did_webvh_history(self, did_log: 'str', witness_file: 'str | None' = None) -> 'AgentDIDDocument'
   def issue_agent_metadata_credential(self, params: 'IssueAgentMetadataCredentialParams') -> 'dict[str, Any]'
-  def load_did_webvh_history_from_file(self, file_path: 'str | Path') -> 'AgentDIDDocument'
-  def persist_did_webvh_history_to_source(self, did: 'str', document_ref: 'str', source: 'DIDDocumentSource') -> 'None'
+  def load_did_webvh_history_from_file(self, file_path: 'str | Path', witness_file_path: 'str | Path | None' = None) -> 'AgentDIDDocument'
+  def persist_did_webvh_history_to_source(self, did: 'str', document_ref: 'str', source: 'DIDDocumentSource', witness_ref: 'str | None' = None) -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
   def resolve_controller_chain(self, did: 'str', max_depth: 'int' = 8) -> 'list[AnyDidDocument]'
   def resolve_did_webvh_state(self, did: 'str') -> 'DidWebvhState | None'
   def resolve_document(self, did: 'str') -> 'AnyDidDocument'
-  def restore_did_webvh_history_from_source(self, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
+  def restore_did_webvh_history_from_source(self, document_ref: 'str', source: 'DIDDocumentSource', witness_ref: 'str | None' = None) -> 'AgentDIDDocument'
   def retire_verification_method(self, did: 'str', key_id: 'str', *, controller_signer: 'AgentSigner | None' = None, emergency: 'bool' = False) -> 'AgentDIDDocument'
   def revoke_did(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
   def rotate_controller_key(self, did: 'str', new_controller_signer: 'AgentSigner', *, next_update_keys: 'list[str] | None' = None, controller_signer: 'AgentSigner | None' = None) -> 'DidWebvhControllerKeys'
   def rotate_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None, signer: 'AgentSigner | None' = None, emergency: 'bool' = False) -> 'RotateVerificationMethodResult'
-  def save_did_webvh_history_to_file(self, did: 'str', file_path: 'str | Path') -> 'Path'
+  def save_did_webvh_history_to_file(self, did: 'str', file_path: 'str | Path', witness_file_path: 'str | Path | None' = None) -> 'Path'
+  def set_did_webvh_witnesses(self, did: 'str', witness: 'DidWebvhWitnessConfig | None', *, controller_signer: 'AgentSigner | None' = None) -> 'DidWebvhWitnessConfig'
   def set_registry(self, registry: 'AgentRegistry') -> 'None'
   def set_resolver(self, resolver: 'DIDResolver') -> 'None'
   def update_did_document(self, did: 'str', patch: 'UpdateAgentDocumentParams', *, controller_signer: 'AgentSigner | None' = None) -> 'AgentDIDDocument'
@@ -93,11 +95,12 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def verify_http_request_signature_detailed(self, params: 'VerifyHttpRequestSignatureParams') -> 'VerifyHttpRequestSignatureResult'
   def verify_identity_composition(self, params: 'VerifyIdentityCompositionParams') -> 'VerifyIdentityCompositionResult'
   def verify_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
-  def verify_signature_at_time(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str', *, stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', trusted_time_not_after: 'str | None' = None) -> 'VerifySignatureAtTimeResult'
+  def verify_signature_at_time(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str', *, stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', trusted_time_not_after: 'str | None' = None, timestamp_token: 'bytes | None' = None, tsa_trust_anchors: 'Sequence[bytes | str] | None' = None) -> 'VerifySignatureAtTimeResult'
 
 ## AgentDidClientOptions
-class AgentDidClientOptions(resolver: 'DIDResolver | None' = None, registry: 'AgentRegistry | None' = None, nonce_store: 'NonceStore | None' = None, clock: 'Callable[[], datetime] | None' = None, webvh_domain: 'str' = 'agents.local') -> None
+class AgentDidClientOptions(resolver: 'DIDResolver | None' = None, registry: 'AgentRegistry | None' = None, nonce_store: 'NonceStore | None' = None, clock: 'Callable[[], datetime] | None' = None, webvh_domain: 'str' = 'agents.local', collect_witness_proofs: 'DidWebvhWitnessCollector | None' = None) -> None
   attr clock: Callable[[], datetime] | None
+  attr collect_witness_proofs: DidWebvhWitnessCollector | None
   attr nonce_store: NonceStore | None
   attr registry: AgentRegistry | None
   attr resolver: DIDResolver | None
@@ -273,12 +276,13 @@ class CreateAgentResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, 
   member model_config = {'populate_by_name': True}
 
 ## CreateDidWebvhOptions
-class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_signer: Any, path_segments: list[str] | None = None, next_update_keys: list[str] | None = None) -> None
+class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_signer: Any, path_segments: list[str] | None = None, next_update_keys: list[str] | None = None, witness: Any = None) -> None
   attr controller_did: str
   attr controller_signer: Any
   attr domain: str
   attr next_update_keys: list[str] | None
   attr path_segments: list[str] | None
+  attr witness: Any
   member model_config = {'arbitrary_types_allowed': True, 'extra': 'forbid'}
 
 ## DEFAULT_FETCH_DEADLINE_MS
@@ -356,17 +360,37 @@ class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
 value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptions', 'invalidInput', 'unauthorized']
 
 ## DidWebvhResolution
-class DidWebvhResolution(document: 'AnyDidDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False) -> None
+class DidWebvhResolution(document: 'AnyDidDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, witness_file: 'str | None' = None) -> None
   attr deactivated: bool
   attr document: AnyDidDocument
   attr last_entry_signer_keys: list[str]
   attr log: str
   attr update_keys: list[str]
   attr version_id: str
+  attr witness_file: str | None
 
 ## DidWebvhState
-class DidWebvhState(document: 'AnyDidDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
+class DidWebvhState(document: 'AnyDidDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, witness_file: 'str | None' = None, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
   attr provenance: Literal['local', 'imported', 'fetched']
+
+## DidWebvhWitnessCollector
+value DidWebvhWitnessCollector = collections.abc.Callable[[agent_did_sdk.webvh.adapter.DidWebvhWitnessRequest], collections.abc.Awaitable[list[dict[str, typing.Any]]]]
+
+## DidWebvhWitnessConfig
+class DidWebvhWitnessConfig(threshold: 'int', witnesses: 'list[str]') -> None
+  attr threshold: int
+  attr witnesses: list[str]
+
+## DidWebvhWitnessProofEntry
+value DidWebvhWitnessProofEntry = dict[str, typing.Any]
+
+## DidWebvhWitnessRequest
+class DidWebvhWitnessRequest(did: 'str', version_id: 'str', log: 'str', witness: 'DidWebvhWitnessConfig', witness_file: 'str | None' = None) -> None
+  attr did: str
+  attr log: str
+  attr version_id: str
+  attr witness: DidWebvhWitnessConfig
+  attr witness_file: str | None
 
 ## DocumentIntegrityError
 class DocumentIntegrityError(...)
@@ -584,6 +608,9 @@ class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source
   attr wba_document_source: DIDDocumentSource | None
   attr webvh_document_source: DIDDocumentSource | None
 
+## REMOVE_WITNESSES
+value REMOVE_WITNESSES = REMOVE_WITNESSES
+
 ## REQUIRED_RELATIONSHIP_BY_ARTIFACT
 value REQUIRED_RELATIONSHIP_BY_ARTIFACT = mappingproxy({'assertion': 'assertionMethod', 'http_request': 'assertionMethod', 'delegation': 'capabilityDelegation', 'invocation': 'capabilityInvocation', 'authentication': 'authentication'})
 
@@ -685,6 +712,9 @@ value SignedArtifactKind = typing.Literal['assertion', 'http_request', 'delegati
 ## SigningVerificationPurpose
 value SigningVerificationPurpose = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation']
 
+## TimestampRejection
+value TimestampRejection = typing.Literal['token_malformed', 'not_granted', 'hash_algorithm_unsupported', 'imprint_mismatch', 'not_a_timestamping_certificate', 'verification_failed']
+
 ## Token
 class Token(value: 'str') -> None
   attr value: str
@@ -700,9 +730,10 @@ class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
   def resolve_document(self, did: 'str') -> 'AnyDidDocument'
 
 ## UniversalResolverConfig
-class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, did_webvh_local_log: 'Callable[[str], str | None] | None' = None, cache_ttl_ms: 'int' = 60000, max_cache_entries: 'int' = 1000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None, resolution_limits: 'ResolutionLimits | None' = None) -> None
+class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, did_webvh_local_log: 'Callable[[str], str | None] | None' = None, did_webvh_local_witness_file: 'Callable[[str], str | None] | None' = None, cache_ttl_ms: 'int' = 60000, max_cache_entries: 'int' = 1000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None, resolution_limits: 'ResolutionLimits | None' = None) -> None
   attr cache_ttl_ms: int
   attr did_webvh_local_log: Callable[[str], str | None] | None
+  attr did_webvh_local_witness_file: Callable[[str], str | None] | None
   attr document_source: DIDDocumentSource
   attr fallback_resolver: DIDResolver | None
   attr max_cache_entries: int
@@ -804,18 +835,28 @@ class VerifyIdentityCompositionResult(ok: 'bool', reason: 'IdentityCompositionRe
   attr stage: Literal['agent_card', 'request'] | None
 
 ## VerifySignatureAtTimeRejection
-value VerifySignatureAtTimeRejection = typing.Literal['did_resolution_failed', 'key_not_authorized', 'controller_not_bound', 'signature_invalid']
+value VerifySignatureAtTimeRejection = typing.Literal['did_resolution_failed', 'key_not_authorized', 'controller_not_bound', 'signature_invalid', 'timestamp_invalid']
 
 ## VerifySignatureAtTimeResult
-class VerifySignatureAtTimeResult(status: "Literal['valid', 'invalid', 'indeterminate']", reason: 'VerifySignatureAtTimeRejection | None' = None, key: 'KeyAtTimeResult | None' = None) -> None
+class VerifySignatureAtTimeResult(status: "Literal['valid', 'invalid', 'indeterminate']", reason: 'VerifySignatureAtTimeRejection | None' = None, key: 'KeyAtTimeResult | None' = None, timestamp_rejection: 'str | None' = None) -> None
   attr key: KeyAtTimeResult | None
   attr reason: VerifySignatureAtTimeRejection | None
   attr status: Literal['valid', 'invalid', 'indeterminate']
+  attr timestamp_rejection: str | None
+
+## VerifyTimestampTokenResult
+class VerifyTimestampTokenResult(status: "Literal['valid', 'invalid']", reason: 'TimestampRejection | None' = None, gen_time: 'str | None' = None, trusted_time_not_after: 'str | None' = None, serial_number: 'str | None' = None) -> None
+  attr gen_time: str | None
+  attr reason: TimestampRejection | None
+  attr serial_number: str | None
+  attr status: Literal['valid', 'invalid']
+  attr trusted_time_not_after: str | None
 
 ## WebvhDIDDocumentSource
 class WebvhDIDDocumentSource(config: 'WebvhDIDDocumentSourceConfig | None' = None) -> 'None'
   def get_by_reference(self, document_ref: 'str') -> 'AgentDIDDocument | None'
   def get_did_log_by_reference(self, document_ref: 'str') -> 'str | None'
+  def get_did_witness_file_by_reference(self, document_ref: 'str') -> 'str | None'
   def store_did_log_by_reference(self, document_ref: 'str', did_log: 'str') -> 'None'
 
 ## WebvhDIDDocumentSourceConfig
@@ -841,10 +882,16 @@ def build_signature_base(request: 'HttpRequestLike', signature_input: 'Signature
 def canonicalize_json(value: 'object') -> 'str'
 
 ## check_did_webvh_key_at_time
-def check_did_webvh_key_at_time(log: 'str', *, key_id: 'str', stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', did: 'str | None' = None, trusted_time_not_after: 'str | None' = None) -> 'KeyAtTimeResult'
+def check_did_webvh_key_at_time(log: 'str', *, key_id: 'str', stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', did: 'str | None' = None, trusted_time_not_after: 'str | None' = None, witness_file: 'str | None' = None) -> 'KeyAtTimeResult'
+
+## create_did_webvh_witness_proof
+def create_did_webvh_witness_proof(*, log: 'str', signer: 'AgentSigner', witness_file: 'str | None' = None) -> 'DidWebvhWitnessProofEntry'
 
 ## create_metadata_commitment
 def create_metadata_commitment(value: 'str', salt_hex: 'str') -> 'str'
+
+## create_timestamp_request
+def create_timestamp_request(message: 'bytes') -> 'bytes'
 
 ## decode_public_key_multibase
 def decode_public_key_multibase(encoded: 'str') -> 'bytes'
@@ -938,3 +985,6 @@ def validate_http_target(url: 'str', options: 'HttpTargetValidationOptions | Non
 
 ## verify_metadata_commitment
 def verify_metadata_commitment(commitment_uri: 'str | None', value: 'str', salt_hex: 'str | None' = None) -> 'bool'
+
+## verify_timestamp_token
+def verify_timestamp_token(token: 'bytes', message: 'bytes', *, trust_anchors: 'Sequence[bytes | str]') -> 'VerifyTimestampTokenResult'

@@ -111,14 +111,14 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
    - has its own create scenarios resolved by the TS and Python reference resolvers.
 
    README conformance claims are made only after this job is green.
-7. **Scope for `1.0.0-rc.3`.** v1.0 create, update, deactivate and resolve, plus `updateKeys` rotation. Pre-rotation, witnesses, watchers and portability are deferred to after 1.0, but the adapter must not prevent them. *Update (rc.5): pre-rotation was exposed after all, because it is the only in-protocol recovery from controller key compromise: `nextUpdateKeys` at creation, `rotateControllerKey`, and `nextKeyHashes` in the resolution metadata, in both SDKs. Witnesses, watchers and portability remain deferred.*
+7. **Scope for `1.0.0-rc.3`.** v1.0 create, update, deactivate and resolve, plus `updateKeys` rotation. Pre-rotation, witnesses, watchers and portability are deferred to after 1.0, but the adapter must not prevent them. *Update (rc.5): pre-rotation was exposed after all, because it is the only in-protocol recovery from controller key compromise: `nextUpdateKeys` at creation, `rotateControllerKey`, and `nextKeyHashes` in the resolution metadata, in both SDKs. Witnesses were added in rc.5 as well ([ADR-007](ADR-007-Witnesses-and-Timestamps.md)); watchers and portability remain deferred.*
 
 ## Implementation status
 
 - Step 1, adapters over the reference libraries: done (#119).
 - Step 2, CI against `didwebvh-test-suite`, pinned in `fixtures/didwebvh-test-suite.json`: done (#120).
 - Step 3, `AgentIdentity` and the resolvers on the adapters, DID-to-URL derivation, migration guides: done in the `rc.3` train.
-- Follow-ups: the upstream PR making `aries-askar` and `aiohttp` optional in `did-webvh`; the `@noble` v2 migration in TS; registering Agent-DID in `didwebvh-test-suite`; witnesses, watchers and pre-rotation after 1.0.
+- Follow-ups: the upstream PR making `aries-askar` and `aiohttp` optional in `did-webvh`; the `@noble` v2 migration in TS; registering Agent-DID in `didwebvh-test-suite`; watchers after 1.0 (pre-rotation and witnesses were added in rc.5).
 
 ## Consequences
 
@@ -133,4 +133,4 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
 ## Resolved questions
 
 1. ~~Is the Python packaging limitation in condition 4 acceptable for `rc.3`?~~ **Resolved (2026-11-02):** the Alpine and Windows ARM64 limitation is **not** blocking for `rc.3`; it is documented and tracked through the upstream PR.
-2. ~~Should `didDocumentMetadata` expose the full did:webvh parameters (`updateKeys`, `ttl`, `witness`) in Agent-DID resolution results, or only what RFC-001 needs?~~ **Resolved (2026-11-02):** the adapters expose `versionId`, `versionNumber`, `versionTime`, `created`, `updated`, `scid`, `updateKeys`, `deactivated` and `ttl` (the did:webvh default, `3600`, when the log does not set one). Witness and watcher configuration stay internal until the SDKs support them (condition 7).
+2. ~~Should `didDocumentMetadata` expose the full did:webvh parameters (`updateKeys`, `ttl`, `witness`) in Agent-DID resolution results, or only what RFC-001 needs?~~ **Resolved (2026-11-02):** the adapters expose `versionId`, `versionNumber`, `versionTime`, `created`, `updated`, `scid`, `updateKeys`, `deactivated` and `ttl` (the did:webvh default, `3600`, when the log does not set one). Watcher configuration stays internal (condition 7). *Update (rc.5): `witnessThreshold` and `witnesses` were added with witness support ([ADR-007](ADR-007-Witnesses-and-Timestamps.md)).*

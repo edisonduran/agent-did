@@ -129,6 +129,7 @@ async def check_did_webvh_key_at_time(
     required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
     did: str | None = None,
     trusted_time_not_after: str | None = None,
+    witness_file: str | None = None,
 ) -> KeyAtTimeResult:
     """Check whether ``key_id`` was authorized for ``required_purpose`` at ``stated_time``, per a did:webvh log.
 
@@ -138,7 +139,8 @@ async def check_did_webvh_key_at_time(
     the DID turns ``authorized`` into ``indeterminate``, unless ``trusted_time_not_after`` is earlier than that
     entry. A key is retired from the ``versionTime`` of the entry that gives it a ``deactivated`` time, whatever
     that time says. ``trusted_time_not_after`` is trusted evidence (for example a verified RFC 3161 timestamp) that the
-    signature existed no later than that time; only the caller can vouch for it.
+    signature existed no later than that time; only the caller can vouch for it. ``witness_file`` is the log's
+    ``did-witness.json``, needed when it has witnessed entries (ADR-007).
     """
     evidence_millis: int | None = None
     if trusted_time_not_after is not None:
@@ -146,7 +148,7 @@ async def check_did_webvh_key_at_time(
         if evidence_millis is None:
             raise ValueError(f"trusted_time_not_after is not an RFC 3339 date-time: {trusted_time_not_after!r}")
 
-    resolved = await resolve_did_webvh_log(log, did=did)
+    resolved = await resolve_did_webvh_log(log, did=did, witness_file=witness_file)
 
     stated_millis = parse_rfc3339_millis(stated_time)
     if stated_millis is None:

@@ -383,6 +383,15 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - `verify_signature` / `verify_signature_at_time` for a DID whose document is not an Agent-DID document fail (`did_resolution_failed`): signatures are verified for agents only.
 - For other DID methods (did:wba, registry sources) controllers must still be Agent-DID documents.
 
+## 39. did:webvh witnesses and RFC 3161 timestamps (new)
+
+[ADR-007](../docs/ADR-007-Witnesses-and-Timestamps.md). Nothing changes for DIDs without witnesses or callers that pass no timestamp token, except the points marked below.
+
+- **Witnesses:** `CreateDidWebvhOptions(..., witness=DidWebvhWitnessConfig(threshold=..., witnesses=["did:key:z6Mk..."]))` at creation, `client.set_did_webvh_witnesses(did, witness_or_None)` later. Give the client a collector, `AgentDidClient(AgentDidClientOptions(collect_witness_proofs=...))`, that obtains the approvals of each governed entry (a witness signs with `create_did_webvh_witness_proof(log=..., witness_file=..., signer=...)`); without it, changing a witnessed DID raises before anything is stored. Publish `client.export_did_webvh_witness_file(did)` as `did-witness.json` next to `did.jsonl`, before the log. In the adapter, `update_did_webvh_log(witness=REMOVE_WITNESSES)` removes witnessing (`None` keeps the rule).
+- **Changed:** a log that declares witnesses used to be rejected; it now resolves when its `did-witness.json` is available and its approvals reach the thresholds, and fails closed otherwise. Only `WebvhDIDDocumentSource` fetches witness files (`get_did_witness_file_by_reference`); a custom `webvh_document_source` must implement it to resolve witnessed DIDs.
+- **Changed (types):** `DidWebvhMetadata` has `witness_threshold` and `witnesses`; `DidWebvhLogResult`, `DidWebvhResolution` and `DidWebvhState` have `witness_file` (in `DidWebvhState` it comes before `provenance`: pass `provenance` by keyword). `import_did_webvh_history(log, witness_file=None)`, `save_did_webvh_history_to_file(did, path, witness_file_path=None)`, `load_did_webvh_history_from_file(path, witness_file_path=None)`, `persist_did_webvh_history_to_source(did, ref, source, witness_ref=None)` and `restore_did_webvh_history_from_source(ref, source, witness_ref=None)` take the witness file; the save and persist calls raise for a witnessed DID without it.
+- **Timestamps (extra):** `pip install "agent-did-sdk[timestamps]"` (adds `rfc3161-client`, which has no Windows ARM64 wheel). `verify_timestamp_token(token, signature_bytes, trust_anchors=[...])` and `create_timestamp_request(signature_bytes)`; without the extra they raise `ImportError` naming it. `verify_signature_at_time(..., timestamp_token=..., tsa_trust_anchors=[...])` verifies the token over the decoded signature and uses `genTime + accuracy` as `trusted_time_not_after`; both together, or a token without anchors, raise `TypeError`. A rejected token gives `reason="timestamp_invalid"` with `timestamp_rejection`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -398,6 +407,7 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - [ ] Agents that issue delegations or invoke capabilities are created with `additional_verification_relationships`.
 - [ ] Code that reads the controller keys of a revoked did:webvh DID expects an empty list.
 - [ ] Calls to `verify_historical_signature` are replaced with `verify_signature_at_time`, and `indeterminate` is handled as not accepted.
+- [ ] Custom `webvh_document_source` implementations that must resolve witnessed DIDs implement `get_did_witness_file_by_reference`; code that builds `DidWebvhState` positionally passes `provenance` by keyword; verifiers that use RFC 3161 tokens install the `timestamps` extra.
 - [ ] Code that imports `agent_did_sdk.evm` installs `agent-did-evm` and imports `agent_did_evm` instead.
 - [ ] Direct users of the did:webvh adapter read `result.version_number` instead of `result.metadata.version_number`.
 - [ ] Every `sign_http_request` call passes `verification_method_id`.

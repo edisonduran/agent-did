@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,8 +14,10 @@ import httpx
 from nacl.signing import SigningKey
 
 from ..crypto.data_integrity import create_eddsa_jcs_2022_proof, verify_eddsa_jcs_2022_proof
+from ..crypto.ed25519 import decode_signature_hex
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
 from ..crypto.multibase import did_key_from_public_key
+from ..crypto.timestamp import verify_timestamp_token
 from ..http_signatures.verify_request import SignatureCheck, SignatureCheckOutcome, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
@@ -45,8 +47,11 @@ from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSour
 from ..verification.key_at_time import check_did_webvh_key_at_time, parse_rfc3339_millis, signature_result_for_key
 from ..verification.signature import verify_with_active_keys
 from ..webvh.adapter import (
+    REMOVE_WITNESSES,
     DidWebvhError,
     DidWebvhLogResult,
+    DidWebvhWitnessCollector,
+    DidWebvhWitnessConfig,
     compare_did_webvh_logs,
     create_did_webvh_log,
     deactivate_did_webvh_log,
@@ -197,6 +202,10 @@ class AgentDidClientOptions:
     """Time source (timezone-aware ``datetime``). Defaults to ``datetime.now(timezone.utc)``."""
     webvh_domain: str = "agents.local"
     """Domain of the implicit local did:webvh profile."""
+    collect_witness_proofs: DidWebvhWitnessCollector | None = None
+    """Obtains witness approvals for did:webvh entries governed by a witness rule (ADR-007): when the DID was created
+    with ``webvh.witness`` or ``set_did_webvh_witnesses``. Without it, changing such a DID fails before anything is
+    stored."""
 
 
 class AgentDidClient:
@@ -217,9 +226,12 @@ class AgentDidClient:
         self._history_store: dict[str, list[AgentDocumentHistoryEntry]] = {}
         # did:webvh v1.0 logs (did.jsonl) of the DIDs created or imported in this process.
         self._did_webvh_log_store: dict[str, str] = {}
+        # did-witness.json of the stored logs that have witnessed entries (ADR-007), keyed by DID.
+        self._did_webvh_witness_store: dict[str, str] = {}
+        self._collect_witness_proofs: DidWebvhWitnessCollector | None = opts.collect_witness_proofs
         # Deactivation state derived from the verified log, keyed by DID and tied to the exact
         # log text it was computed from. It is recomputed whenever the stored log changes.
-        self._did_webvh_state_cache: dict[str, tuple[str, bool, AnyDidDocument]] = {}
+        self._did_webvh_state_cache: dict[str, tuple[str, str | None, bool, AnyDidDocument]] = {}
         # Controller signers (did:webvh updateKeys) retained for DIDs created in this process.
         self._did_webvh_signer_store: dict[str, AgentSigner] = {}
         # Local bootstrap controllers, keyed by lowercase controller wallet address.
@@ -227,6 +239,14 @@ class AgentDidClient:
         self._bootstrap_controller_locks: dict[str, asyncio.Lock] = {}
         # One lifecycle operation (update, rotation, revocation, import) at a time per DID, so none is lost.
         self._did_locks: dict[str, asyncio.Lock] = {}
+
+    def _store_did_webvh_log(self, did: str, result: DidWebvhLogResult) -> None:
+        """Store a verified log and its witness file (or drop the stale one when the log has none)."""
+        self._did_webvh_log_store[did] = result.log
+        if result.witness_file is not None:
+            self._did_webvh_witness_store[did] = result.witness_file
+        else:
+            self._did_webvh_witness_store.pop(did, None)
 
     def _now_iso_timestamp(self) -> str:
         return normalize_timestamp_to_iso(self._clock().isoformat())  # type: ignore[return-value]
@@ -296,6 +316,7 @@ class AgentDidClient:
         """
         controller_private_key: str | None = None
         next_update_keys: list[str] | None = None
+        witness: DidWebvhWitnessConfig | None = None
         if params.webvh is not None and params.webvh.domain.strip():
             options = self._require_webvh_create_options(params)
             domain = options.domain.strip()
@@ -303,6 +324,7 @@ class AgentDidClient:
             controller_did = options.controller_did.strip()
             controller_signer = options.controller_signer
             next_update_keys = options.next_update_keys
+            witness = options.witness
         else:
             # Only the implicit local profile bootstraps a controller. An explicitly supplied
             # controller DID must be published by its owner; the SDK never fabricates it.
@@ -326,9 +348,11 @@ class AgentDidClient:
             document=template,
             signer=controller_signer,
             next_update_keys=next_update_keys,
+            witness=witness,
+            collect_witness_proofs=self._collect_witness_proofs,
         )
         document = AgentDIDDocument.model_validate(created.state)
-        self._did_webvh_log_store[document.id] = created.log
+        self._store_did_webvh_log(document.id, created)
         self._did_webvh_signer_store[document.id] = controller_signer
 
         self._resolver.register_document(document)
@@ -385,7 +409,7 @@ class AgentDidClient:
             signer=signer,
         )
         document = AgentDIDDocument.model_validate(created.state)
-        self._did_webvh_log_store[document.id] = created.log
+        self._store_did_webvh_log(document.id, created)
         self._did_webvh_signer_store[document.id] = signer
         self._bootstrap_controllers[address] = (document.id, signer)
 
@@ -411,9 +435,13 @@ class AgentDidClient:
         """Append a controller-signed entry with *document* to the DID's log; return the signed state."""
         log, signer = self._require_did_webvh_lifecycle(did, controller_signer)
         updated = await update_did_webvh_log(
-            log=log, signer=signer, document=document.model_dump(by_alias=True, exclude_none=True)
+            log=log,
+            signer=signer,
+            document=document.model_dump(by_alias=True, exclude_none=True),
+            witness_file=self._did_webvh_witness_store.get(did),
+            collect_witness_proofs=self._collect_witness_proofs,
         )
-        self._did_webvh_log_store[did] = updated.log
+        self._store_did_webvh_log(did, updated)
         # With pre-rotation active the signer was a committed key and is now the active controller key.
         if await did_webvh_update_key_for(signer) in updated.metadata.update_keys:
             self._did_webvh_signer_store[did] = signer
@@ -450,7 +478,7 @@ class AgentDidClient:
             raise ValueError(
                 f"No did:webvh log for {did} in this process; import it with import_did_webvh_history first"
             )
-        current = await resolve_did_webvh_log(log, did=did)
+        current = await resolve_did_webvh_log(log, did=did, witness_file=self._did_webvh_witness_store.get(did))
         signer = (
             new_controller_signer
             if current.metadata.next_key_hashes
@@ -460,9 +488,14 @@ class AgentDidClient:
             raise ValueError(f"A controller signer is required to change {did}: pass controller_signer")
         new_key = await did_webvh_update_key_for(new_controller_signer)
         updated = await update_did_webvh_log(
-            log=log, signer=signer, update_keys=[new_key], next_update_keys=next_update_keys
+            log=log,
+            signer=signer,
+            update_keys=[new_key],
+            next_update_keys=next_update_keys,
+            witness_file=self._did_webvh_witness_store.get(did),
+            collect_witness_proofs=self._collect_witness_proofs,
         )
-        self._did_webvh_log_store[did] = updated.log
+        self._store_did_webvh_log(did, updated)
         self._did_webvh_signer_store[did] = new_controller_signer
         return DidWebvhControllerKeys(
             update_keys=list(updated.metadata.update_keys), next_key_hashes=list(updated.metadata.next_key_hashes)
@@ -475,11 +508,49 @@ class AgentDidClient:
             raise ValueError(
                 f"No did:webvh log for {did} in this process; import it with import_did_webvh_history first"
             )
-        resolved = await resolve_did_webvh_log(log, did=did)
+        resolved = await resolve_did_webvh_log(log, did=did, witness_file=self._did_webvh_witness_store.get(did))
         return DidWebvhControllerKeys(
             update_keys=list(resolved.metadata.update_keys),
             next_key_hashes=list(resolved.metadata.next_key_hashes),
         )
+
+    @_one_operation_per_did
+    async def set_did_webvh_witnesses(
+        self,
+        did: str,
+        witness: DidWebvhWitnessConfig | None,
+        *,
+        controller_signer: AgentSigner | None = None,
+    ) -> DidWebvhWitnessConfig:
+        """Set, change or (with ``None``) remove the witnesses of a did:webvh DID (ADR-007) by appending a log entry.
+
+        The witnesses in force approve that entry (through ``AgentDidClientOptions.collect_witness_proofs``); the new
+        rule governs the entries after it. Returns the witness configuration now in force (``threshold`` 0 and no
+        witnesses when removed).
+        """
+        if not did.startswith("did:webvh:"):
+            raise ValueError(f"did:webvh DID is required to set witnesses: {did}")
+        log, signer = self._require_did_webvh_lifecycle(did, controller_signer)
+        updated = await update_did_webvh_log(
+            log=log,
+            signer=signer,
+            witness=witness if witness is not None else REMOVE_WITNESSES,
+            witness_file=self._did_webvh_witness_store.get(did),
+            collect_witness_proofs=self._collect_witness_proofs,
+        )
+        self._store_did_webvh_log(did, updated)
+        return DidWebvhWitnessConfig(
+            threshold=int(updated.metadata.witness_threshold), witnesses=list(updated.metadata.witnesses)
+        )
+
+    def export_did_webvh_witness_file(self, did: str) -> str | None:
+        """The ``did-witness.json`` of a did:webvh DID created, changed or imported in this process, or ``None`` when
+        its log has no witnessed entries. Publish it next to ``did.jsonl``, and before it."""
+        if not did.startswith("did:webvh:") or did not in self._did_webvh_log_store:
+            raise ValueError(
+                f"No did:webvh log for {did} in this process; import it with import_did_webvh_history first"
+            )
+        return self._did_webvh_witness_store.get(did)
 
     async def _resolve_active_verification_chain(self, did: str) -> tuple[AgentDIDDocument, list[AnyDidDocument]]:
         """The agent's document and its controller chain, every link active and (did:webvh) bound. The agent's
@@ -534,6 +605,7 @@ class AgentDidClient:
                 update_keys=fetched.update_keys,
                 last_entry_signer_keys=fetched.last_entry_signer_keys,
                 deactivated=fetched.deactivated,
+                witness_file=fetched.witness_file,
                 provenance="fetched",
             )
         return await self._did_webvh_state_from_log(did, local, "imported") if local is not None else None
@@ -541,7 +613,7 @@ class AgentDidClient:
     async def _did_webvh_state_from_log(
         self, did: str, log: str, provenance: Literal["local", "imported"]
     ) -> DidWebvhState:
-        resolved = await resolve_did_webvh_log(log, did=did)
+        resolved = await resolve_did_webvh_log(log, did=did, witness_file=self._did_webvh_witness_store.get(did))
         return DidWebvhState(
             document=parse_did_document(resolved.state),
             log=resolved.log,
@@ -549,6 +621,7 @@ class AgentDidClient:
             update_keys=list(resolved.metadata.update_keys),
             last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
             deactivated=bool(resolved.metadata.deactivated),
+            witness_file=resolved.witness_file,
             provenance=provenance,
         )
 
@@ -750,6 +823,8 @@ class AgentDidClient:
         stated_time: str,
         required_purpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
         trusted_time_not_after: str | None = None,
+        timestamp_token: bytes | None = None,
+        tsa_trust_anchors: Sequence[bytes | str] | None = None,
     ) -> VerifySignatureAtTimeResult:
         """Verify a signature made with *key_id* at the time the signed artifact states (RFC-001 §6.2.2).
 
@@ -766,7 +841,25 @@ class AgentDidClient:
           trusted time evidence, or no did:webvh log is available for the DID. Do not accept it.
 
         The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
+        With *timestamp_token* (an RFC 3161 token over the raw signature bytes) and *tsa_trust_anchors*, the SDK
+        verifies the token and uses its ``genTime + accuracy`` as the trusted time evidence (ADR-007; needs the
+        ``timestamps`` extra); a token that does not verify gives ``invalid`` / ``timestamp_invalid``.
         """
+        if timestamp_token is not None:
+            if trusted_time_not_after is not None:
+                raise TypeError("Pass either timestamp_token or trusted_time_not_after, not both")
+            if tsa_trust_anchors is None:
+                raise TypeError("timestamp_token needs tsa_trust_anchors")
+            try:
+                signature_bytes = decode_signature_hex(signature)
+            except ValueError:
+                return VerifySignatureAtTimeResult(status="invalid", reason="signature_invalid")
+            timestamp = verify_timestamp_token(timestamp_token, signature_bytes, trust_anchors=tsa_trust_anchors)
+            if timestamp.status == "invalid":
+                return VerifySignatureAtTimeResult(
+                    status="invalid", reason="timestamp_invalid", timestamp_rejection=timestamp.reason
+                )
+            trusted_time_not_after = timestamp.trusted_time_not_after
         try:
             state = await self.resolve_did_webvh_state(did)
         except Exception:  # noqa: BLE001 - any resolution failure fails closed
@@ -790,6 +883,7 @@ class AgentDidClient:
                 required_purpose=required_purpose,
                 did=did,
                 trusted_time_not_after=trusted_time_not_after,
+                witness_file=state.witness_file,
             )
         except DidWebvhError:
             return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed")
@@ -978,12 +1072,13 @@ class AgentDidClient:
         log = self._did_webvh_log_store.get(did)
         if log is None:
             return None
+        witness_file = self._did_webvh_witness_store.get(did)
         cached = self._did_webvh_state_cache.get(did)
-        if cached is not None and cached[0] == log:
-            return cached[1], cached[2]
-        resolved = await resolve_did_webvh_log(log, did=did)
+        if cached is not None and cached[0] == log and cached[1] == witness_file:
+            return cached[2], cached[3]
+        resolved = await resolve_did_webvh_log(log, did=did, witness_file=witness_file)
         document = parse_did_document(resolved.state)
-        self._did_webvh_state_cache[did] = (log, resolved.metadata.deactivated, document)
+        self._did_webvh_state_cache[did] = (log, witness_file, resolved.metadata.deactivated, document)
         return resolved.metadata.deactivated, document
 
     async def resolve_controller_chain(self, did: str, max_depth: int = 8) -> list[AnyDidDocument]:
@@ -1027,8 +1122,13 @@ class AgentDidClient:
         existing = await self.resolve(did)
         if did.startswith("did:webvh:"):
             log, signer = self._require_did_webvh_lifecycle(did, controller_signer)
-            deactivated = await deactivate_did_webvh_log(log=log, signer=signer)
-            self._did_webvh_log_store[did] = deactivated.log
+            deactivated = await deactivate_did_webvh_log(
+                log=log,
+                signer=signer,
+                witness_file=self._did_webvh_witness_store.get(did),
+                collect_witness_proofs=self._collect_witness_proofs,
+            )
+            self._store_did_webvh_log(did, deactivated)
         await self._registry.revoke(did)
         self._append_history(existing, "revoked")
 
@@ -1162,7 +1262,7 @@ class AgentDidClient:
             raise ValueError(f"No document history found for DID: {did}")
         return log
 
-    async def import_did_webvh_history(self, did_log: str) -> AgentDIDDocument:
+    async def import_did_webvh_history(self, did_log: str, witness_file: str | None = None) -> AgentDIDDocument:
         """Verify a did:webvh v1.0 log and load it into this process.
 
         Checks the SCID, hash chain and controller-signed proofs, then loads the latest
@@ -1171,8 +1271,9 @@ class AgentDidClient:
 
         The imported log is a copy of what the log host serves. With a resolver that fetches logs, it is not cached
         as the DID's current document: the next resolution fetches the host's log and the longer of the two wins.
+        *witness_file* is the log's ``did-witness.json``, required when it has witnessed entries (ADR-007).
         """
-        resolved = await resolve_did_webvh_log(did_log)
+        resolved = await resolve_did_webvh_log(did_log, witness_file=witness_file)
         async with self._did_locks.setdefault(resolved.did, asyncio.Lock()):
             return await self._import_resolved_did_webvh_log(resolved)
 
@@ -1193,7 +1294,7 @@ class AgentDidClient:
             )
         if relation == "extends":
             self._history_store[did] = history_from_did_webvh_log(resolved.log)
-            self._did_webvh_log_store[did] = resolved.log
+            self._store_did_webvh_log(did, resolved)
             # The retained controller signer stays only while its key is still one of the log's updateKeys.
             signer = self._did_webvh_signer_store.get(did)
             if signer is not None and await did_webvh_update_key_for(signer) not in resolved.metadata.update_keys:
@@ -1217,32 +1318,60 @@ class AgentDidClient:
 
         return latest
 
-    def save_did_webvh_history_to_file(self, did: str, file_path: str | Path) -> Path:
+    def save_did_webvh_history_to_file(
+        self, did: str, file_path: str | Path, witness_file_path: str | Path | None = None
+    ) -> Path:
+        """Write the DID's ``did.jsonl`` to *file_path*. A DID with witnessed entries also needs *witness_file_path* for
+        its ``did-witness.json`` (written first, as when publishing)."""
         path = Path(file_path)
-        path.write_text(self.export_did_webvh_history(did), encoding="utf-8")
+        log = self.export_did_webvh_history(did)
+        witness_file = self._did_webvh_witness_store.get(did)
+        if witness_file is not None:
+            if witness_file_path is None:
+                raise ValueError(f"{did} has witnessed entries: pass witness_file_path for its did-witness.json")
+            Path(witness_file_path).write_text(witness_file, encoding="utf-8")
+        path.write_text(log, encoding="utf-8")
         return path
 
-    async def load_did_webvh_history_from_file(self, file_path: str | Path) -> AgentDIDDocument:
+    async def load_did_webvh_history_from_file(
+        self, file_path: str | Path, witness_file_path: str | Path | None = None
+    ) -> AgentDIDDocument:
+        """Import a ``did.jsonl`` file, with its ``did-witness.json`` when the log has witnessed entries."""
         path = Path(file_path)
-        return await self.import_did_webvh_history(path.read_text(encoding="utf-8"))
+        witness_file = Path(witness_file_path).read_text(encoding="utf-8") if witness_file_path is not None else None
+        return await self.import_did_webvh_history(path.read_text(encoding="utf-8"), witness_file)
 
     async def persist_did_webvh_history_to_source(
         self,
         did: str,
         document_ref: str,
         source: DIDDocumentSource,
+        witness_ref: str | None = None,
     ) -> None:
+        """Store the DID's log in *source* under *document_ref*. A DID with witnessed entries also needs *witness_ref*,
+        where its ``did-witness.json`` is stored first."""
         store = getattr(source, "store_did_log_by_reference", None)
         if store is None:
             raise ValueError("DIDDocumentSource does not support did:webvh log persistence")
+        log = self.export_did_webvh_history(did)
+        witness_file = self._did_webvh_witness_store.get(did)
+        if witness_file is not None:
+            store_witness = getattr(source, "store_did_witness_file_by_reference", None)
+            if witness_ref is None or store_witness is None:
+                raise ValueError(
+                    f"{did} has witnessed entries: pass witness_ref and a source that stores did-witness.json"
+                )
+            await store_witness(witness_ref, witness_file)
 
-        await store(document_ref, self.export_did_webvh_history(did))
+        await store(document_ref, log)
 
     async def restore_did_webvh_history_from_source(
         self,
         document_ref: str,
         source: DIDDocumentSource,
+        witness_ref: str | None = None,
     ) -> AgentDIDDocument:
+        """Import a log from *source*, with its ``did-witness.json`` from *witness_ref* when given."""
         loader = getattr(source, "get_did_log_by_reference", None)
         if loader is None:
             raise ValueError("DIDDocumentSource does not support did:webvh log retrieval")
@@ -1250,8 +1379,16 @@ class AgentDidClient:
         did_log = await loader(document_ref)
         if not did_log:
             raise ValueError(f"did:webvh DID log not found for reference: {document_ref}")
+        witness_file: str | None = None
+        if witness_ref is not None:
+            load_witness = getattr(source, "get_did_witness_file_by_reference", None)
+            if load_witness is None:
+                raise ValueError("DIDDocumentSource does not support did:webvh witness file retrieval")
+            witness_file = await load_witness(witness_ref)
+            if witness_file is None:
+                raise ValueError(f"did:webvh witness file not found for reference: {witness_ref}")
 
-        return await self.import_did_webvh_history(did_log)
+        return await self.import_did_webvh_history(did_log, witness_file)
 
     # ------------------------------------------------------------------
     # Configuration class methods
@@ -1272,6 +1409,7 @@ class AgentDidClient:
                 webvh_document_source=config.webvh_document_source,
                 fallback_resolver=self._resolver,
                 did_webvh_local_log=self._did_webvh_log_store.get,
+                did_webvh_local_witness_file=self._did_webvh_witness_store.get,
                 cache_ttl_ms=config.cache_ttl_ms or 60_000,
                 max_cache_entries=(
                     DEFAULT_RESOLVER_MAX_CACHE_ENTRIES if config.max_cache_entries is None else config.max_cache_entries

@@ -47,6 +47,9 @@ import {
   didWebvhLastEntrySigners,
   DidWebvhError,
   deactivateDidWebvhLog,
+  DidWebvhLogResult,
+  DidWebvhWitnessCollector,
+  DidWebvhWitnessConfig,
   didWebvhUpdateKeyFor,
   resolveDidWebvhLog,
   updateDidWebvhLog
@@ -70,6 +73,8 @@ import {
 } from '../lifecycle/documents';
 import { verifyWithActiveKeys } from '../verification/signature';
 import { checkDidWebvhKeyAtTime, parseRfc3339Millis, signatureResultForKey } from '../verification/key-at-time';
+import { verifyTimestampToken } from '../crypto/timestamp';
+import { decodeSignatureHex } from '../crypto/ed25519-verify';
 import { SignatureCheck, SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
 import {
   compositionReasonForKey,
@@ -192,6 +197,11 @@ export interface AgentDidClientOptions {
   clock?: () => Date;
   /** Domain of the implicit local did:webvh profile. Defaults to `agents.local`. */
   webvhDomain?: string;
+  /**
+   * Obtains witness approvals for did:webvh entries governed by a witness rule (ADR-007): when the DID was created
+   * with `webvh.witness` or `setDidWebvhWitnesses`. Without it, changing such a DID fails before anything is stored.
+   */
+  collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 
 /**
@@ -208,11 +218,17 @@ export class AgentDidClient {
   private readonly documentHistoryStore: Map<string, AgentDocumentHistoryEntry[]> = new Map();
   /** did:webvh v1.0 logs (`did.jsonl`) of the DIDs created or imported in this process. */
   private readonly didWebvhLogStore: Map<string, string> = new Map();
+  /** `did-witness.json` of the stored logs that have witnessed entries (ADR-007), keyed by DID. */
+  private readonly didWebvhWitnessStore: Map<string, string> = new Map();
+  private readonly collectWitnessProofs: DidWebvhWitnessCollector | undefined;
   /**
    * Deactivation state derived from the verified log, keyed by DID and tied to the exact
    * log text it was computed from. It is recomputed whenever the stored log changes.
    */
-  private readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean; document: DidDocument }> = new Map();
+  private readonly didWebvhStateCache: Map<
+    string,
+    { log: string; witnessFile: string | undefined; deactivated: boolean; document: DidDocument }
+  > = new Map();
   /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
   private readonly didWebvhSignerStore: Map<string, AgentSigner> = new Map();
   /** Local bootstrap controllers, keyed by the creator's did:key. */
@@ -229,6 +245,32 @@ export class AgentDidClient {
     this.nonceStore = options.nonceStore ?? new InMemoryNonceStore({ now: () => Math.floor(this.clock().getTime() / 1000) });
     this.clock = options.clock ?? (() => new Date());
     this.defaultWebvhDomain = options.webvhDomain ?? 'agents.local';
+    this.collectWitnessProofs = options.collectWitnessProofs;
+  }
+
+  /** Stores a verified log and its witness file (or drops the stale one when the log has none). */
+  private storeDidWebvhLog(did: string, result: Pick<DidWebvhLogResult, 'log' | 'witnessFile'>): void {
+    this.didWebvhLogStore.set(did, result.log);
+    if (result.witnessFile !== undefined) {
+      this.didWebvhWitnessStore.set(did, result.witnessFile);
+    } else {
+      this.didWebvhWitnessStore.delete(did);
+    }
+  }
+
+  /** The stored witness file of `did` and the client's collector, as adapter options. */
+  private didWebvhWitnessOptions(did: string): { witnessFile?: string; collectWitnessProofs?: DidWebvhWitnessCollector } {
+    const witnessFile = this.didWebvhWitnessStore.get(did);
+    return {
+      ...(witnessFile !== undefined ? { witnessFile } : {}),
+      ...(this.collectWitnessProofs ? { collectWitnessProofs: this.collectWitnessProofs } : {})
+    };
+  }
+
+  /** The stored witness file of `did`, as a `resolveDidWebvhLog` option. */
+  private storedWitnessFileOption(did: string): { witnessFile?: string } {
+    const witnessFile = this.didWebvhWitnessStore.get(did);
+    return witnessFile !== undefined ? { witnessFile } : {};
   }
 
   private nowIsoTimestamp(): string {
@@ -311,6 +353,7 @@ export class AgentDidClient {
     let controllerSigner: AgentSigner;
     let controllerPrivateKey: string | undefined;
     let nextUpdateKeys: string[] | undefined;
+    let witness: DidWebvhWitnessConfig | undefined;
 
     if (params.webvh?.domain?.trim()) {
       const options = this.requireWebvhCreateOptions(params);
@@ -319,6 +362,7 @@ export class AgentDidClient {
       controllerDid = options.controllerDid.trim();
       controllerSigner = options.controllerSigner;
       nextUpdateKeys = options.nextUpdateKeys;
+      witness = options.witness;
     } else {
       // Only the implicit local profile bootstraps a controller. An explicitly supplied
       // controller DID must be published by its owner; the SDK never fabricates it.
@@ -343,10 +387,12 @@ export class AgentDidClient {
       pathSegments,
       document: template,
       signer: controllerSigner,
-      ...(nextUpdateKeys !== undefined ? { nextUpdateKeys } : {})
+      ...(nextUpdateKeys !== undefined ? { nextUpdateKeys } : {}),
+      ...(witness !== undefined ? { witness } : {}),
+      ...(this.collectWitnessProofs ? { collectWitnessProofs: this.collectWitnessProofs } : {})
     });
     const document = cloneDocument(created.state as unknown as AgentDIDDocument);
-    this.didWebvhLogStore.set(document.id, created.log);
+    this.storeDidWebvhLog(document.id, created);
     this.didWebvhSignerStore.set(document.id, controllerSigner);
 
     this.resolver.registerDocument(document);
@@ -445,7 +491,7 @@ export class AgentDidClient {
       signer
     });
     const document = cloneDocument(created.state as unknown as AgentDIDDocument);
-    this.didWebvhLogStore.set(document.id, created.log);
+    this.storeDidWebvhLog(document.id, created);
     this.didWebvhSignerStore.set(document.id, signer);
     this.bootstrapControllers.set(address, { did: document.id, signer });
 
@@ -466,8 +512,13 @@ export class AgentDidClient {
     controllerSigner?: AgentSigner
   ): Promise<AgentDIDDocument> {
     const { log, signer } = this.requireDidWebvhLifecycle(did, controllerSigner);
-    const updated = await updateDidWebvhLog({ log, signer, document: document as unknown as Record<string, unknown> });
-    this.didWebvhLogStore.set(did, updated.log);
+    const updated = await updateDidWebvhLog({
+      log,
+      signer,
+      document: document as unknown as Record<string, unknown>,
+      ...this.didWebvhWitnessOptions(did)
+    });
+    this.storeDidWebvhLog(did, updated);
     // With pre-rotation active the signer was a committed key and is now the active controller key.
     if (updated.metadata.updateKeys.includes(await didWebvhUpdateKeyFor(signer))) {
       this.didWebvhSignerStore.set(did, signer);
@@ -559,7 +610,7 @@ export class AgentDidClient {
     log: string,
     provenance: DidWebvhState['provenance']
   ): Promise<DidWebvhState> {
-    const resolved = await resolveDidWebvhLog(log, { did });
+    const resolved = await resolveDidWebvhLog(log, { did, ...this.storedWitnessFileOption(did) });
     assertDidDocument(resolved.state, `The did:webvh state of ${did}`);
     return {
       document: cloneDocument(resolved.state),
@@ -568,6 +619,7 @@ export class AgentDidClient {
       updateKeys: [...resolved.metadata.updateKeys],
       lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log),
       deactivated: resolved.metadata.deactivated,
+      ...(resolved.witnessFile !== undefined ? { witnessFile: resolved.witnessFile } : {}),
       provenance
     };
   }
@@ -767,7 +819,10 @@ export class AgentDidClient {
    * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
    *   time evidence, or no did:webvh log is available for the DID. Do not accept it.
    *
-   * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
+   * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone. With
+   * `timestampToken` (an RFC 3161 token over the raw signature bytes) and `tsaTrustAnchors`, the SDK verifies the
+   * token and uses its `genTime + accuracy` as the trusted time evidence (ADR-007); a token that does not verify gives
+   * `invalid` / `timestamp_invalid`.
    */
   public async verifySignatureAtTime(
     did: string,
@@ -776,6 +831,26 @@ export class AgentDidClient {
     keyId: string,
     options: VerifySignatureAtTimeOptions
   ): Promise<VerifySignatureAtTimeResult> {
+    const { timestampToken, tsaTrustAnchors, ...keyOptions } = options;
+    if (timestampToken !== undefined) {
+      if (keyOptions.trustedTimeNotAfter !== undefined) {
+        throw new TypeError('Pass either timestampToken or trustedTimeNotAfter, not both');
+      }
+      if (tsaTrustAnchors === undefined) {
+        throw new TypeError('timestampToken needs tsaTrustAnchors');
+      }
+      let signatureBytes: Uint8Array;
+      try {
+        signatureBytes = decodeSignatureHex(signature);
+      } catch {
+        return { status: 'invalid', reason: 'signature_invalid' };
+      }
+      const timestamp = await verifyTimestampToken(timestampToken, signatureBytes, { trustAnchors: tsaTrustAnchors });
+      if (timestamp.status === 'invalid') {
+        return { status: 'invalid', reason: 'timestamp_invalid', timestampRejection: timestamp.reason };
+      }
+      keyOptions.trustedTimeNotAfter = timestamp.trustedTimeNotAfter;
+    }
     let state: DidWebvhState | undefined;
     try {
       state = await this.resolveDidWebvhState(did);
@@ -791,7 +866,12 @@ export class AgentDidClient {
     }
     let key;
     try {
-      key = await checkDidWebvhKeyAtTime(state.log, { ...options, did, keyId });
+      key = await checkDidWebvhKeyAtTime(state.log, {
+        ...keyOptions,
+        did,
+        keyId,
+        ...(state.witnessFile !== undefined ? { witnessFile: state.witnessFile } : {})
+      });
     } catch (error) {
       if (error instanceof TypeError) {
         throw error;
@@ -1029,14 +1109,16 @@ export class AgentDidClient {
     if (log === undefined) {
       return undefined;
     }
+    const witnessFile = this.didWebvhWitnessStore.get(did);
     const cached = this.didWebvhStateCache.get(did);
-    if (cached?.log === log) {
+    if (cached?.log === log && cached.witnessFile === witnessFile) {
       return cached;
     }
-    const resolved = await resolveDidWebvhLog(log, { did });
+    const resolved = await resolveDidWebvhLog(log, { did, ...this.storedWitnessFileOption(did) });
     assertDidDocument(resolved.state, `The did:webvh state of ${did}`);
     const state = {
       log,
+      witnessFile,
       deactivated: resolved.metadata.deactivated,
       document: cloneDocument(resolved.state)
     };
@@ -1093,8 +1175,8 @@ export class AgentDidClient {
     const existing = await this.resolve(did);
     if (did.startsWith('did:webvh:')) {
       const { log, signer } = this.requireDidWebvhLifecycle(did, options.controllerSigner);
-      const deactivated = await deactivateDidWebvhLog({ log, signer });
-      this.didWebvhLogStore.set(did, deactivated.log);
+      const deactivated = await deactivateDidWebvhLog({ log, signer, ...this.didWebvhWitnessOptions(did) });
+      this.storeDidWebvhLog(did, deactivated);
     }
     await this.registry.revoke(did);
     this.appendHistory(existing, 'revoked');
@@ -1273,7 +1355,7 @@ export class AgentDidClient {
     if (!log) {
       throw new Error(`No did:webvh log for ${did} in this process; import it with importDidWebvhHistory first`);
     }
-    const current = await resolveDidWebvhLog(log, { did });
+    const current = await resolveDidWebvhLog(log, { did, ...this.storedWitnessFileOption(did) });
     const signer = current.metadata.nextKeyHashes.length > 0
       ? options.newControllerSigner
       : options.controllerSigner ?? this.didWebvhSignerStore.get(did);
@@ -1285,9 +1367,10 @@ export class AgentDidClient {
       log,
       signer,
       updateKeys: [newKey],
-      ...(options.nextUpdateKeys !== undefined ? { nextUpdateKeys: options.nextUpdateKeys } : {})
+      ...(options.nextUpdateKeys !== undefined ? { nextUpdateKeys: options.nextUpdateKeys } : {}),
+      ...this.didWebvhWitnessOptions(did)
     });
-    this.didWebvhLogStore.set(did, updated.log);
+    this.storeDidWebvhLog(did, updated);
     this.didWebvhSignerStore.set(did, options.newControllerSigner);
     return { updateKeys: [...updated.metadata.updateKeys], nextKeyHashes: [...updated.metadata.nextKeyHashes] };
   }
@@ -1298,8 +1381,43 @@ export class AgentDidClient {
     if (!did.startsWith('did:webvh:') || !log) {
       throw new Error(`No did:webvh log for ${did} in this process; import it with importDidWebvhHistory first`);
     }
-    const { metadata } = await resolveDidWebvhLog(log, { did });
+    const { metadata } = await resolveDidWebvhLog(log, { did, ...this.storedWitnessFileOption(did) });
     return { updateKeys: [...metadata.updateKeys], nextKeyHashes: [...metadata.nextKeyHashes] };
+  }
+
+  /**
+   * Sets, changes or (with `null`) removes the witnesses of a did:webvh DID (ADR-007) by appending a log entry. The
+   * witnesses in force approve that entry (through `AgentDidClientOptions.collectWitnessProofs`); the new rule
+   * governs the entries after it. Returns the witness configuration now in force.
+   */
+  public async setDidWebvhWitnesses(
+    did: string,
+    witness: DidWebvhWitnessConfig | null,
+    options: DidWebvhLifecycleOptions = {}
+  ): Promise<{ threshold: number; witnesses: string[] }> {
+    return this.withDidLock(did, async () => {
+      if (!did.startsWith('did:webvh:')) {
+        throw new Error(`did:webvh DID is required to set witnesses: ${did}`);
+      }
+      const { log, signer } = this.requireDidWebvhLifecycle(did, options.controllerSigner);
+      const updated = await updateDidWebvhLog({ log, signer, witness, ...this.didWebvhWitnessOptions(did) });
+      this.storeDidWebvhLog(did, updated);
+      return {
+        threshold: Number(updated.metadata.witnessThreshold),
+        witnesses: [...updated.metadata.witnesses]
+      };
+    });
+  }
+
+  /**
+   * The `did-witness.json` of a did:webvh DID created, changed or imported in this process, or `undefined` when its
+   * log has no witnessed entries. Publish it next to `did.jsonl`, and before it.
+   */
+  public exportDidWebvhWitnessFile(did: string): string | undefined {
+    if (!did.startsWith('did:webvh:') || !this.didWebvhLogStore.has(did)) {
+      throw new Error(`No did:webvh log for ${did} in this process; import it with importDidWebvhHistory first`);
+    }
+    return this.didWebvhWitnessStore.get(did);
   }
 
   public getDocumentHistory(did: string): AgentDocumentHistoryEntry[] {
@@ -1327,8 +1445,8 @@ export class AgentDidClient {
    * The imported log is a copy of what the log host serves. With a resolver that fetches logs, it is not cached
    * as the DID's current document: the next resolution fetches the host's log and the longer of the two wins.
    */
-  public async importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument> {
-    const resolved = await resolveDidWebvhLog(didLog);
+  public async importDidWebvhHistory(didLog: string, witnessFile?: string): Promise<AgentDIDDocument> {
+    const resolved = await resolveDidWebvhLog(didLog, witnessFile !== undefined ? { witnessFile } : {});
     return this.withDidLock(resolved.did, () => this.importResolvedDidWebvhLog(resolved));
   }
 
@@ -1352,7 +1470,7 @@ export class AgentDidClient {
     }
     if (relation === 'extends') {
       this.documentHistoryStore.set(did, historyFromDidWebvhLog(resolved.log));
-      this.didWebvhLogStore.set(did, resolved.log);
+      this.storeDidWebvhLog(did, resolved);
       // The retained controller signer stays only while its key is still one of the log's updateKeys.
       const signer = this.didWebvhSignerStore.get(did);
       if (signer && !resolved.metadata.updateKeys.includes(await didWebvhUpdateKeyFor(signer))) {
@@ -1379,32 +1497,61 @@ export class AgentDidClient {
     return latestDocument;
   }
 
-  public async saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void> {
+  /**
+   * Writes the DID's `did.jsonl` to `filePath`. A DID with witnessed entries also needs `witnessFilePath` for its
+   * `did-witness.json` (written first, as when publishing).
+   */
+  public async saveDidWebvhHistoryToFile(did: string, filePath: string, witnessFilePath?: string): Promise<void> {
     const fs = await import('node:fs/promises');
-    await fs.writeFile(filePath, this.exportDidWebvhHistory(did), 'utf8');
+    const log = this.exportDidWebvhHistory(did);
+    const witnessFile = this.didWebvhWitnessStore.get(did);
+    if (witnessFile !== undefined) {
+      if (witnessFilePath === undefined) {
+        throw new Error(`${did} has witnessed entries: pass witnessFilePath for its did-witness.json`);
+      }
+      await fs.writeFile(witnessFilePath, witnessFile, 'utf8');
+    }
+    await fs.writeFile(filePath, log, 'utf8');
   }
 
-  public async loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument> {
+  /** Imports a `did.jsonl` file, with its `did-witness.json` when the log has witnessed entries. */
+  public async loadDidWebvhHistoryFromFile(filePath: string, witnessFilePath?: string): Promise<AgentDIDDocument> {
     const fs = await import('node:fs/promises');
     const didLog = await fs.readFile(filePath, 'utf8');
-    return this.importDidWebvhHistory(didLog);
+    const witnessFile = witnessFilePath !== undefined ? await fs.readFile(witnessFilePath, 'utf8') : undefined;
+    return this.importDidWebvhHistory(didLog, witnessFile);
   }
 
+  /**
+   * Stores the DID's log in `source` under `documentRef`. A DID with witnessed entries also needs `witnessRef`, where
+   * its `did-witness.json` is stored first.
+   */
   public async persistDidWebvhHistoryToSource(
     did: string,
     documentRef: string,
-    source: DIDDocumentSource
+    source: DIDDocumentSource,
+    witnessRef?: string
   ): Promise<void> {
     if (!source.storeDidLogByReference) {
       throw new Error('DIDDocumentSource does not support did:webvh log persistence');
     }
+    const log = this.exportDidWebvhHistory(did);
+    const witnessFile = this.didWebvhWitnessStore.get(did);
+    if (witnessFile !== undefined) {
+      if (witnessRef === undefined || !source.storeDidWitnessFileByReference) {
+        throw new Error(`${did} has witnessed entries: pass witnessRef and a source that stores did-witness.json`);
+      }
+      await source.storeDidWitnessFileByReference(witnessRef, witnessFile);
+    }
 
-    await source.storeDidLogByReference(documentRef, this.exportDidWebvhHistory(did));
+    await source.storeDidLogByReference(documentRef, log);
   }
 
+  /** Imports a log from `source`, with its `did-witness.json` from `witnessRef` when given. */
   public async restoreDidWebvhHistoryFromSource(
     documentRef: string,
-    source: DIDDocumentSource
+    source: DIDDocumentSource,
+    witnessRef?: string
   ): Promise<AgentDIDDocument> {
     if (!source.getDidLogByReference) {
       throw new Error('DIDDocumentSource does not support did:webvh log retrieval');
@@ -1414,8 +1561,18 @@ export class AgentDidClient {
     if (!didLog) {
       throw new Error(`did:webvh DID log not found for reference: ${documentRef}`);
     }
+    let witnessFile: string | undefined;
+    if (witnessRef !== undefined) {
+      if (!source.getDidWitnessFileByReference) {
+        throw new Error('DIDDocumentSource does not support did:webvh witness file retrieval');
+      }
+      witnessFile = (await source.getDidWitnessFileByReference(witnessRef)) ?? undefined;
+      if (witnessFile === undefined) {
+        throw new Error(`did:webvh witness file not found for reference: ${witnessRef}`);
+      }
+    }
 
-    return this.importDidWebvhHistory(didLog);
+    return this.importDidWebvhHistory(didLog, witnessFile);
   }
 
   public setResolver(resolver: DIDResolver): void {
@@ -1434,6 +1591,7 @@ export class AgentDidClient {
       webvhDocumentSource: config.webvhDocumentSource,
       fallbackResolver: this.resolver,
       didWebvhLocalLog: (did) => this.didWebvhLogStore.get(did),
+      didWebvhLocalWitnessFile: (did) => this.didWebvhWitnessStore.get(did),
       cacheTtlMs: config.cacheTtlMs,
       maxCacheEntries: config.maxCacheEntries,
       onResolutionEvent: config.onResolutionEvent,

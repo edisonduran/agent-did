@@ -26,6 +26,8 @@ class DidWebvhResolution:
     """Multikeys (``z6Mk...``) that signed the last entry: the keys that endorsed the current document."""
     deactivated: bool = False
     """``True`` when the log ends in a deactivation entry."""
+    witness_file: str | None = None
+    """The ``did-witness.json`` that approves the log, when it has witnessed entries (ADR-007)."""
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,11 @@ class DIDResolver(Protocol):
 
 @runtime_checkable
 class DIDDocumentSource(Protocol):
+    """A document source. A source that serves did:webvh logs may also implement
+    ``async get_did_witness_file_by_reference(ref) -> str | None`` (the raw ``did-witness.json`` of a log, ADR-007) and
+    ``async store_did_witness_file_by_reference(ref, text) -> None``. Without the first, a log with witnessed entries
+    cannot be resolved through the source (fail closed)."""
+
     async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None: ...
     async def get_did_log_by_reference(self, document_ref: str) -> str | None: ...
     async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None: ...
@@ -141,6 +148,8 @@ class UniversalResolverConfig:
     """Returns the did:webvh log the caller already holds for a DID (``AgentDidClient`` passes its imported
     logs). A fetched log must equal it, extend it or be a prefix of it; when it is a prefix the longer local
     log wins (a stale host never rolls the DID back), and a log that diverges is an integrity failure."""
+    did_webvh_local_witness_file: Callable[[str], str | None] | None = None
+    """The ``did-witness.json`` that goes with ``did_webvh_local_log(did)``, when that log has witnessed entries."""
     cache_ttl_ms: int = 60_000
     max_cache_entries: int = DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
     """Maximum documents kept in the cache. When it is full, expired entries are dropped first and
