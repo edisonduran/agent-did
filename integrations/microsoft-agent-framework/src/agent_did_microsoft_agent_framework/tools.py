@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from ipaddress import ip_address
 from typing import Any, Literal, Protocol
-from urllib.parse import urlparse
 
-from agent_did_sdk import AgentIdentity, SignHttpRequestParams
+from agent_did_sdk import AgentIdentity, HttpTargetValidationOptions, SignHttpRequestParams, validate_http_target
 from agent_framework import FunctionTool, tool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -126,38 +124,6 @@ def _emit_tool_failed(
         level="error",
         attributes={"tool_name": tool_name, "did": did, "inputs": inputs or {}, "error": str(error)},
     )
-
-
-def _validate_http_target(url: str, allow_private_network_targets: bool) -> None:
-    parsed_url = urlparse(url)
-    if parsed_url.scheme not in {"http", "https"}:
-        raise ValueError("Only http and https URLs are allowed")
-    if parsed_url.username or parsed_url.password:
-        raise ValueError("URLs with embedded credentials are not allowed")
-
-    hostname = parsed_url.hostname
-    if not hostname:
-        raise ValueError("An absolute URL with hostname is required")
-
-    normalized_hostname = hostname.lower()
-    if not allow_private_network_targets:
-        if normalized_hostname == "localhost" or normalized_hostname.endswith(".localhost"):
-            raise ValueError("Private or loopback HTTP targets are not allowed by default")
-
-        try:
-            parsed_ip = ip_address(normalized_hostname)
-        except ValueError:
-            return
-
-        if (
-            parsed_ip.is_private
-            or parsed_ip.is_loopback
-            or parsed_ip.is_link_local
-            or parsed_ip.is_multicast
-            or parsed_ip.is_reserved
-            or parsed_ip.is_unspecified
-        ):
-            raise ValueError("Private or loopback HTTP targets are not allowed by default")
 
 
 def create_agent_framework_tools(
@@ -291,7 +257,9 @@ def create_agent_framework_tools(
             inputs = {"method": method, "url": url, "body": body}
             _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs=inputs)
             try:
-                _validate_http_target(url, allow_private_network_targets)
+                validate_http_target(
+                    url, HttpTargetValidationOptions(allow_private_targets=allow_private_network_targets)
+                )
                 key_id = get_active_signing_key_id(runtime_identity)
                 if key_id is None:
                     raise ValueError("The runtime identity has no active assertionMethod key to sign with")

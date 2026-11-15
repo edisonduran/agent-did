@@ -245,6 +245,12 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
 - `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
 
+## 30. Integrations share the SDK's sanitizer and target policy
+
+- Integration events are sanitized by the SDK's `sanitizeObservabilityAttributes`. A redacted value is always `{"redacted": true, "length": n}`, also for sensitive headers (they were the string `"<redacted>"` in some integrations). Log parsers or alerts that matched `"<redacted>"` must match the marker.
+- LangChain JS no longer exports `REDACTED_VALUE`; compare with `isRedactedMarker(value)` instead.
+- The signing tools of the integrations validate the target URL with the SDK policy: the error messages are now `Unsupported protocol: …` and `Blocked request to private/reserved address: …`, and every non-global address range is refused, not only loopback and private ones.
+
 
 ## Checklist
 

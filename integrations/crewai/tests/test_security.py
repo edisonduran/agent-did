@@ -42,7 +42,7 @@ async def test_sensitive_tools_are_opt_in_and_http_validation_is_enforced() -> N
     )
 
     assert "error" in rejected
-    assert "http" in rejected["error"].lower()
+    assert "unsupported protocol" in rejected["error"].lower()
 
 
 @pytest.mark.asyncio

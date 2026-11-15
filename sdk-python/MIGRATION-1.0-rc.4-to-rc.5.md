@@ -276,6 +276,12 @@ client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
 - `agent-did-sdk` requires `did-webvh==1.0.1` exactly. An environment that installed another 1.0.x release of `did-webvh` gets 1.0.1.
 - Python 3.13 and 3.14 are tested and listed in the classifiers.
 
+## 30. Integrations share the SDK's sanitizer and target policy
+
+- Integration events are sanitized by the SDK's `sanitize_observability_attributes`. A redacted value is always `{"redacted": true, "length": n}`, also for sensitive headers (they were the string `"<redacted>"` in some integrations). Log parsers or alerts that matched `"<redacted>"` must match the marker.
+- CrewAI, LangChain, A2A: a sensitive field that is not a string (a dict, a list, a number) is now redacted too.
+- The signing tools of the integrations validate the target URL with the SDK policy: the error messages are now `Unsupported protocol: …` and `Blocked request to private/reserved address: …`, and every non-global address range is refused, not only loopback and private ones.
+
 
 ## Checklist
 

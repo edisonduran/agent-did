@@ -201,3 +201,15 @@ export {
   requestUrlFormProblem,
   serializeSignatureInput
 } from './core/http-signatures';
+
+export {
+  SENSITIVE_FIELD_NAMES,
+  SENSITIVE_HEADER_NAMES,
+  RedactedValue,
+  isRedactedMarker,
+  isSensitiveFieldName,
+  redactValue,
+  sanitizeHeaders,
+  sanitizeObservabilityAttributes,
+  sanitizeUrl
+} from './core/observability';

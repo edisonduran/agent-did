@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "description": "Cross-SDK vectors for sanitizeObservabilityAttributes / sanitize_observability_attributes: both SDKs must turn each `input` into exactly `expected`. Sensitive field names match in any of camelCase, snake_case and kebab-case and are redacted whatever the value type; `url` loses user information, query and fragment; sensitive headers are redacted.",
+  "vectors": [
+    {
+      "id": "flat-sensitive-fields",
+      "input": { "payload": "hello", "signature": "abcd", "did": "did:webvh:Qm:example.com", "count": 3 },
+      "expected": { "payload": { "redacted": true, "length": 5 }, "signature": { "redacted": true, "length": 4 }, "did": "did:webvh:Qm:example.com", "count": 3 }
+    },
+    {
+      "id": "sensitive-field-any-type",
+      "input": { "payload": { "card": "4111 1111 1111 1111" }, "body": ["a", "b"], "token": 12345, "seed": null },
+      "expected": { "payload": { "redacted": true, "length": 1 }, "body": { "redacted": true, "length": 2 }, "token": { "redacted": true, "length": 5 }, "seed": { "redacted": true, "length": 0 } }
+    },
+    {
+      "id": "spellings",
+      "input": { "privateKey": "k", "agent_private_key": "k", "api-key": "k", "Authorization": "Bearer x", "signedPayload": "p", "client_secret": "s" },
+      "expected": { "privateKey": { "redacted": true, "length": 1 }, "agent_private_key": { "redacted": true, "length": 1 }, "api-key": { "redacted": true, "length": 1 }, "Authorization": { "redacted": true, "length": 8 }, "signedPayload": { "redacted": true, "length": 1 }, "client_secret": { "redacted": true, "length": 1 } }
+    },
+    {
+      "id": "nested",
+      "input": { "event": { "items": [ { "payload": "x" }, { "name": "ok", "deeper": { "password": "pw" } } ] } },
+      "expected": { "event": { "items": [ { "payload": { "redacted": true, "length": 1 } }, { "name": "ok", "deeper": { "password": { "redacted": true, "length": 2 } } } ] } }
+    },
+    {
+      "id": "url",
+      "input": { "url": "https://user:pass@api.example.com:8443/v1/run?token=abc#frag", "endpoint": "https://api.example.com/?q=1" },
+      "expected": { "url": "https://api.example.com:8443/v1/run", "endpoint": "https://api.example.com/?q=1" }
+    },
+    {
+      "id": "headers",
+      "input": { "headers": { "Authorization": "Bearer abc", "Signature": "sig1=:AA==:", "Signature-Input": "sig1=()", "Content-Type": "application/json", "x-api-key": "k" } },
+      "expected": { "headers": { "Authorization": { "redacted": true, "length": 10 }, "Signature": { "redacted": true, "length": 11 }, "Signature-Input": { "redacted": true, "length": 7 }, "Content-Type": "application/json", "x-api-key": { "redacted": true, "length": 1 } } }
+    },
+    {
+      "id": "redacted-marker-kept",
+      "input": { "payload": { "redacted": true, "length": 42 } },
+      "expected": { "payload": { "redacted": true, "length": 42 } }
+    },
+    {
+      "id": "scalars",
+      "input": { "ok": true, "n": 1.5, "none": null, "s": "text", "list": [1, "two", false] },
+      "expected": { "ok": true, "n": 1.5, "none": null, "s": "text", "list": [1, "two", false] }
+    }
+  ]
+}

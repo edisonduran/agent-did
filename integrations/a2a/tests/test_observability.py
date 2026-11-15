@@ -25,14 +25,14 @@ def test_sanitize_observability_attributes_redacts_sensitive() -> None:
     sanitized = sanitize_observability_attributes(attrs)
 
     assert sanitized["did"] == "did:agent:0x123"
-    assert sanitized["private_key"] == "<redacted>"
+    assert sanitized["private_key"] == {"redacted": True, "length": 16}
     # URL credentials stripped
     assert "user" not in sanitized["url"]
     assert "password" not in sanitized["url"]
     # Headers
     assert sanitized["headers"]["content-type"] == "application/json"
-    assert sanitized["headers"]["authorization"] == "<redacted>"
-    assert sanitized["headers"]["signature"] == "<redacted>"
+    assert sanitized["headers"]["authorization"] == {"redacted": True, "length": 15}
+    assert sanitized["headers"]["signature"] == {"redacted": True, "length": 9}
 
 
 def test_serialize_observability_event_includes_required_fields() -> None:

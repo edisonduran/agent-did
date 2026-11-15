@@ -130,8 +130,8 @@ async def test_tool_failure_event_emits_sanitized_error_context() -> None:
     assert result["error"]
     assert failed_event.level == "error"
     assert failed_event.attributes["inputs"]["body"] == {"redacted": True, "length": 12}
-    assert failed_event.attributes["inputs"]["url"] == "file:///tmp/secret"
-    assert "http" in failed_event.attributes["error"].lower()
+    assert failed_event.attributes["inputs"]["url"] == "<invalid url>"  # no host: nothing of it is logged
+    assert "unsupported protocol" in failed_event.attributes["error"].lower()
 
 
 def test_compose_event_handlers_fans_out_to_all_handlers() -> None:

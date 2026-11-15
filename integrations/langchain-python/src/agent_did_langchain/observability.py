@@ -8,24 +8,18 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
-REDACTED_VALUE = "<redacted>"
-SENSITIVE_FIELD_NAMES = {
-    "agent_private_key",
-    "body",
-    "payload",
-    "signature",
-}
-SENSITIVE_HEADER_NAMES = {
-    "authorization",
-    "cookie",
-    "proxy-authorization",
-    "set-cookie",
-    "signature",
-    "signature-input",
-    "x-api-key",
-}
+from agent_did_sdk import sanitize_observability_attributes as _sdk_sanitize_observability_attributes
+
+
+def sanitize_observability_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
+    """Redact sensitive values before events leave the integration boundary.
+
+    Delegates to :func:`agent_did_sdk.sanitize_observability_attributes`, the one sanitizer every integration uses.
+    """
+
+    sanitized = _sdk_sanitize_observability_attributes(dict(attributes))
+    return sanitized if isinstance(sanitized, dict) else {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,12 +292,6 @@ def _handle_langsmith_generic_event(
         child_run.post()
 
 
-def sanitize_observability_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
-    """Redact sensitive values before events leave the integration boundary."""
-
-    return {str(key): _sanitize_value(str(key), value) for key, value in attributes.items()}
-
-
 class AgentDidObserver:
     """No-op capable observer for callback and logger based instrumentation."""
 
@@ -340,48 +328,6 @@ class AgentDidObserver:
                 )
             except Exception:
                 pass
-
-
-def _sanitize_value(field_name: str, value: Any) -> Any:
-    normalized_field_name = field_name.lower()
-
-    if normalized_field_name in SENSITIVE_FIELD_NAMES and isinstance(value, str):
-        return {"redacted": True, "length": len(value)}
-
-    if normalized_field_name == "url" and isinstance(value, str):
-        return _sanitize_url(value)
-
-    if isinstance(value, Mapping):
-        if normalized_field_name == "headers":
-            return _sanitize_headers(value)
-        return {str(key): _sanitize_value(str(key), nested_value) for key, nested_value in value.items()}
-
-    if isinstance(value, list):
-        return [_sanitize_value(field_name, item) for item in value]
-
-    if isinstance(value, tuple):
-        return tuple(_sanitize_value(field_name, item) for item in value)
-
-    return value
-
-
-def _sanitize_headers(headers: Mapping[str, Any]) -> dict[str, Any]:
-    sanitized_headers: dict[str, Any] = {}
-    for header_name, header_value in headers.items():
-        normalized_header_name = str(header_name).lower()
-        if normalized_header_name in SENSITIVE_HEADER_NAMES:
-            sanitized_headers[str(header_name)] = REDACTED_VALUE
-        else:
-            sanitized_headers[str(header_name)] = _sanitize_value(str(header_name), header_value)
-    return sanitized_headers
-
-
-def _sanitize_url(url: str) -> str:
-    parsed = urlsplit(url)
-    netloc = parsed.hostname or ""
-    if parsed.port is not None:
-        netloc = f"{netloc}:{parsed.port}"
-    return urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
 
 
 def _to_logging_level(level: str) -> int:

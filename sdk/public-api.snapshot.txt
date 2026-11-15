@@ -75,6 +75,8 @@ InMemoryDIDResolver
 InMemoryNonceStore
 InMemoryNonceStoreOptions
 isoToUnixString
+isRedactedMarker
+isSensitiveFieldName
 isUnixTimestampString
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
@@ -93,6 +95,8 @@ PresignedHttpDIDDocumentSourceConfig
 ProductionHttpResolverProfileConfig
 ProductionJsonRpcResolverProfileConfig
 ProductionResolverProfileConfig
+RedactedValue
+redactValue
 requestUrlFormProblem
 REQUIRED_RELATIONSHIP_BY_ARTIFACT
 requiredRelationshipFor
@@ -105,6 +109,11 @@ RotateVerificationMethodOptions
 RotateVerificationMethodResult
 S3CompatibleDIDDocumentSource
 S3CompatibleDIDDocumentSourceConfig
+sanitizeHeaders
+sanitizeObservabilityAttributes
+sanitizeUrl
+SENSITIVE_FIELD_NAMES
+SENSITIVE_HEADER_NAMES
 serializeSignatureInput
 SignatureInput
 SignatureParamValue

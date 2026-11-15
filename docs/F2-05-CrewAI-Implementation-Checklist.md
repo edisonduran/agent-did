@@ -78,6 +78,7 @@ F2-05 is complete for repo scope when the package has a functional factory, expl
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | HTTP target validation uses the SDK policy (`validate_http_target`) and observability uses the SDK sanitizer (`sanitize_observability_attributes`): sensitive fields are redacted whatever their type, headers with the same `{redacted, length}` marker. The output sanitizer uses the SDK's sensitive-name rule. Local copies deleted. |
 | 2026-11-12 | `resolve_did` and `verify_signatures` are opt-in (default `False`), like the signing tools: the model chose which DID to resolve and, with an HTTP resolver, triggered outbound requests. Tests and README enable them explicitly and recommend `allowed_hosts` on the resolver. |
 | 2026-11-12 | Tools sign with the first active `assertionMethod` key (`get_active_signing_key_id`), which verifiers require, instead of `authentication[0]`. |
 | 2026-11-12 | Tools sign payloads and HTTP requests with the runtime identity's external `signer` (KMS, HSM) when it has one; `rotate_key` refuses such an agent. New test `test_external_signer.py`. |

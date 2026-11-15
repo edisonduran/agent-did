@@ -605,6 +605,41 @@ export declare class InMemoryNonceStore implements NonceStore {
     private purge;
 }
 
+## core/observability.d.ts
+/**
+ * Sanitization of observability data shared by the SDK's framework integrations.
+ *
+ * One implementation, used by every integration before an event leaves it (callbacks, loggers, exporters).
+ * Python parity: `agent_did_sdk.observability`.
+ *
+ * - A field whose name is sensitive (`payload`, `body`, `signature`, `privateKey`, `token`…; camelCase, snake_case
+ *   and kebab-case spellings alike) is replaced by `{ redacted: true, length: n }` whatever its type.
+ * - A `url` keeps scheme, host, port and path; user information, query and fragment are dropped.
+ * - `headers` keep their names; sensitive headers (`Authorization`, `Signature`, `Cookie`…) are redacted.
+ * - Plain objects, arrays, Maps and Sets are walked recursively. Class instances other than Date become
+ *   `"<ClassName>"`, so their content never reaches a log by accident.
+ * - The result is JSON-serializable.
+ */
+/** Sensitive field names, lowercase without `_` / `-` (see `isSensitiveFieldName`). */
+export declare const SENSITIVE_FIELD_NAMES: ReadonlySet<string>;
+/** Sensitive HTTP header names, lowercase. */
+export declare const SENSITIVE_HEADER_NAMES: ReadonlySet<string>;
+export interface RedactedValue {
+    redacted: true;
+    length: number;
+}
+/** Whether `name` is a sensitive field name, in any of `privateKey`, `private_key`, `private-key`. */
+export declare function isSensitiveFieldName(name: string): boolean;
+/** The marker that replaces a sensitive value: `{ redacted: true, length: n }`. */
+export declare function redactValue(value: unknown): RedactedValue;
+export declare function isRedactedMarker(value: unknown): value is RedactedValue;
+/** `url` without user information, query and fragment. A value without scheme and host becomes `"<invalid url>"`. */
+export declare function sanitizeUrl(url: string): string;
+/** `headers` with the sensitive ones redacted and the other values sanitized. */
+export declare function sanitizeHeaders(headers: Record<string, unknown> | Map<string, unknown>): Record<string, unknown>;
+/** Sanitizes `value` (usually an object of event attributes) as described in the module comment. */
+export declare function sanitizeObservabilityAttributes(value: unknown): unknown;
+
 ## core/safe-fetch.d.ts
 /**
  * Default `fetch` for the SDK's HTTP sources.
@@ -1267,6 +1302,7 @@ export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
 export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, requestUrlFormProblem, serializeSignatureInput } from './core/http-signatures';
+export { SENSITIVE_FIELD_NAMES, SENSITIVE_HEADER_NAMES, RedactedValue, isRedactedMarker, isSensitiveFieldName, redactValue, sanitizeHeaders, sanitizeObservabilityAttributes, sanitizeUrl } from './core/observability';
 
 ## lifecycle/documents.d.ts
 import { AddedKeyRelationship, AgentDIDDocument, UpdateAgentDocumentParams } from '../core/types';

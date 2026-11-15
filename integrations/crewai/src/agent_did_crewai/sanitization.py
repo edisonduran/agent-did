@@ -6,19 +6,8 @@ from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
+from agent_did_sdk import is_sensitive_field_name
 from pydantic import BaseModel
-
-SENSITIVE_FIELD_NAMES = {
-    "agent_private_key",
-    "private_key",
-    "seed",
-    "mnemonic",
-    "payload",
-    "body",
-    "signature",
-    "signatures",
-    "signed_payload",
-}
 
 
 def normalize_output(value: Any) -> Any:
@@ -42,7 +31,7 @@ def sanitize_output(value: Any) -> Any:
     if isinstance(normalized, dict):
         sanitized: dict[str, Any] = {}
         for key, item in normalized.items():
-            if key.lower() in SENSITIVE_FIELD_NAMES:
+            if is_sensitive_field_name(key):
                 sanitized[key] = "[REDACTED]"
             else:
                 sanitized[key] = sanitize_output(item)
@@ -58,7 +47,7 @@ def find_sensitive_paths(value: Any, prefix: str = "") -> list[str]:
         paths: list[str] = []
         for key, item in normalized.items():
             current_path = f"{prefix}.{key}" if prefix else key
-            if key.lower() in SENSITIVE_FIELD_NAMES:
+            if is_sensitive_field_name(key):
                 paths.append(current_path)
             paths.extend(find_sensitive_paths(item, current_path))
         return paths

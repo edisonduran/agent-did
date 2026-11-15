@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from ipaddress import ip_address
 from typing import Any, Protocol
-from urllib.parse import urlparse
 
-from agent_did_sdk import AgentDidClient, AgentIdentity, SignHttpRequestParams
+from agent_did_sdk import (
+    AgentDidClient,
+    AgentIdentity,
+    HttpTargetValidationOptions,
+    SignHttpRequestParams,
+    validate_http_target,
+)
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -139,38 +143,6 @@ def _emit_tool_failed(
         },
         level="error",
     )
-
-
-def _validate_http_target(url: str, allow_private_network_targets: bool) -> None:
-    parsed_url = urlparse(url)
-    if parsed_url.scheme not in {"http", "https"}:
-        raise ValueError("Only http and https URLs are allowed")
-    if parsed_url.username or parsed_url.password:
-        raise ValueError("URLs with embedded credentials are not allowed")
-
-    hostname = parsed_url.hostname
-    if not hostname:
-        raise ValueError("An absolute URL with hostname is required")
-
-    normalized_hostname = hostname.lower()
-    if not allow_private_network_targets:
-        if normalized_hostname == "localhost" or normalized_hostname.endswith(".localhost"):
-            raise ValueError("Private or loopback HTTP targets are not allowed by default")
-
-        try:
-            parsed_ip = ip_address(normalized_hostname)
-        except ValueError:
-            return
-
-        if (
-            parsed_ip.is_private
-            or parsed_ip.is_loopback
-            or parsed_ip.is_link_local
-            or parsed_ip.is_multicast
-            or parsed_ip.is_reserved
-            or parsed_ip.is_unspecified
-        ):
-            raise ValueError("Private or loopback HTTP targets are not allowed by default")
 
 
 def _build_get_current_identity_tool(
@@ -366,15 +338,12 @@ def _build_sign_http_request_tool(
             inputs={"method": method, "url": url, "body": body},
         )
         try:
-            _validate_http_target(url, allow_private_network_targets)
+            http_sec = HttpTargetValidationOptions(allow_private_targets=allow_private_network_targets)
+            validate_http_target(url, http_sec)
 
             key_id = get_active_signing_key_id(runtime_identity)
             if key_id is None:
                 raise ValueError("The runtime identity has no active assertionMethod key to sign with")
-            http_sec = None
-            if allow_private_network_targets:
-                from agent_did_sdk.core.http_security import HttpTargetValidationOptions
-                http_sec = HttpTargetValidationOptions(allow_private_targets=True)
             headers = await agent_identity.sign_http_request(
                 SignHttpRequestParams(
                     method=method,

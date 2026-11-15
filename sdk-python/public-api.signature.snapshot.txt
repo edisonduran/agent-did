@@ -548,6 +548,12 @@ class S3CompatibleDIDDocumentSourceConfig(bucket: 'str', endpoint: 'str | None' 
   attr reference_to_write_url: Callable[[str, str], str] | None
   attr store_method: str
 
+## SENSITIVE_FIELD_NAMES
+value SENSITIVE_FIELD_NAMES = ('accesstoken', 'agentprivatekey', 'apikey', 'authorization', 'body', 'clientsecret', 'cookie', 'mnemonic', 'password', 'payload', 'privatekey', 'refreshtoken', 'secret', 'seed', 'signature', 'signatures', 'signedpayload', 'token')
+
+## SENSITIVE_HEADER_NAMES
+value SENSITIVE_HEADER_NAMES = ('authorization', 'cookie', 'proxy-authorization', 'set-cookie', 'signature', 'signature-input', 'x-api-key')
+
 ## SIGNED_ARTIFACT_KINDS
 value SIGNED_ARTIFACT_KINDS = ('assertion', 'http_request', 'delegation', 'invocation', 'authentication')
 
@@ -734,6 +740,12 @@ def get_relationship_key_ids(did_doc: 'AgentDIDDocument', relationship: 'Verific
 ## hash_payload
 def hash_payload(payload: 'str') -> 'str'
 
+## is_redacted_marker
+def is_redacted_marker(value: 'Any') -> 'bool'
+
+## is_sensitive_field_name
+def is_sensitive_field_name(name: 'object') -> 'bool'
+
 ## is_unix_timestamp_string
 def is_unix_timestamp_string(value: 'str') -> 'bool'
 
@@ -752,11 +764,23 @@ def parse_signature_header(value: 'str') -> 'dict[str, bytes]'
 ## parse_signature_input_header
 def parse_signature_input_header(value: 'str') -> 'dict[str, SignatureInput]'
 
+## redact_value
+def redact_value(value: 'Any') -> 'dict[str, Any]'
+
 ## request_url_form_problem
 def request_url_form_problem(url: 'str') -> 'str | None'
 
 ## required_relationship_for
 def required_relationship_for(artifact: 'SignedArtifactKind') -> 'SigningVerificationPurpose'
+
+## sanitize_headers
+def sanitize_headers(headers: 'Mapping[Any, Any]') -> 'dict[str, Any]'
+
+## sanitize_observability_attributes
+def sanitize_observability_attributes(value: 'Any') -> 'Any'
+
+## sanitize_url
+def sanitize_url(url: 'str') -> 'str'
 
 ## serialize_signature_input
 def serialize_signature_input(signature_input: 'SignatureInput') -> 'str'

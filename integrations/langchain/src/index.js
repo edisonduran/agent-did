@@ -7,7 +7,6 @@ const {
   createAgentDidTools,
 } = require("./agentDidLangChain");
 const {
-  REDACTED_VALUE,
   composeEventHandlers,
   createAgentDidObserver,
   createJsonLoggerEventHandler,
@@ -18,7 +17,6 @@ const {
 } = require("./observability");
 
 module.exports = {
-  REDACTED_VALUE,
   buildAgentDidIdentitySnapshot,
   buildAgentDidSystemPrompt,
   composeEventHandlers,

@@ -94,6 +94,16 @@ from .crypto.hash import (
     verify_metadata_commitment,
 )
 from .crypto.multibase import decode_public_key_multibase, did_key_from_public_key, encode_public_key_multibase
+from .observability import (
+    SENSITIVE_FIELD_NAMES,
+    SENSITIVE_HEADER_NAMES,
+    is_redacted_marker,
+    is_sensitive_field_name,
+    redact_value,
+    sanitize_headers,
+    sanitize_observability_attributes,
+    sanitize_url,
+)
 from .registry.in_memory import InMemoryAgentRegistry
 from .registry.types import AgentRegistry, AgentRegistryRecord
 from .resolver.aws_sigv4_s3_source import AwsSigV4S3DIDDocumentSource, AwsSigV4S3DIDDocumentSourceConfig
@@ -198,6 +208,15 @@ __all__ = [
     "DEFAULT_HTTP_TIMEOUT_MS",
     "DEFAULT_MAX_RESPONSE_BYTES",
     "validate_http_target",
+    # Observability
+    "SENSITIVE_FIELD_NAMES",
+    "SENSITIVE_HEADER_NAMES",
+    "is_redacted_marker",
+    "is_sensitive_field_name",
+    "redact_value",
+    "sanitize_headers",
+    "sanitize_observability_attributes",
+    "sanitize_url",
     # Core identity
     "AgentDidClient",
     "AgentDidClientOptions",
