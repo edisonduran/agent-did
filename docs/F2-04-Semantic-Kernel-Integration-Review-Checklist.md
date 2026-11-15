@@ -82,6 +82,7 @@ Semantic Kernel review is complete when the scaffold state is accurately describ
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | Review gate: every tool entry point (direct `invoke`/`ainvoke` and kernel plugin) validates arguments with the tool's schema; private-target option tested end to end. |
 | 2026-11-14 | Review gate: no local copy of target validation or observability sanitization; both come from the SDK. |
 | 2026-11-14 | Review gate: runtime tests enable every opt-in tool they call. |
 | 2026-11-12 | Review gate: the default exposure is `current_identity` only; `resolve_did` and `verify_signatures` are opt-in. |

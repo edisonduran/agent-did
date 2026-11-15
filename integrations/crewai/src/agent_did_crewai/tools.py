@@ -358,9 +358,9 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
         inputs = {"method": method, "url": url, "body": body}
         _emit_tool_started(context, tool_name=tool_name, inputs=inputs)
         try:
-            validate_http_target(
-                url, HttpTargetValidationOptions(allow_private_targets=context.allow_private_network_targets)
-            )
+            # One policy for the tool's check and for the SDK's own check when it signs
+            http_security = HttpTargetValidationOptions(allow_private_targets=context.allow_private_network_targets)
+            validate_http_target(url, http_security)
             key_id = get_active_signing_key_id(context.runtime_identity)
             if key_id is None:
                 raise ValueError("The runtime identity has no active assertionMethod key to sign with")
@@ -372,6 +372,7 @@ def _create_sign_http_request_runner(context: _ToolRuntimeContext, tool_name: st
                     agent_did=context.current_did,
                     **runtime_signing_params(context.runtime_identity),
                     verification_method_id=key_id,
+                    http_security=http_security,
                 )
             )
             _emit_tool_succeeded(

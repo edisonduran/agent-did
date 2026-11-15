@@ -209,3 +209,23 @@ def test_advanced_workflow_helpers_emit_specialized_events() -> None:
         "agent_did.workflow.multi_selection_built",
         "agent_did.workflow.switch_case_built",
     }
+
+
+def test_allow_private_network_targets_reaches_the_sdk_signer() -> None:
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
+    runtime_identity = asyncio.run(
+        identity.create(CreateAgentParams(name="MafPrivateTargetBot", core_model="gpt-4.1-mini", system_prompt="t"))
+    )
+    integration = create_agent_did_microsoft_agent_framework_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,
+        expose={"sign_http": True},
+        allow_private_network_targets=True,
+    )
+    sign_tool = next(tool for tool in integration.tools if tool.name == "agent_did_sign_http_request")
+
+    signed = asyncio.run(sign_tool.func(method="GET", url="http://127.0.0.1:8080/internal"))
+
+    assert "error" not in signed, signed
+    assert "Signature" in signed  # this tool returns the header fields themselves

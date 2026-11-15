@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from agent_did_sdk import AgentIdentity
+from agent_did_sdk import AgentIdentity, HttpTargetValidationOptions
 
 from .agent_card import A2AAgentCard, A2ASkill, agent_card_to_json, build_agent_card
 from .config import AgentDidA2AConfig, AgentDidA2AExposureConfig
@@ -59,6 +59,10 @@ class AgentDidA2AIntegration:
         )
         return snapshot
 
+    def _require(self, flag: str, operation: str) -> None:
+        if not getattr(self.config.expose, flag):
+            raise PermissionError(f"A2A operation {operation!r} is disabled (expose.{flag}=False)")
+
     def get_current_identity(self) -> dict[str, Any]:
         """Return the current identity as a serializable dict."""
         return self._capture_identity_snapshot("get_current_identity").model_dump(exclude_none=True)
@@ -72,6 +76,7 @@ class AgentDidA2AIntegration:
         verification_endpoint: str | None = None,
     ) -> A2AAgentCard:
         """Build an A2A AgentCard enriched with this agent's DID identity."""
+        self._require("enrich_agent_card", "build_agent_card")
 
         snapshot = self._capture_identity_snapshot("build_agent_card")
         self.observer.emit(
@@ -111,6 +116,7 @@ class AgentDidA2AIntegration:
         jsonrpc_request: JsonRpcRequest,
     ) -> SignedA2ARequest:
         """Sign an outgoing A2A JSON-RPC request with HTTP Signatures."""
+        self._require("sign_requests", "sign_request")
 
         self.observer.emit(
             "agent_did.a2a.request.signing",
@@ -126,6 +132,9 @@ class AgentDidA2AIntegration:
             runtime_identity=self.runtime_identity,
             target_url=target_url,
             jsonrpc_request=jsonrpc_request,
+            http_security=HttpTargetValidationOptions(
+                allow_private_targets=self.config.allow_private_network_targets
+            ),
         )
 
         self.observer.emit(
@@ -153,6 +162,7 @@ class AgentDidA2AIntegration:
 
         Without ``allowed_dids`` / ``allowed_controllers`` any sender with a valid key passes; see
         :func:`verify_a2a_request_detailed` to learn who signed."""
+        self._require("verify_requests", "verify_request")
 
         self.observer.emit(
             "agent_did.a2a.request.verifying",

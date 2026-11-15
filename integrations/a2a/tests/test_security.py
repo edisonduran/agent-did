@@ -16,10 +16,12 @@ def test_default_exposure_has_secure_defaults() -> None:
     assert config.sign_requests is True
     assert config.verify_requests is True
     assert config.enrich_agent_card is True
-    assert config.resolve_remote_did is True
-    # Dangerous ops default to False
-    assert config.rotate_keys is False
-    assert config.document_history is False
+    # Flags without an operation behind them were removed in 1.0.0-rc.5
+    for removed in ("resolve_remote_did", "document_history", "rotate_keys"):
+        with pytest.raises(ValidationError):
+            AgentDidA2AExposureConfig(**{removed: True})
+    with pytest.raises(ValidationError):
+        AgentDidA2AConfig(default_request_timeout_seconds=30)  # type: ignore[call-arg]
 
 
 def test_config_rejects_extra_fields() -> None:

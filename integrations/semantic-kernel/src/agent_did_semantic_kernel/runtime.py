@@ -8,7 +8,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, cast, get_type_hints
 
-from .tools import SemanticKernelTool
+from .tools import SemanticKernelTool, validate_tool_arguments
 
 
 def _load_semantic_kernel_runtime() -> tuple[Any, Any, Any]:
@@ -40,13 +40,13 @@ def _decorate_tool_handler(
 
         @wraps(handler)
         async def runtime_handler(**kwargs: Any) -> Any:
-            return await handler(**kwargs)
+            return await handler(**validate_tool_arguments(tool.args_schema, kwargs))
 
     else:
 
         @wraps(handler)
         def runtime_handler(**kwargs: Any) -> Any:
-            return handler(**kwargs)
+            return handler(**validate_tool_arguments(tool.args_schema, kwargs))
 
     signature = inspect.signature(handler)
     resolved_type_hints = get_type_hints(handler)

@@ -88,6 +88,7 @@ F2-04 is implementation-ready for release review when the package has a function
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | `allow_private_network_targets=True` reaches the SDK signer (`http_security`). `SemanticKernelTool.invoke` / `ainvoke` and the kernel plugin handlers validate arguments through `args_schema` (`extra="forbid"`, URL and payload size limits) before calling the tool. |
 | 2026-11-14 | HTTP target validation uses the SDK policy (`validate_http_target`) and `sanitization.py` re-exports the SDK sanitizer (`sanitize_observability_attributes`, `sanitize_headers`, `sanitize_url`, `redact_value`); `sanitize_callback_payload` uses the SDK's sensitive-name rule. Local copies deleted. |
 | 2026-11-14 | The real-runtime smoke test enables `resolve_did` and `verify_signatures`, which are opt-in since rc.5. |
 | 2026-11-12 | `resolve_did` and `verify_signatures` are opt-in (default `False`), like the signing tools: the model chose which DID to resolve and, with an HTTP resolver, triggered outbound requests. Tests, the production recipe example and README enable them explicitly. |

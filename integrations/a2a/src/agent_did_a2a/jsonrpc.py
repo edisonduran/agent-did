@@ -12,7 +12,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from agent_did_sdk import AgentIdentity, SignHttpRequestParams, VerifyHttpRequestSignatureParams
+from agent_did_sdk import (
+    AgentIdentity,
+    HttpTargetValidationOptions,
+    SignHttpRequestParams,
+    VerifyHttpRequestSignatureParams,
+    validate_http_target,
+)
 from agent_did_sdk.core.types import VerifyHttpRequestSignatureResult
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -98,13 +104,18 @@ async def sign_a2a_request(
     runtime_identity: RuntimeIdentity,
     target_url: str,
     jsonrpc_request: JsonRpcRequest,
+    http_security: HttpTargetValidationOptions | None = None,
 ) -> SignedA2ARequest:
     """Sign an outgoing A2A JSON-RPC request using Agent-DID HTTP Signatures.
 
     Returns a ``SignedA2ARequest`` containing the target URL, HTTP method,
     signed headers (including ``Signature`` and ``Signature-Input``), and
-    the serialized JSON body.
+    the serialized JSON body. The target must pass the SDK's HTTP target policy;
+    ``http_security=HttpTargetValidationOptions(allow_private_targets=True)`` allows
+    non-global targets (development only).
     """
+
+    validate_http_target(target_url, http_security)
 
     body = jsonrpc_request.model_dump_json()
     agent_did = runtime_identity.document.id
@@ -120,6 +131,7 @@ async def sign_a2a_request(
             agent_did=agent_did,
             **runtime_signing_params(runtime_identity),
             verification_method_id=key_id,
+            http_security=http_security,
         )
     )
 

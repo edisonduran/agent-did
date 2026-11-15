@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
+from pydantic import ValidationError
 
 from agent_did_semantic_kernel import create_agent_did_semantic_kernel_integration
 
@@ -58,3 +59,48 @@ async def test_http_signing_rejects_private_targets_by_default() -> None:
     )
 
     assert result == {"error": "Blocked request to private/reserved address: 127.0.0.1"}
+
+
+@pytest.mark.asyncio
+async def test_allow_private_network_targets_reaches_the_sdk_signer() -> None:
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
+    runtime_identity = await identity.create(
+        CreateAgentParams(name="SkPrivateTargetBot", core_model="gpt-4.1-mini", system_prompt="Policy test")
+    )
+    integration = create_agent_did_semantic_kernel_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,
+        expose={"sign_http": True},
+        allow_private_network_targets=True,
+    )
+    sign_http_tool = next(tool for tool in integration.tools if tool.name == "agent_did_sign_http_request")
+
+    signed = await sign_http_tool.ainvoke({"method": "GET", "url": "http://127.0.0.1:8080/internal"})
+
+    assert "error" not in signed, signed
+    assert "Signature" in signed["headers"]
+
+
+@pytest.mark.asyncio
+async def test_tool_arguments_are_validated_by_the_args_schema() -> None:
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
+    runtime_identity = await identity.create(
+        CreateAgentParams(name="SkArgsBot", core_model="gpt-4.1-mini", system_prompt="Args test")
+    )
+    integration = create_agent_did_semantic_kernel_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,
+        expose={"sign_http": True, "sign_payload": True},
+    )
+    tools = {tool.name: tool for tool in integration.tools}
+
+    with pytest.raises(ValidationError):
+        await tools["agent_did_sign_http_request"].ainvoke(
+            {"method": "GET", "url": "https://api.example.com/", "unexpected": "x"}
+        )
+    with pytest.raises(ValidationError):
+        await tools["agent_did_sign_http_request"].ainvoke({"method": "GET", "url": "https://a.example/" + "x" * 2048})
+    with pytest.raises(ValidationError):
+        await tools["agent_did_sign_payload"].ainvoke({"payload": "x" * 1_048_577})
