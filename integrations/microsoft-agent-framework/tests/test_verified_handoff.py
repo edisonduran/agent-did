@@ -31,6 +31,7 @@ from agent_did_sdk import (
     AgentIdentityConfig,
     CreateAgentParams,
     InMemoryAgentRegistry,
+    InMemoryNonceStore,
     KeyAtTimeResult,
     LocalKeySigner,
     VerifySignatureAtTimeResult,
@@ -721,6 +722,34 @@ def test_a_message_without_a_nonce_is_blocked(integration) -> None:
     with pytest.raises(VerificationBlockedError) as exc:
         _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
     assert exc.value.failing_gates == ["nonce"]
+
+
+@pytest.mark.parametrize("nonce", ["has space", "a|b", "", "n" * 257])
+def test_sign_handoff_refuses_a_nonce_outside_the_token_grammar(integration, nonce) -> None:
+    with pytest.raises(ValueError, match="nonce must be"):
+        _sign(integration, "approve", nonce=nonce)
+
+
+def test_a_message_whose_nonce_is_outside_the_token_grammar_is_blocked(integration) -> None:
+    observer, _events = _make_observer()
+    msg = _sign(integration, "approve")
+    msg.nonce = "has space"
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(build_handoff_verifier_function(_real_ctx(observer)), msg)
+    assert exc.value.failing_gates == ["nonce"]
+
+
+def test_the_nonce_store_quota_applies_per_signer_did(integration) -> None:
+    observer, _events = _make_observer()
+    store = InMemoryNonceStore(max_entries=100, max_entries_per_scope=2)
+    verifier = build_handoff_verifier_function(_real_ctx(observer, nonce_store=store))
+    for payload in ("first", "second"):
+        sent, _ = _run_verifier(verifier, _sign(integration, payload))
+        assert sent == [payload]
+    with pytest.raises(VerificationBlockedError) as exc:
+        _run_verifier(verifier, _sign(integration, "third"))
+    assert exc.value.failing_gates == ["replay"]
+    assert store.size == 2
 
 
 def test_a_signed_at_in_the_future_is_blocked_so_the_ttl_cannot_be_stretched(integration) -> None:
