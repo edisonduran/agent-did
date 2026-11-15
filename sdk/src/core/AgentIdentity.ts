@@ -26,10 +26,13 @@ import {
 import { validateHttpTarget } from './http-security';
 import { messageSigningInput } from './message-signing';
 import {
-  AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
+  AGENT_DID_HTTP_HEADER,
+  AGENT_DID_HTTP_SIGNATURE_LABEL,
   AGENT_DID_HTTP_SIGNATURE_TAG,
+  agentDidHttpSignatureComponents,
   computeContentDigest,
-  generateNonce
+  generateNonce,
+  serializeAgentDidHeader
 } from './http-profile';
 import { DIDDocumentSource, DIDResolver } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
@@ -45,7 +48,7 @@ export type {
   ProductionJsonRpcResolverProfileConfig,
   ProductionResolverProfileConfig
 } from './AgentDidClient';
-export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './http-profile';
+export { AGENT_DID_HTTP_HEADER, AGENT_DID_HTTP_SIGNATURE_TAG, agentDidHttpSignatureComponents } from './http-profile';
 
 export interface AgentIdentityConfig {
   /**
@@ -120,9 +123,9 @@ export class AgentIdentity {
   /**
    * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
    *
-   * Covered components: `"@method" "@authority" "@path" "@query" "content-digest" "date"
-   * "signature-agent"`; parameters: `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"`
-   * and `tag="agent-did"`. Returns the header fields to add to the request.
+   * The agent DID goes in the `Agent-DID` Dictionary field, keyed by the signature label (`sig1`). Covered
+   * components: `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="sig1"`;
+   * parameters: `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. Returns the header fields to add to the request.
    */
   public async signHttpRequest(params: SignHttpRequestParams): Promise<Record<string, string>> {
     if (!params.method?.trim()) {
@@ -156,12 +159,12 @@ export class AgentIdentity {
 
     const created = Math.floor(Date.now() / 1000);
     const headers: Record<string, string> = {
-      'Signature-Agent': params.agentDid,
+      [AGENT_DID_HTTP_HEADER]: serializeAgentDidHeader(AGENT_DID_HTTP_SIGNATURE_LABEL, params.agentDid),
       'Date': new Date(created * 1000).toUTCString(),
       'Content-Digest': computeContentDigest(params.body)
     };
     const input: SignatureInput = {
-      components: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS],
+      components: agentDidHttpSignatureComponents(AGENT_DID_HTTP_SIGNATURE_LABEL),
       params: [
         ['created', created],
         ['expires', created + (params.expiresInSeconds ?? 30)],
@@ -180,8 +183,8 @@ export class AgentIdentity {
     const signatureHex = await this.signBytes(new TextEncoder().encode(signatureBase), keyOrSigner);
     return {
       ...headers,
-      'Signature-Input': `sig1=${serializeSignatureInput(input)}`,
-      'Signature': serializeSignature('sig1', hexToBytes(signatureHex))
+      'Signature-Input': `${AGENT_DID_HTTP_SIGNATURE_LABEL}=${serializeSignatureInput(input)}`,
+      'Signature': serializeSignature(AGENT_DID_HTTP_SIGNATURE_LABEL, hexToBytes(signatureHex))
     };
   }
 

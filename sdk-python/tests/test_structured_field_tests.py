@@ -18,7 +18,9 @@ from typing import Any
 import pytest
 
 from agent_did_sdk.core.http_signatures import (
+    ComponentIdentifier,
     HttpSignatureError,
+    KeyedComponent,
     Token,
     parse_signature_header,
     parse_signature_input_header,
@@ -46,17 +48,25 @@ def _expected_signature(expected: list[Any]) -> list[tuple[str, bytes]] | None:
     return result
 
 
-def _expected_signature_input(expected: list[Any]) -> list[tuple[str, list[str], list[tuple[str, Any]]]] | None:
+def _expected_signature_input(
+    expected: list[Any],
+) -> list[tuple[str, list[ComponentIdentifier], list[tuple[str, Any]]]] | None:
     """What the Signature-Input parser must return, or None when outside its subset."""
-    result: list[tuple[str, list[str], list[tuple[str, Any]]]] = []
+    result: list[tuple[str, list[ComponentIdentifier], list[tuple[str, Any]]]] = []
     for label, (value, params) in expected:
         if not isinstance(value, list):
             return None
-        components: list[str] = []
+        components: list[ComponentIdentifier] = []
         for item, item_params in value:
-            if not isinstance(item, str) or item_params:
+            if not isinstance(item, str):
                 return None
-            components.append(item)
+            if not item_params:
+                components.append(item)
+                continue
+            # The one component parameter in the subset: ``key`` with a String value (RFC 9421 §2.1.2)
+            if len(item_params) != 1 or item_params[0][0] != "key" or not isinstance(item_params[0][1], str):
+                return None
+            components.append(KeyedComponent(name=item, key=item_params[0][1]))
         mapped: list[tuple[str, Any]] = []
         for name, param in params:
             if isinstance(param, bool | str | int):

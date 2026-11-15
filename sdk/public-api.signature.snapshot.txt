@@ -205,7 +205,7 @@ export declare class AgentDidClient {
      * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
      *
      * Requires the Agent-DID profile (covered components, `tag="agent-did"`, `alg="ed25519"`,
-     * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
+     * `created`, `expires`, `nonce`, a `keyid` under the DID of the `Agent-DID` member), a matching
      * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
      * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
      * request is rejected. Returns `false` on any failure; use `verifyHttpRequestSignatureDetailed`
@@ -347,7 +347,7 @@ import { DIDDocumentSource, DIDResolver } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
 import { AgentDidClient, ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig, ProductionResolverProfileConfig } from './AgentDidClient';
 export type { ProductionHttpResolverProfileConfig, ProductionJsonRpcResolverProfileConfig, ProductionResolverProfileConfig } from './AgentDidClient';
-export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './http-profile';
+export { AGENT_DID_HTTP_HEADER, AGENT_DID_HTTP_SIGNATURE_TAG, agentDidHttpSignatureComponents } from './http-profile';
 export interface AgentIdentityConfig {
     /**
      * The controller's Ed25519 signer (the creator). Its public key identifies the controller
@@ -392,9 +392,9 @@ export declare class AgentIdentity {
     /**
      * Signs an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
      *
-     * Covered components: `"@method" "@authority" "@path" "@query" "content-digest" "date"
-     * "signature-agent"`; parameters: `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"`
-     * and `tag="agent-did"`. Returns the header fields to add to the request.
+     * The agent DID goes in the `Agent-DID` Dictionary field, keyed by the signature label (`sig1`). Covered
+     * components: `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="sig1"`;
+     * parameters: `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. Returns the header fields to add to the request.
      */
     signHttpRequest(params: SignHttpRequestParams): Promise<Record<string, string>>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
@@ -466,8 +466,23 @@ export declare function agentDidDocumentProblem(value: unknown): string | undefi
 export declare function assertAgentDidDocument(value: unknown, source: string): asserts value is AgentDIDDocument;
 
 ## core/http-profile.d.ts
-/** Components every Agent-DID HTTP Message Signature covers (RFC 9421). */
-export declare const AGENT_DID_HTTP_SIGNATURE_COMPONENTS: readonly string[];
+import { ComponentIdentifier } from './http-signatures';
+/** Header field that carries the agent DID, as a Structured Field Dictionary keyed by signature label. */
+export declare const AGENT_DID_HTTP_HEADER = "Agent-DID";
+/** Signature label the SDK signs with. */
+export declare const AGENT_DID_HTTP_SIGNATURE_LABEL = "sig1";
+/**
+ * Components an Agent-DID HTTP Message Signature labelled `label` covers, in this order (RFC-001 §6.5 item 2):
+ * `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="<label>"`.
+ */
+export declare function agentDidHttpSignatureComponents(label: string): ComponentIdentifier[];
+/** Serializes an `Agent-DID` field value with one member: `<label>="<did>"`. */
+export declare function serializeAgentDidHeader(label: string, did: string): string;
+/**
+ * Parses an `Agent-DID` field value: label -> DID. A member that is not a String, or that has parameters, maps to
+ * `undefined`. Throws `HttpSignatureError` when the field is not a Structured Field Dictionary.
+ */
+export declare function parseAgentDidHeader(value: string): Map<string, string | undefined>;
 /** RFC 9421 `tag` parameter of Agent-DID HTTP Message Signatures. */
 export declare const AGENT_DID_HTTP_SIGNATURE_TAG = "agent-did";
 /** RFC 9530 `Content-Digest` with SHA-256 of the body bytes (a string is hashed as UTF-8). */
@@ -533,9 +548,19 @@ export declare function validateHttpTarget(url: string, options?: HttpTargetVali
 export type SignatureParamValue = string | number | boolean | {
     token: string;
 };
+/**
+ * A covered component selected with the `key` parameter (RFC 9421 §2.1.2): the member `key` of a header field
+ * parsed as a Structured Field Dictionary. `key` is the only component parameter supported.
+ */
+export interface KeyedComponent {
+    name: string;
+    key: string;
+}
+/** A covered component identifier: a component name, or a Dictionary member selected by `key`. */
+export type ComponentIdentifier = string | KeyedComponent;
 export interface SignatureInput {
-    /** Covered component identifiers, in order (names only; component parameters are not supported). */
-    components: string[];
+    /** Covered component identifiers, in order. */
+    components: ComponentIdentifier[];
     /** Signature parameters, in order. */
     params: Array<[string, SignatureParamValue]>;
 }
@@ -548,6 +573,8 @@ export interface HttpRequestLike {
 export declare class HttpSignatureError extends Error {
     constructor(message: string);
 }
+/** Serializes a covered component identifier as it appears in `Signature-Input` and the signature base. */
+export declare function serializeComponentIdentifier(component: ComponentIdentifier): string;
 /** Serializes a signature's inner list (the `@signature-params` value and the `Signature-Input` member). */
 export declare function serializeSignatureInput(input: SignatureInput): string;
 export declare function serializeSignature(label: string, signature: Uint8Array): string;
@@ -1067,10 +1094,10 @@ export interface VerifyHttpRequestSignatureParams {
      */
     nonceStore?: import('./nonce-store').NonceStore;
     /**
-     * Accept only these `Signature-Agent` DIDs (exact match). Checked before any resolution, so a request from any
-     * other DID costs no network call. A valid signature only proves which DID signed: without `allowedDids` or
-     * `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job (read
-     * `result.did` / `result.controllers`).
+     * Accept only these agent DIDs (the `Agent-DID` member; exact match). Checked before any resolution, so a
+     * request from any other DID costs no network call. A valid signature only proves which DID signed: without
+     * `allowedDids` or `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job
+     * (read `result.did` / `result.controllers`).
      */
     allowedDids?: readonly string[];
     /**
@@ -1084,31 +1111,33 @@ export interface VerifyHttpRequestSignatureParams {
  * signatures, the reason is the one of the first signature that has `tag="agent-did"` (else the
  * first signature).
  *
- * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `missing_headers`: `Signature`, `Signature-Input` or `Agent-DID` is absent.
  * - `url_not_normalized`: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
  *   `requestUrlFormProblem`); the SDK refuses to sign such a URL too.
- * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
+ * - `malformed_headers`: `Signature` / `Signature-Input` / `Agent-DID` do not parse, no signature has a matching
+ *   label, or the `Agent-DID` member of the signature's label is not a String without parameters.
  * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
  * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
  * - `alg_unsupported`: the `alg` parameter is not `ed25519`.
  * - `params_missing`: `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type, or `nonce` is not 1 to
  *   256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3).
- * - `keyid_not_bound`: `keyid` is not a key of the `Signature-Agent` DID.
+ * - `keyid_not_bound`: `keyid` is not a key of the agent DID (the `Agent-DID` member of the signature's label).
  * - `components_missing`: a required covered component is absent.
  * - `components_order`: the required components are all covered but not first and in order.
  * - `created_skew`: `created` is further from now than `maxCreatedSkewSeconds`.
  * - `expires_before_created`: `expires` is earlier than `created`.
  * - `lifetime_exceeded`: `expires - created` is greater than `maxSignatureLifetimeSeconds`.
  * - `expired`: now is after `expires`.
- * - `signed_component_missing`: a covered component has no value in the request (for example no `Date`).
- * - `did_resolution_failed`: the `Signature-Agent` DID has no active verification chain: unknown,
+ * - `signed_component_missing`: a covered component has no value in the request (for example no `Date`, or no
+ *   `Agent-DID` member for the signature's label).
+ * - `did_resolution_failed`: the agent DID has no active verification chain: unknown,
  *   revoked, deactivated, inactive controller, or the resolver failed. The SDK does not tell a
  *   resolver outage from a revocation; treat this reason as "could not establish the key".
  * - `keyid_not_authorized`: `keyid` is not an `assertionMethod` key of the DID document (a fragment
  *   the document does not have, or a key listed only under another relationship).
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
- * - `did_not_allowed`: `allowedDids` is set and the `Signature-Agent` DID is not in it.
+ * - `did_not_allowed`: `allowedDids` is set and the agent DID is not in it.
  * - `controller_not_allowed`: `allowedControllers` is set and no DID of the controller chain is in it.
  */
 export type HttpSignatureRejection = 'missing_headers' | 'url_not_normalized' | 'malformed_headers' | 'digest_mismatch' | 'tag_mismatch' | 'alg_unsupported' | 'params_missing' | 'keyid_not_bound' | 'components_missing' | 'components_order' | 'created_skew' | 'expires_before_created' | 'lifetime_exceeded' | 'expired' | 'signed_component_missing' | 'did_resolution_failed' | 'controller_not_bound' | 'keyid_not_authorized' | 'signature_invalid' | 'nonce_replayed' | 'did_not_allowed' | 'controller_not_allowed';
@@ -1118,7 +1147,10 @@ export type HttpSignatureRejection = 'missing_headers' | 'url_not_normalized' | 
  */
 export type VerifyHttpRequestSignatureResult = {
     ok: true;
-    /** The `Signature-Agent` DID: who signed. A valid signature does not make it authorized. */
+    /**
+     * The agent DID (the `Agent-DID` member of the accepted signature's label): who signed. A valid signature
+     * does not make it authorized.
+     */
     did: string;
     /** The verification method that signed (`keyid`). */
     keyId: string;
@@ -1510,9 +1542,9 @@ export { JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig } from './reso
 export { AgentRegistry, AgentRegistryRecord } from './registry/types';
 export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
 export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
-export { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from './core/AgentIdentity';
+export { AGENT_DID_HTTP_HEADER, AGENT_DID_HTTP_SIGNATURE_TAG, agentDidHttpSignatureComponents } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
-export { HttpSignatureError, HttpRequestLike, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, requestUrlFormProblem, serializeSignatureInput } from './core/http-signatures';
+export { ComponentIdentifier, HttpSignatureError, HttpRequestLike, KeyedComponent, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, requestUrlFormProblem, serializeSignatureInput } from './core/http-signatures';
 export { SENSITIVE_FIELD_NAMES, SENSITIVE_HEADER_NAMES, RedactedValue, isRedactedMarker, isSensitiveFieldName, redactValue, sanitizeHeaders, sanitizeObservabilityAttributes, sanitizeUrl } from './core/observability';
 
 ## lifecycle/documents.d.ts

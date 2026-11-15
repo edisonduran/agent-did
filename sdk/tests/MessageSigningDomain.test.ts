@@ -13,7 +13,7 @@ import {
   messageSigningInput
 } from '../src';
 import {
-  AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
+  agentDidHttpSignatureComponents,
   AGENT_DID_HTTP_SIGNATURE_TAG
 } from '../src/core/AgentIdentity';
 import { buildSignatureBase, serializeSignatureInput } from '../src/core/http-signatures';
@@ -66,12 +66,12 @@ describe('payload signature domain separation', () => {
     // Rebuild the signature base of a request and have signMessage sign it, as a tool that signs caller text would
     const created = Math.floor(Date.now() / 1000);
     const headers: Record<string, string> = {
-      'Signature-Agent': document.id,
+      'Agent-DID': `sig1="${document.id}"`,
       Date: signed.Date,
       'Content-Digest': signed['Content-Digest']
     };
     const input = {
-      components: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS],
+      components: agentDidHttpSignatureComponents('sig1'),
       params: [
         ['created', created],
         ['expires', created + 30],

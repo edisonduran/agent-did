@@ -2,25 +2,26 @@
 
 Agent-DID signs HTTP requests with [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures. This page describes the Agent-DID profile and how verifiers prevent replay. The normative text is RFC-001 §6.5.
 
-> Applies to `1.0.0-rc.3` and later (unchanged in `1.0.0-rc.4`). The `1.0.0-rc.2` and earlier releases used an `X-Request-Nonce` header and a different signature base; see the rc.2 → rc.3 migration guides.
+> Applies to `1.0.0-rc.5` and later. `1.0.0-rc.3` and `1.0.0-rc.4` carried the DID in a bare `Signature-Agent` header covered as `"signature-agent"`; see the rc.4 → rc.5 migration guides. `1.0.0-rc.2` and earlier used an `X-Request-Nonce` header and a different signature base; see the rc.2 → rc.3 migration guides.
 
 ## The Agent-DID profile
 
 | | Value |
 |---|---|
-| Covered components | `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`, in this order |
+| Agent DID | `Agent-DID` header: a Structured Field Dictionary keyed by signature label, each member the DID as a String, for example `sig1="did:webvh:…"` |
+| Covered components | `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="<label>"`, in this order (`<label>` is the signature's own label) |
 | Signature parameters | `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"`, `tag="agent-did"` |
-| `keyid` | A verification method of the `Signature-Agent` DID, for example `did:webvh:…#key-1`; it must be listed under `assertionMethod` |
+| `keyid` | A verification method of the DID in the `Agent-DID` member of the signature's label, for example `did:webvh:…#key-1`; it must be listed under `assertionMethod` |
 | `Content-Digest` | RFC 9530, `sha-256` |
 | Label | `sig1` when signing; verifiers accept any label |
 
 Example (line breaks added):
 
 ```http
-Signature-Agent: did:webvh:QmScid…:agents.example.com:support-bot
+Agent-DID: sig1="did:webvh:QmScid…:agents.example.com:support-bot"
 Date: Tue, 03 Nov 2026 10:00:00 GMT
 Content-Digest: sha-256=:RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=:
-Signature-Input: sig1=("@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent")
+Signature-Input: sig1=("@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="sig1")
   ;created=1793872800;expires=1793872830;nonce="5b0f…";keyid="did:webvh:QmScid…#key-1"
   ;alg="ed25519";tag="agent-did"
 Signature: sig1=:…:
@@ -59,7 +60,7 @@ headers = await identity.sign_http_request(SignHttpRequestParams(
 
 `verifyHttpRequestSignature` / `verify_http_request_signature` returns `true` only when all of the following hold:
 
-1. `Signature-Input` and `Signature` parse as RFC 8941 dictionaries, and some label carries the full profile: every covered component above, `tag="agent-did"`, `alg="ed25519"`, `created`, `expires`, `nonce`, and a `keyid` under the `Signature-Agent` DID.
+1. `Signature-Input` and `Signature` parse as RFC 8941 dictionaries, and some label carries the full profile: every covered component above, `tag="agent-did"`, `alg="ed25519"`, `created`, `expires`, `nonce`, and a `keyid` under the DID of that label's `Agent-DID` member, which is a String without parameters.
 2. `created` is within `maxCreatedSkewSeconds` of now (default 300 s), `expires >= created`, `expires - created` is at most `maxSignatureLifetimeSeconds` (default 300 s), and `now <= expires`.
 3. `Content-Digest` matches the body.
 4. The signature verifies over the base rebuilt from the received request, with `@signature-params` re-serialized from the parsed `Signature-Input`, using an active `assertionMethod` key of a DID whose controller chain is active.
@@ -81,20 +82,20 @@ if (!result.ok) {
 
 | `reason` | Meaning |
 |---|---|
-| `missing_headers` | `Signature`, `Signature-Input` or `Signature-Agent` is absent |
-| `malformed_headers` | the signature headers do not parse, or no signature has a matching label |
+| `missing_headers` | `Signature`, `Signature-Input` or `Agent-DID` is absent |
+| `malformed_headers` | the signature headers or `Agent-DID` do not parse, no signature has a matching label, or the `Agent-DID` member of the label is not a String without parameters |
 | `digest_mismatch` | `Content-Digest` is absent, or is not exactly the SHA-256 of the body |
 | `tag_mismatch` | `tag` is not `agent-did` (for example another profile's signature) |
 | `alg_unsupported` | `alg` is not `ed25519` |
 | `params_missing` | `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type, or `nonce` is not 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` |
-| `keyid_not_bound` | `keyid` is not a key of the `Signature-Agent` DID |
+| `keyid_not_bound` | `keyid` is not a key of the agent DID |
 | `components_missing` / `components_order` | a required covered component is absent / the required components are not first and in order |
 | `created_skew` | `created` is further from now than the allowed skew |
 | `expires_before_created` | `expires` is earlier than `created` |
 | `lifetime_exceeded` | `expires - created` is above the lifetime cap |
 | `expired` | now is after `expires` |
-| `signed_component_missing` | a covered component has no value in the request (for example no `Date`) |
-| `did_resolution_failed` | the `Signature-Agent` DID has no active verification chain: unknown, revoked, deactivated, inactive controller or a resolver failure. The SDK does not tell an outage from a revocation |
+| `signed_component_missing` | a covered component has no value in the request (for example no `Date`, or no `Agent-DID` member for the label) |
+| `did_resolution_failed` | the agent DID has no active verification chain: unknown, revoked, deactivated, inactive controller or a resolver failure. The SDK does not tell an outage from a revocation |
 | `keyid_not_authorized` | `keyid` is not an `assertionMethod` key of the DID document |
 | `signature_invalid` | the signature does not verify, or the key is no longer active |
 | `nonce_replayed` | the `(keyid, nonce)` pair was already seen |
@@ -151,9 +152,17 @@ Shorter windows keep the nonce store small. `maxCreatedSkewSeconds` (default 300
 
 ## Relation to Web Bot Auth
 
-The IETF *web-bot-auth* drafts also sign requests with RFC 9421 and use a `Signature-Agent` header. The two profiles are distinct:
+The IETF Web Bot Auth draft (`draft-ietf-webbotauth-httpsig-protocol-01`, compared on 2026-10-29) also signs requests with RFC 9421. The two profiles are distinct:
 
-- *web-bot-auth* identifies the agent through a key directory URL and uses `tag="web-bot-auth"`;
-- Agent-DID identifies the agent by its DID, resolves the key from the DID document, and uses `tag="agent-did"`.
+- Web Bot Auth identifies the agent through a key directory: `Signature-Agent` is a Dictionary keyed by label whose members are `https` URIs of a JWKS directory, `keyid` is a JWK thumbprint and `tag="web-bot-auth"`;
+- Agent-DID identifies the agent by its DID in its own `Agent-DID` header, resolves the key from the DID document, and uses `tag="agent-did"`.
 
-The different `tag` values keep a signature made for one profile from being accepted by the other. An agent can carry both signatures on the same request under different labels.
+Until rc.4 Agent-DID put the DID in a header also named `Signature-Agent`; a Web Bot Auth verifier would have read it as a directory URI. Since rc.5 the header names differ, and the `tag` values keep a signature made for one profile from being accepted by the other. An agent can carry both signatures on the same request under different labels, for example:
+
+```http
+Agent-DID: sig1="did:webvh:QmScid…:agents.example.com:support-bot"
+Signature-Agent: sig2="https://agents.example.com/.well-known/http-message-signatures-directory"
+Signature-Input: sig1=(… "agent-did";key="sig1");…;tag="agent-did", sig2=(… "signature-agent";key="sig2");…;tag="web-bot-auth"
+```
+
+The SDKs sign and verify only the Agent-DID signature; they do not publish or read Web Bot Auth key directories, and Agent-DID claims no Web Bot Auth conformance.

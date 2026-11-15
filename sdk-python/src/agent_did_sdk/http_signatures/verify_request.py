@@ -12,17 +12,20 @@ from datetime import datetime
 from typing import Literal
 
 from ..core.http_profile import (
-    AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
     AGENT_DID_HTTP_SIGNATURE_TAG,
+    agent_did_http_signature_components,
     compute_content_digest,
+    parse_agent_did_header,
 )
 from ..core.http_signatures import (
+    ComponentIdentifier,
     HttpRequestLike,
     HttpSignatureError,
     build_signature_base,
     parse_signature_header,
     parse_signature_input_header,
     request_url_form_problem,
+    serialize_component_identifier,
 )
 from ..core.identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT
 from ..core.nonce_store import NONCE_PATTERN, NonceStore
@@ -56,9 +59,18 @@ def _reject(reason: HttpSignatureRejection) -> VerifyHttpRequestSignatureResult:
     return VerifyHttpRequestSignatureResult(ok=False, reason=reason)
 
 
-def _starts_with_components(components: Sequence[str], required: Sequence[str]) -> bool:
+def _starts_with_components(
+    components: Sequence[ComponentIdentifier], required: Sequence[ComponentIdentifier]
+) -> bool:
     """RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow."""
-    return len(components) >= len(required) and all(c == r for c, r in zip(components, required))
+    return len(components) >= len(required) and all(
+        serialize_component_identifier(c) == serialize_component_identifier(r) for c, r in zip(components, required)
+    )
+
+
+def _covers_all(components: Sequence[ComponentIdentifier], required: Sequence[ComponentIdentifier]) -> bool:
+    covered = {serialize_component_identifier(c) for c in components}
+    return all(serialize_component_identifier(r) in covered for r in required)
 
 
 async def verify_agent_did_http_request(
@@ -69,20 +81,17 @@ async def verify_agent_did_http_request(
     now: datetime,
 ) -> VerifyHttpRequestSignatureResult:
     headers = {key.lower(): value for key, value in params.headers.items()}
-    signature_agent = headers.get("signature-agent")
-    if not headers.get("signature") or not headers.get("signature-input") or not signature_agent:
+    if not headers.get("signature") or not headers.get("signature-input") or not headers.get("agent-did"):
         return _reject("missing_headers")
     if request_url_form_problem(params.url) is not None:
         return _reject("url_not_normalized")
-    # Before any resolution: a DID outside the list costs no network call
-    if params.allowed_dids is not None and signature_agent not in params.allowed_dids:
-        return _reject("did_not_allowed")
     if headers.get("content-digest") != compute_content_digest(params.body):
         return _reject("digest_mismatch")
 
     try:
         inputs = parse_signature_input_header(headers["signature-input"])
         signatures = parse_signature_header(headers["signature"])
+        agent_dids = parse_agent_did_header(headers["agent-did"])
     except HttpSignatureError:
         return _reject("malformed_headers")
 
@@ -124,12 +133,25 @@ async def verify_agent_did_http_request(
         ):
             failures.append(("params_missing", True))
             continue
-        if not key_id.startswith(f"{signature_agent}#"):
-            failures.append(("keyid_not_bound", True))
-            continue
-        if not _starts_with_components(signature_input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS):
-            all_covered = all(c in signature_input.components for c in AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
+        required = agent_did_http_signature_components(label)
+        if not _starts_with_components(signature_input.components, required):
+            all_covered = _covers_all(signature_input.components, required)
             failures.append(("components_order" if all_covered else "components_missing", True))
+            continue
+        # The agent DID is the Agent-DID member keyed by this signature's label: a String without parameters
+        if label not in agent_dids:
+            failures.append(("signed_component_missing", True))
+            continue
+        agent_did = agent_dids[label]
+        if agent_did is None:
+            failures.append(("malformed_headers", True))
+            continue
+        # Before any resolution: a DID outside the list costs no network call
+        if params.allowed_dids is not None and agent_did not in params.allowed_dids:
+            failures.append(("did_not_allowed", True))
+            continue
+        if not key_id.startswith(f"{agent_did}#"):
+            failures.append(("keyid_not_bound", True))
             continue
         if abs(now_seconds - created) > max_skew:
             failures.append(("created_skew", True))
@@ -151,7 +173,7 @@ async def verify_agent_did_http_request(
             continue
 
         check = await verify_signature(
-            signature_agent, signature_base, signature.hex(), key_id, REQUIRED_RELATIONSHIP_BY_ARTIFACT["http_request"]
+            agent_did, signature_base, signature.hex(), key_id, REQUIRED_RELATIONSHIP_BY_ARTIFACT["http_request"]
         )
         outcome = check.outcome
         if outcome != "valid":
@@ -174,7 +196,7 @@ async def verify_agent_did_http_request(
         # Record the nonce only for an accepted signature, so forged or refused requests cannot burn nonces.
         if await store.check_and_store(f"{key_id} {nonce}", expires):
             return VerifyHttpRequestSignatureResult(
-                ok=True, did=signature_agent, key_id=key_id, controllers=controllers
+                ok=True, did=agent_did, key_id=key_id, controllers=controllers
             )
         return _reject("nonce_replayed")
 

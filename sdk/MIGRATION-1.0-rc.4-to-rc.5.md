@@ -1,6 +1,6 @@
 # @agentdid/sdk Migration Guide: 1.0.0-rc.4 -> 1.0.0-rc.5
 
-Behavior changes between `1.0.0-rc.4` and `1.0.0-rc.5`. There are no wire-format changes (the API removals are in sections 8 and 10): DID documents, DID logs, hash URIs and signature bases are unchanged, and documents or signatures produced by rc.4 stay valid.
+Behavior changes between `1.0.0-rc.4` and `1.0.0-rc.5`. rc.5 is the last release candidate that changes the wire: payload signatures (section 18) and HTTP request signatures (section 34) made by rc.4 do not verify in rc.5. DID documents and did:webvh logs made by rc.4 stay valid (sections 31 and 32 change what new documents contain, not how old ones verify).
 
 All changes below tighten the defaults of the SDK's HTTP handling. Code that already passes its own `fetchFn`, or that only talks to public HTTPS hosts and signs with the default lifetime, needs no change.
 
@@ -188,7 +188,7 @@ A did:webvh agent whose document names a `controller` other than itself verifies
 
 ## 18. Breaking: payload signatures carry a domain prefix; verified handoffs sign an envelope
 
-- `signMessage` signs `agent-did/v1/message` + a line feed + the payload, and `verifySignature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures are unchanged.
+- `signMessage` signs `agent-did/v1/message` + a line feed + the payload, and `verifySignature` / `verifySignatureAtTime` apply the same prefix. **Payload signatures made by rc.4 do not verify in rc.5 (and rc.5 signatures do not verify in rc.4); there is no compatibility mode.** Re-sign stored payload signatures. A third-party verifier prepends the UTF-8 prefix before the Ed25519 check. HTTP request signatures do not take the prefix; they change for another reason (section 34).
 - Microsoft Agent Framework (`agent-did-microsoft-agent-framework`): sign handoffs with `sign_handoff(...)` instead of building `SignedHandoffMessage` by hand, passing the downstream executor id as `destination`; payloads must be JSON-serializable; add `allowed_dids` to `irreversible` edges; pass a shared `nonce_store` when several workflow instances verify the same edge. New block reasons: `destination`, `nonce`, `signed_at`, `payload`, `replay`.
 
 ## 19. Breaking: `BearerTokenHttpDIDDocumentSource` needs `allowedOrigins`; JSON-RPC and pinned connections
@@ -294,7 +294,6 @@ RFC-001 §4.3 now makes `coreModelHash` and `systemPromptHash` optional assertio
 - The local bootstrap controller document no longer carries placeholder commitments.
 - Verifiers: do not reject a document without commitments, and do not read a matching commitment as proof of what the agent runs.
 
-
 ## 32. `Multikey` verification methods
 
 RFC-001 §4.2 now requires `Multikey` for Ed25519 keys ([ADR-006](../docs/ADR-006-Wire-Alignment-rc5.md) D-8b).
@@ -310,6 +309,17 @@ RFC-001 §4.4 adds the `AgentMetadataCredential` ([ADR-006](../docs/ADR-006-Wire
 
 - The controller issues it with `client.issueAgentMetadataCredential({ agentDid, signer, verificationMethodId })`, where `verificationMethodId` is an `assertionMethod` key of the controller (for the implicit bootstrap controller, `controllerDocument.assertionMethod[0]` with `new LocalKeySigner(created.controllerPrivateKey)`). Pass `agentMetadata` to share only some members, and `validUntil` to bound it.
 - A relying party verifies it with `client.verifyAgentMetadataCredential(credential, { expectedAgentDid })` and reads `result.ok`, `result.reason`, `result.agentMetadata` and `result.controllers`. The metadata is the controller's assertion, not evidence of what the agent runs.
+
+## 34. Breaking: the agent DID moves to the `Agent-DID` header
+
+RFC-001 §6.5 ([ADR-006](../docs/ADR-006-Wire-Alignment-rc5.md) D-8a). `Signature-Agent` is a header of the IETF Web Bot Auth draft with another meaning (a key-directory URI), so Agent-DID no longer uses it.
+
+- `signHttpRequest` returns `Agent-DID: sig1="<did>"`, a Structured Field Dictionary keyed by the signature label, instead of `Signature-Agent: <did>`, and the signature covers `"agent-did";key="sig1"` instead of `"signature-agent"`. Proxies, gateways and logging that pass or read `Signature-Agent` must pass or read `Agent-DID`.
+- `verifyHttpRequestSignature` takes the DID from the `Agent-DID` member of each signature's label and never reads `Signature-Agent`. **HTTP signatures made by rc.4 do not verify in rc.5, and rc.5 signatures do not verify in rc.4; there is no compatibility mode.** Upgrade signers and verifiers together.
+- New rejections: no `Agent-DID` header (`missing_headers`); a field that is not a Dictionary, or a member that is not a String or has parameters (`malformed_headers`); no member for the signature's label (`signed_component_missing`). `allowedDids` is now checked per signature, after the profile checks and still before any resolution, so a request with a wrong `Content-Digest` reports `digest_mismatch` before `did_not_allowed`.
+- API: `AGENT_DID_HTTP_SIGNATURE_COMPONENTS` is removed; `agentDidHttpSignatureComponents(label)` returns the seven components, the last one `{ name: 'agent-did', key: label }`. New `AGENT_DID_HTTP_HEADER` (`'Agent-DID'`). `SignatureInput.components` is `ComponentIdentifier[]` (`string | KeyedComponent`): `parseSignatureInputHeader` returns a `KeyedComponent` for a component with a `key` parameter (the only component parameter supported; any other still throws), and `buildSignatureBase` takes the serialized Dictionary member as its value (RFC 9421 §2.1.2). Code that treats components as plain strings must handle the object form.
+- Third-party signers: send `Agent-DID: <label>="<did>"` and cover `"agent-did";key="<label>"` with the signature's own label, last among the seven required components.
+- Fixtures: `fixtures/http-verification-vectors.json` (84 vectors, with new `Agent-DID` cases) and `fixtures/interop-vectors.json` are regenerated, and the wire freeze is re-pinned.
 
 ## Checklist
 
@@ -341,3 +351,5 @@ RFC-001 §4.4 adds the `AgentMetadataCredential` ([ADR-006](../docs/ADR-006-Wire
 - [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
 - [ ] Every HTTP verifier either passes `allowedDids` / `allowedControllers` or checks `result.did` before trusting the request.
 - [ ] Agents that use the LangChain `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `resolutionLimits.allowedHosts`.
+- [ ] HTTP signers and verifiers are upgraded together, and proxies or gateways forward `Agent-DID` (rc.4 HTTP signatures do not verify in rc.5).
+- [ ] Code that used `AGENT_DID_HTTP_SIGNATURE_COMPONENTS` calls `agentDidHttpSignatureComponents(label)` and handles `KeyedComponent` entries.

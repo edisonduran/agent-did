@@ -11,7 +11,6 @@ import pytest
 from nacl.signing import SigningKey
 
 from agent_did_sdk import (
-    AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
     AGENT_DID_HTTP_SIGNATURE_TAG,
     AgentIdentity,
     AgentIdentityConfig,
@@ -21,7 +20,7 @@ from agent_did_sdk import (
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
 )
-from agent_did_sdk.core.http_profile import compute_content_digest
+from agent_did_sdk.core.http_profile import agent_did_http_signature_components, compute_content_digest
 from agent_did_sdk.core.http_signatures import (
     HttpRequestLike,
     HttpSignatureError,
@@ -211,7 +210,8 @@ class TestAgentDidHttpSignatureProfile:
 
         assert "X-Request-Nonce" not in headers
         signature_input = parse_signature_input_header(headers["Signature-Input"])["sig1"]
-        assert signature_input.components == list(AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
+        assert signature_input.components == agent_did_http_signature_components("sig1")
+        assert '"date" "agent-did";key="sig1");created=' in headers["Signature-Input"]
         assert [name for name, _ in signature_input.params] == ["created", "expires", "nonce", "keyid", "alg", "tag"]
         params = dict(signature_input.params)
         assert params["expires"] == params["created"] + 60  # type: ignore[operator]
@@ -250,13 +250,17 @@ class TestAgentDidHttpSignatureProfile:
             lambda v: v.replace('tag="agent-did"', 'tag="web-bot-auth"'),
             lambda v: v.replace(';alg="ed25519"', ""),
             lambda v: __import__("re").sub(r";expires=\d+", "", v),
-            lambda v: v.replace(' "signature-agent"', ""),
+            lambda v: v.replace(' "agent-did";key="sig1"', ""),
+            lambda v: v.replace('"agent-did";key="sig1"', '"agent-did"'),
+            lambda v: v.replace('key="sig1"', 'key="sig2"'),
+            lambda v: v.replace('key="sig1"', 'key="sig1";sf'),
             lambda v: v.replace(' "@query"', ""),
             lambda v: v.replace("sig1=(", "sig1=["),
         ],
         ids=[
             "missing-nonce", "missing-tag", "foreign-tag", "missing-alg", "missing-expires",
-            "dropped-signature-agent", "dropped-query", "malformed-dictionary",
+            "dropped-agent-did", "agent-did-without-key", "agent-did-other-label", "unsupported-component-param",
+            "dropped-query", "malformed-dictionary",
         ],
     )
     async def test_rejects_profile_violations(self, identity: AgentIdentity, mutate: Callable[[str], str]) -> None:
@@ -280,10 +284,45 @@ class TestAgentDidHttpSignatureProfile:
         _, _, headers = await _signed(identity)
         assert await _verify(headers, **change) is False
 
-    async def test_rejects_a_signature_agent_swapped_to_another_did(self, identity: AgentIdentity) -> None:
+    async def test_rejects_an_agent_did_member_swapped_to_another_did(self, identity: AgentIdentity) -> None:
         victim = await identity.create(CreateAgentParams(name="VictimBot", core_model="m", system_prompt="p"))
         _, _, headers = await _signed(identity, "AttackerBot")
-        assert await _verify({**headers, "Signature-Agent": victim.document.id}) is False
+        assert await _verify({**headers, "Agent-DID": f'sig1="{victim.document.id}"'}) is False
+
+    @pytest.mark.parametrize(
+        ("value", "reason"),
+        [
+            (None, "missing_headers"),
+            ("DID", "malformed_headers"),
+            ('sig2="DID"', "signed_component_missing"),
+            ("sig1=did", "malformed_headers"),
+            ('sig1="DID";v=1', "malformed_headers"),
+            ('sig1=("DID")', "malformed_headers"),
+        ],
+        ids=["absent", "bare-string", "no-member-for-label", "token-member", "member-with-parameters", "inner-list"],
+    )
+    async def test_rejects_an_invalid_agent_did_field(
+        self, identity: AgentIdentity, value: str | None, reason: str
+    ) -> None:
+        did, _, signed = await _signed(identity, "HeaderBot")
+        headers = {name: v for name, v in signed.items() if name != "Agent-DID"}
+        if value is not None:
+            headers["Agent-DID"] = value.replace("DID", did)
+        detailed = await AgentIdentity.get_default_client().verify_http_request_signature_detailed(
+            VerifyHttpRequestSignatureParams(**REQUEST, headers=headers)
+        )
+        assert (detailed.ok, detailed.reason) == (False, reason)
+
+    async def test_takes_the_agent_did_from_the_member_of_the_signature_label(self, identity: AgentIdentity) -> None:
+        other = await identity.create(CreateAgentParams(name="OtherBot", core_model="m", system_prompt="p"))
+        did, _, signed = await _signed(identity, "MultiMemberBot")
+        # Another member is not covered by sig1, so adding it does not change the signature base
+        headers = {**signed, "Agent-DID": f'sig0="{other.document.id}", {signed["Agent-DID"]}'}
+        detailed = await AgentIdentity.get_default_client().verify_http_request_signature_detailed(
+            VerifyHttpRequestSignatureParams(**REQUEST, headers=headers)
+        )
+        assert detailed.ok is True
+        assert detailed.did == did
 
     async def test_verifies_additional_covered_components_only_when_signed(self, identity: AgentIdentity) -> None:
         result = await identity.create(CreateAgentParams(name="ExtraBot", core_model="m", system_prompt="p"))
@@ -293,13 +332,13 @@ class TestAgentDidHttpSignatureProfile:
         )
         created = int(dict(parse_signature_input_header(signed["Signature-Input"])["sig1"].params)["created"])  # type: ignore[call-overload]
         headers = {
-            "Signature-Agent": result.document.id,
+            "Agent-DID": f'sig-a="{result.document.id}"',
             "Date": signed["Date"],
             "Content-Digest": signed["Content-Digest"],
             "X-Extra": "covered too",
         }
         signature_input = SignatureInput(
-            components=[*AGENT_DID_HTTP_SIGNATURE_COMPONENTS, "x-extra"],
+            components=[*agent_did_http_signature_components("sig-a"), "x-extra"],
             params=[
                 ("created", created),
                 ("expires", created + 30),

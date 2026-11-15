@@ -22,7 +22,7 @@ Agent-DID solves this with:
 
 - **Decentralized identity** (W3C DID-compatible) specifically designed for AI agents
 - **Ed25519 cryptographic signatures** — deterministic, fast, no entropy vulnerability
-- **HTTP Bot Auth** — sign and verify HTTP requests (IETF Message Signatures)
+- **HTTP request signatures** — sign and verify HTTP requests (RFC 9421 HTTP Message Signatures)
 - **Privacy by design** — model and prompt hashes protect IP without exposure
 - **Optional EVM registry adapter** — available when a deployment explicitly needs the deferred on-chain profile
 - **Universal resolver** — HTTP, JSON-RPC, and IPFS with failover and caching
@@ -73,7 +73,7 @@ Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` lo
 |---|---|---|
 | Create Agent-DID document | `identity.create(params)` | ✅ |
 | Sign messages (Ed25519) | `identity.signMessage(payload, key)` | ✅ |
-| Sign HTTP requests (Bot Auth) | `identity.signHttpRequest(params)` | ✅ |
+| Sign HTTP requests (RFC 9421) | `identity.signHttpRequest(params)` | ✅ |
 | Verify message signatures | `AgentIdentity.verifySignature(did, payload, sig)` | ✅ |
 | Enforce key purpose binding | `assertKeyPurpose(keyId, didDoc, purpose)` | ✅ |
 | Verify HTTP signatures | `AgentIdentity.verifyHttpRequestSignature(params)` | ✅ |
@@ -181,7 +181,7 @@ Verification resolves the agent and its controller and checks the binding, so th
 
 ## Anti-Replay (HTTP Signatures)
 
-Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: they cover `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `Signature-Agent`, and carry `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. **The default store is per process: with more than one verifier instance (replicas, serverless, Kubernetes) a replayed request is accepted by any instance that has not seen it, so pass a shared `nonceStore`.** CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
+Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: the agent DID goes in an `Agent-DID` Dictionary header keyed by signature label (`Agent-DID: sig1="did:webvh:…"`; since `1.0.0-rc.5`, before it was a bare `Signature-Agent` header), the signature covers `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `"agent-did";key="sig1"`, and carries `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. **The default store is per process: with more than one verifier instance (replicas, serverless, Kubernetes) a replayed request is accepted by any instance that has not seen it, so pass a shared `nonceStore`.** CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
 
 ## Specification
 

@@ -98,6 +98,7 @@ Parity verification is complete when:
 
 | Date | Change |
 |------|--------|
+| 2026-11-15 | The HTTP signing tools of both packages return the agent DID in the `Agent-DID` header (`sig1="<did>"`) instead of `Signature-Agent` (ADR-006 D-8a), because they sign through the SDK; the LangChain Python test checks the new header. No change to the integration surface; parity unchanged. |
 | 2026-11-15 | LangChain JS and Python did:wba demos and tests declare `Multikey` verification methods (ADR-006 D-8b), the type both SDKs write since rc.5. No change to the integration surface; parity unchanged. |
 | 2026-11-14 | Both LangChain packages delegate HTTP target validation and observability sanitization to the SDK (one implementation, shared vectors in `fixtures/observability-sanitization-vectors.json`); review covers the same redaction format and error messages in TS and Python. `REDACTED_VALUE` is no longer exported by LangChain JS. |
 | 2026-11-14 | LangChain JS minor dependency bump (#237: `@langchain/core` 1.3.7 and `langchain` 1.6.4 in the lockfile, `langsmith` `^0.12.0`); no change to tools or API. |

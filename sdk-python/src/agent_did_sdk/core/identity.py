@@ -29,12 +29,19 @@ from .client import (
     ProductionResolverProfileConfig as ProductionResolverProfileConfig,
 )
 from .http_profile import (
-    AGENT_DID_HTTP_SIGNATURE_COMPONENTS as AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
+    AGENT_DID_HTTP_HEADER as AGENT_DID_HTTP_HEADER,
+)
+from .http_profile import (
+    AGENT_DID_HTTP_SIGNATURE_LABEL,
+    compute_content_digest,
+    serialize_agent_did_header,
 )
 from .http_profile import (
     AGENT_DID_HTTP_SIGNATURE_TAG as AGENT_DID_HTTP_SIGNATURE_TAG,
 )
-from .http_profile import compute_content_digest
+from .http_profile import (
+    agent_did_http_signature_components as agent_did_http_signature_components,
+)
 from .http_security import validate_http_target
 from .http_signatures import (
     HttpRequestLike,
@@ -123,8 +130,9 @@ class AgentIdentity:
     async def sign_http_request(self, params: SignHttpRequestParams) -> dict[str, str]:
         """Sign an HTTP request with an RFC 9421 HTTP Message Signature (Agent-DID profile).
 
-        Covered components: ``"@method" "@authority" "@path" "@query" "content-digest" "date"
-        "signature-agent"``; parameters: ``created``, ``expires``, ``nonce``, ``keyid``,
+        The agent DID goes in the ``Agent-DID`` Dictionary field, keyed by the signature label (``sig1``). Covered
+        components: ``"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="sig1"``;
+        parameters: ``created``, ``expires``, ``nonce``, ``keyid``,
         ``alg="ed25519"`` and ``tag="agent-did"``. Returns the header fields to add to the request.
         """
         if not (params.method and params.method.strip()):
@@ -152,12 +160,12 @@ class AgentIdentity:
         created = int(time.time())
         expires_in = params.expires_in_seconds if params.expires_in_seconds is not None else 30
         headers = {
-            "Signature-Agent": params.agent_did,
+            AGENT_DID_HTTP_HEADER: serialize_agent_did_header(AGENT_DID_HTTP_SIGNATURE_LABEL, params.agent_did),
             "Date": datetime.fromtimestamp(created, timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT"),
             "Content-Digest": compute_content_digest(params.body),
         }
         signature_input = SignatureInput(
-            components=list(AGENT_DID_HTTP_SIGNATURE_COMPONENTS),
+            components=agent_did_http_signature_components(AGENT_DID_HTTP_SIGNATURE_LABEL),
             params=[
                 ("created", created),
                 ("expires", created + expires_in),
@@ -175,8 +183,8 @@ class AgentIdentity:
         signature_hex = await self._sign_bytes(signature_base.encode("utf-8"), key_or_signer)
         return {
             **headers,
-            "Signature-Input": f"sig1={serialize_signature_input(signature_input)}",
-            "Signature": serialize_signature("sig1", bytes.fromhex(signature_hex)),
+            "Signature-Input": f"{AGENT_DID_HTTP_SIGNATURE_LABEL}={serialize_signature_input(signature_input)}",
+            "Signature": serialize_signature(AGENT_DID_HTTP_SIGNATURE_LABEL, bytes.fromhex(signature_hex)),
         }
 
     @classmethod

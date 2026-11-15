@@ -92,7 +92,7 @@ Since `1.0.0rc3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log 
 |---|---|---|
 | Create Agent-DID document | `identity.create(params)` | ✅ |
 | Sign messages (Ed25519) | `identity.sign_message(payload, key)` | ✅ |
-| Sign HTTP requests (Bot Auth) | `identity.sign_http_request(params)` | ✅ |
+| Sign HTTP requests (RFC 9421) | `identity.sign_http_request(params)` | ✅ |
 | Verify message signatures | `AgentIdentity.verify_signature(did, payload, sig)` | ✅ |
 | Enforce key purpose binding | `assert_key_purpose(key_id, did_doc, purpose)` | ✅ |
 | Verify HTTP signatures (RFC 9421, replay protection via `NonceStore`; the default store is per process, pass a shared one when several instances verify) | `AgentIdentity.verify_http_request_signature(params)` | ✅ |

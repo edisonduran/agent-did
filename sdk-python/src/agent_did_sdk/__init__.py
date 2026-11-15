@@ -13,8 +13,10 @@ from .core.http_security import (
     validate_http_target,
 )
 from .core.http_signatures import (
+    ComponentIdentifier,
     HttpRequestLike,
     HttpSignatureError,
+    KeyedComponent,
     SignatureInput,
     Token,
     build_signature_base,
@@ -24,13 +26,14 @@ from .core.http_signatures import (
     serialize_signature_input,
 )
 from .core.identity import (
-    AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
+    AGENT_DID_HTTP_HEADER,
     AGENT_DID_HTTP_SIGNATURE_TAG,
     AgentIdentity,
     AgentIdentityConfig,
     ProductionHttpResolverProfileConfig,
     ProductionJsonRpcResolverProfileConfig,
     ProductionResolverProfileConfig,
+    agent_did_http_signature_components,
 )
 from .core.identity_composition import (
     ADDITIONAL_VERIFICATION_RELATIONSHIPS,
@@ -200,12 +203,15 @@ __all__ = [
     # Core signer
     "AgentSigner",
     # HTTP Message Signatures (RFC 9421) and replay protection
-    "AGENT_DID_HTTP_SIGNATURE_COMPONENTS",
+    "AGENT_DID_HTTP_HEADER",
     "AGENT_DID_HTTP_SIGNATURE_TAG",
+    "agent_did_http_signature_components",
     "NonceStore",
     "InMemoryNonceStore",
+    "ComponentIdentifier",
     "HttpSignatureError",
     "HttpRequestLike",
+    "KeyedComponent",
     "SignatureInput",
     "Token",
     "build_signature_base",

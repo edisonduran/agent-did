@@ -44,7 +44,7 @@ Expected outcome:
 - `activeDid` equals `did:wba:agents.example:profiles:weather-bot`
 - `partnerDid` equals `did:wba:agents.example:partners:dispatch-router`
 - `httpSignatureVerified` is `true`
-- `signedHeaderNames` includes `Signature`, `Signature-Input`, `Signature-Agent`, `Date`, and `Content-Digest`
+- `signedHeaderNames` includes `Signature`, `Signature-Input`, `Agent-DID`, `Date`, and `Content-Digest`
 - `resolutionEvents` includes a resolved event for both the partner DID and the active DID
 
 What is happening internally:
@@ -77,7 +77,7 @@ Expected outcome:
 - `active_did` equals `did:wba:agents.example:profiles:weather-bot`
 - `partner_did` equals `did:wba:agents.example:partners:dispatch-router`
 - `http_signature_verified` is `true`
-- `signed_header_names` includes `Signature`, `Signature-Input`, `Signature-Agent`, `Date`, and `Content-Digest`
+- `signed_header_names` includes `Signature`, `Signature-Input`, `Agent-DID`, `Date`, and `Content-Digest`
 - `resolution_events` includes a resolved event for both the partner DID and the active DID
 
 What is happening internally:

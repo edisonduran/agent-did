@@ -1,6 +1,6 @@
 # Public API snapshot for agent-did-sdk
 ADDITIONAL_VERIFICATION_RELATIONSHIPS
-AGENT_DID_HTTP_SIGNATURE_COMPONENTS
+AGENT_DID_HTTP_HEADER
 AGENT_DID_HTTP_SIGNATURE_TAG
 AGENT_DID_MESSAGE_SIGNING_PREFIX
 AGENT_METADATA_CREDENTIAL_CONTEXT
@@ -23,6 +23,7 @@ AwsSigV4S3DIDDocumentSource
 AwsSigV4S3DIDDocumentSourceConfig
 BearerTokenHttpDIDDocumentSource
 BearerTokenHttpDIDDocumentSourceConfig
+ComponentIdentifier
 ControllerBindingError
 CreateAgentParams
 CreateAgentResult
@@ -64,6 +65,7 @@ JsonRpcDIDDocumentSourceConfig
 KeyAtTimeRejection
 KeyAtTimeResult
 KeyAtTimeUncertainty
+KeyedComponent
 LocalKeySigner
 MetadataCommitmentSalts
 NonceStore
@@ -102,6 +104,7 @@ VerifySignatureAtTimeRejection
 VerifySignatureAtTimeResult
 WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig
+agent_did_http_signature_components
 assert_key_purpose
 assert_signing_purpose
 build_signature_base

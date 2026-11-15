@@ -5,7 +5,11 @@ import { LocalKeySigner } from '../src/core/signer';
  */
 import crypto from 'crypto';
 import { httpbis, createSigner, createVerifier } from 'http-message-signatures';
-import { AgentIdentity, AGENT_DID_HTTP_SIGNATURE_COMPONENTS } from '../src/core/AgentIdentity';
+import { AgentIdentity } from '../src/core/AgentIdentity';
+
+// The independent library names a keyed component as `name;key="label"` and checks required fields by name only
+const REQUIRED_FIELD_NAMES = ['@method', '@authority', '@path', '@query', 'content-digest', 'date', 'agent-did'];
+const SIGNED_FIELDS = ['@method', '@authority', '@path', '@query', 'content-digest', 'date', 'agent-did;key="sig1"'];
 import { decodePublicKeyMultibase } from '../src/crypto/multibase';
 import { InMemoryAgentRegistry } from '../src/registry/InMemoryAgentRegistry';
 import { InMemoryDIDResolver } from '../src/resolver/InMemoryDIDResolver';
@@ -40,7 +44,7 @@ describe('RFC 9421 interoperability with http-message-signatures', () => {
       {
         keyLookup: async (params) =>
           params.keyid === `${document.id}#key-1` ? { id: params.keyid as string, algs: ['ed25519'], verify: createVerifier(publicKey, 'ed25519') } : null,
-        requiredFields: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS],
+        requiredFields: REQUIRED_FIELD_NAMES,
         requiredParams: ['created', 'expires', 'nonce', 'keyid', 'alg', 'tag'],
       },
       { method: request.method, url: request.url, headers }
@@ -53,7 +57,7 @@ describe('RFC 9421 interoperability with http-message-signatures', () => {
     const keyid = `${document.id}#key-1`;
     const created = new Date(Math.floor(Date.now() / 1000) * 1000);
     const headers: Record<string, string> = {
-      'Signature-Agent': document.id,
+      'Agent-DID': `sig1="${document.id}"`,
       'Date': created.toUTCString(),
       'Content-Digest': `sha-256=:${crypto.createHash('sha256').update(request.body).digest('base64')}:`,
     };
@@ -62,7 +66,7 @@ describe('RFC 9421 interoperability with http-message-signatures', () => {
       {
         key: createSigner(privateKeyObject(agentPrivateKey), 'ed25519', keyid),
         name: 'sig1',
-        fields: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS],
+        fields: SIGNED_FIELDS,
         params: ['created', 'expires', 'nonce', 'keyid', 'alg', 'tag'],
         paramValues: { created, expires: new Date(created.getTime() + 30_000), nonce: crypto.randomBytes(16).toString('hex'), tag: 'agent-did' },
       },

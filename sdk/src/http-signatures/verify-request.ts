@@ -14,14 +14,21 @@ import {
 } from '../core/types';
 import {
   buildSignatureBase,
+  ComponentIdentifier,
   getSignatureParam,
   parseSignatureHeader,
   parseSignatureInputHeader,
   requestUrlFormProblem,
+  serializeComponentIdentifier,
   SignatureInput
 } from '../core/http-signatures';
 import { NONCE_PATTERN, NonceStore } from '../core/nonce-store';
-import { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, computeContentDigest } from '../core/http-profile';
+import {
+  AGENT_DID_HTTP_SIGNATURE_TAG,
+  agentDidHttpSignatureComponents,
+  computeContentDigest,
+  parseAgentDidHeader
+} from '../core/http-profile';
 
 /** What the injected cryptographic check found. */
 export type SignatureCheckOutcome =
@@ -53,8 +60,14 @@ export interface VerifyRequestDeps {
 const reject = (reason: HttpSignatureRejection): VerifyHttpRequestSignatureResult => ({ ok: false, reason });
 
 /** RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow. */
-function startsWithComponents(components: readonly string[], required: readonly string[]): boolean {
-  return required.every((component, index) => components[index] === component);
+function startsWithComponents(components: readonly ComponentIdentifier[], required: readonly ComponentIdentifier[]): boolean {
+  return required.every((component, index) =>
+    components[index] !== undefined && serializeComponentIdentifier(components[index]) === serializeComponentIdentifier(component));
+}
+
+function coversAll(components: readonly ComponentIdentifier[], required: readonly ComponentIdentifier[]): boolean {
+  const covered = new Set(components.map(serializeComponentIdentifier));
+  return required.every((component) => covered.has(serializeComponentIdentifier(component)));
 }
 
 export async function verifyAgentDidHttpRequest(
@@ -64,16 +77,11 @@ export async function verifyAgentDidHttpRequest(
   const headers = Object.fromEntries(
     Object.entries(params.headers).map(([key, value]) => [key.toLowerCase(), value])
   );
-  const signatureAgent = headers['signature-agent'];
-  if (!headers['signature'] || !headers['signature-input'] || !signatureAgent) {
+  if (!headers['signature'] || !headers['signature-input'] || !headers['agent-did']) {
     return reject('missing_headers');
   }
   if (requestUrlFormProblem(params.url) !== undefined) {
     return reject('url_not_normalized');
-  }
-  // Before any resolution: a DID outside the list costs no network call
-  if (params.allowedDids !== undefined && !params.allowedDids.includes(signatureAgent)) {
-    return reject('did_not_allowed');
   }
   if (headers['content-digest'] !== computeContentDigest(params.body)) {
     return reject('digest_mismatch');
@@ -81,9 +89,11 @@ export async function verifyAgentDidHttpRequest(
 
   let inputs: Map<string, SignatureInput>;
   let signatures: Map<string, Uint8Array>;
+  let agentDids: Map<string, string | undefined>;
   try {
     inputs = parseSignatureInputHeader(headers['signature-input']);
     signatures = parseSignatureHeader(headers['signature']);
+    agentDids = parseAgentDidHeader(headers['agent-did']);
   } catch {
     return reject('malformed_headers');
   }
@@ -128,13 +138,28 @@ export async function verifyAgentDidHttpRequest(
       fail('params_missing', true);
       continue;
     }
-    if (!keyId.startsWith(`${signatureAgent}#`)) {
-      fail('keyid_not_bound', true);
+    const required = agentDidHttpSignatureComponents(label);
+    if (!startsWithComponents(input.components, required)) {
+      fail(coversAll(input.components, required) ? 'components_order' : 'components_missing', true);
       continue;
     }
-    if (!startsWithComponents(input.components, AGENT_DID_HTTP_SIGNATURE_COMPONENTS)) {
-      const allCovered = AGENT_DID_HTTP_SIGNATURE_COMPONENTS.every((component) => input.components.includes(component));
-      fail(allCovered ? 'components_order' : 'components_missing', true);
+    // The agent DID is the Agent-DID member keyed by this signature's label: a String without parameters
+    if (!agentDids.has(label)) {
+      fail('signed_component_missing', true);
+      continue;
+    }
+    const agentDid = agentDids.get(label);
+    if (agentDid === undefined) {
+      fail('malformed_headers', true);
+      continue;
+    }
+    // Before any resolution: a DID outside the list costs no network call
+    if (params.allowedDids !== undefined && !params.allowedDids.includes(agentDid)) {
+      fail('did_not_allowed', true);
+      continue;
+    }
+    if (!keyId.startsWith(`${agentDid}#`)) {
+      fail('keyid_not_bound', true);
       continue;
     }
     if (Math.abs(now - created) > maxSkew) {
@@ -163,7 +188,7 @@ export async function verifyAgentDidHttpRequest(
     }
 
     const { outcome, controllers = [] } = await deps.verifySignature(
-      signatureAgent,
+      agentDid,
       signatureBase,
       bytesToHex(signature),
       keyId,
@@ -190,7 +215,7 @@ export async function verifyAgentDidHttpRequest(
 
     // Record the nonce only for an accepted signature, so forged or refused requests cannot burn nonces.
     return await nonceStore.checkAndStore(`${keyId} ${nonce}`, expires)
-      ? { ok: true, did: signatureAgent, keyId, controllers }
+      ? { ok: true, did: agentDid, keyId, controllers }
       : reject('nonce_replayed');
   }
 
