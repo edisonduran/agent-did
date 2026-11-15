@@ -1,6 +1,7 @@
 /**
  * Controller binding of a did:webvh agent (RFC-001 §6.6 item 7).
  *
+ * The controller's document is any DID Core document (RFC-001 §4.2.1); it does not need the Agent-DID members.
  * An agent whose document names a `controller` other than itself is bound to it only if the proof of the LAST entry of
  * its did:webvh log was made by a key that is active now under `capabilityInvocation` of the controller's document. The
  * last entry carries the full current document, so that proof is the controller's endorsement of the current state.
@@ -11,8 +12,8 @@
  */
 import { bytesToHex } from '@noble/hashes/utils';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
-import { AgentDIDDocument } from './types';
-import { isEd25519VerificationMethodType } from './verification-method';
+import { DidDocument } from './types';
+import { activeEd25519PublicKey, relationshipMethods } from './verification-method';
 
 /** The agent is not bound to its controller (see `assertBoundToController`). */
 export class ControllerBindingError extends Error {
@@ -35,22 +36,16 @@ function rawKeyHex(multikey: string): string | undefined {
   }
 }
 
-/** Raw public keys (hex) of the controller's keys that are active now under `capabilityInvocation`. */
-export function activeCapabilityInvocationKeys(controller: AgentDIDDocument): Set<string> {
-  const listed = new Set(controller.capabilityInvocation ?? []);
+/**
+ * Raw public keys (hex) of the controller's keys that are active now under `capabilityInvocation`: references
+ * (absolute or relative to the controller's `id`) and embedded methods, Ed25519 `publicKeyMultibase` keys only.
+ */
+export function activeCapabilityInvocationKeys(controller: DidDocument): Set<string> {
   const keys = new Set<string>();
-  for (const method of controller.verificationMethod) {
-    if (
-      !listed.has(method.id) ||
-      method.deactivated ||
-      !method.publicKeyMultibase ||
-      !isEd25519VerificationMethodType(method.type)
-    ) {
-      continue;
-    }
-    const hex = rawKeyHex(method.publicKeyMultibase);
-    if (hex !== undefined) {
-      keys.add(hex);
+  for (const method of relationshipMethods(controller, 'capabilityInvocation')) {
+    const key = activeEd25519PublicKey(method);
+    if (key !== undefined) {
+      keys.add(bytesToHex(key));
     }
   }
   return keys;
@@ -61,9 +56,9 @@ export function activeCapabilityInvocationKeys(controller: AgentDIDDocument): Se
  * entry) is an active `capabilityInvocation` key of `controller`.
  */
 export function assertBoundToController(
-  agent: AgentDIDDocument,
+  agent: DidDocument,
   lastEntrySignerKeys: readonly string[],
-  controller: AgentDIDDocument
+  controller: DidDocument
 ): void {
   const active = activeCapabilityInvocationKeys(controller);
   if (active.size === 0) {

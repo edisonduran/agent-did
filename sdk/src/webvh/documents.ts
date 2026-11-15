@@ -7,7 +7,8 @@ import {
   AdditionalVerificationRelationship,
   AgentDIDDocument,
   AgentDocumentHistoryAction,
-  AgentDocumentHistoryEntry
+  AgentDocumentHistoryEntry,
+  DidDocument
 } from '../core/types';
 import { ADDITIONAL_VERIFICATION_RELATIONSHIPS } from '../core/identity-composition';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
@@ -17,8 +18,8 @@ import { DID_WEBVH_PLACEHOLDER } from './adapter';
 
 const AGENT_DID_CONTEXT = ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'];
 
-export function cloneDocument(document: AgentDIDDocument): AgentDIDDocument {
-  return JSON.parse(JSON.stringify(document)) as AgentDIDDocument;
+export function cloneDocument<T extends DidDocument = AgentDIDDocument>(document: T): T {
+  return JSON.parse(JSON.stringify(document)) as T;
 }
 
 export function computeDocumentReference(document: AgentDIDDocument): string {

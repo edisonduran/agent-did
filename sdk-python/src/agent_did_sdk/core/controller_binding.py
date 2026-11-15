@@ -1,5 +1,6 @@
 """Controller binding of a did:webvh agent (RFC-001 §6.6 item 7).
 
+The controller's document is any DID Core document (RFC-001 §4.2.1); it does not need the Agent-DID members.
 An agent whose document names a ``controller`` other than itself is bound to it only if the proof of the LAST entry of
 its did:webvh log was made by a key that is active now under ``capabilityInvocation`` of the controller's document. The
 last entry carries the full current document, so that proof is the controller's endorsement of the current state.
@@ -14,8 +15,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from ..crypto.multibase import decode_public_key_multibase
-from .types import AgentDIDDocument
-from .verification_method import is_ed25519_verification_method_type
+from .types import AnyDidDocument
+from .verification_method import active_ed25519_public_key, relationship_methods
 
 
 class ControllerBindingError(ValueError):
@@ -34,26 +35,19 @@ def _raw_key_hex(multikey: str) -> str | None:
         return None
 
 
-def active_capability_invocation_keys(controller: AgentDIDDocument) -> set[str]:
-    """Raw public keys (hex) of the controller's keys that are active now under ``capabilityInvocation``."""
-    listed = set(controller.capability_invocation or [])
+def active_capability_invocation_keys(controller: AnyDidDocument) -> set[str]:
+    """Raw public keys (hex) of the controller's keys that are active now under ``capabilityInvocation``: references
+    (absolute or relative to the controller's ``id``) and embedded methods, Ed25519 ``publicKeyMultibase`` keys only."""
     keys: set[str] = set()
-    for method in controller.verification_method:
-        if (
-            method.id not in listed
-            or method.deactivated
-            or not method.public_key_multibase
-            or not is_ed25519_verification_method_type(method.type)
-        ):
-            continue
-        raw = _raw_key_hex(method.public_key_multibase)
-        if raw is not None:
-            keys.add(raw)
+    for method in relationship_methods(controller, "capabilityInvocation"):
+        key = active_ed25519_public_key(method)
+        if key is not None:
+            keys.add(key.hex())
     return keys
 
 
 def assert_bound_to_controller(
-    agent: AgentDIDDocument, last_entry_signer_keys: Sequence[str], controller: AgentDIDDocument
+    agent: AnyDidDocument, last_entry_signer_keys: Sequence[str], controller: AnyDidDocument
 ) -> None:
     """Raise :class:`ControllerBindingError` unless one of *last_entry_signer_keys* (multikeys of the proofs of the
     agent's last log entry) is an active ``capabilityInvocation`` key of *controller*."""

@@ -14,6 +14,8 @@ export {
   VerifiableCredentialLink,
   VerificationMethod,
   AgentDIDDocument,
+  DidDocument,
+  VerificationRelationshipEntry,
   VerificationRelationship,
   SigningVerificationPurpose,
   SignedArtifactKind,

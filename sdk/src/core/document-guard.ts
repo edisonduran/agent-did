@@ -3,7 +3,7 @@
  * file): the TypeScript types say nothing about them. It accepts and rejects what the Python SDK's
  * `AgentDIDDocument` model does, so both SDKs fail the same way on a malformed document.
  */
-import { AgentDIDDocument } from './types';
+import { AgentDIDDocument, DidDocument } from './types';
 import { isEd25519VerificationMethodType, isRevokedContextTerm } from './verification-method';
 
 type Check = (value: unknown, path: string) => string | undefined;
@@ -123,6 +123,55 @@ function contextProblem(document: Record<string, unknown>): string | undefined {
     return 'document.@context has the inline revoked term but no key is revoked';
   }
   return undefined;
+}
+
+/**
+ * A verification method as a DID Core document (a controller) may write it: the members the SDK reads must have the
+ * right type, and the key type is not restricted (a method that is not Ed25519 is never used to verify).
+ */
+const didCoreVerificationMethod: Check = (value, path) =>
+  fields(value, path, {
+    id: string,
+    type: string,
+    controller: string,
+    publicKeyMultibase: optionalString,
+    deactivated: optionalString,
+    revoked: optionalString
+  });
+
+/** A relationship entry: a reference (string) or an embedded verification method. */
+const relationshipEntry: Check = (value, path) =>
+  typeof value === 'string' ? undefined : didCoreVerificationMethod(value, path);
+
+const relationship: Check = (value, path) => list(value, path, relationshipEntry, true);
+
+/** `controller` of a DID Core document: absent, one DID or a list of DIDs. */
+const controllerProperty: Check = (value, path) =>
+  absent(value) ? undefined : typeof value === 'string' ? undefined : stringList(value, path);
+
+/**
+ * Why `value` is not a DID Core document as the SDK reads a controller (RFC-001 §4.2.1), or `undefined` when it is
+ * one. Only the members the SDK uses are checked; an Agent-DID document is also a DID Core document.
+ */
+export function didDocumentProblem(value: unknown): string | undefined {
+  return fields(value, 'document', {
+    id: string,
+    controller: controllerProperty,
+    verificationMethod: (item, path) => list(item, path, didCoreVerificationMethod, true),
+    authentication: relationship,
+    assertionMethod: relationship,
+    capabilityDelegation: relationship,
+    capabilityInvocation: relationship,
+    keyAgreement: relationship
+  });
+}
+
+/** Throws unless `value` is a DID Core document (see `didDocumentProblem`); `source` says where it came from. */
+export function assertDidDocument(value: unknown, source: string): asserts value is DidDocument {
+  const problem = didDocumentProblem(value);
+  if (problem !== undefined) {
+    throw new Error(`${source} is not a DID document: ${problem}`);
+  }
 }
 
 /** Why `value` is not an Agent-DID document, or `undefined` when it is one. */

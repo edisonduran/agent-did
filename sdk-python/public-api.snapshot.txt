@@ -22,6 +22,7 @@ AgentMetadataCredentialRejection
 AgentRegistry
 AgentRegistryRecord
 AgentSigner
+AnyDidDocument
 AwsSigV4S3DIDDocumentSource
 AwsSigV4S3DIDDocumentSourceConfig
 BearerTokenHttpDIDDocumentSource
@@ -42,6 +43,8 @@ DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
 DIDDocumentSource
 DIDResolver
 DID_VERIFICATION_RELATIONSHIPS
+DidCoreVerificationMethod
+DidDocument
 DidWebvhControllerKeys
 DidWebvhError
 DidWebvhErrorCode

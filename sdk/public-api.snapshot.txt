@@ -55,6 +55,7 @@ DEFAULT_MAX_RESPONSE_BYTES
 DEFAULT_NEGATIVE_CACHE_TTL_MS
 DEFAULT_RESOLVER_MAX_CACHE_ENTRIES
 DID_VERIFICATION_RELATIONSHIPS
+DidDocument
 DIDDocumentSource
 didKeyFromPublicKey
 DIDResolver
@@ -155,6 +156,7 @@ validateHttpTarget
 VerifiableCredentialLink
 VerificationMethod
 VerificationRelationship
+VerificationRelationshipEntry
 VerifyAgentCardResult
 VerifyAgentMetadataCredentialOptions
 VerifyAgentMetadataCredentialResult

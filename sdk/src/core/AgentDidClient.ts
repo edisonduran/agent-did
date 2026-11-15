@@ -8,6 +8,7 @@ import {
   AgentMetadataCredential,
   CreateAgentParams,
   CreateAgentResult,
+  DidDocument,
   DidWebvhControllerKeys,
   DidWebvhLifecycleOptions,
   IdentityCompositionRejection,
@@ -30,7 +31,7 @@ import {
   VerificationRelationship
 } from './types';
 import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash';
-import { decodePublicKeyMultibase, didKeyFromPublicKey } from '../crypto/multibase';
+import { didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { InMemoryNonceStore, NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -72,7 +73,7 @@ import { checkDidWebvhKeyAtTime, parseRfc3339Millis, signatureResultForKey } fro
 import { SignatureCheck, SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
 import {
   compositionReasonForKey,
-  getRelationshipKeyIds,
+  DID_VERIFICATION_RELATIONSHIPS,
   IdentityCompositionError,
   REQUIRED_RELATIONSHIP_BY_ARTIFACT
 } from './identity-composition';
@@ -80,10 +81,10 @@ import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
 import { messageSigningInput } from './message-signing';
 import { assertBoundToController, ControllerBindingError } from './controller-binding';
-import { assertAgentDidDocument } from './document-guard';
+import { agentDidDocumentProblem, assertAgentDidDocument, assertDidDocument } from './document-guard';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { createEddsaJcs2022Proof, verifyEddsaJcs2022Proof } from '../crypto/data-integrity';
-import { isEd25519VerificationMethodType } from './verification-method';
+import { activeEd25519PublicKey, relationshipMethods } from './verification-method';
 import { parseSignedAgentCard } from './agent-card';
 import {
   agentMetadataProblem,
@@ -211,7 +212,7 @@ export class AgentDidClient {
    * Deactivation state derived from the verified log, keyed by DID and tied to the exact
    * log text it was computed from. It is recomputed whenever the stored log changes.
    */
-  private readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean; document: AgentDIDDocument }> = new Map();
+  private readonly didWebvhStateCache: Map<string, { log: string; deactivated: boolean; document: DidDocument }> = new Map();
   /** Controller signers (did:webvh `updateKeys`) retained for DIDs created in this process. */
   private readonly didWebvhSignerStore: Map<string, AgentSigner> = new Map();
   /** Local bootstrap controllers, keyed by the creator's did:key. */
@@ -486,10 +487,19 @@ export class AgentDidClient {
     return { log, signer };
   }
 
-  private async resolveActiveVerificationChain(did: string): Promise<AgentDIDDocument[]> {
-    const chain = did.startsWith('did:webvh:')
-      ? await this.resolveControllerChain(did)
-      : [await this.resolve(did)];
+  /**
+   * The agent's document and its controller chain, every link active and (did:webvh) bound. The first document is
+   * the agent's and must be an Agent-DID document; the controllers may be any DID Core documents (RFC-001 §4.2.1).
+   */
+  private async resolveActiveVerificationChain(did: string): Promise<[AgentDIDDocument, ...DidDocument[]]> {
+    let chain: [AgentDIDDocument, ...DidDocument[]];
+    if (did.startsWith('did:webvh:')) {
+      const [agent, ...controllers] = await this.resolveControllerChain(did);
+      assertAgentDidDocument(agent, `The document of ${did}`);
+      chain = [agent, ...controllers];
+    } else {
+      chain = [await this.resolve(did)];
+    }
 
     if (chain.some((document) => !this.hasActiveVerificationMethod(document))) {
       throw new Error(`DID is not active: ${did}`);
@@ -507,7 +517,7 @@ export class AgentDidClient {
    * agent's did:webvh log was signed by a key that is active now under `capabilityInvocation` of the controller
    * (RFC-001 §6.6 item 7). Fails closed with `ControllerBindingError`, also when no log is available to check.
    */
-  private async assertControllerChainBound(chain: AgentDIDDocument[]): Promise<void> {
+  private async assertControllerChainBound(chain: DidDocument[]): Promise<void> {
     for (let index = 0; index + 1 < chain.length; index += 1) {
       const agent = chain[index];
       const controller = chain[index + 1];
@@ -550,7 +560,7 @@ export class AgentDidClient {
     provenance: DidWebvhState['provenance']
   ): Promise<DidWebvhState> {
     const resolved = await resolveDidWebvhLog(log, { did });
-    assertAgentDidDocument(resolved.state, `The did:webvh state of ${did}`);
+    assertDidDocument(resolved.state, `The did:webvh state of ${did}`);
     return {
       document: cloneDocument(resolved.state),
       log: resolved.log,
@@ -562,8 +572,12 @@ export class AgentDidClient {
     };
   }
 
-  private hasActiveVerificationMethod(document: AgentDIDDocument): boolean {
-    return document.verificationMethod.some((method) => Boolean(method.publicKeyMultibase) && !method.deactivated);
+  /** Whether `document` has an active `publicKeyMultibase` key, declared or embedded in a relationship. */
+  private hasActiveVerificationMethod(document: DidDocument): boolean {
+    const listed = DID_VERIFICATION_RELATIONSHIPS.flatMap((relationship) => relationshipMethods(document, relationship));
+    return [...(document.verificationMethod ?? []), ...listed].some(
+      (method) => Boolean(method.publicKeyMultibase) && !method.deactivated
+    );
   }
 
   /**
@@ -699,7 +713,7 @@ export class AgentDidClient {
     keyId: string,
     requiredPurpose: VerificationRelationship
   ): Promise<SignatureCheck> {
-    let verificationChain: AgentDIDDocument[];
+    let verificationChain: [AgentDIDDocument, ...DidDocument[]];
     try {
       verificationChain = await this.resolveActiveVerificationChain(did);
     } catch (error) {
@@ -729,7 +743,7 @@ export class AgentDidClient {
     keyId?: string,
     requiredPurpose: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion
   ): Promise<boolean> {
-    let verificationChain: AgentDIDDocument[];
+    let verificationChain: [AgentDIDDocument, ...DidDocument[]];
     try {
       verificationChain = await this.resolveActiveVerificationChain(did);
     } catch {
@@ -771,6 +785,10 @@ export class AgentDidClient {
     if (state === undefined) {
       return { status: 'indeterminate', key: { status: 'indeterminate', keyId, reason: 'history_unavailable' } };
     }
+    if (agentDidDocumentProblem(state.document) !== undefined) {
+      // Signatures are verified for agents; a plain DID Core document (a controller) is not one
+      return { status: 'invalid', reason: 'did_resolution_failed' };
+    }
     let key;
     try {
       key = await checkDidWebvhKeyAtTime(state.log, { ...options, did, keyId });
@@ -798,10 +816,10 @@ export class AgentDidClient {
   /** The binding of `did` (and of its controllers) to its controller chain as it is now. */
   private async assertDidWebvhBoundNow(did: string, state: DidWebvhState): Promise<void> {
     const document = state.document;
-    if (!document || !document.controller?.trim() || document.controller === did) {
+    if (!document || typeof document.controller !== 'string' || !document.controller.trim() || document.controller === did) {
       return;
     }
-    let controllers: AgentDIDDocument[];
+    let controllers: DidDocument[];
     try {
       controllers = await this.resolveControllerChain(document.controller);
     } catch (error) {
@@ -822,7 +840,7 @@ export class AgentDidClient {
     if (typeof params.verificationMethodId !== 'string' || !params.verificationMethodId.startsWith(`${issuer}#`)) {
       throw new Error(`verificationMethodId must be a key of the agent's controller ${issuer}`);
     }
-    const issuerDocument = issuer === agent.id ? agent : await this.resolve(issuer);
+    const issuerDocument: DidDocument = issuer === agent.id ? agent : await this.resolveDocument(issuer);
     const publicKey = activeAssertionKey(issuerDocument, params.verificationMethodId);
     if (publicKey === undefined) {
       throw new Error(`${params.verificationMethodId} is not an active Ed25519 assertionMethod key of ${issuer}`);
@@ -900,7 +918,7 @@ export class AgentDidClient {
     } catch {
       return { ok: false, reason: 'did_resolution_failed' };
     }
-    let chain: AgentDIDDocument[];
+    let chain: [AgentDIDDocument, ...DidDocument[]];
     try {
       chain = await this.resolveActiveVerificationChain(agentDid);
     } catch (error) {
@@ -910,14 +928,14 @@ export class AgentDidClient {
     if (issuer !== (agent.controller?.trim() || agent.id)) {
       return { ok: false, reason: 'issuer_not_controller' };
     }
-    let issuerDocument: AgentDIDDocument;
+    let issuerDocument: DidDocument;
     if (issuer === agent.id) {
       issuerDocument = agent;
     } else if (chain.length > 1 && chain[1].id === issuer) {
       issuerDocument = chain[1];
     } else {
       try {
-        issuerDocument = await this.resolve(issuer);
+        issuerDocument = await this.resolveDocument(issuer);
       } catch {
         return { ok: false, reason: 'did_resolution_failed' };
       }
@@ -952,7 +970,32 @@ export class AgentDidClient {
    * Resolves a DID into its corresponding Agent-DID Document.
    * Uses the configured resolver (in-memory or production) to retrieve the document.
    */
+  /**
+   * The Agent-DID document of `did`. Rejects when the DID resolves to a DID Core document that is not an Agent-DID
+   * document (a plain controller: use `resolveDocument`).
+   */
   public async resolve(did: string): Promise<AgentDIDDocument> {
+    if (did.startsWith('did:webvh:')) {
+      const document = await this.resolveDocument(did);
+      assertAgentDidDocument(document, `The document of ${did}`);
+      return document;
+    }
+
+    const isRevoked = await this.registry.isRevoked(did);
+
+    if (isRevoked) {
+      throw new Error(`DID is revoked: ${did}`);
+    }
+
+    return this.resolver.resolve(did);
+  }
+
+  /**
+   * The DID Core document of `did`. A did:webvh DID may resolve to any DID Core document (a controller, RFC-001
+   * §4.2.1), with the same log verification and revocation rules as `resolve`; any other DID is answered by
+   * `resolve`, so its document must be an Agent-DID document.
+   */
+  public async resolveDocument(did: string): Promise<DidDocument> {
     if (did.startsWith('did:webvh:')) {
       // For did:webvh the verified log is the only source of revocation state: a DID is
       // revoked only by a controller-signed deactivation entry. The registry record is a
@@ -970,16 +1013,9 @@ export class AgentDidClient {
       if (state && this.didWebvhSignerStore.has(did)) {
         return cloneDocument(state.document);
       }
-      return this.resolver.resolve(did);
+      return this.resolver.resolveDocument ? this.resolver.resolveDocument(did) : this.resolver.resolve(did);
     }
-
-    const isRevoked = await this.registry.isRevoked(did);
-
-    if (isRevoked) {
-      throw new Error(`DID is revoked: ${did}`);
-    }
-
-    return this.resolver.resolve(did);
+    return this.resolve(did);
   }
 
   /**
@@ -988,7 +1024,7 @@ export class AgentDidClient {
    * trusted; a log that fails verification is an error, never "not revoked". Returns undefined when
    * no log is stored for the DID.
    */
-  private async didWebvhState(did: string): Promise<{ deactivated: boolean; document: AgentDIDDocument } | undefined> {
+  private async didWebvhState(did: string): Promise<{ deactivated: boolean; document: DidDocument } | undefined> {
     const log = this.didWebvhLogStore.get(did);
     if (log === undefined) {
       return undefined;
@@ -998,7 +1034,7 @@ export class AgentDidClient {
       return cached;
     }
     const resolved = await resolveDidWebvhLog(log, { did });
-    assertAgentDidDocument(resolved.state, `The did:webvh state of ${did}`);
+    assertDidDocument(resolved.state, `The did:webvh state of ${did}`);
     const state = {
       log,
       deactivated: resolved.metadata.deactivated,
@@ -1008,12 +1044,12 @@ export class AgentDidClient {
     return state;
   }
 
-  public async resolveControllerChain(did: string, maxDepth = 8): Promise<AgentDIDDocument[]> {
+  public async resolveControllerChain(did: string, maxDepth = 8): Promise<DidDocument[]> {
     if (!Number.isInteger(maxDepth) || maxDepth < 1) {
       throw new Error('maxDepth must be a positive integer');
     }
 
-    const chain: AgentDIDDocument[] = [];
+    const chain: DidDocument[] = [];
     const visited = new Set<string>();
     let currentDid = did;
 
@@ -1027,9 +1063,13 @@ export class AgentDidClient {
       }
 
       visited.add(currentDid);
-      const current = await this.resolve(currentDid);
+      const current = await this.resolveDocument(currentDid);
       chain.push(current);
 
+      // A list of controllers is not followed in 1.0: the chain fails closed instead of skipping them (RFC-001 §4.2.1)
+      if (Array.isArray(current.controller)) {
+        throw new Error(`Controller chain cannot follow a list of controllers at DID: ${currentDid}`);
+      }
       const controllerDid = current.controller?.trim();
       if (!controllerDid || controllerDid === currentDid || !controllerDid.startsWith('did:')) {
         return chain;
@@ -1474,17 +1514,7 @@ export class AgentDidClient {
 }
 
 /** The raw public key of `keyId` when it is an active Ed25519 `assertionMethod` key of `document`. */
-function activeAssertionKey(document: AgentDIDDocument, keyId: string): Uint8Array | undefined {
-  if (!getRelationshipKeyIds(document, 'assertionMethod').includes(keyId)) {
-    return undefined;
-  }
-  const method = document.verificationMethod.find((candidate) => candidate.id === keyId);
-  if (!method || method.deactivated || !method.publicKeyMultibase || !isEd25519VerificationMethodType(method.type)) {
-    return undefined;
-  }
-  try {
-    return decodePublicKeyMultibase(method.publicKeyMultibase);
-  } catch {
-    return undefined;
-  }
+function activeAssertionKey(document: DidDocument, keyId: string): Uint8Array | undefined {
+  const method = relationshipMethods(document, 'assertionMethod').find((candidate) => candidate.id === keyId);
+  return method === undefined ? undefined : activeEd25519PublicKey(method);
 }

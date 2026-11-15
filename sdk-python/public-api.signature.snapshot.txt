@@ -72,8 +72,9 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def load_did_webvh_history_from_file(self, file_path: 'str | Path') -> 'AgentDIDDocument'
   def persist_did_webvh_history_to_source(self, did: 'str', document_ref: 'str', source: 'DIDDocumentSource') -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
-  def resolve_controller_chain(self, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
+  def resolve_controller_chain(self, did: 'str', max_depth: 'int' = 8) -> 'list[AnyDidDocument]'
   def resolve_did_webvh_state(self, did: 'str') -> 'DidWebvhState | None'
+  def resolve_document(self, did: 'str') -> 'AnyDidDocument'
   def restore_did_webvh_history_from_source(self, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
   def retire_verification_method(self, did: 'str', key_id: 'str', *, controller_signer: 'AgentSigner | None' = None, emergency: 'bool' = False) -> 'AgentDIDDocument'
   def revoke_did(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
@@ -126,7 +127,7 @@ class AgentIdentity(config: 'AgentIdentityConfig') -> 'None'
   classmethod load_did_webvh_history_from_file(cls, file_path: 'str | Path') -> 'AgentDIDDocument'
   classmethod persist_did_webvh_history_to_source(cls, did: 'str', document_ref: 'str', source: 'DIDDocumentSource') -> 'None'
   classmethod resolve(cls, did: 'str') -> 'AgentDIDDocument'
-  classmethod resolve_controller_chain(cls, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
+  classmethod resolve_controller_chain(cls, did: 'str', max_depth: 'int' = 8) -> 'list[AnyDidDocument]'
   classmethod restore_did_webvh_history_from_source(cls, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
   classmethod revoke_did(cls, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
   classmethod rotate_verification_method(cls, did: 'str', *, controller_signer: 'AgentSigner | None' = None, signer: 'AgentSigner | None' = None) -> 'RotateVerificationMethodResult'
@@ -183,6 +184,9 @@ class AgentRegistryRecord(*, did: str, controller: str, createdAt: str, revokedA
 class AgentSigner(*args, **kwargs)
   def get_public_key(self) -> 'bytes'
   def sign(self, payload: 'bytes') -> 'str'
+
+## AnyDidDocument
+value AnyDidDocument = agent_did_sdk.core.types.DidDocument | agent_did_sdk.core.types.AgentDIDDocument
 
 ## AwsSigV4S3DIDDocumentSource
 class AwsSigV4S3DIDDocumentSource(config: 'AwsSigV4S3DIDDocumentSourceConfig') -> 'None'
@@ -316,6 +320,30 @@ class DIDResolver(*args, **kwargs)
 ## DID_VERIFICATION_RELATIONSHIPS
 value DID_VERIFICATION_RELATIONSHIPS = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement')
 
+## DidCoreVerificationMethod
+class DidCoreVerificationMethod(*, id: str, type: str, controller: str, publicKeyMultibase: str | None = None, deactivated: str | None = None, revoked: str | None = None, **extra_data: Any) -> None
+  attr controller: str
+  attr deactivated: str | None
+  attr id: str
+  attr public_key_multibase: str | None
+  attr revoked: str | None
+  attr type: str
+  member model_config = {'populate_by_name': True, 'extra': 'allow'}
+
+## DidDocument
+class DidDocument(*, context: Any = None, id: str, controller: str | list[str] | None = None, verificationMethod: list[agent_did_sdk.core.types.DidCoreVerificationMethod] | None = None, authentication: list[str | agent_did_sdk.core.types.DidCoreVerificationMethod] | None = None, assertionMethod: list[str | agent_did_sdk.core.types.DidCoreVerificationMethod] | None = None, capabilityDelegation: list[str | agent_did_sdk.core.types.DidCoreVerificationMethod] | None = None, capabilityInvocation: list[str | agent_did_sdk.core.types.DidCoreVerificationMethod] | None = None, keyAgreement: list[str | agent_did_sdk.core.types.DidCoreVerificationMethod] | None = None, **extra_data: Any) -> None
+  attr assertion_method: list[VerificationRelationshipEntry] | None
+  attr authentication: list[VerificationRelationshipEntry] | None
+  attr capability_delegation: list[VerificationRelationshipEntry] | None
+  attr capability_invocation: list[VerificationRelationshipEntry] | None
+  attr context: Any
+  attr controller: str | list[str] | None
+  attr id: str
+  attr key_agreement: list[VerificationRelationshipEntry] | None
+  attr verification_method: list[DidCoreVerificationMethod] | None
+  member model_config = {'populate_by_name': True, 'extra': 'allow'}
+  def model_dump_jsonld(self) -> 'dict[str, object]'
+
 ## DidWebvhControllerKeys
 class DidWebvhControllerKeys(update_keys: 'list[str]', next_key_hashes: 'list[str]') -> None
   attr next_key_hashes: list[str]
@@ -328,16 +356,16 @@ class DidWebvhError(code: 'DidWebvhErrorCode', message: 'str') -> 'None'
 value DidWebvhErrorCode = typing.Literal['invalidDid', 'notFound', 'invalidOptions', 'invalidInput', 'unauthorized']
 
 ## DidWebvhResolution
-class DidWebvhResolution(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False) -> None
+class DidWebvhResolution(document: 'AnyDidDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False) -> None
   attr deactivated: bool
-  attr document: AgentDIDDocument
+  attr document: AnyDidDocument
   attr last_entry_signer_keys: list[str]
   attr log: str
   attr update_keys: list[str]
   attr version_id: str
 
 ## DidWebvhState
-class DidWebvhState(document: 'AgentDIDDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
+class DidWebvhState(document: 'AnyDidDocument', log: 'str', version_id: 'str', update_keys: 'list[str]', last_entry_signer_keys: 'list[str]', deactivated: 'bool' = False, provenance: "Literal['local', 'imported', 'fetched']" = 'fetched') -> None
   attr provenance: Literal['local', 'imported', 'fetched']
 
 ## DocumentIntegrityError
@@ -669,6 +697,7 @@ class UniversalResolverClient(config: 'UniversalResolverConfig') -> 'None'
   def remove(self, did: 'str') -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
   def resolve_did_webvh_log(self, did: 'str') -> 'DidWebvhResolution | None'
+  def resolve_document(self, did: 'str') -> 'AnyDidDocument'
 
 ## UniversalResolverConfig
 class UniversalResolverConfig(registry: 'AgentRegistry', document_source: 'DIDDocumentSource', wba_document_source: 'DIDDocumentSource | None' = None, webvh_document_source: 'DIDDocumentSource | None' = None, fallback_resolver: 'DIDResolver | None' = None, did_webvh_local_log: 'Callable[[str], str | None] | None' = None, cache_ttl_ms: 'int' = 60000, max_cache_entries: 'int' = 1000, on_resolution_event: 'Callable[[ResolverResolutionEvent], None] | None' = None, unverified_document_ref_schemes: 'list[str] | None' = None, resolution_limits: 'ResolutionLimits | None' = None) -> None

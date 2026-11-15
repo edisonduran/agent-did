@@ -1,4 +1,4 @@
-import { AgentDIDDocument } from '../core/types';
+import { AgentDIDDocument, DidDocument } from '../core/types';
 import { AgentRegistry } from '../registry/types';
 
 /**
@@ -6,8 +6,11 @@ import { AgentRegistry } from '../registry/types';
  * of the last entry: the keys that endorsed the current document (see ADR-005 / RFC-001 §6.6 item 7).
  */
 export interface DidWebvhResolution {
-  /** The document in force (the state of the last entry). */
-  document: AgentDIDDocument;
+  /**
+   * The document in force (the state of the last entry): an Agent-DID document for an agent, any DID Core document
+   * for a controller (RFC-001 §4.2.1).
+   */
+  document: DidDocument;
   /** The verified log text (`did.jsonl`). */
   log: string;
   versionId: string;
@@ -31,7 +34,14 @@ export interface DidWebvhState extends DidWebvhResolution {
 
 export interface DIDResolver {
   registerDocument(document: AgentDIDDocument): void;
+  /** The Agent-DID document of `did`; rejects when the DID's document is not an Agent-DID document. */
   resolve(did: string): Promise<AgentDIDDocument>;
+  /**
+   * Optional: the DID Core document of `did`, which need not be an Agent-DID document (a did:webvh controller,
+   * RFC-001 §4.2.1). Controller chains are resolved with it; a resolver without it answers controllers with `resolve`,
+   * so their documents must then be Agent-DID documents.
+   */
+  resolveDocument?(did: string): Promise<DidDocument>;
   remove(did: string): void;
   /**
    * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document

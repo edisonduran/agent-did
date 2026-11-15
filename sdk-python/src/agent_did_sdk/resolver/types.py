@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol, runtime_checkable
 
-from ..core.types import AgentDIDDocument
+from ..core.types import AgentDIDDocument, AnyDidDocument
 from ..registry.types import AgentRegistry
 
 
@@ -14,8 +14,9 @@ from ..registry.types import AgentRegistry
 class DidWebvhResolution:
     """A verified did:webvh log and what is derived from it (see ADR-005 / RFC-001 §6.6 item 7)."""
 
-    document: AgentDIDDocument
-    """The document in force (the state of the last entry)."""
+    document: AnyDidDocument
+    """The document in force (the state of the last entry): an Agent-DID document for an agent, any DID Core document
+    for a controller (RFC-001 §4.2.1)."""
     log: str
     """The verified log text (``did.jsonl``)."""
     version_id: str
@@ -45,7 +46,10 @@ class DIDResolver(Protocol):
     ``None`` when it holds only the document. The log of a deactivated DID is returned with ``deactivated=True``
     (``resolve`` rejects it), so the history before the deactivation can still be checked. A caching resolver may
     also implement ``evict(did) -> None``, which drops what it holds for *did* so the next resolution fetches it
-    again (unlike ``remove``, it never deletes a document it is the only source of)."""
+    again (unlike ``remove``, it never deletes a document it is the only source of). A resolver may also implement
+    ``async resolve_document(did) -> AnyDidDocument``: the DID Core document of *did*, which need not be an Agent-DID
+    document (a did:webvh controller, RFC-001 §4.2.1). Controller chains are resolved with it; a resolver without it
+    answers controllers with ``resolve``, so their documents must then be Agent-DID documents."""
 
     def register_document(self, document: AgentDIDDocument) -> None: ...
     async def resolve(self, did: str) -> AgentDIDDocument: ...
