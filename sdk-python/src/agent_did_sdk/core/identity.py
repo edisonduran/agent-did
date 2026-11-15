@@ -16,6 +16,7 @@ from ..resolver.types import (
     DIDDocumentSource,
     DIDResolver,
 )
+from .capability import AGENT_DID_CAPABILITY_HTTP_HEADER, serialize_capability_header
 from .client import (
     AgentDidClient as AgentDidClient,
 )
@@ -46,6 +47,7 @@ from .http_security import validate_http_target
 from .http_signatures import (
     HttpRequestLike,
     HttpSignatureError,
+    KeyedComponent,
     SignatureInput,
     build_signature_base,
     request_url_form_problem,
@@ -165,8 +167,18 @@ class AgentIdentity:
             "Date": datetime.fromtimestamp(created, timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT"),
             "Content-Digest": compute_content_digest(params.body),
         }
+        components = agent_did_http_signature_components(AGENT_DID_HTTP_SIGNATURE_LABEL)
+        if params.capability is not None:
+            if params.capability.get("controller") != params.agent_did:
+                raise ValueError(
+                    f"The capability is held by {params.capability.get('controller')!r}, not {params.agent_did}"
+                )
+            headers[AGENT_DID_CAPABILITY_HTTP_HEADER] = serialize_capability_header(
+                AGENT_DID_HTTP_SIGNATURE_LABEL, params.capability
+            )
+            components.append(KeyedComponent("agent-did-capability", AGENT_DID_HTTP_SIGNATURE_LABEL))
         signature_input = SignatureInput(
-            components=agent_did_http_signature_components(AGENT_DID_HTTP_SIGNATURE_LABEL),
+            components=components,
             params=[
                 ("created", created),
                 ("expires", created + expires_in),

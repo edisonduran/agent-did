@@ -1,0 +1,1965 @@
+{
+  "description": "Shared vectors of capabilities (RFC-001 §6.7) and OAuth client assertions (RFC-001 §6.8), ADR-008 D-12f. Regenerate with node scripts/regenerate-delegation-vectors.js. The seeds are TEST-ONLY keys.",
+  "keys": {
+    "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1": {
+      "seedHex": "6a7b8c9d0e1f20316a7b8c9d0e1f20316a7b8c9d0e1f20316a7b8c9d0e1f2031",
+      "publicKeyMultibase": "z6MkkjbE3dFQ8GDKsJSgm7q5vZUhisEqa4gDm8Zwu9vtj9zf"
+    },
+    "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1": {
+      "seedHex": "7b8c9d0e1f2031427b8c9d0e1f2031427b8c9d0e1f2031427b8c9d0e1f203142",
+      "publicKeyMultibase": "z6MkqRyUZouoiDMrdwaMAHiXL9Z748r3eHhDzDVPLWE4G3ku"
+    },
+    "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1": {
+      "seedHex": "8c9d0e1f203142538c9d0e1f203142538c9d0e1f203142538c9d0e1f20314253",
+      "publicKeyMultibase": "z6Mkk7cFTWhb1ApAAvFbJPBxqhQHxhzJHgasR1ZcyCgASjeh"
+    },
+    "did:webvh:QmdelegationVectorsCarol:agents.example:agents:carol#key-1": {
+      "seedHex": "9d0e1f20314253649d0e1f20314253649d0e1f20314253649d0e1f2031425364",
+      "publicKeyMultibase": "z6MkgKCieerJyky9sWrt9DcPhGMY5KLDdrdbgKDHd8uUw6g7"
+    }
+  },
+  "capabilities": {
+    "rootId": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+    "sign": [
+      {
+        "name": "from the root",
+        "unsigned": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z"
+        },
+        "proofOptions": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "created": "2026-11-15T00:00:00Z",
+          "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+          "proofPurpose": "capabilityDelegation",
+          "capabilityChain": [
+            "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+          ],
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ]
+        },
+        "keyId": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+        "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+      },
+      {
+        "name": "from a parent",
+        "unsigned": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z"
+        },
+        "proofOptions": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "created": "2026-11-15T00:00:00Z",
+          "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+          "proofPurpose": "capabilityDelegation",
+          "capabilityChain": [
+            "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+            {
+              "@context": [
+                "https://w3id.org/zcap/v1"
+              ],
+              "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+              "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              "invocationTarget": "https://api.example.com/files",
+              "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+              "allowedAction": [
+                "GET",
+                "POST"
+              ],
+              "expires": "2099-01-01T00:00:00Z",
+              "proof": {
+                "type": "DataIntegrityProof",
+                "cryptosuite": "eddsa-jcs-2022",
+                "created": "2026-11-15T00:00:00Z",
+                "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                "proofPurpose": "capabilityDelegation",
+                "capabilityChain": [
+                  "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                ],
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+              }
+            }
+          ],
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ]
+        },
+        "keyId": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+        "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+      },
+      {
+        "name": "third link",
+        "unsigned": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000003",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "invocationTarget": "https://api.example.com/files/reports/2026",
+          "controller": "did:webvh:QmdelegationVectorsCarol:agents.example:agents:carol",
+          "expires": "2097-01-01T00:00:00Z"
+        },
+        "proofOptions": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "created": "2026-11-15T00:00:00Z",
+          "verificationMethod": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+          "proofPurpose": "capabilityDelegation",
+          "capabilityChain": [
+            "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+            "urn:uuid:00000000-0000-4000-8000-000000000001",
+            {
+              "@context": [
+                "https://w3id.org/zcap/v1"
+              ],
+              "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+              "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+              "invocationTarget": "https://api.example.com/files/reports",
+              "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+              "allowedAction": [
+                "GET"
+              ],
+              "expires": "2098-01-01T00:00:00Z",
+              "proof": {
+                "type": "DataIntegrityProof",
+                "cryptosuite": "eddsa-jcs-2022",
+                "created": "2026-11-15T00:00:00Z",
+                "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+                "proofPurpose": "capabilityDelegation",
+                "capabilityChain": [
+                  "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                  {
+                    "@context": [
+                      "https://w3id.org/zcap/v1"
+                    ],
+                    "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                    "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                    "invocationTarget": "https://api.example.com/files",
+                    "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                    "allowedAction": [
+                      "GET",
+                      "POST"
+                    ],
+                    "expires": "2099-01-01T00:00:00Z",
+                    "proof": {
+                      "type": "DataIntegrityProof",
+                      "cryptosuite": "eddsa-jcs-2022",
+                      "created": "2026-11-15T00:00:00Z",
+                      "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                      "proofPurpose": "capabilityDelegation",
+                      "capabilityChain": [
+                        "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                      ],
+                      "@context": [
+                        "https://w3id.org/zcap/v1"
+                      ],
+                      "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                    }
+                  }
+                ],
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+              }
+            }
+          ],
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ]
+        },
+        "keyId": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+        "proofValue": "z4GRZRZjEobVAtYLqWR3x47DP7JpENezJVg1xGXq5qzqzNX6vzfF21ekmRySKmvtVBr5VDHdC9hSMu2zNqw4soXqy"
+      }
+    ],
+    "chains": [
+      {
+        "name": "root delegation",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "ok",
+        "delegators": [
+          "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+        ],
+        "allowedAction": [
+          "GET",
+          "POST"
+        ],
+        "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice"
+      },
+      {
+        "name": "two links, narrowed",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "ok",
+        "delegators": [
+          "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme",
+          "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice"
+        ],
+        "allowedAction": [
+          "GET"
+        ],
+        "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob"
+      },
+      {
+        "name": "three links, actions inherited",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000003",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "invocationTarget": "https://api.example.com/files/reports/2026",
+          "controller": "did:webvh:QmdelegationVectorsCarol:agents.example:agents:carol",
+          "expires": "2097-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              "urn:uuid:00000000-0000-4000-8000-000000000001",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+                "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "invocationTarget": "https://api.example.com/files/reports",
+                "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+                "allowedAction": [
+                  "GET"
+                ],
+                "expires": "2098-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                    {
+                      "@context": [
+                        "https://w3id.org/zcap/v1"
+                      ],
+                      "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                      "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                      "invocationTarget": "https://api.example.com/files",
+                      "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                      "allowedAction": [
+                        "GET",
+                        "POST"
+                      ],
+                      "expires": "2099-01-01T00:00:00Z",
+                      "proof": {
+                        "type": "DataIntegrityProof",
+                        "cryptosuite": "eddsa-jcs-2022",
+                        "created": "2026-11-15T00:00:00Z",
+                        "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                        "proofPurpose": "capabilityDelegation",
+                        "capabilityChain": [
+                          "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                        ],
+                        "@context": [
+                          "https://w3id.org/zcap/v1"
+                        ],
+                        "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                      }
+                    }
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GRZRZjEobVAtYLqWR3x47DP7JpENezJVg1xGXq5qzqzNX6vzfF21ekmRySKmvtVBr5VDHdC9hSMu2zNqw4soXqy"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "ok",
+        "delegators": [
+          "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme",
+          "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob"
+        ],
+        "allowedAction": [
+          "GET"
+        ],
+        "controller": "did:webvh:QmdelegationVectorsCarol:agents.example:agents:carol"
+      },
+      {
+        "name": "absent allowedAction inherits the parent",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000007",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/a",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z2pQzzoCqwtpFwMS8KZCwUvRWBgfqiBuyQr4vXehBagr7SHryk82bBw7UPC8ZYGatxRzZSegJdEEixPz4L8TEmXxd"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "ok",
+        "delegators": [
+          "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme",
+          "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice"
+        ],
+        "allowedAction": [
+          "GET",
+          "POST"
+        ],
+        "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob"
+      },
+      {
+        "name": "chain longer than maxChainLength",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000003",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "invocationTarget": "https://api.example.com/files/reports/2026",
+          "controller": "did:webvh:QmdelegationVectorsCarol:agents.example:agents:carol",
+          "expires": "2097-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              "urn:uuid:00000000-0000-4000-8000-000000000001",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+                "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "invocationTarget": "https://api.example.com/files/reports",
+                "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+                "allowedAction": [
+                  "GET"
+                ],
+                "expires": "2098-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                    {
+                      "@context": [
+                        "https://w3id.org/zcap/v1"
+                      ],
+                      "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                      "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                      "invocationTarget": "https://api.example.com/files",
+                      "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                      "allowedAction": [
+                        "GET",
+                        "POST"
+                      ],
+                      "expires": "2099-01-01T00:00:00Z",
+                      "proof": {
+                        "type": "DataIntegrityProof",
+                        "cryptosuite": "eddsa-jcs-2022",
+                        "created": "2026-11-15T00:00:00Z",
+                        "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                        "proofPurpose": "capabilityDelegation",
+                        "capabilityChain": [
+                          "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                        ],
+                        "@context": [
+                          "https://w3id.org/zcap/v1"
+                        ],
+                        "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                      }
+                    }
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GRZRZjEobVAtYLqWR3x47DP7JpENezJVg1xGXq5qzqzNX6vzfF21ekmRySKmvtVBr5VDHdC9hSMu2zNqw4soXqy"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 2,
+        "expected": "chain_too_long",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000003"
+      },
+      {
+        "name": "no root controller configured",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {},
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "root_controller_unknown",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000001"
+      },
+      {
+        "name": "root controller for another target",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files/other": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "root_controller_unknown",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000001"
+      },
+      {
+        "name": "target outside the parent",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000004",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/other",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "zYDtX1R7KsTEPqLfbEGGtuFVWBZJPGXAZfXecZdGUhCxoPN2vBX6o3dfuy44x4mkemuBRfyw3oaek3rrXiHX9FWU"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "attenuation_violation",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000004"
+      },
+      {
+        "name": "actions wider than the parent",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000005",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET",
+            "DELETE"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z54ozVt1bPJ4BGNvhWzemVMQmDE6mk2uZ5595R3puYfCZBafQanYtkkdmrB4YeL3sFTJAKWsE7B7J5fHULQKfkiRu"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "attenuation_violation",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000005"
+      },
+      {
+        "name": "expires after the parent",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000006",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "expires": "2099-06-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z5GeTkW4PnL1SdYMykhHkjSPKfHVMZtA2oBewCDuAKyC5GRGM1nycvoH3aae7DqwCRStnZ5XVM7UPUyJ2GUYsHEkx"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "attenuation_violation",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000006"
+      },
+      {
+        "name": "expired link",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2098-06-01T00:00:00Z",
+        "maxChainLength": 5,
+        "expected": "expired",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000002"
+      },
+      {
+        "name": "root signed by a DID that is not a root controller",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "delegator_mismatch",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000001"
+      },
+      {
+        "name": "link signed by someone other than the parent controller",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4kSHL96WN3yHKGGDTgsyQUzxyNKBK7Jc8DSLTr9v9frzr88j66R9mbnrXLzXKDQFGzXtWe9NSuJpxf7FpTfFB7TW"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "delegator_mismatch",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000002"
+      },
+      {
+        "name": "controller changed after signing",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsCarol:agents.example:agents:carol",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "signature_invalid",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000002"
+      },
+      {
+        "name": "parentCapability does not name the embedded parent",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000009",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000002"
+      },
+      {
+        "name": "chain does not start at the root",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000008",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:uuid:00000000-0000-4000-8000-000000000008"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability",
+        "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000001"
+      },
+      {
+        "name": "unknown member",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          },
+          "note": "x"
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability"
+      },
+      {
+        "name": "extra @context entry",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1",
+            "https://example.com/extra"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability"
+      },
+      {
+        "name": "id is not a lowercase urn:uuid",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:NOT-A-UUID",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability"
+      },
+      {
+        "name": "no expires",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability"
+      },
+      {
+        "name": "target with a query",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files?q=1",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "malformed_capability"
+      },
+      {
+        "name": "proof purpose assertionMethod",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+            "proofPurpose": "assertionMethod",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+          }
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "unsupported_proof"
+      },
+      {
+        "name": "proof set",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+          "invocationTarget": "https://api.example.com/files",
+          "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+          "allowedAction": [
+            "GET",
+            "POST"
+          ],
+          "expires": "2099-01-01T00:00:00Z",
+          "proof": [
+            {
+              "type": "DataIntegrityProof",
+              "cryptosuite": "eddsa-jcs-2022",
+              "created": "2026-11-15T00:00:00Z",
+              "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+              "proofPurpose": "capabilityDelegation",
+              "capabilityChain": [
+                "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+              ],
+              "@context": [
+                "https://w3id.org/zcap/v1"
+              ],
+              "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+            }
+          ]
+        },
+        "rootControllers": {
+          "https://api.example.com/files": [
+            "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme"
+          ]
+        },
+        "now": "2026-11-15T12:00:00Z",
+        "maxChainLength": 5,
+        "expected": "unsupported_proof"
+      }
+    ],
+    "targets": [
+      {
+        "url": "https://api.example.com/files",
+        "method": "GET",
+        "invocationTarget": "https://api.example.com/files",
+        "allowedAction": [
+          "GET"
+        ],
+        "matches": true
+      },
+      {
+        "url": "https://api.example.com/files/reports?year=2026",
+        "method": "GET",
+        "invocationTarget": "https://api.example.com/files",
+        "allowedAction": [
+          "GET"
+        ],
+        "matches": true
+      },
+      {
+        "url": "https://api.example.com/filesystem",
+        "method": "GET",
+        "invocationTarget": "https://api.example.com/files",
+        "allowedAction": [
+          "GET"
+        ],
+        "matches": false
+      },
+      {
+        "url": "https://api.example.com/files/",
+        "method": "GET",
+        "invocationTarget": "https://api.example.com/files",
+        "allowedAction": [
+          "GET"
+        ],
+        "matches": false
+      },
+      {
+        "url": "https://api.example.com/files/x",
+        "method": "POST",
+        "invocationTarget": "https://api.example.com/files",
+        "allowedAction": [
+          "GET"
+        ],
+        "matches": false
+      },
+      {
+        "url": "https://api.example.com/files/x",
+        "method": "DELETE",
+        "invocationTarget": "https://api.example.com/files",
+        "matches": true
+      },
+      {
+        "url": "https://api.example.com/a",
+        "method": "GET",
+        "invocationTarget": "https://api.example.com/",
+        "matches": true
+      },
+      {
+        "url": "https://api.example.com:8443/files",
+        "method": "GET",
+        "invocationTarget": "https://api.example.com/files",
+        "matches": false
+      }
+    ],
+    "headers": [
+      {
+        "name": "JCS of the capability",
+        "value": "sig1=:eyJAY29udGV4dCI6WyJodHRwczovL3czaWQub3JnL3pjYXAvdjEiXSwiYWxsb3dlZEFjdGlvbiI6WyJHRVQiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2IiLCJleHBpcmVzIjoiMjA5OC0wMS0wMVQwMDowMDowMFoiLCJpZCI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImludm9jYXRpb25UYXJnZXQiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9maWxlcy9yZXBvcnRzIiwicGFyZW50Q2FwYWJpbGl0eSI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInByb29mIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJjYXBhYmlsaXR5Q2hhaW4iOlsidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIix7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJhbGxvd2VkQWN0aW9uIjpbIkdFVCIsIlBPU1QiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQWxpY2U6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmFsaWNlIiwiZXhwaXJlcyI6IjIwOTktMDEtMDFUMDA6MDA6MDBaIiwiaWQiOiJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJpbnZvY2F0aW9uVGFyZ2V0IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vZmlsZXMiLCJwYXJlbnRDYXBhYmlsaXR5IjoidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIiwicHJvb2YiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93M2lkLm9yZy96Y2FwL3YxIl0sImNhcGFiaWxpdHlDaGFpbiI6WyJ1cm46emNhcDpyb290Omh0dHBzJTNBJTJGJTJGYXBpLmV4YW1wbGUuY29tJTJGZmlsZXMiXSwiY3JlYXRlZCI6IjIwMjYtMTEtMTVUMDA6MDA6MDBaIiwiY3J5cHRvc3VpdGUiOiJlZGRzYS1qY3MtMjAyMiIsInByb29mUHVycG9zZSI6ImNhcGFiaWxpdHlEZWxlZ2F0aW9uIiwicHJvb2ZWYWx1ZSI6Ino0R0FkRlFGTWp1M3VnNGFiWFJUaW5TeENSUVBCQWVrOFlWOWVwZFVMR1VRUkNINlQyQ2pXRjhzeGpzajlwaFlLaEpUZHM2aldNdnVCc0E0amN1c2V3NFlQIiwidHlwZSI6IkRhdGFJbnRlZ3JpdHlQcm9vZiIsInZlcmlmaWNhdGlvbk1ldGhvZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzT3duZXI6YXBpLmV4YW1wbGU6b3duZXJzOmFjbWUja2V5LTEifX1dLCJjcmVhdGVkIjoiMjAyNi0xMS0xNVQwMDowMDowMFoiLCJjcnlwdG9zdWl0ZSI6ImVkZHNhLWpjcy0yMDIyIiwicHJvb2ZQdXJwb3NlIjoiY2FwYWJpbGl0eURlbGVnYXRpb24iLCJwcm9vZlZhbHVlIjoiejRiVngzZEZEM20zVmFGdW9zckJpRjZEVXFMWjJQR2MzVXNySkVYSEFVRlY4Q2poNllzVjFMdFE4bzFCajJWWGt2aGpvTW1hdFlzaDJiTFZUMnpNS3BNVmoiLCJ0eXBlIjoiRGF0YUludGVncml0eVByb29mIiwidmVyaWZpY2F0aW9uTWV0aG9kIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNBbGljZTphZ2VudHMuZXhhbXBsZTphZ2VudHM6YWxpY2Uja2V5LTEifX0=:",
+        "expected": "capability",
+        "capability": {
+          "@context": [
+            "https://w3id.org/zcap/v1"
+          ],
+          "id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+          "parentCapability": "urn:uuid:00000000-0000-4000-8000-000000000001",
+          "invocationTarget": "https://api.example.com/files/reports",
+          "controller": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+          "allowedAction": [
+            "GET"
+          ],
+          "expires": "2098-01-01T00:00:00Z",
+          "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2026-11-15T00:00:00Z",
+            "verificationMethod": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice#key-1",
+            "proofPurpose": "capabilityDelegation",
+            "capabilityChain": [
+              "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+              {
+                "@context": [
+                  "https://w3id.org/zcap/v1"
+                ],
+                "id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+                "parentCapability": "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles",
+                "invocationTarget": "https://api.example.com/files",
+                "controller": "did:webvh:QmdelegationVectorsAlice:agents.example:agents:alice",
+                "allowedAction": [
+                  "GET",
+                  "POST"
+                ],
+                "expires": "2099-01-01T00:00:00Z",
+                "proof": {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "created": "2026-11-15T00:00:00Z",
+                  "verificationMethod": "did:webvh:QmdelegationVectorsOwner:api.example:owners:acme#key-1",
+                  "proofPurpose": "capabilityDelegation",
+                  "capabilityChain": [
+                    "urn:zcap:root:https%3A%2F%2Fapi.example.com%2Ffiles"
+                  ],
+                  "@context": [
+                    "https://w3id.org/zcap/v1"
+                  ],
+                  "proofValue": "z4GAdFQFMju3ug4abXRTinSxCRQPBAek8YV9epdULGUQRCH6T2CjWF8sxjsj9phYKhJTds6jWMvuBsA4jcusew4YP"
+                }
+              }
+            ],
+            "@context": [
+              "https://w3id.org/zcap/v1"
+            ],
+            "proofValue": "z4bVx3dFD3m3VaFuosrBiF6DUqLZ2PGc3UsrJEXHAUFV8Cjh6YsV1LtQ8o1Bj2VXkvhjoMmatYsh2bLVT2zMKpMVj"
+          }
+        }
+      },
+      {
+        "name": "another label only",
+        "value": "sig2=:eyJAY29udGV4dCI6WyJodHRwczovL3czaWQub3JnL3pjYXAvdjEiXSwiYWxsb3dlZEFjdGlvbiI6WyJHRVQiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2IiLCJleHBpcmVzIjoiMjA5OC0wMS0wMVQwMDowMDowMFoiLCJpZCI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImludm9jYXRpb25UYXJnZXQiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9maWxlcy9yZXBvcnRzIiwicGFyZW50Q2FwYWJpbGl0eSI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInByb29mIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJjYXBhYmlsaXR5Q2hhaW4iOlsidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIix7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJhbGxvd2VkQWN0aW9uIjpbIkdFVCIsIlBPU1QiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQWxpY2U6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmFsaWNlIiwiZXhwaXJlcyI6IjIwOTktMDEtMDFUMDA6MDA6MDBaIiwiaWQiOiJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJpbnZvY2F0aW9uVGFyZ2V0IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vZmlsZXMiLCJwYXJlbnRDYXBhYmlsaXR5IjoidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIiwicHJvb2YiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93M2lkLm9yZy96Y2FwL3YxIl0sImNhcGFiaWxpdHlDaGFpbiI6WyJ1cm46emNhcDpyb290Omh0dHBzJTNBJTJGJTJGYXBpLmV4YW1wbGUuY29tJTJGZmlsZXMiXSwiY3JlYXRlZCI6IjIwMjYtMTEtMTVUMDA6MDA6MDBaIiwiY3J5cHRvc3VpdGUiOiJlZGRzYS1qY3MtMjAyMiIsInByb29mUHVycG9zZSI6ImNhcGFiaWxpdHlEZWxlZ2F0aW9uIiwicHJvb2ZWYWx1ZSI6Ino0R0FkRlFGTWp1M3VnNGFiWFJUaW5TeENSUVBCQWVrOFlWOWVwZFVMR1VRUkNINlQyQ2pXRjhzeGpzajlwaFlLaEpUZHM2aldNdnVCc0E0amN1c2V3NFlQIiwidHlwZSI6IkRhdGFJbnRlZ3JpdHlQcm9vZiIsInZlcmlmaWNhdGlvbk1ldGhvZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzT3duZXI6YXBpLmV4YW1wbGU6b3duZXJzOmFjbWUja2V5LTEifX1dLCJjcmVhdGVkIjoiMjAyNi0xMS0xNVQwMDowMDowMFoiLCJjcnlwdG9zdWl0ZSI6ImVkZHNhLWpjcy0yMDIyIiwicHJvb2ZQdXJwb3NlIjoiY2FwYWJpbGl0eURlbGVnYXRpb24iLCJwcm9vZlZhbHVlIjoiejRiVngzZEZEM20zVmFGdW9zckJpRjZEVXFMWjJQR2MzVXNySkVYSEFVRlY4Q2poNllzVjFMdFE4bzFCajJWWGt2aGpvTW1hdFlzaDJiTFZUMnpNS3BNVmoiLCJ0eXBlIjoiRGF0YUludGVncml0eVByb29mIiwidmVyaWZpY2F0aW9uTWV0aG9kIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNBbGljZTphZ2VudHMuZXhhbXBsZTphZ2VudHM6YWxpY2Uja2V5LTEifX0=:",
+        "expected": "missing"
+      },
+      {
+        "name": "String instead of Byte Sequence",
+        "value": "sig1=\"x\"",
+        "expected": "malformed"
+      },
+      {
+        "name": "Byte Sequence with a parameter",
+        "value": "sig1=:eyJAY29udGV4dCI6WyJodHRwczovL3czaWQub3JnL3pjYXAvdjEiXSwiYWxsb3dlZEFjdGlvbiI6WyJHRVQiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2IiLCJleHBpcmVzIjoiMjA5OC0wMS0wMVQwMDowMDowMFoiLCJpZCI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImludm9jYXRpb25UYXJnZXQiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9maWxlcy9yZXBvcnRzIiwicGFyZW50Q2FwYWJpbGl0eSI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInByb29mIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJjYXBhYmlsaXR5Q2hhaW4iOlsidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIix7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJhbGxvd2VkQWN0aW9uIjpbIkdFVCIsIlBPU1QiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQWxpY2U6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmFsaWNlIiwiZXhwaXJlcyI6IjIwOTktMDEtMDFUMDA6MDA6MDBaIiwiaWQiOiJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJpbnZvY2F0aW9uVGFyZ2V0IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vZmlsZXMiLCJwYXJlbnRDYXBhYmlsaXR5IjoidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIiwicHJvb2YiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93M2lkLm9yZy96Y2FwL3YxIl0sImNhcGFiaWxpdHlDaGFpbiI6WyJ1cm46emNhcDpyb290Omh0dHBzJTNBJTJGJTJGYXBpLmV4YW1wbGUuY29tJTJGZmlsZXMiXSwiY3JlYXRlZCI6IjIwMjYtMTEtMTVUMDA6MDA6MDBaIiwiY3J5cHRvc3VpdGUiOiJlZGRzYS1qY3MtMjAyMiIsInByb29mUHVycG9zZSI6ImNhcGFiaWxpdHlEZWxlZ2F0aW9uIiwicHJvb2ZWYWx1ZSI6Ino0R0FkRlFGTWp1M3VnNGFiWFJUaW5TeENSUVBCQWVrOFlWOWVwZFVMR1VRUkNINlQyQ2pXRjhzeGpzajlwaFlLaEpUZHM2aldNdnVCc0E0amN1c2V3NFlQIiwidHlwZSI6IkRhdGFJbnRlZ3JpdHlQcm9vZiIsInZlcmlmaWNhdGlvbk1ldGhvZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzT3duZXI6YXBpLmV4YW1wbGU6b3duZXJzOmFjbWUja2V5LTEifX1dLCJjcmVhdGVkIjoiMjAyNi0xMS0xNVQwMDowMDowMFoiLCJjcnlwdG9zdWl0ZSI6ImVkZHNhLWpjcy0yMDIyIiwicHJvb2ZQdXJwb3NlIjoiY2FwYWJpbGl0eURlbGVnYXRpb24iLCJwcm9vZlZhbHVlIjoiejRiVngzZEZEM20zVmFGdW9zckJpRjZEVXFMWjJQR2MzVXNySkVYSEFVRlY4Q2poNllzVjFMdFE4bzFCajJWWGt2aGpvTW1hdFlzaDJiTFZUMnpNS3BNVmoiLCJ0eXBlIjoiRGF0YUludGVncml0eVByb29mIiwidmVyaWZpY2F0aW9uTWV0aG9kIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNBbGljZTphZ2VudHMuZXhhbXBsZTphZ2VudHM6YWxpY2Uja2V5LTEifX0=:;a=1",
+        "expected": "malformed"
+      },
+      {
+        "name": "not JCS (spaces)",
+        "value": "sig1=:ewogIkBjb250ZXh0IjogWwogICJodHRwczovL3czaWQub3JnL3pjYXAvdjEiCiBdLAogImlkIjogInVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsCiAicGFyZW50Q2FwYWJpbGl0eSI6ICJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLAogImludm9jYXRpb25UYXJnZXQiOiAiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vZmlsZXMvcmVwb3J0cyIsCiAiY29udHJvbGxlciI6ICJkaWQ6d2Vidmg6UW1kZWxlZ2F0aW9uVmVjdG9yc0JvYjphZ2VudHMuZXhhbXBsZTphZ2VudHM6Ym9iIiwKICJhbGxvd2VkQWN0aW9uIjogWwogICJHRVQiCiBdLAogImV4cGlyZXMiOiAiMjA5OC0wMS0wMVQwMDowMDowMFoiLAogInByb29mIjogewogICJ0eXBlIjogIkRhdGFJbnRlZ3JpdHlQcm9vZiIsCiAgImNyeXB0b3N1aXRlIjogImVkZHNhLWpjcy0yMDIyIiwKICAiY3JlYXRlZCI6ICIyMDI2LTExLTE1VDAwOjAwOjAwWiIsCiAgInZlcmlmaWNhdGlvbk1ldGhvZCI6ICJkaWQ6d2Vidmg6UW1kZWxlZ2F0aW9uVmVjdG9yc0FsaWNlOmFnZW50cy5leGFtcGxlOmFnZW50czphbGljZSNrZXktMSIsCiAgInByb29mUHVycG9zZSI6ICJjYXBhYmlsaXR5RGVsZWdhdGlvbiIsCiAgImNhcGFiaWxpdHlDaGFpbiI6IFsKICAgInVybjp6Y2FwOnJvb3Q6aHR0cHMlM0ElMkYlMkZhcGkuZXhhbXBsZS5jb20lMkZmaWxlcyIsCiAgIHsKICAgICJAY29udGV4dCI6IFsKICAgICAiaHR0cHM6Ly93M2lkLm9yZy96Y2FwL3YxIgogICAgXSwKICAgICJpZCI6ICJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLAogICAgInBhcmVudENhcGFiaWxpdHkiOiAidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIiwKICAgICJpbnZvY2F0aW9uVGFyZ2V0IjogImh0dHBzOi8vYXBpLmV4YW1wbGUuY29tL2ZpbGVzIiwKICAgICJjb250cm9sbGVyIjogImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQWxpY2U6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmFsaWNlIiwKICAgICJhbGxvd2VkQWN0aW9uIjogWwogICAgICJHRVQiLAogICAgICJQT1NUIgogICAgXSwKICAgICJleHBpcmVzIjogIjIwOTktMDEtMDFUMDA6MDA6MDBaIiwKICAgICJwcm9vZiI6IHsKICAgICAidHlwZSI6ICJEYXRhSW50ZWdyaXR5UHJvb2YiLAogICAgICJjcnlwdG9zdWl0ZSI6ICJlZGRzYS1qY3MtMjAyMiIsCiAgICAgImNyZWF0ZWQiOiAiMjAyNi0xMS0xNVQwMDowMDowMFoiLAogICAgICJ2ZXJpZmljYXRpb25NZXRob2QiOiAiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNPd25lcjphcGkuZXhhbXBsZTpvd25lcnM6YWNtZSNrZXktMSIsCiAgICAgInByb29mUHVycG9zZSI6ICJjYXBhYmlsaXR5RGVsZWdhdGlvbiIsCiAgICAgImNhcGFiaWxpdHlDaGFpbiI6IFsKICAgICAgInVybjp6Y2FwOnJvb3Q6aHR0cHMlM0ElMkYlMkZhcGkuZXhhbXBsZS5jb20lMkZmaWxlcyIKICAgICBdLAogICAgICJAY29udGV4dCI6IFsKICAgICAgImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSIKICAgICBdLAogICAgICJwcm9vZlZhbHVlIjogIno0R0FkRlFGTWp1M3VnNGFiWFJUaW5TeENSUVBCQWVrOFlWOWVwZFVMR1VRUkNINlQyQ2pXRjhzeGpzajlwaFlLaEpUZHM2aldNdnVCc0E0amN1c2V3NFlQIgogICAgfQogICB9CiAgXSwKICAiQGNvbnRleHQiOiBbCiAgICJodHRwczovL3czaWQub3JnL3pjYXAvdjEiCiAgXSwKICAicHJvb2ZWYWx1ZSI6ICJ6NGJWeDNkRkQzbTNWYUZ1b3NyQmlGNkRVcUxaMlBHYzNVc3JKRVhIQVVGVjhDamg2WXNWMUx0UThvMUJqMlZYa3Zoam9NbWF0WXNoMmJMVlQyek1LcE1WaiIKIH0KfQ==:",
+        "expected": "malformed"
+      },
+      {
+        "name": "a JSON array",
+        "value": "sig1=:W10=:",
+        "expected": "malformed"
+      },
+      {
+        "name": "not UTF-8",
+        "value": "sig1=://4=:",
+        "expected": "malformed"
+      },
+      {
+        "name": "not a Dictionary",
+        "value": "sig1=:",
+        "expected": "malformed"
+      }
+    ],
+    "invocation": {
+      "request": {
+        "method": "GET",
+        "url": "https://api.example.com/files/reports/q1?format=csv",
+        "headers": {
+          "Agent-DID": "sig1=\"did:webvh:QmdelegationVectorsBob:agents.example:agents:bob\"",
+          "Date": "Sun, 15 Nov 2026 12:00:00 GMT",
+          "Content-Digest": "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:",
+          "Agent-DID-Capability": "sig1=:eyJAY29udGV4dCI6WyJodHRwczovL3czaWQub3JnL3pjYXAvdjEiXSwiYWxsb3dlZEFjdGlvbiI6WyJHRVQiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2IiLCJleHBpcmVzIjoiMjA5OC0wMS0wMVQwMDowMDowMFoiLCJpZCI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImludm9jYXRpb25UYXJnZXQiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9maWxlcy9yZXBvcnRzIiwicGFyZW50Q2FwYWJpbGl0eSI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInByb29mIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJjYXBhYmlsaXR5Q2hhaW4iOlsidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIix7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJhbGxvd2VkQWN0aW9uIjpbIkdFVCIsIlBPU1QiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQWxpY2U6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmFsaWNlIiwiZXhwaXJlcyI6IjIwOTktMDEtMDFUMDA6MDA6MDBaIiwiaWQiOiJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJpbnZvY2F0aW9uVGFyZ2V0IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vZmlsZXMiLCJwYXJlbnRDYXBhYmlsaXR5IjoidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIiwicHJvb2YiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93M2lkLm9yZy96Y2FwL3YxIl0sImNhcGFiaWxpdHlDaGFpbiI6WyJ1cm46emNhcDpyb290Omh0dHBzJTNBJTJGJTJGYXBpLmV4YW1wbGUuY29tJTJGZmlsZXMiXSwiY3JlYXRlZCI6IjIwMjYtMTEtMTVUMDA6MDA6MDBaIiwiY3J5cHRvc3VpdGUiOiJlZGRzYS1qY3MtMjAyMiIsInByb29mUHVycG9zZSI6ImNhcGFiaWxpdHlEZWxlZ2F0aW9uIiwicHJvb2ZWYWx1ZSI6Ino0R0FkRlFGTWp1M3VnNGFiWFJUaW5TeENSUVBCQWVrOFlWOWVwZFVMR1VRUkNINlQyQ2pXRjhzeGpzajlwaFlLaEpUZHM2aldNdnVCc0E0amN1c2V3NFlQIiwidHlwZSI6IkRhdGFJbnRlZ3JpdHlQcm9vZiIsInZlcmlmaWNhdGlvbk1ldGhvZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzT3duZXI6YXBpLmV4YW1wbGU6b3duZXJzOmFjbWUja2V5LTEifX1dLCJjcmVhdGVkIjoiMjAyNi0xMS0xNVQwMDowMDowMFoiLCJjcnlwdG9zdWl0ZSI6ImVkZHNhLWpjcy0yMDIyIiwicHJvb2ZQdXJwb3NlIjoiY2FwYWJpbGl0eURlbGVnYXRpb24iLCJwcm9vZlZhbHVlIjoiejRiVngzZEZEM20zVmFGdW9zckJpRjZEVXFMWjJQR2MzVXNySkVYSEFVRlY4Q2poNllzVjFMdFE4bzFCajJWWGt2aGpvTW1hdFlzaDJiTFZUMnpNS3BNVmoiLCJ0eXBlIjoiRGF0YUludGVncml0eVByb29mIiwidmVyaWZpY2F0aW9uTWV0aG9kIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNBbGljZTphZ2VudHMuZXhhbXBsZTphZ2VudHM6YWxpY2Uja2V5LTEifX0=:",
+          "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"agent-did\";key=\"sig1\" \"agent-did-capability\";key=\"sig1\");created=1794744000;expires=1794744030;nonce=\"0123456789abcdef0123456789abcdef\";keyid=\"did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+          "Signature": "sig1=:FQb+1XY4auX3HrD/1THjOkiO1MuxY5iC9i1Ugr5LUYwCLB2xXXSKlKaXpC9H7M+3v3IMRnEpt3DTx6f20py9Ag==:"
+        }
+      },
+      "keyId": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+      "capabilityId": "urn:uuid:00000000-0000-4000-8000-000000000002",
+      "signatureBase": "\"@method\": GET\n\"@authority\": api.example.com\n\"@path\": /files/reports/q1\n\"@query\": ?format=csv\n\"content-digest\": sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:\n\"date\": Sun, 15 Nov 2026 12:00:00 GMT\n\"agent-did\";key=\"sig1\": \"did:webvh:QmdelegationVectorsBob:agents.example:agents:bob\"\n\"agent-did-capability\";key=\"sig1\": :eyJAY29udGV4dCI6WyJodHRwczovL3czaWQub3JnL3pjYXAvdjEiXSwiYWxsb3dlZEFjdGlvbiI6WyJHRVQiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2IiLCJleHBpcmVzIjoiMjA5OC0wMS0wMVQwMDowMDowMFoiLCJpZCI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImludm9jYXRpb25UYXJnZXQiOiJodHRwczovL2FwaS5leGFtcGxlLmNvbS9maWxlcy9yZXBvcnRzIiwicGFyZW50Q2FwYWJpbGl0eSI6InVybjp1dWlkOjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInByb29mIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJjYXBhYmlsaXR5Q2hhaW4iOlsidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIix7IkBjb250ZXh0IjpbImh0dHBzOi8vdzNpZC5vcmcvemNhcC92MSJdLCJhbGxvd2VkQWN0aW9uIjpbIkdFVCIsIlBPU1QiXSwiY29udHJvbGxlciI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQWxpY2U6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmFsaWNlIiwiZXhwaXJlcyI6IjIwOTktMDEtMDFUMDA6MDA6MDBaIiwiaWQiOiJ1cm46dXVpZDowMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJpbnZvY2F0aW9uVGFyZ2V0IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vZmlsZXMiLCJwYXJlbnRDYXBhYmlsaXR5IjoidXJuOnpjYXA6cm9vdDpodHRwcyUzQSUyRiUyRmFwaS5leGFtcGxlLmNvbSUyRmZpbGVzIiwicHJvb2YiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93M2lkLm9yZy96Y2FwL3YxIl0sImNhcGFiaWxpdHlDaGFpbiI6WyJ1cm46emNhcDpyb290Omh0dHBzJTNBJTJGJTJGYXBpLmV4YW1wbGUuY29tJTJGZmlsZXMiXSwiY3JlYXRlZCI6IjIwMjYtMTEtMTVUMDA6MDA6MDBaIiwiY3J5cHRvc3VpdGUiOiJlZGRzYS1qY3MtMjAyMiIsInByb29mUHVycG9zZSI6ImNhcGFiaWxpdHlEZWxlZ2F0aW9uIiwicHJvb2ZWYWx1ZSI6Ino0R0FkRlFGTWp1M3VnNGFiWFJUaW5TeENSUVBCQWVrOFlWOWVwZFVMR1VRUkNINlQyQ2pXRjhzeGpzajlwaFlLaEpUZHM2aldNdnVCc0E0amN1c2V3NFlQIiwidHlwZSI6IkRhdGFJbnRlZ3JpdHlQcm9vZiIsInZlcmlmaWNhdGlvbk1ldGhvZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzT3duZXI6YXBpLmV4YW1wbGU6b3duZXJzOmFjbWUja2V5LTEifX1dLCJjcmVhdGVkIjoiMjAyNi0xMS0xNVQwMDowMDowMFoiLCJjcnlwdG9zdWl0ZSI6ImVkZHNhLWpjcy0yMDIyIiwicHJvb2ZQdXJwb3NlIjoiY2FwYWJpbGl0eURlbGVnYXRpb24iLCJwcm9vZlZhbHVlIjoiejRiVngzZEZEM20zVmFGdW9zckJpRjZEVXFMWjJQR2MzVXNySkVYSEFVRlY4Q2poNllzVjFMdFE4bzFCajJWWGt2aGpvTW1hdFlzaDJiTFZUMnpNS3BNVmoiLCJ0eXBlIjoiRGF0YUludGVncml0eVByb29mIiwidmVyaWZpY2F0aW9uTWV0aG9kIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNBbGljZTphZ2VudHMuZXhhbXBsZTphZ2VudHM6YWxpY2Uja2V5LTEifX0=:\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"agent-did\";key=\"sig1\" \"agent-did-capability\";key=\"sig1\");created=1794744000;expires=1794744030;nonce=\"0123456789abcdef0123456789abcdef\";keyid=\"did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1\";alg=\"ed25519\";tag=\"agent-did\""
+    }
+  },
+  "clientAssertions": {
+    "sign": [
+      {
+        "name": "EdDSA, default lifetime",
+        "params": {
+          "clientId": "https://agents.example.com/bob/client.json",
+          "issuer": "https://auth.example.com",
+          "verificationMethodId": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+          "issuedAt": 1800000000,
+          "jti": "vector-jti-1",
+          "lifetimeSeconds": 60,
+          "jwsAlg": "EdDSA"
+        },
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.svE83VCUzn0FeoMCUlIcY9o-7vGcRzc5K392zdmcVxj4nu33KcNz0HQtxeBblxE6h6qQJ9b6-DqUp14fQC6TDw"
+      },
+      {
+        "name": "Ed25519, 300 s",
+        "params": {
+          "clientId": "https://agents.example.com/bob/client.json",
+          "issuer": "https://auth.example.com",
+          "verificationMethodId": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob#key-1",
+          "issuedAt": 1800000000,
+          "jti": "vector-jti-2",
+          "lifetimeSeconds": 300,
+          "jwsAlg": "Ed25519"
+        },
+        "assertion": "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNCb2I6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmJvYiNrZXktMSIsInR5cCI6ImNsaWVudC1hdXRoZW50aWNhdGlvbitqd3QifQ.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAzMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0yIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.h6l-haNGrqHfUF4vMeBtTF-e45-83XfdL-eYAdusrtAZKVh6-WlpkZqjPRY29N6Ztrmrh2ROUIgWOEulSsI_CA"
+      }
+    ],
+    "verify": [
+      {
+        "name": "typed EdDSA",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.svE83VCUzn0FeoMCUlIcY9o-7vGcRzc5K392zdmcVxj4nu33KcNz0HQtxeBblxE6h6qQJ9b6-DqUp14fQC6TDw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "ok"
+      },
+      {
+        "name": "alg Ed25519",
+        "assertion": "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNCb2I6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmJvYiNrZXktMSIsInR5cCI6ImNsaWVudC1hdXRoZW50aWNhdGlvbitqd3QifQ.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.Q4AgEKreSajdOmD_Cbzd4wjRyVKDWLCaopgyWHt_xEH1VgQKTxzGi38ofpBMuv3qm6LXMUII2szgUMYlOEsQDg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "ok"
+      },
+      {
+        "name": "untyped",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEifQ.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.wtpmYLjdZsDonmTMwUhGAAY2UcBZOgFgHe7TVBbtarrwFkm3B0vLQyd5i5tcJsQ28x3HHXAF-OhYYYPHYCIpDg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "ok"
+      },
+      {
+        "name": "application/ typ in another case",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJhcHBsaWNhdGlvbi9DbGllbnQtQXV0aGVudGljYXRpb24rSldUIn0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.-xU57zJnlamm6tC-Xa0DmIWvn8N1kxQ4nRGfbL3w3k84ZDYkOioBr9VOpZPyJ_kyaYnhLCmpfgJC3K5dPCG3Bg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "ok"
+      },
+      {
+        "name": "nbf within the skew",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwibmJmIjoxODAwMDAwMDMwLCJzdWIiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24ifQ.sa7s94cMFBSDjh53cMvjl1AeqlW-sDF8GzBbOZbaN0N373eJwqK8RchfctAzPdfZIVH5Guxvf91C1zRnyTNbAQ",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "ok"
+      },
+      {
+        "name": "aud as a one-element list",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOlsiaHR0cHM6Ly9hdXRoLmV4YW1wbGUuY29tIl0sImV4cCI6MTgwMDAwMDA2MCwiaWF0IjoxODAwMDAwMDAwLCJpc3MiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24iLCJqdGkiOiJ2ZWN0b3ItanRpLTEiLCJzdWIiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24ifQ.24c1URMlHe7QZCzoMmmLGjpOUcYqBcM3nudwhckYbIRoxMCzBjDOKojcbHqaz-vR_zGIJhTQql8pNlut3yikAA",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "audience_invalid"
+      },
+      {
+        "name": "aud is the token endpoint",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20vdG9rZW4iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.Gnh1kRMT8ObNsIHQmh3i8f9YENd-sfgZck-Z7DmI2MWrpiJEC2nVuKbTYlE2yGyqctovl5zhyr3VXn90f5JMCQ",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "audience_invalid"
+      },
+      {
+        "name": "sub is another client",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoib3RoZXIifQ.zPrys9t7GxnqMW6wVwFSU4FSQaL3xCsHnM3h5qLG0JaqkVHlShseiCReNzjmAGx6H5yNtTJqGnTcyBs8IN4cDg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "client_id_mismatch"
+      },
+      {
+        "name": "iss is another client",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoib3RoZXIiLCJqdGkiOiJ2ZWN0b3ItanRpLTEiLCJzdWIiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24ifQ.Nij2GzlQc1UB6FNYAN4J_G87evC5GwCfp_zBIyBlZ5aUuuZqQo4dlTRyOOq7DuLwLNi2cFXiqA03X2gjQw1TDQ",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "client_id_mismatch"
+      },
+      {
+        "name": "lifetime 301 s",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAzMDEsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.beekaQ10D1u250iMk55qNEe756GbvrYgCY0tmAtmfLRir8O8PN6obiyor3x0raa4mztfn2BQZGnL5ywWVkrACg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "lifetime_exceeded"
+      },
+      {
+        "name": "exp equals iat",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwMDAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.BBfcqFIsUzU2t_SsFO9gHsw5AuaT5bcF_BECyFMZls5YoQHoZR2VcdQpuNRJLmjn05rQ2nDyjz0rSMWIKvUkDg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "lifetime_exceeded"
+      },
+      {
+        "name": "iat in the future beyond the skew",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAxNjAsImlhdCI6MTgwMDAwMDEwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.YigxPUuNmaJLalPvS9hl8WWYNmv-f4Dw1-dVEq9tta4bQu-S_fDVMXQnLOAiA086_WTD5yLPKnNEZOUrCdn7Bg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "not_yet_valid"
+      },
+      {
+        "name": "nbf in the future beyond the skew",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwibmJmIjoxODAwMDAwMTAwLCJzdWIiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24ifQ.K735Xku7nzI80B_qHzi7X6rJD2Cx8rAB_v0f1Gc6GMxwDDTTHmwFUm5LFzMn3YKunzlZLeLuTqrCALevJPCYDQ",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "not_yet_valid"
+      },
+      {
+        "name": "expired beyond the skew",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.svE83VCUzn0FeoMCUlIcY9o-7vGcRzc5K392zdmcVxj4nu33KcNz0HQtxeBblxE6h6qQJ9b6-DqUp14fQC6TDw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000091,
+        "maxClockSkewSeconds": 30,
+        "expected": "expired"
+      },
+      {
+        "name": "typ JWT",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.KGNoy3EOI1JdSqA6ZGltJY2zRRKedhKKINL4zyPT-1ykelRaPDW4MlBBOMLQMearZd6jNevV_A7EE6MU3jZtBA",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "type_invalid"
+      },
+      {
+        "name": "alg ES256",
+        "assertion": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.cq0K7QFfCn23NBRHNnBsR6Wx1jrxsV8EIRnDuT-2FVfHDG_Or1ZQkH9-D7pkCKQ5GRrWjpiyihKMbXyEfyvYCA",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "alg_unsupported"
+      },
+      {
+        "name": "alg none",
+        "assertion": "eyJhbGciOiJub25lIiwia2lkIjoiZGlkOndlYnZoOlFtZGVsZWdhdGlvblZlY3RvcnNCb2I6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmJvYiNrZXktMSIsInR5cCI6ImNsaWVudC1hdXRoZW50aWNhdGlvbitqd3QifQ.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.sKXskLYYc-EzLD6BBRu2ohCZyGGO0BtbzxFnTUHJjS-zC4e6cVj1WoLK3iT43ArKFAnZ1NioQr-KSmxrLXXwBw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "alg_unsupported"
+      },
+      {
+        "name": "crit header",
+        "assertion": "eyJhbGciOiJFZERTQSIsImNyaXQiOlsiZXhwIl0sImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.Wd9OSv-hFyZzDNw9DQUh_mCrnFezwKkiI9be7rKhVG2tdRUYeEwwwJS-Sr-bH55cdGs2lRtACJM3knnuC-r_Aw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "malformed_assertion"
+      },
+      {
+        "name": "kid of another DID",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQ2Fyb2w6YWdlbnRzLmV4YW1wbGU6YWdlbnRzOmNhcm9sI2tleS0xIiwidHlwIjoiY2xpZW50LWF1dGhlbnRpY2F0aW9uK2p3dCJ9.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0._lVQ9F-SDPXR6SGBtMpwzxOMRpyHnAzpuksIc_n51Wl8hv9nMcFbLmGr1TOxUIr3B4U9Tl5jD30pX4QNcswVAg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "kid_not_bound"
+      },
+      {
+        "name": "kid without fragment",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2IiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.dGyrq0XxjMkUwSXcP352BOVvk2tqQkbD7PpT7KirTT-1WOnZJc31iRMCHAGaRm8TQy9ECQDknGiD5AeNysA6Cw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "kid_not_bound"
+      },
+      {
+        "name": "jti is a number",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjo3LCJzdWIiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24ifQ.fHxJz-arbl4lt4Sx0CIkkME9-iuLoyKMCfAxa6iJ8j2o_u1Ltx_m_e5VrUeX2On9IFDw_FDgAO2pWxzgmlIWAA",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "malformed_assertion"
+      },
+      {
+        "name": "jti with a space",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoiYSBiIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.KkNwrPVlPmshuBy3zc_vkNjzFyTR4U9EIJeTpg5WNpcleno1iKLDcxpzMgsyd2b2lBjviQNJYfOzWlLchEtYDg",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "malformed_assertion"
+      },
+      {
+        "name": "iat is a string",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6IjE4MDAwMDAwMDAiLCJpc3MiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24iLCJqdGkiOiJ2ZWN0b3ItanRpLTEiLCJzdWIiOiJodHRwczovL2FnZW50cy5leGFtcGxlLmNvbS9ib2IvY2xpZW50Lmpzb24ifQ.MT0oDBEsVWH2k08JHpASUJMS5q7k9FEgr0GksjLXIIqVEmLRHYKb0fDJcw6sSsoIMnWQDkAgmFaZfaR2lyMZBw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "malformed_assertion"
+      },
+      {
+        "name": "two segments",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "malformed_assertion"
+      },
+      {
+        "name": "padded base64url",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0=.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.svE83VCUzn0FeoMCUlIcY9o-7vGcRzc5K392zdmcVxj4nu33KcNz0HQtxeBblxE6h6qQJ9b6-DqUp14fQC6TDw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "malformed_assertion"
+      },
+      {
+        "name": "signature by another key",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoidmVjdG9yLWp0aS0xIiwic3ViIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIn0.NaCOIkFOTtOIuyMSWsX6phij1gQbhWoKNfkCZJuypMQW9F6hmrHU10on9OlLY1OiE9G8asALTH5smzZr204kDw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "signature_invalid"
+      },
+      {
+        "name": "claims changed after signing",
+        "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWRlbGVnYXRpb25WZWN0b3JzQm9iOmFnZW50cy5leGFtcGxlOmFnZW50czpib2Ija2V5LTEiLCJ0eXAiOiJjbGllbnQtYXV0aGVudGljYXRpb24rand0In0.eyJhdWQiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJleHAiOjE4MDAwMDAwNjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9hZ2VudHMuZXhhbXBsZS5jb20vYm9iL2NsaWVudC5qc29uIiwianRpIjoiY2hhbmdlZCIsInN1YiI6Imh0dHBzOi8vYWdlbnRzLmV4YW1wbGUuY29tL2JvYi9jbGllbnQuanNvbiJ9.svE83VCUzn0FeoMCUlIcY9o-7vGcRzc5K392zdmcVxj4nu33KcNz0HQtxeBblxE6h6qQJ9b6-DqUp14fQC6TDw",
+        "clientId": "https://agents.example.com/bob/client.json",
+        "issuer": "https://auth.example.com",
+        "did": "did:webvh:QmdelegationVectorsBob:agents.example:agents:bob",
+        "now": 1800000010,
+        "maxClockSkewSeconds": 30,
+        "expected": "signature_invalid"
+      }
+    ]
+  }
+}

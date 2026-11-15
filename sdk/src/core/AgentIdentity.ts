@@ -18,6 +18,7 @@ import { AgentSigner } from './signer';
 import { REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import {
   buildSignatureBase,
+  ComponentIdentifier,
   HttpSignatureError,
   requestUrlFormProblem,
   serializeSignature,
@@ -25,6 +26,7 @@ import {
   SignatureInput
 } from './http-signatures';
 import { validateHttpTarget } from './http-security';
+import { AGENT_DID_CAPABILITY_HTTP_HEADER, serializeCapabilityHeader } from './capability';
 import { messageSigningInput } from './message-signing';
 import {
   AGENT_DID_HTTP_HEADER,
@@ -164,8 +166,16 @@ export class AgentIdentity {
       'Date': new Date(created * 1000).toUTCString(),
       'Content-Digest': computeContentDigest(params.body)
     };
+    const components: ComponentIdentifier[] = agentDidHttpSignatureComponents(AGENT_DID_HTTP_SIGNATURE_LABEL);
+    if (params.capability !== undefined) {
+      if (params.capability.controller !== params.agentDid) {
+        throw new Error(`The capability is held by ${String(params.capability.controller)}, not ${params.agentDid}`);
+      }
+      headers[AGENT_DID_CAPABILITY_HTTP_HEADER] = serializeCapabilityHeader(AGENT_DID_HTTP_SIGNATURE_LABEL, params.capability);
+      components.push({ name: 'agent-did-capability', key: AGENT_DID_HTTP_SIGNATURE_LABEL });
+    }
     const input: SignatureInput = {
-      components: agentDidHttpSignatureComponents(AGENT_DID_HTTP_SIGNATURE_LABEL),
+      components,
       params: [
         ['created', created],
         ['expires', created + (params.expiresInSeconds ?? 30)],

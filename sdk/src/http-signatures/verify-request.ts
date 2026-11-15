@@ -57,7 +57,27 @@ export interface VerifyRequestDeps {
   now: Date;
 }
 
-const reject = (reason: HttpSignatureRejection): VerifyHttpRequestSignatureResult => ({ ok: false, reason });
+/**
+ * Extra checks of a profile built on the §6.5 request profile (capability invocation, RFC-001 §6.7). `beforeSignature`
+ * runs once the profile checks pass and before any resolution; `afterSignature` after the signature verifies and
+ * before the nonce is recorded.
+ */
+export interface VerifyRequestExtension<State, Extra> {
+  /** The relationship the signing key must be listed under. */
+  relationship: VerificationRelationship;
+  beforeSignature(
+    label: string,
+    input: SignatureInput,
+    agentDid: string
+  ): { ok: true; state: State } | { ok: false; reason: string; capabilityId?: string };
+  afterSignature(
+    state: State
+  ): Promise<{ ok: true; extra: Extra } | { ok: false; reason: string; capabilityId?: string }>;
+}
+
+type CoreResult<Extra> =
+  | { ok: true; did: string; keyId: string; controllers: string[]; extra?: Extra }
+  | { ok: false; reason: string; capabilityId?: string };
 
 /** RFC-001 §6.5 item 2: the required components, in this order; additional ones may follow. */
 function startsWithComponents(components: readonly ComponentIdentifier[], required: readonly ComponentIdentifier[]): boolean {
@@ -74,6 +94,20 @@ export async function verifyAgentDidHttpRequest(
   params: VerifyHttpRequestSignatureParams,
   deps: VerifyRequestDeps
 ): Promise<VerifyHttpRequestSignatureResult> {
+  const result = await verifyAgentDidHttpRequestWith<never, never>(params, deps);
+  return result.ok
+    ? { ok: true, did: result.did, keyId: result.keyId, controllers: result.controllers }
+    : { ok: false, reason: result.reason as HttpSignatureRejection };
+}
+
+/** `verifyAgentDidHttpRequest` with the checks of a profile built on it. */
+export async function verifyAgentDidHttpRequestWith<State, Extra>(
+  params: VerifyHttpRequestSignatureParams,
+  deps: VerifyRequestDeps,
+  extension?: VerifyRequestExtension<State, Extra>
+): Promise<CoreResult<Extra>> {
+  const reject = (reason: string, capabilityId?: string): CoreResult<Extra> =>
+    capabilityId === undefined ? { ok: false, reason } : { ok: false, reason, capabilityId };
   const headers = Object.fromEntries(
     Object.entries(params.headers).map(([key, value]) => [key.toLowerCase(), value])
   );
@@ -105,9 +139,9 @@ export async function verifyAgentDidHttpRequest(
   const request = { method: params.method.toUpperCase(), url: params.url, headers };
 
   // The reason reported is the first one of a signature with the Agent-DID tag, else the first one.
-  const failures: Array<{ reason: HttpSignatureRejection; tagged: boolean }> = [];
-  const fail = (reason: HttpSignatureRejection, tagged: boolean): void => {
-    failures.push({ reason, tagged });
+  const failures: Array<{ reason: string; tagged: boolean; capabilityId?: string }> = [];
+  const fail = (reason: string, tagged: boolean, capabilityId?: string): void => {
+    failures.push({ reason, tagged, ...(capabilityId !== undefined ? { capabilityId } : {}) });
   };
 
   for (const [label, input] of inputs) {
@@ -187,12 +221,22 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
+    let state: State | undefined;
+    if (extension !== undefined) {
+      const before = extension.beforeSignature(label, input, agentDid);
+      if (!before.ok) {
+        fail(before.reason, true, before.capabilityId);
+        continue;
+      }
+      state = before.state;
+    }
+
     const { outcome, controllers = [] } = await deps.verifySignature(
       agentDid,
       signatureBase,
       bytesToHex(signature),
       keyId,
-      REQUIRED_RELATIONSHIP_BY_ARTIFACT.http_request
+      extension?.relationship ?? REQUIRED_RELATIONSHIP_BY_ARTIFACT.http_request
     );
     if (outcome !== 'valid') {
       fail(
@@ -213,12 +257,25 @@ export async function verifyAgentDidHttpRequest(
       continue;
     }
 
+    let extra: Extra | undefined;
+    if (extension !== undefined) {
+      const after = await extension.afterSignature(state as State);
+      if (!after.ok) {
+        fail(after.reason, true, after.capabilityId);
+        continue;
+      }
+      extra = after.extra;
+    }
+
     // Record the nonce only for an accepted signature, so forged or refused requests cannot burn nonces.
-    return await nonceStore.checkAndStore(`${keyId} ${nonce}`, expires)
+    if (!(await nonceStore.checkAndStore(`${keyId} ${nonce}`, expires))) {
+      return reject('nonce_replayed');
+    }
+    return extension === undefined
       ? { ok: true, did: agentDid, keyId, controllers }
-      : reject('nonce_replayed');
+      : { ok: true, did: agentDid, keyId, controllers, extra };
   }
 
   const chosen = failures.find((failure) => failure.tagged) ?? failures[0];
-  return reject(chosen ? chosen.reason : 'malformed_headers');
+  return chosen ? reject(chosen.reason, chosen.capabilityId) : reject('malformed_headers');
 }

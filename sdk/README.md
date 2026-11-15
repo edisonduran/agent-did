@@ -95,6 +95,8 @@ An agent's controller does not have to be an Agent-DID document: any DID Core `d
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 | Agent metadata credential (VC 2.0, `eddsa-jcs-2022`) | `client.issueAgentMetadataCredential(params)` / `client.verifyAgentMetadataCredential(credential)` | ✅ |
+| Capabilities: delegation and HTTP invocation (RFC-001 §6.7) | `client.createCapability(params)`, `client.verifyCapabilityChain(capability, { rootControllers })`, `signHttpRequest({ ..., capability })`, `client.verifyHttpCapabilityInvocation({ ...request, rootControllers })` | ✅ |
+| OAuth client assertion with the DID key (`private_key_jwt`, RFC-001 §6.8) | `createClientAssertion(params)`, `buildClientJwks(document)`, `buildClientMetadataDocument(params)`, `client.verifyClientAssertion(params)` | ✅ |
 
 By default, `verifySignature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
@@ -202,6 +204,29 @@ if (!result.ok) { /* result.reason: 'expired', 'issuer_not_controller', 'signatu
 ```
 
 Verification resolves the agent and its controller and checks the binding, so the verifier needs their did:webvh logs (production resolver or imported). The metadata is the controller's assertion, not evidence of what the agent runs.
+
+## Capabilities and OAuth
+
+A DID with a `capabilityDelegation` key can grant another DID a scoped, expiring authority, and the grantee invokes it with a request signed by a `capabilityInvocation` key (RFC-001 §6.7). Create both agents with `additionalVerificationRelationships`.
+
+```ts
+const capability = await client.createCapability({
+  invocationTarget: 'https://api.example.com/files',
+  controller: workerDid,                       // the delegate
+  allowedAction: ['GET'],
+  expires: '2026-12-01T00:00:00Z',             // keep it short: there is no per-capability revocation
+  verificationMethodId: `${ownerDid}#key-1`,   // under capabilityDelegation
+  signer: ownerSigner
+});
+
+// The worker invokes it
+const headers = await workerIdentity.signHttpRequest({ method: 'GET', url, agentDid: workerDid, signer, verificationMethodId, capability });
+
+// The resource server decides who may delegate its targets
+const result = await server.verifyHttpCapabilityInvocation({ method: 'GET', url, headers, rootControllers: { 'https://api.example.com/files': [ownerDid] } });
+```
+
+The same DID key can authenticate the agent to an OAuth authorization server, including one in front of an MCP server (RFC-001 §6.8): `createClientAssertion({ clientId, issuer, verificationMethodId, signer })` is the `client_assertion` of a token request, and `buildClientMetadataDocument({ clientId, clientName, didDocument })` is the Client ID Metadata Document to publish at `clientId`. The SDK runs no OAuth flow. Aligned with ZCAP v0.4, RFC 7523 and the Client ID Metadata Document draft; no conformance with them is claimed.
 
 ## Anti-Replay (HTTP Signatures)
 

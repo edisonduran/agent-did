@@ -58,9 +58,12 @@ Where this RFC says an item is defined "by" one of these documents, that documen
 | [RFC 3161] | Timestamp tokens as trusted time evidence (§6.2.2) | RFC 3161 |
 | [VC-DATA-MODEL-2.0] | Data model of the `AgentMetadataCredential` (§4.4) | W3C Recommendation, Verifiable Credentials Data Model v2.0 |
 | [VC-DI-EDDSA] | `eddsa-jcs-2022` proofs of the `AgentMetadataCredential` (§4.4), with the common algorithms of VC Data Integrity | W3C Recommendation, Data Integrity EdDSA Cryptosuites v1.0; test vectors at the commit pinned in `fixtures/vc-di-eddsa-test-vectors.json` |
+| [RFC 7515], [RFC 7519] | JWS and JWT of the OAuth client assertion (§6.8) | RFC 7515, RFC 7519 |
+| [RFC 8037] | `EdDSA` JWS algorithm with Ed25519 (§6.8) | RFC 8037 |
+| [RFC 9864] | `Ed25519` fully-specified JWS algorithm (§6.8) | RFC 9864 |
 | [RFC 2119], [RFC 8174] | Requirement keywords | BCP 14 |
 
-Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients). Agent-DID separates itself from them with the `tag` parameter (§6.5). DIF *Linked Verifiable Presentations* (the `LinkedVerifiablePresentation` service type of §4.4).
+Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients). Agent-DID separates itself from them with the `tag` parameter (§6.5). DIF *Linked Verifiable Presentations* (the `LinkedVerifiablePresentation` service type of §4.4). W3C CCG *Authorization Capabilities* (ZCAP) v0.4, the data model of §6.7. RFC 7523 and *draft-ietf-oauth-rfc7523bis* (JWT client authentication), *draft-ietf-oauth-client-id-metadata-document* and RFC 8414 (§6.8). The MCP authorization specification (revision 2026-07-28) and its OAuth Client Credentials extension, which use them.
 
 **Evidence, not assertion.** Which of these references the reference SDKs are shown to satisfy, and by what external evidence, is recorded in [External-Conformance-Matrix.md](External-Conformance-Matrix.md). An implementation MUST NOT claim conformance with a referenced specification on the strength of this RFC alone.
 
@@ -311,9 +314,9 @@ The verification relationship of §6.2.1 depends on what the signature is for, n
 |---|---|---|
 | `assertion` | Signed payloads, receipts, attestations, credentials and other claims made by the DID subject | `assertionMethod` |
 | `http_request` | HTTP message signatures (§6.5) | `assertionMethod` |
-| `delegation` | Issuing a delegation of authority to another party (for example a capability or an APS `AuthorityDelegationV1`) | `capabilityDelegation` |
-| `invocation` | Exercising a capability that was delegated to the DID subject | `capabilityInvocation` |
-| `authentication` | Proving control of the DID, for example in a challenge-response | `authentication` |
+| `delegation` | Issuing a delegation of authority to another party (a capability of §6.7, or another format such as an APS `AuthorityDelegationV1`) | `capabilityDelegation` |
+| `invocation` | Exercising a capability that was delegated to the DID subject (an HTTP invocation of §6.7) | `capabilityInvocation` |
+| `authentication` | Proving control of the DID, for example in a challenge-response or an OAuth client assertion (§6.8) | `authentication` |
 
 A key listed under one relationship MUST NOT be accepted for an artifact kind that requires another, even when the signature itself is valid. In particular, a key listed only under `assertionMethod` MUST NOT be accepted for issuing a delegation, and a key listed only under `capabilityDelegation` MUST NOT be accepted for an assertion. The rejection reason is `key_purpose_violation` with `requiredPurpose` set to the relationship in the table (§6.2.1.1). `keyAgreement` never appears in the table and never signs.
 
@@ -356,7 +359,7 @@ Other delegation formats draw the same line for the same reason (for example the
 Agents sign HTTP requests with RFC 9421 HTTP Message Signatures using the following profile:
 
 1. The request MUST carry `Agent-DID`, `Date`, and `Content-Digest` (RFC 9530, `sha-256`). `Agent-DID` is a Structured Field Dictionary (RFC 8941 §3.2) keyed by signature label: the member for a signature's label MUST be a String, without parameters, whose value is the agent's DID (for example `Agent-DID: sig1="did:webvh:…"`). A verifier MUST reject a signature whose label has no member in `Agent-DID`, or whose member is not a String or has parameters; members of other labels are ignored. A `Signature-Agent` header is not read: the bare-String form of earlier release candidates is not accepted. The `Content-Digest` value is exactly `sha-256=:<base64 of SHA-256(body)>:`: a verifier MUST reject a field with any other form, including a dictionary that adds further algorithms.
-2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="<label>"`, where `<label>` is the signature's own label. The last component selects the `Agent-DID` member of that label (RFC 9421 §2.1.2), so its line in the signature base is the serialized member, for example `"agent-did";key="sig1": "did:webvh:…"`. Additional components MAY follow. A verifier MUST reject a signature whose covered components start with anything else (a missing, reordered or preceded component).
+2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="<label>"`, where `<label>` is the signature's own label. The last component selects the `Agent-DID` member of that label (RFC 9421 §2.1.2), so its line in the signature base is the serialized member, for example `"agent-did";key="sig1": "did:webvh:…"`. Additional components MAY follow; a request that invokes a capability covers `"agent-did-capability";key="<label>"` there (§6.7). A verifier MUST reject a signature whose covered components start with anything else (a missing, reordered or preceded component).
 3. The signature parameters MUST include `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `keyid` MUST be a verification method of the DID in the `Agent-DID` member of the signature's label. `nonce` MUST be 1 to 256 characters from `A-Z`, `a-z`, `0-9` and `. _ ~ + / = -` (no space); a signer MUST NOT send another value and a verifier MUST reject it (`params_missing`).
 4. The signature base MUST be built as defined in RFC 9421 §2.5. Verifiers MUST rebuild it from the received request, with the `"@signature-params"` line re-serialized from the parsed `Signature-Input`. The request URL MUST already be in **normalized form**, so that every URL parser derives the same `@authority`, `@path` and `@query`: an `http` or `https` URL with a lowercase scheme; a host that is lowercase ASCII (an internationalized name in its punycode form), a canonical dotted-decimal IPv4 address or a bracketed IPv6 address in RFC 5952 form, with no empty label; an optional port without leading zeros; no user information and no fragment; a path and query made only of unreserved characters, sub-delimiters, `:`, `@` and percent-encoded octets (`%` followed by two hex digits), with `/` and `?` also allowed in the query and `'` not allowed there; no `.` or `..` path segment, also when percent-encoded; and no `?` without a query. A signer MUST NOT sign a request whose URL is not in normalized form (it percent-encodes the URL first), and a verifier MUST reject such a request (`url_not_normalized`). An explicit default port is allowed and is not part of `@authority`.
 5. Verifiers MUST reject the signature unless: the profile in items 2 and 3 is present; `created` is within the allowed clock skew; `now <= expires`; `Content-Digest` matches the body; and the signature verifies with an active key listed under `assertionMethod` in the resolved DID document.
@@ -377,6 +380,67 @@ Update, key rotation and revocation (deactivation) change the identity that othe
 7. **Controller chain and binding.** An agent controlled by another DID (§4.2 `controller`) is operated through that controller's keys; the controller chain MUST be resolvable and active for the agent to verify (§6.2). A `did:webvh` agent is **bound** to its controller only if the data-integrity proof of the **last entry** of its log was made by a key that is active now under `capabilityInvocation` of the controller's document (read as §4.2.1 item 2; the controller's document need not be an Agent-DID document) (the last entry holds the full current document, so that proof is the controller's endorsement of it). Listing a controller key in `updateKeys` is not enough. A verifier MUST check the binding for every link of the chain against the controller's state as it is now (never at a stated time, §6.2.2) and MUST reject (`controller_not_bound`) when it fails, when the controller cannot be resolved, or when the agent's log is not available to check. Rotating the controller's key without unbinding its agents takes three steps: the controller adds the new key under `capabilityInvocation`, each agent gets an entry signed by the new key, and only then the controller retires the old key. With pre-rotation (item 8) the committed key that signs the agent's next entry MUST already be listed under the controller's `capabilityInvocation`.
 8. **Pre-rotation (optional).** A `did:webvh` DID MAY commit to the hashes of its next update keys (`nextKeyHashes`, did:webvh v1.0). While commitments are in force, an implementation MUST sign the next entry only with a key whose hash is committed and MUST set `updateKeys` in that entry to committed keys; a key that was active before can no longer authorize an entry, and verifiers MUST reject an entry that does not meet this. An implementation that offers pre-rotation MUST NOT accept a commitment to a key that is active in the same entry, and SHOULD advise keeping the private keys of committed keys apart from the active controller key (offline). Pre-rotation protects only if it is in force **before** a compromise: an attacker who holds the active key of a DID without commitments can start pre-rotation with their own keys.
 
+
+### 6.7 Capabilities: Delegation and Invocation
+
+A DID can grant another DID a scoped, expiring authority to act on a resource, and the grantee can exercise it or grant part of it further. The artifact is a **capability** shaped as an Authorization Capability (ZCAP v0.4 data model) and secured with a Data Integrity proof ([ADR-008](ADR-008-Delegation-OAuth-and-MCP.md) D-12a/b). Issuing a capability is the artifact kind `delegation` and exercising one is `invocation` (§6.2.1.3).
+
+**Root.** Every chain starts at a root capability that is never signed or sent. Its `id` is `urn:zcap:root:` followed by the `invocationTarget` percent-encoded as ECMAScript `encodeURIComponent` does (every UTF-8 octet except `A-Z a-z 0-9 - _ . ! ~ * ' ( )`). Its controllers are the DIDs the **verifier** configures as owners of that target: the resource server decides who may grant access to its resources. A verifier MUST reject a chain whose root target has no configured controller (`root_controller_unknown`).
+
+**Form.** A delegated capability is a JSON object with these members and no others:
+
+1. `@context`: exactly `["https://w3id.org/zcap/v1"]`.
+2. `id`: `urn:uuid:` followed by a lowercase UUID.
+3. `parentCapability`: the `id` of the parent (the root `id` for a delegation from the root).
+4. `invocationTarget`: an `https` URL in the normalized form of §6.5 item 4, without a query.
+5. `controller`: the delegate, a DID without path, query or fragment. It may invoke the capability or delegate it further.
+6. `allowedAction` (OPTIONAL): a non-empty list of distinct non-empty strings. For an HTTP target the actions are request methods. Absent means every action the parent allows.
+7. `expires`: an RFC 3339 date-time with a time zone.
+8. `proof`: one Data Integrity proof (not a proof set) with `type` `DataIntegrityProof`, `cryptosuite` `eddsa-jcs-2022`, `proofPurpose` `capabilityDelegation`, `created` (RFC 3339), `verificationMethod` a DID URL of the delegator, `capabilityChain` and `proofValue` = `z` + base58btc of the 64-byte Ed25519 signature. Its `@context`, when present, is the capability's. The proof is computed as in §4.4 (proof configuration with the capability's `@context`, signed bytes SHA-256(JCS(proof configuration)) followed by SHA-256(JCS(capability without `proof`))).
+
+`capabilityChain` lists the ids of the ancestors from the root: for a delegation from the root it is `[<root id>]`; otherwise it is the parent's chain with its last entry replaced by that entry's `id`, followed by the full parent capability. The chain of the leaf therefore carries every ancestor.
+
+**Verification.** A verifier MUST apply these checks, in this order, and reject with the first that fails (reference reason codes in parentheses):
+
+1. The form of the leaf (`malformed_capability`, `unsupported_proof` for item 8).
+2. The number of delegated capabilities in the chain is at most the verifier's limit, 5 by default and never more than 10 (`chain_too_long`).
+3. The chain structure: each embedded parent has the form above and is the one its child names in `parentCapability`, each chain is its parent's chain extended as described, the first capability's parent is the root `id` at the start of the chain, and no `id` repeats (`malformed_capability`).
+4. The root target has a configured controller (`root_controller_unknown`).
+5. Attenuation, at every link from the root: the `invocationTarget` equals the parent's or extends its path after a `/` (`https://api.example/files` covers `https://api.example/files/reports`, not `https://api.example/filesystem`); a present `allowedAction` is a subset of the parent's effective actions; `expires` is not later than the parent's (`attenuation_violation`).
+6. No capability in the chain is past its `expires` (`expired`).
+7. For every link from the root: the proof's `verificationMethod` is a key of a root controller (first link) or of the parent's `controller` (`delegator_mismatch`); the delegator DID resolves (`did_resolution_failed`) and is not deactivated (`did_deactivated`); the key is an active Ed25519 key listed under the delegator's `capabilityDelegation` (`key_purpose_violation` when it is an active key under another relationship, `key_not_authorized` otherwise); the proof verifies under the Ed25519 rule of §7.2 (`signature_invalid`).
+
+Keys are evaluated as they are when the chain is verified, as for HTTP signatures (§6.5), not at the proof's `created` time: retiring or revoking a delegation key, deactivating a delegator DID or removing the key from `capabilityDelegation` invalidates every capability below it. A delegator's document may be any DID Core document (§4.2.1).
+
+**Revocation.** There is no per-capability revocation in this version: no status list, no revocation registry. Issuers SHOULD keep `expires` short and re-issue. This is a stated limitation.
+
+**Invocation over HTTP.** A request invokes a capability with the request profile of §6.5 and two additions:
+
+1. The request carries `Agent-DID-Capability`, a Structured Field Dictionary keyed by signature label like `Agent-DID`; the member of the signature's label is a Byte Sequence, without parameters, whose bytes are the JCS form of the capability being invoked (its ancestors travel in its proof). The signature MUST cover `"agent-did-capability";key="<label>"` after the required components of §6.5 item 2.
+2. The signing key MUST be an active key listed under `capabilityInvocation` of the agent DID (not `assertionMethod`; the relationship table of §6.2.1.3).
+
+An invocation verifier MUST reject the request unless, in this order: the §6.5 checks other than the key and the signature pass (with the reasons of §6.5); the signature covers the capability member and the field has a member for its label (`capability_missing`); the field is at most 8192 bytes (`capability_too_large`); the member is a Byte Sequence holding the JCS form of a JSON object (`malformed_capability`); the agent DID of the request is the capability's `controller` (`invoker_not_controller`); the request URL without its query is the capability's `invocationTarget` or within it as in check 5 (`target_mismatch`); the signature verifies with a `capabilityInvocation` key (`keyid_not_authorized`, `signature_invalid`); the capability chain verifies as above; and the request method is in the chain's effective `allowedAction`, when the chain sets one (`action_not_allowed`). The `(keyid, nonce)` pair is recorded only after all of these pass.
+
+A verifier that does not know `Agent-DID-Capability` treats the request as any §6.5 request: it accepts the identity signature when the key is also under `assertionMethod`, and the capability grants it nothing.
+
+**Conformance scope.** The capability is aligned with the ZCAP v0.4 data model (W3C CCG draft); no conformance with ZCAP is claimed, since no ZCAP test suite is run. The `eddsa-jcs-2022` code is checked against the W3C `vc-di-eddsa` vectors (§4.4). Shared vectors: `fixtures/delegation-vectors.json`.
+
+### 6.8 OAuth Client Authentication with the DID Key
+
+An agent can use its DID key as its OAuth client credential (`private_key_jwt`), so the same key that signs its requests also obtains access tokens, including from MCP servers, whose authorization is OAuth 2.1 ([ADR-008](ADR-008-Delegation-OAuth-and-MCP.md) D-12c/e). This is client authentication: the artifact kind is `authentication` (§6.2.1.3).
+
+**Client assertion.** A JWS in compact serialization (RFC 7515) of a JWT (RFC 7519) with:
+
+1. Protected header: `alg` `EdDSA` (RFC 8037) or `Ed25519` (RFC 9864), both meaning an Ed25519 key; `typ` `client-authentication+jwt`; `kid` a DID URL of an Ed25519 key listed under `authentication` of the agent DID. No `crit` or `b64`.
+2. Claims: `iss` and `sub` equal to the `client_id`; `aud` the authorization server's issuer identifier (RFC 8414) as its only value, as a single string, never the token endpoint; `jti` of 1 to 256 printable ASCII characters; `iat` and `exp` as integer seconds with `exp - iat` from 1 to 300; `nbf` OPTIONAL.
+
+Implementations SHOULD emit `alg` `EdDSA` until authorization servers support `Ed25519`, and accept both.
+
+**Key publication.** An authorization server that does not know DIDs needs the key in a form it reads: an implementation exports the active Ed25519 `authentication` keys of the DID document as a JWKS (`kty` `OKP`, `crv` `Ed25519`, `kid` = the key's DID URL, `use` `sig`), for a pre-registration or for an OAuth Client ID Metadata Document (the registration MCP prefers) with `token_endpoint_auth_method` `private_key_jwt`. Such a document MAY carry an `agent_did` member naming the DID. The JWKS MUST be republished when a key is rotated, since an authorization server caches it.
+
+**Verification by a server that knows Agent-DID.** Given the `client_id`, its own issuer identifier and the agent DID registered for that client, a verifier MUST apply these checks, in this order: compact form, decodable segments, a 64-byte signature and no `crit` or `b64` header (`malformed_assertion`); `alg` (`alg_unsupported`); `typ` absent or `client-authentication+jwt`, compared case-insensitively, with or without the `application/` prefix (`type_invalid`); `kid` a DID URL of the registered DID (`kid_not_bound`); `iss` and `sub` (`client_id_mismatch`); `aud` (`audience_invalid`); `iat`, `exp`, `nbf` and `jti` types (`malformed_assertion`); the lifetime (`lifetime_exceeded`); `iat` and `nbf` not after now plus the allowed clock skew (`not_yet_valid`); now not after `exp` plus the skew (`expired`); the DID resolves and is bound to its controller (`did_resolution_failed`, `controller_not_bound`); the key is an active Ed25519 `authentication` key (`key_not_authorized`); the signature verifies under the rule of §7.2 (`signature_invalid`); and the `jti` has not been seen for this `client_id` before `exp` plus the skew (`jti_replayed`), recorded only after every other check passes.
+
+**Scope.** Implementations produce and check assertions and metadata; they do not need to run OAuth flows. Token exchange that presents a capability (§6.7) to an authorization server is out of scope in this version. The assertion is aligned with RFC 7523 and draft-ietf-oauth-rfc7523bis and the metadata document with draft-ietf-oauth-client-id-metadata-document; no conformance with them is claimed. Shared vectors: `fixtures/delegation-vectors.json` (`clientAssertions`).
 
 ---
 
@@ -413,6 +477,7 @@ Current fixture reference:
 - `fixtures/vc-di-eddsa-test-vectors.json` (the pinned W3C `vc-di-eddsa` revision whose `eddsa-jcs-2022` vectors both SDKs reproduce; external, not self-written)
 - `fixtures/webvh-log-vectors.json` (did:webvh logs both SDKs resolve or reject, including witnessed logs with their `did-witness.json`) and `fixtures/didwebvh-test-suite.json` (the pinned DIF `didwebvh-test-suite` revision; its witness scenarios resolve with their `did-witness.json`; external)
 - `fixtures/timestamp-vectors.json` (§6.2.2: RFC 3161 tokens recorded from two public TSAs and a test TSA, with the expected outcome and reason; the accepted ones and the signature, chain and imprint rejections are cross-checked with `openssl ts -verify`)
+- `fixtures/delegation-vectors.json` (§6.7 and §6.8: capabilities both SDKs sign byte for byte, chains with their outcome or reason, targets, `Agent-DID-Capability` values, a signed invocation with its signature base, and client assertions both SDKs sign byte for byte with accepted and rejected variants)
 - `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
 
 Conventions the shared vectors rely on, stated here so that an independent implementation does not have to infer them:
@@ -440,6 +505,8 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | Single-Key Retirement (6.6 item 3) | `AgentDidClient.retireVerificationMethod(did, keyId, { emergency })` / Python `retire_verification_method` |
 | Identity Composition (6.2.1.1) | `signAgentCard(card, signer, keyId)`, `AgentDidClient.verifyAgentCard(card)` / `verifyIdentityComposition({ ...request, agentCard })`; Python `sign_agent_card`, `verify_agent_card`, `verify_identity_composition` |
 | Revocation (6.4) | `revokeDid(did)` |
+| Capabilities (6.7) | `AgentDidClient.createCapability(params)`, `verifyCapabilityChain(capability, { rootControllers })`, `verifyHttpCapabilityInvocation({ ...request, rootControllers })`, option `capability` of `signHttpRequest`; Python `create_capability`, `verify_capability_chain`, `verify_http_capability_invocation`, `SignHttpRequestParams.capability` |
+| OAuth Client Authentication (6.8) | `createClientAssertion(params)`, `buildClientJwks(document)`, `buildClientMetadataDocument(params)`, `AgentDidClient.verifyClientAssertion(params)`; Python `create_client_assertion`, `build_client_jwks`, `build_client_metadata_document`, `verify_client_assertion` |
 | did:webvh Witnesses (6.1) | `webvh.witness` at creation, `AgentDidClient.setDidWebvhWitnesses(did, witness \| null)`, `exportDidWebvhWitnessFile(did)`, option `collectWitnessProofs`; a witness approves with `createDidWebvhWitnessProof(...)`. Python `set_did_webvh_witnesses`, `export_did_webvh_witness_file`, `collect_witness_proofs`, `create_did_webvh_witness_proof` |
 | Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
 | Optional EVM Integration (5.3) | `@agentdid/evm` / `agent-did-evm` (`EvmAgentRegistry`), in `edisonduran/agent-did-evm` |

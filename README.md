@@ -24,7 +24,7 @@
 
 **Agent-DID** is an open standard and reference implementation for an application pattern on top of `did:webvh` for AI agent identity, composition, and runtime authentication. It addresses a question the AI industry still lacks a clear answer for: *when an autonomous agent acts — signs a request, delegates a task, modifies data — how does the system on the other side know who that agent really is?*
 
-OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in, by extending W3C DID/VC with agent-specific metadata, an A2A composition contract, and a runtime profile based on HTTP Message Signatures.
+OAuth delegates this to a centralized provider. MCP leaves it out of scope by design. Agent-DID addresses it at the cryptographic layer, without introducing platform lock-in, by extending W3C DID/VC with agent-specific metadata, an A2A composition contract, and a runtime profile based on HTTP Message Signatures. It also connects to those systems instead of replacing them: the agent's DID key can authenticate it as an OAuth client (`private_key_jwt`, the registration MCP authorization prefers), and a DID can delegate scoped, expiring authority to another agent with capabilities verified on each request (RFC-001 §6.7, §6.8).
 
 > **Interactive demo:** [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) shows real browser-side signed handoffs, live tamper detection, and the published `@agentdid/sdk` working across multiple use cases.
 
