@@ -261,6 +261,21 @@ add('reject-other-alg', '§6.5 item 3 (alg)', '`alg="ecdsa-p256-sha256"` on an E
 add('reject-missing-alg', '§6.5 item 3 (alg)', 'No `alg` parameter.', { build: buildHeaders({ params: { alg: undefined } }), expected: false });
 add('reject-missing-nonce', '§6.5 item 3 (nonce)', 'No `nonce` parameter.', { build: buildHeaders({ params: { nonce: undefined } }), expected: false });
 add('reject-empty-nonce', '§6.5 item 3 (nonce)', 'An empty `nonce`.', { build: buildHeaders({ params: { nonce: '' } }), expected: false });
+add('accept-nonce-token-characters', '§6.5 item 3 (nonce)', 'A `nonce` using every character class of the token grammar `[A-Za-z0-9._~+/=-]`.', {
+  build: buildHeaders({ params: { nonce: 'AZaz09._~+/=-' } }), expected: true
+});
+add('accept-nonce-max-length', '§6.5 item 3 (nonce)', 'A `nonce` of 256 characters, the maximum.', {
+  build: buildHeaders({ params: { nonce: 'n'.repeat(256) } }), expected: true
+});
+add('reject-nonce-with-space', '§6.5 item 3 (nonce)', 'A `nonce` containing a space.', {
+  build: buildHeaders({ params: { nonce: 'a36ac89f 07c664f9' } }), expected: false
+});
+add('reject-nonce-forbidden-character', '§6.5 item 3 (nonce)', 'A `nonce` with a character outside the token grammar (`|`).', {
+  build: buildHeaders({ params: { nonce: 'a36ac89f|07c664f9' } }), expected: false
+});
+add('reject-nonce-too-long', '§6.5 item 3 (nonce)', 'A `nonce` of 257 characters.', {
+  build: buildHeaders({ params: { nonce: 'n'.repeat(257) } }), expected: false
+});
 add('reject-missing-created', '§6.5 item 3 (created)', 'No `created` parameter.', { build: buildHeaders({ params: { created: undefined } }), expected: false });
 add('reject-missing-expires', '§6.5 item 3 (expires)', 'No `expires` parameter.', { build: buildHeaders({ params: { expires: undefined } }), expected: false });
 add('reject-missing-keyid', '§6.5 item 3 (keyid)', 'No `keyid` parameter.', { build: buildHeaders({ params: { keyid: undefined } }), expected: false });
@@ -419,6 +434,9 @@ const REASONS = {
   'reject-missing-alg': 'alg_unsupported',
   'reject-missing-nonce': 'params_missing',
   'reject-empty-nonce': 'params_missing',
+  'reject-nonce-with-space': 'params_missing',
+  'reject-nonce-forbidden-character': 'params_missing',
+  'reject-nonce-too-long': 'params_missing',
   'reject-missing-created': 'params_missing',
   'reject-missing-expires': 'params_missing',
   'reject-missing-keyid': 'params_missing',

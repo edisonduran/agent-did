@@ -276,6 +276,13 @@ client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
 - `agent-did-sdk` requires `did-webvh==1.0.1` exactly. An environment that installed another 1.0.x release of `did-webvh` gets 1.0.1.
 - Python 3.13 and 3.14 are tested and listed in the classifiers.
 
+## 27. HTTP signature nonces follow a token grammar
+
+- A `nonce` must be 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3). Verification rejects any other value with `params_missing`. The SDK signers send 32 hex digits, so only third-party signers that put spaces or other characters in the nonce must change.
+- A custom `NonceStore` receives `<keyid> <nonce>` as before; the text before the last space is now always the `keyid`, so a store can scope per-signer quotas by it (as `InMemoryNonceStore` does with `max_entries_per_scope`).
+- Microsoft Agent Framework: `sign_handoff(nonce=...)` raises `ValueError` for a nonce outside the grammar, the verifier blocks such a message with `failing_gates=["nonce"]`, and the replay key is `<did> <nonce>` (was `<did>|<nonce>`). A shared store does not match keys written before the upgrade, so a handoff accepted just before it can be accepted once more until its maximum age passes, as after a restart with the default in-memory store; upgrade verifiers while no handoff is in flight if that matters.
+
+
 ## 29. An imported did:webvh log is not a fresh resolver entry
 
 - With a resolver that fetches did:webvh logs (the production resolver), `import_did_webvh_history` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.

@@ -245,6 +245,12 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
 - `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
 
+## 27. HTTP signature nonces follow a token grammar
+
+- A `nonce` must be 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3). Verification rejects any other value with `params_missing`. The SDK signers send 32 hex digits, so only third-party signers that put spaces or other characters in the nonce must change.
+- A custom `NonceStore` receives `<keyid> <nonce>` as before; the text before the last space is now always the `keyid`, so a store can scope per-signer quotas by it (as `InMemoryNonceStore` does with `maxEntriesPerScope`).
+
+
 ## 29. An imported did:webvh log is not a fresh resolver entry
 
 - With a resolver that fetches did:webvh logs (the production resolver), `importDidWebvhHistory` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.

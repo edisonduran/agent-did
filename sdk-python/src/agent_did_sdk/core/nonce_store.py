@@ -10,9 +10,15 @@ TypeScript parity: ``sdk/src/core/nonce-store.ts``.
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
+
+NONCE_PATTERN = re.compile(r"[A-Za-z0-9._~+/=-]{1,256}")
+"""Grammar of an Agent-DID nonce (RFC-001 §6.5 item 3), for ``fullmatch``: 1 to 256 characters of
+``A-Z a-z 0-9 . _ ~ + / = -``. A nonce has no space, so in a store key ``"<keyid> <nonce>"`` the text before the
+last space is always the ``keyid``. TypeScript parity: ``NONCE_PATTERN`` in ``sdk/src/core/nonce-store.ts``."""
 
 
 def _scope_of(key: str) -> str:
