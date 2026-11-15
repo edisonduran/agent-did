@@ -5,15 +5,19 @@ import {
   AgentDocumentHistoryEntry,
   AgentDIDDocument,
   AgentMetadata,
+  AgentMetadataCredential,
   CreateAgentParams,
   CreateAgentResult,
   DidWebvhControllerKeys,
   DidWebvhLifecycleOptions,
+  IssueAgentMetadataCredentialParams,
   MetadataCommitmentSalts,
   RotateControllerKeyOptions,
   RotateVerificationMethodOptions,
   RotateVerificationMethodResult,
   UpdateAgentDocumentParams,
+  VerifyAgentMetadataCredentialOptions,
+  VerifyAgentMetadataCredentialResult,
   VerifyHttpRequestSignatureParams,
   VerifyHttpRequestSignatureResult,
   VerifySignatureAtTimeOptions,
@@ -21,7 +25,7 @@ import {
   VerificationRelationship
 } from './types';
 import { createMetadataCommitment, generateCommitmentSalt } from '../crypto/hash';
-import { didKeyFromPublicKey } from '../crypto/multibase';
+import { decodePublicKeyMultibase, didKeyFromPublicKey } from '../crypto/multibase';
 import { AgentSigner, LocalKeySigner } from './signer';
 import { InMemoryNonceStore, NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -58,14 +62,23 @@ import {
   nextDocumentTimestamp
 } from '../lifecycle/documents';
 import { verifyWithActiveKeys } from '../verification/signature';
-import { checkDidWebvhKeyAtTime, signatureResultForKey } from '../verification/key-at-time';
+import { checkDidWebvhKeyAtTime, parseRfc3339Millis, signatureResultForKey } from '../verification/key-at-time';
 import { SignatureCheck, SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
-import { IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
+import { getRelationshipKeyIds, IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
 import { messageSigningInput } from './message-signing';
 import { assertBoundToController, ControllerBindingError } from './controller-binding';
 import { assertAgentDidDocument } from './document-guard';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { createEddsaJcs2022Proof, verifyEddsaJcs2022Proof } from '../crypto/data-integrity';
+import { isEd25519VerificationMethodType } from './verification-method';
+import {
+  agentMetadataProblem,
+  buildUnsignedAgentMetadataCredential,
+  checkAgentMetadataCredentialForm,
+  cleanAgentMetadata
+} from './agent-metadata-credential';
 
 /** Attaches the external agent-key signer to a result without making it enumerable: it is not copied by a spread
  * and never reaches `JSON.stringify`. */
@@ -690,6 +703,135 @@ export class AgentDidClient {
   }
 
   /**
+   * Issues an `AgentMetadataCredential` (RFC-001 §4.4): the agent's controller states the agent's metadata in a W3C
+   * VC 2.0 credential secured with an `eddsa-jcs-2022` Data Integrity proof. `verificationMethodId` must be an active
+   * Ed25519 `assertionMethod` key of the controller held by `signer`. The credential is presented out of band (an
+   * A2A Agent Card, an MCP exchange, a request body); DID resolution never fetches it.
+   */
+  public async issueAgentMetadataCredential(params: IssueAgentMetadataCredentialParams): Promise<AgentMetadataCredential> {
+    const agent = await this.resolve(params.agentDid);
+    const issuer = agent.controller?.trim() || agent.id;
+    if (typeof params.verificationMethodId !== 'string' || !params.verificationMethodId.startsWith(`${issuer}#`)) {
+      throw new Error(`verificationMethodId must be a key of the agent's controller ${issuer}`);
+    }
+    const issuerDocument = issuer === agent.id ? agent : await this.resolve(issuer);
+    const publicKey = activeAssertionKey(issuerDocument, params.verificationMethodId);
+    if (publicKey === undefined) {
+      throw new Error(`${params.verificationMethodId} is not an active Ed25519 assertionMethod key of ${issuer}`);
+    }
+    if (bytesToHex(await params.signer.getPublicKey()) !== bytesToHex(publicKey)) {
+      throw new Error(`The signer does not hold ${params.verificationMethodId}`);
+    }
+    const agentMetadata = cleanAgentMetadata(params.agentMetadata ?? agent.agentMetadata);
+    const problem = agentMetadataProblem(agentMetadata);
+    if (problem !== undefined) {
+      throw new TypeError(problem);
+    }
+    const now = this.nowIsoTimestamp();
+    const validFrom = params.validFrom ?? now;
+    const validFromMillis = parseRfc3339Millis(validFrom);
+    if (validFromMillis === undefined) {
+      throw new TypeError('validFrom must be an RFC 3339 date-time');
+    }
+    if (params.validUntil !== undefined) {
+      const validUntilMillis = parseRfc3339Millis(params.validUntil);
+      if (validUntilMillis === undefined || validUntilMillis < validFromMillis) {
+        throw new TypeError('validUntil must be an RFC 3339 date-time not earlier than validFrom');
+      }
+    }
+    if (params.id !== undefined && (typeof params.id !== 'string' || params.id.length === 0)) {
+      throw new TypeError('id must be a non-empty string');
+    }
+    const unsigned = buildUnsignedAgentMetadataCredential({
+      issuer,
+      agentDid: agent.id,
+      agentMetadata,
+      validFrom,
+      ...(params.validUntil !== undefined ? { validUntil: params.validUntil } : {}),
+      ...(params.id !== undefined ? { id: params.id } : {})
+    });
+    const proof = await createEddsaJcs2022Proof(
+      unsigned,
+      { created: now, verificationMethod: params.verificationMethodId, proofPurpose: 'assertionMethod' },
+      async (hashData) => hexToBytes(await params.signer.sign(hashData))
+    );
+    const credential: AgentMetadataCredential = { ...unsigned, proof };
+    if (!verifyEddsaJcs2022Proof(credential, publicKey)) {
+      throw new Error('The signer produced a signature that does not match its public key');
+    }
+    return credential;
+  }
+
+  /**
+   * Verifies an `AgentMetadataCredential` (RFC-001 §4.4): its form and validity period, that the agent DID resolves,
+   * is not deactivated and is bound to its controller (RFC-001 §6.6 item 7), that `issuer` is that controller, and the
+   * `eddsa-jcs-2022` proof by an active `assertionMethod` key of the issuer. Never throws for a bad credential: test
+   * `result.ok`. The metadata in an accepted credential is the controller's assertion, not evidence of what runs.
+   */
+  public async verifyAgentMetadataCredential(
+    credential: unknown,
+    options: VerifyAgentMetadataCredentialOptions = {}
+  ): Promise<VerifyAgentMetadataCredentialResult> {
+    let form: ReturnType<typeof checkAgentMetadataCredentialForm>;
+    try {
+      form = checkAgentMetadataCredentialForm(credential, this.clock().getTime());
+    } catch {
+      return { ok: false, reason: 'malformed_credential' };
+    }
+    if (!form.ok) {
+      return form;
+    }
+    const { issuer, agentDid, verificationMethod, agentMetadata } = form.value;
+    if (options.expectedAgentDid !== undefined && options.expectedAgentDid !== agentDid) {
+      return { ok: false, reason: 'subject_mismatch' };
+    }
+    try {
+      if ((await this.resolveDidWebvhState(agentDid))?.deactivated) {
+        return { ok: false, reason: 'did_deactivated' };
+      }
+    } catch {
+      return { ok: false, reason: 'did_resolution_failed' };
+    }
+    let chain: AgentDIDDocument[];
+    try {
+      chain = await this.resolveActiveVerificationChain(agentDid);
+    } catch (error) {
+      return { ok: false, reason: error instanceof ControllerBindingError ? 'controller_not_bound' : 'did_resolution_failed' };
+    }
+    const agent = chain[0];
+    if (issuer !== (agent.controller?.trim() || agent.id)) {
+      return { ok: false, reason: 'issuer_not_controller' };
+    }
+    let issuerDocument: AgentDIDDocument;
+    if (issuer === agent.id) {
+      issuerDocument = agent;
+    } else if (chain.length > 1 && chain[1].id === issuer) {
+      issuerDocument = chain[1];
+    } else {
+      try {
+        issuerDocument = await this.resolve(issuer);
+      } catch {
+        return { ok: false, reason: 'did_resolution_failed' };
+      }
+    }
+    const publicKey = activeAssertionKey(issuerDocument, verificationMethod);
+    if (publicKey === undefined) {
+      return { ok: false, reason: 'key_not_authorized' };
+    }
+    if (!verifyEddsaJcs2022Proof(credential, publicKey)) {
+      return { ok: false, reason: 'signature_invalid' };
+    }
+    return {
+      ok: true,
+      agentDid,
+      issuer,
+      verificationMethod,
+      agentMetadata,
+      controllers: chain.slice(1).map((document) => document.id)
+    };
+  }
+
+  /**
    * Drops the resolver's cached resolution of `did`, so the next verification fetches and verifies it again (for a
    * check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
    * not cache (`DIDResolver.evict` not implemented).
@@ -1177,5 +1319,21 @@ export class AgentDidClient {
     };
 
     this.documentHistoryStore.set(did, [...currentHistory, entry]);
+  }
+}
+
+/** The raw public key of `keyId` when it is an active Ed25519 `assertionMethod` key of `document`. */
+function activeAssertionKey(document: AgentDIDDocument, keyId: string): Uint8Array | undefined {
+  if (!getRelationshipKeyIds(document, 'assertionMethod').includes(keyId)) {
+    return undefined;
+  }
+  const method = document.verificationMethod.find((candidate) => candidate.id === keyId);
+  if (!method || method.deactivated || !method.publicKeyMultibase || !isEd25519VerificationMethodType(method.type)) {
+    return undefined;
+  }
+  try {
+    return decodePublicKeyMultibase(method.publicKeyMultibase);
+  } catch {
+    return undefined;
   }
 }

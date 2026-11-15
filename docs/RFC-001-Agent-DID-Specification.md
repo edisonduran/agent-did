@@ -55,9 +55,11 @@ Where this RFC says an item is defined "by" one of these documents, that documen
 | [RFC 8785] | JSON Canonicalization Scheme (JCS) for hashing | RFC 8785 |
 | [RFC 8032] | Ed25519 signatures | RFC 8032 |
 | [RFC 2104] | HMAC, for salted commitments (§4.3) | RFC 2104 |
+| [VC-DATA-MODEL-2.0] | Data model of the `AgentMetadataCredential` (§4.4) | W3C Recommendation, Verifiable Credentials Data Model v2.0 |
+| [VC-DI-EDDSA] | `eddsa-jcs-2022` proofs of the `AgentMetadataCredential` (§4.4), with the common algorithms of VC Data Integrity | W3C Recommendation, Data Integrity EdDSA Cryptosuites v1.0; test vectors at the commit pinned in `fixtures/vc-di-eddsa-test-vectors.json` |
 | [RFC 2119], [RFC 8174] | Requirement keywords | BCP 14 |
 
-Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients). Agent-DID separates itself from them with the `tag` parameter (§6.5).
+Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients). Agent-DID separates itself from them with the `tag` parameter (§6.5). DIF *Linked Verifiable Presentations* (the `LinkedVerifiablePresentation` service type of §4.4).
 
 **Evidence, not assertion.** Which of these references the reference SDKs are shown to satisfy, and by what external evidence, is recorded in [External-Conformance-Matrix.md](External-Conformance-Matrix.md). An implementation MUST NOT claim conformance with a referenced specification on the strength of this RFC alone.
 
@@ -157,6 +159,41 @@ Implementations SHOULD produce salted commitments:
 - **Disclosure model:** the controller keeps each salt. To let an auditor or relying party verify a commitment, the controller discloses the value and its salt to that party out of band; the party recomputes the HMAC and compares it in constant time. Disclosing one salt reveals nothing about other commitments.
 
 Verifiers MAY continue to accept the unsalted `hash://sha256/<hex(SHA-256(UTF-8(value)))>` form produced by earlier implementations, but MUST treat it as offering no confidentiality for guessable values.
+
+### 4.4 Agent Metadata Credential
+
+A controller MAY state the metadata of an agent it controls in a W3C Verifiable Credential, the `AgentMetadataCredential` ([ADR-006](ADR-006-Wire-Alignment-rc5.md) D-8d). The credential is an additional form of the `agentMetadata` of §4.2, which the controller can present without the DID document and limit to the members a relying party needs. It does not replace `agentMetadata`, and resolving or verifying the DID never requires it.
+
+**Form.** An `AgentMetadataCredential` is a JSON object with these members and no others:
+
+1. `@context`: exactly `["https://www.w3.org/ns/credentials/v2", "https://agent-did.org/v1", {"AgentMetadataCredential": "https://agent-did.org/vocab#AgentMetadataCredential"}]`. The Agent-DID context (§4.1.1) defines `agentMetadata` and its members; the third entry defines the credential type, which context `v1` does not.
+2. `type`: exactly `["VerifiableCredential", "AgentMetadataCredential"]`.
+3. `issuer`: the agent document's `controller`, as a DID string (not the object form, and without path, query or fragment). A self-controlled agent is its own issuer.
+4. `credentialSubject`: an object with exactly two members, `id` (the agent DID) and `agentMetadata`, a non-empty object whose members are `agentMetadata` members of §4.2 with the same types (`name`, `description`, `version`, `coreModelHash`, `systemPromptHash` and `memberOf` are strings, `capabilities` is an array of strings). Any subset MAY be stated. Every value is an assertion by the controller; §4.3 applies to the commitments.
+5. `validFrom` (REQUIRED) and `validUntil` (OPTIONAL, not earlier than `validFrom`): RFC 3339 date-times with a time zone.
+6. `id` (OPTIONAL): a non-empty string.
+7. `proof`: one Data Integrity proof (not a proof set or chain) with `type` `DataIntegrityProof`, `cryptosuite` `eddsa-jcs-2022`, `proofPurpose` `assertionMethod`, `verificationMethod` a DID URL `<issuer>#<fragment>`, and `proofValue` = `z` + base58btc of the 64-byte Ed25519 signature. `created` and `expires` are OPTIONAL RFC 3339 date-times.
+
+There is no `credentialStatus`. A credential stops verifying when the agent DID is deactivated, when the agent is no longer bound to its controller, when the issuing key leaves the controller's `assertionMethod`, and at `validUntil`; issuers SHOULD keep `validUntil` short and re-issue.
+
+**Proof.** The proof follows `eddsa-jcs-2022` ([VC-DI-EDDSA]): the proof configuration is the proof without `proofValue`, with the credential's `@context` copied into it; the signed bytes are SHA-256(JCS(proof configuration)) followed by SHA-256(JCS(credential without `proof`)), with JCS as in [RFC 8785]. The signing key MUST be an active Ed25519 key listed under the issuer's `assertionMethod`.
+
+**Verification.** A verifier MUST apply these checks, in this order, and reject with the first that fails (reference reason codes in parentheses):
+
+1. The form above (`malformed_credential`).
+2. The proof form of item 7 (`unsupported_proof`).
+3. When the verifier expects a particular agent, `credentialSubject.id` is that agent (`subject_mismatch`).
+4. The verifier's current time is not before `validFrom` (`not_yet_valid`) and not after `validUntil` or the proof's `expires` (`expired`).
+5. The agent DID is not deactivated (`did_deactivated`), resolves, and is bound to its controller now as §6.6 item 7 defines (`did_resolution_failed`, `controller_not_bound`).
+6. `issuer` is the agent document's `controller` (`issuer_not_controller`).
+7. `proof.verificationMethod` is an active Ed25519 key listed under `assertionMethod` of the issuer's current DID document (`key_not_authorized`).
+8. The proof verifies under the Ed25519 rule of §7.2 (`signature_invalid`).
+
+Keys are evaluated as they are when the credential is verified, as for HTTP signatures (§6.5), not at the proof's `created` time. An accepted credential shows that the controller states this metadata; like the commitments of §4.3, it is not evidence of what the agent runs.
+
+**Presentation.** The credential is presented out of band: in an A2A Agent Card, an MCP exchange or a request body. A DID document MAY point to a hosted Verifiable Presentation that contains it with a `service` of type `LinkedVerifiablePresentation` (DIF Linked Verifiable Presentations; did:webvh's implicit `#whois` service is such a link). Verifiers MUST NOT fetch it as part of DID resolution, and the reference SDKs do not.
+
+**Conformance scope.** The reference SDKs check their `eddsa-jcs-2022` implementation against the W3C `vc-di-eddsa` test vectors in CI (see [External-Conformance-Matrix.md](External-Conformance-Matrix.md)). The credential is aligned with [VC-DATA-MODEL-2.0]; no conformance with it is claimed, because no VC Data Model 2.0 test suite is run.
 
 ## 5. Reference Architecture
 
@@ -342,6 +379,8 @@ Current fixture reference:
 - `fixtures/canonical-document-reference.json` (`documentRef` computation)
 - `fixtures/verification-relationship-vectors.json` (§6.2.1.3 relationship per artifact; `methodTypeVectors`: the accepted `verificationMethod[].type` values of §4.2)
 - `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)
+- `fixtures/agent-metadata-credential-vectors.json` (§4.4: one credential both SDKs build byte for byte, and its accepted and rejected variants with their reason codes)
+- `fixtures/vc-di-eddsa-test-vectors.json` (the pinned W3C `vc-di-eddsa` revision whose `eddsa-jcs-2022` vectors both SDKs reproduce; external, not self-written)
 - `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
 
 Conventions the shared vectors rely on, stated here so that an independent implementation does not have to infer them:
@@ -362,6 +401,7 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
 | Verification Relationship Binding (6.2.1) | `assertKeyPurpose(...)` / `assert_key_purpose(...)`, default `assertionMethod` |
 | Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime })`, `checkDidWebvhKeyAtTime(log, ...)`. `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted a retired key without any time check |
+| Agent Metadata Credential (4.4) | `AgentDidClient.issueAgentMetadataCredential(params)` / `verifyAgentMetadataCredential(credential)`; Python `issue_agent_metadata_credential` / `verify_agent_metadata_credential` |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
 | Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
 | Revocation (6.4) | `revokeDid(did)` |

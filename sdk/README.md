@@ -90,6 +90,7 @@ Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` lo
 | S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
+| Agent metadata credential (VC 2.0, `eddsa-jcs-2022`) | `client.issueAgentMetadataCredential(params)` / `client.verifyAgentMetadataCredential(credential)` | ✅ |
 
 By default, `verifySignature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
@@ -158,6 +159,25 @@ if (result.status !== 'valid') { /* 'invalid' or 'indeterminate': reject */ }
 The stated time is the signer's claim, so a key retired after it gives `indeterminate` unless you pass trusted time evidence earlier than the retirement. `checkDidWebvhKeyAtTime(log, { keyId, statedTime })` returns the same key check, with the public key, without verifying a signature.
 
 `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted any retired key still in the document, with no time check, so it also accepted signatures forged with a compromised key after it was retired.
+
+## Agent Metadata Credential
+
+The controller can state an agent's metadata, or part of it, in a W3C VC 2.0 credential with an `eddsa-jcs-2022` proof (RFC-001 §4.4) and present it out of band, for example in an A2A Agent Card:
+
+```ts
+const credential = await client.issueAgentMetadataCredential({
+  agentDid,
+  signer: controllerSigner,                          // holds an assertionMethod key of the controller
+  verificationMethodId: controllerDocument.assertionMethod![0],
+  agentMetadata: { name: 'BillingBot', capabilities: ['billing:read'] }, // optional subset
+  validUntil: '2027-01-01T00:00:00Z'
+});
+
+const result = await verifier.verifyAgentMetadataCredential(credential, { expectedAgentDid: agentDid });
+if (!result.ok) { /* result.reason: 'expired', 'issuer_not_controller', 'signature_invalid', ... */ }
+```
+
+Verification resolves the agent and its controller and checks the binding, so the verifier needs their did:webvh logs (production resolver or imported). The metadata is the controller's assertion, not evidence of what the agent runs.
 
 ## Anti-Replay (HTTP Signatures)
 

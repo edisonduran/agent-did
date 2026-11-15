@@ -1,7 +1,49 @@
 # Public API signature snapshot for @agentdid/sdk
 
+## core/agent-metadata-credential.d.ts
+import { AgentMetadata, AgentMetadataCredential, AgentMetadataCredentialRejection } from './types';
+export declare const VC_V2_CONTEXT = "https://www.w3.org/ns/credentials/v2";
+export declare const AGENT_METADATA_CREDENTIAL_TYPE = "AgentMetadataCredential";
+/**
+ * The `@context` of every `AgentMetadataCredential`: VC 2.0, the Agent-DID context (it defines `agentMetadata` and its
+ * members) and the credential type, which the published Agent-DID context v1 does not define.
+ */
+export declare const AGENT_METADATA_CREDENTIAL_CONTEXT: readonly unknown[];
+/** `undefined` when `metadata` is a non-empty object of known `agentMetadata` members with valid values. */
+export declare function agentMetadataProblem(metadata: unknown): string | undefined;
+/** A copy of `metadata` without `undefined` members (JSON has no `undefined`). */
+export declare function cleanAgentMetadata(metadata: Partial<AgentMetadata>): Partial<AgentMetadata>;
+/** The credential without its proof, as `issueAgentMetadataCredential` signs it. */
+export declare function buildUnsignedAgentMetadataCredential(params: {
+    issuer: string;
+    agentDid: string;
+    agentMetadata: Partial<AgentMetadata>;
+    validFrom: string;
+    validUntil?: string;
+    id?: string;
+}): Omit<AgentMetadataCredential, 'proof'>;
+/** A credential that passed the form checks. */
+export interface CheckedAgentMetadataCredential {
+    credential: AgentMetadataCredential;
+    issuer: string;
+    agentDid: string;
+    verificationMethod: string;
+    agentMetadata: Partial<AgentMetadata>;
+}
+/**
+ * The checks that need no resolution, in order: form, proof form, validity period at `nowMillis`. Returns the
+ * rejection reason, or the checked credential.
+ */
+export declare function checkAgentMetadataCredentialForm(credential: unknown, nowMillis: number): {
+    ok: true;
+    value: CheckedAgentMetadataCredential;
+} | {
+    ok: false;
+    reason: AgentMetadataCredentialRejection;
+};
+
 ## core/AgentDidClient.d.ts
-import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, RotateControllerKeyOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
+import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -202,6 +244,20 @@ export declare class AgentDidClient {
     verifySignatureAtTime(did: string, payload: string, signature: string, keyId: string, options: VerifySignatureAtTimeOptions): Promise<VerifySignatureAtTimeResult>;
     /** The binding of `did` (and of its controllers) to its controller chain as it is now. */
     private assertDidWebvhBoundNow;
+    /**
+     * Issues an `AgentMetadataCredential` (RFC-001 §4.4): the agent's controller states the agent's metadata in a W3C
+     * VC 2.0 credential secured with an `eddsa-jcs-2022` Data Integrity proof. `verificationMethodId` must be an active
+     * Ed25519 `assertionMethod` key of the controller held by `signer`. The credential is presented out of band (an
+     * A2A Agent Card, an MCP exchange, a request body); DID resolution never fetches it.
+     */
+    issueAgentMetadataCredential(params: IssueAgentMetadataCredentialParams): Promise<AgentMetadataCredential>;
+    /**
+     * Verifies an `AgentMetadataCredential` (RFC-001 §4.4): its form and validity period, that the agent DID resolves,
+     * is not deactivated and is bound to its controller (RFC-001 §6.6 item 7), that `issuer` is that controller, and the
+     * `eddsa-jcs-2022` proof by an active `assertionMethod` key of the issuer. Never throws for a bad credential: test
+     * `result.ok`. The metadata in an accepted credential is the controller's assertion, not evidence of what runs.
+     */
+    verifyAgentMetadataCredential(credential: unknown, options?: VerifyAgentMetadataCredentialOptions): Promise<VerifyAgentMetadataCredentialResult>;
     /**
      * Drops the resolver's cached resolution of `did`, so the next verification fetches and verifies it again (for a
      * check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
@@ -1162,6 +1218,86 @@ export type VerifySignatureAtTimeResult = {
         status: 'indeterminate';
     }>;
 };
+/**
+ * An `AgentMetadataCredential` (RFC-001 §4.4): a W3C VC Data Model 2.0 credential in which the controller (`issuer`)
+ * states the agent's metadata (`credentialSubject.agentMetadata`), secured with a Data Integrity proof
+ * (`eddsa-jcs-2022`). It is presented out of band; DID resolution never fetches it.
+ */
+export interface AgentMetadataCredential {
+    '@context': unknown[];
+    id?: string;
+    type: string[];
+    /** The controller DID of the agent. */
+    issuer: string;
+    validFrom: string;
+    validUntil?: string;
+    credentialSubject: {
+        /** The agent DID. */
+        id: string;
+        /** All or some of the agent's metadata, as its controller states it. */
+        agentMetadata: Partial<AgentMetadata>;
+    };
+    proof: import('../crypto/data-integrity').DataIntegrityProof;
+}
+/** Parameters of `AgentDidClient.issueAgentMetadataCredential`. */
+export interface IssueAgentMetadataCredentialParams {
+    /** The agent the credential is about (`credentialSubject.id`). Must resolve and not be deactivated. */
+    agentDid: string;
+    /** Signer that holds the controller key named by `verificationMethodId` (for example a KMS or HSM key). */
+    signer: import('./signer').AgentSigner;
+    /** An active `assertionMethod` key of the agent's controller (the issuer), e.g. `controllerDocument.assertionMethod[0]`. */
+    verificationMethodId: string;
+    /**
+     * The metadata to state. Defaults to the agent document's `agentMetadata`; pass a subset to share only some
+     * members. The values are the controller's assertion: they are not compared with the document.
+     */
+    agentMetadata?: Partial<AgentMetadata>;
+    /** Optional credential `id` (a URL, URN or DID URL). */
+    id?: string;
+    /** RFC 3339 date-time from which the credential is valid. Defaults to now. */
+    validFrom?: string;
+    /** RFC 3339 date-time after which the credential is no longer valid. */
+    validUntil?: string;
+}
+/** Options of `AgentDidClient.verifyAgentMetadataCredential`. */
+export interface VerifyAgentMetadataCredentialOptions {
+    /** Accept only credentials about this agent DID (`credentialSubject.id`), checked before any resolution. */
+    expectedAgentDid?: string;
+}
+/**
+ * Why `verifyAgentMetadataCredential` rejected a credential (RFC-001 §4.4):
+ * - `malformed_credential`: not a VC 2.0 `AgentMetadataCredential` of the Agent-DID profile (`@context`, `type`,
+ *   `issuer`, `credentialSubject.id`, `credentialSubject.agentMetadata`, `validFrom` / `validUntil` dates).
+ * - `unsupported_proof`: the proof is absent, is a proof set, is not `DataIntegrityProof` / `eddsa-jcs-2022` /
+ *   `assertionMethod`, its `verificationMethod` is not a key of `issuer`, or its `proofValue` is malformed.
+ * - `subject_mismatch`: `expectedAgentDid` is set and `credentialSubject.id` differs.
+ * - `not_yet_valid`: now is before `validFrom`.
+ * - `expired`: now is after `validUntil` (or after the proof's `expires`).
+ * - `did_deactivated`: the agent DID is deactivated.
+ * - `did_resolution_failed`: the agent DID, or its controller, could not be resolved and verified.
+ * - `controller_not_bound`: the agent is not bound to its controller now (RFC-001 §6.6 item 7).
+ * - `issuer_not_controller`: `issuer` is not the agent document's `controller`.
+ * - `key_not_authorized`: `proof.verificationMethod` is not an active Ed25519 `assertionMethod` key of the issuer.
+ * - `signature_invalid`: the proof does not verify.
+ */
+export type AgentMetadataCredentialRejection = 'malformed_credential' | 'unsupported_proof' | 'subject_mismatch' | 'not_yet_valid' | 'expired' | 'did_deactivated' | 'did_resolution_failed' | 'controller_not_bound' | 'issuer_not_controller' | 'key_not_authorized' | 'signature_invalid';
+/** Result of `verifyAgentMetadataCredential`. Test `result.ok`. */
+export type VerifyAgentMetadataCredentialResult = {
+    ok: true;
+    /** The agent DID (`credentialSubject.id`). */
+    agentDid: string;
+    /** The controller that issued the credential. */
+    issuer: string;
+    /** The key of the issuer that made the proof. */
+    verificationMethod: string;
+    /** The metadata the controller states. An assertion of the controller, not evidence of what the agent runs. */
+    agentMetadata: Partial<AgentMetadata>;
+    /** The controller chain of the agent, nearest first (empty for an agent that controls itself). */
+    controllers: string[];
+} | {
+    ok: false;
+    reason: AgentMetadataCredentialRejection;
+};
 
 ## core/verification-method.d.ts
 /**
@@ -1179,6 +1315,45 @@ export declare function isEd25519VerificationMethodType(type: unknown): boolean;
  * (`btoa` is available in Node.js 16+ and in browsers and workers).
  */
 export declare function bytesToBase64(bytes: Uint8Array): string;
+
+## crypto/data-integrity.d.ts
+export declare const DATA_INTEGRITY_PROOF_TYPE = "DataIntegrityProof";
+export declare const EDDSA_JCS_2022_CRYPTOSUITE = "eddsa-jcs-2022";
+type JsonObject = Record<string, unknown>;
+/** A Data Integrity proof (`DataIntegrityProof`). */
+export interface DataIntegrityProof {
+    type: string;
+    cryptosuite: string;
+    verificationMethod: string;
+    proofPurpose: string;
+    proofValue: string;
+    created?: string;
+    expires?: string;
+    '@context'?: unknown;
+    [member: string]: unknown;
+}
+/** Proof options of `createEddsaJcs2022Proof`. */
+export interface EddsaJcs2022ProofOptions {
+    verificationMethod: string;
+    proofPurpose: string;
+    created?: string;
+    expires?: string;
+}
+/** The bytes an `eddsa-jcs-2022` signature covers. */
+export declare function eddsaJcs2022HashData(unsecuredDocument: JsonObject, proofConfig: JsonObject): Uint8Array;
+/**
+ * Creates an `eddsa-jcs-2022` proof over `unsecuredDocument` (which must not carry a `proof`). `sign` returns the
+ * 64-byte Ed25519 signature of the bytes it is given.
+ */
+export declare function createEddsaJcs2022Proof(unsecuredDocument: JsonObject, options: EddsaJcs2022ProofOptions, sign: (hashData: Uint8Array) => Promise<Uint8Array>): Promise<DataIntegrityProof>;
+/** Decodes a `proofValue` (`z` + base58btc of 64 bytes). Returns `undefined` for anything else. */
+export declare function decodeEddsaProofValue(proofValue: unknown): Uint8Array | undefined;
+/**
+ * Verifies the single `eddsa-jcs-2022` proof of `securedDocument` with `publicKey` (32-byte Ed25519 key). The caller
+ * decides which key `proof.verificationMethod` names and whether it may sign for `proof.proofPurpose`. Never throws.
+ */
+export declare function verifyEddsaJcs2022Proof(securedDocument: unknown, publicKey: Uint8Array): boolean;
+export {};
 
 ## crypto/ed25519-verify.d.ts
 /** Verifies an Ed25519 signature under the SDK rule above. Never throws; malformed input is `false`. */
@@ -1306,7 +1481,9 @@ export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSigna
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
+export type { DataIntegrityProof } from './crypto/data-integrity';
+export { AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE } from './core/agent-metadata-credential';
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, SIGNED_ARTIFACT_KINDS, ADDITIONAL_VERIFICATION_RELATIONSHIPS, REQUIRED_RELATIONSHIP_BY_ARTIFACT, requiredRelationshipFor, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
 export { AGENT_DID_MESSAGE_SIGNING_PREFIX, messageSigningInput } from './core/message-signing';

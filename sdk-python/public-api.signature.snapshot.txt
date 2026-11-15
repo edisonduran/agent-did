@@ -12,6 +12,12 @@ value AGENT_DID_HTTP_SIGNATURE_TAG = 'agent-did'
 ## AGENT_DID_MESSAGE_SIGNING_PREFIX
 value AGENT_DID_MESSAGE_SIGNING_PREFIX = 'agent-did/v1/message\n'
 
+## AGENT_METADATA_CREDENTIAL_CONTEXT
+value AGENT_METADATA_CREDENTIAL_CONTEXT = ('https://www.w3.org/ns/credentials/v2', 'https://agent-did.org/v1', {'AgentMetadataCredential': 'https://agent-did.org/vocab#AgentMetadataCredential'})
+
+## AGENT_METADATA_CREDENTIAL_TYPE
+value AGENT_METADATA_CREDENTIAL_TYPE = 'AgentMetadataCredential'
+
 ## AddVerificationMethodResult
 class AddVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDIDDocument, verificationMethodId: str, agentPrivateKey: str, signer: typing.Any | None = None) -> None
   attr agent_private_key: str
@@ -50,6 +56,7 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def get_did_webvh_controller_keys(self, did: 'str') -> 'DidWebvhControllerKeys'
   def get_document_history(self, did: 'str') -> 'list[AgentDocumentHistoryEntry]'
   def import_did_webvh_history(self, did_log: 'str') -> 'AgentDIDDocument'
+  def issue_agent_metadata_credential(self, params: 'IssueAgentMetadataCredentialParams') -> 'dict[str, Any]'
   def load_did_webvh_history_from_file(self, file_path: 'str | Path') -> 'AgentDIDDocument'
   def persist_did_webvh_history_to_source(self, did: 'str', document_ref: 'str', source: 'DIDDocumentSource') -> 'None'
   def resolve(self, did: 'str') -> 'AgentDIDDocument'
@@ -66,6 +73,7 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def use_production_resolver(self, config: 'ProductionResolverProfileConfig') -> 'None'
   def use_production_resolver_from_http(self, config: 'ProductionHttpResolverProfileConfig') -> 'None'
   def use_production_resolver_from_json_rpc(self, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
+  def verify_agent_metadata_credential(self, credential: 'object', *, expected_agent_did: 'str | None' = None) -> 'VerifyAgentMetadataCredentialResult'
   def verify_http_request_signature(self, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
   def verify_http_request_signature_detailed(self, params: 'VerifyHttpRequestSignatureParams') -> 'VerifyHttpRequestSignatureResult'
   def verify_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
@@ -135,6 +143,9 @@ class AgentMetadata(*, name: str, description: str | None = None, version: str, 
   attr system_prompt_hash: str | None
   attr version: str
   member model_config = {'populate_by_name': True}
+
+## AgentMetadataCredentialRejection
+value AgentMetadataCredentialRejection = typing.Literal['malformed_credential', 'unsupported_proof', 'subject_mismatch', 'not_yet_valid', 'expired', 'did_deactivated', 'did_resolution_failed', 'controller_not_bound', 'issuer_not_controller', 'key_not_authorized', 'signature_invalid']
 
 ## AgentRegistry
 class AgentRegistry(*args, **kwargs)
@@ -386,6 +397,17 @@ class InMemoryDIDResolver() -> 'None'
 class InMemoryNonceStore(*, max_entries: 'int' = 100000, max_entries_per_scope: 'int' = 10000, now: 'Callable[[], int] | None' = None) -> 'None'
   def check_and_store(self, key: 'str', expires_at: 'int') -> 'bool'
   property size
+
+## IssueAgentMetadataCredentialParams
+class IssueAgentMetadataCredentialParams(*, agent_did: str, signer: Any, verification_method_id: str, agent_metadata: dict[str, typing.Any] | None = None, credential_id: str | None = None, valid_from: str | None = None, valid_until: str | None = None) -> None
+  attr agent_did: str
+  attr agent_metadata: dict[str, Any] | None
+  attr credential_id: str | None
+  attr signer: Any
+  attr valid_from: str | None
+  attr valid_until: str | None
+  attr verification_method_id: str
+  member model_config = {'arbitrary_types_allowed': True}
 
 ## JsonRpcDIDDocumentSource
 class JsonRpcDIDDocumentSource(config: 'JsonRpcDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -657,6 +679,16 @@ class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultib
 
 ## VerificationRelationship
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
+
+## VerifyAgentMetadataCredentialResult
+class VerifyAgentMetadataCredentialResult(ok: 'bool', reason: 'AgentMetadataCredentialRejection | None' = None, agent_did: 'str | None' = None, issuer: 'str | None' = None, verification_method: 'str | None' = None, agent_metadata: 'dict[str, Any] | None' = None, controllers: 'list[str]' = <factory>) -> None
+  attr agent_did: str | None
+  attr agent_metadata: dict[str, Any] | None
+  attr controllers: list[str]
+  attr issuer: str | None
+  attr ok: bool
+  attr reason: AgentMetadataCredentialRejection | None
+  attr verification_method: str | None
 
 ## VerifyHttpRequestSignatureParams
 class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None, allowed_dids: list[str] | None = None, allowed_controllers: list[str] | None = None) -> None

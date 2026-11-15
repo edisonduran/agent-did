@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .core.agent_metadata_credential import AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE
 from .core.client import AgentDidClient, AgentDidClientOptions
 from .core.controller_binding import ControllerBindingError
 from .core.http_security import (
@@ -60,12 +61,14 @@ from .core.types import (
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
     AgentMetadata,
+    AgentMetadataCredentialRejection,
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
     DidWebvhControllerKeys,
     HttpSignatureRejection,
     IdentityCompositionErrorReason,
+    IssueAgentMetadataCredentialParams,
     KeyAtTimeRejection,
     KeyAtTimeResult,
     KeyAtTimeUncertainty,
@@ -78,6 +81,7 @@ from .core.types import (
     VerifiableCredentialLink,
     VerificationMethod,
     VerificationRelationship,
+    VerifyAgentMetadataCredentialResult,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
     VerifySignatureAtTimeRejection,
@@ -140,6 +144,11 @@ from .webvh.adapter import DidWebvhError, DidWebvhErrorCode
 __all__ = [
     # Core types
     "AgentMetadata",
+    "AGENT_METADATA_CREDENTIAL_CONTEXT",
+    "AGENT_METADATA_CREDENTIAL_TYPE",
+    "AgentMetadataCredentialRejection",
+    "IssueAgentMetadataCredentialParams",
+    "VerifyAgentMetadataCredentialResult",
     "VerifiableCredentialLink",
     "VerificationMethod",
     "AgentDIDDocument",

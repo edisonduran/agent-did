@@ -41,8 +41,16 @@ export {
   KeyAtTimeResult,
   KeyAtTimeUncertainty,
   VerifySignatureAtTimeOptions,
-  VerifySignatureAtTimeResult
+  VerifySignatureAtTimeResult,
+  AgentMetadataCredential,
+  AgentMetadataCredentialRejection,
+  IssueAgentMetadataCredentialParams,
+  VerifyAgentMetadataCredentialOptions,
+  VerifyAgentMetadataCredentialResult
 } from './core/types';
+
+export type { DataIntegrityProof } from './crypto/data-integrity';
+export { AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE } from './core/agent-metadata-credential';
 
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 

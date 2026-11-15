@@ -1,0 +1,23 @@
+{
+  "description": "Pinned W3C vc-di-eddsa revision whose eddsa-jcs-2022 test vectors both SDKs are checked against (ADR-006 D-8d, WP-46). CI checks out the repository at `commit` and runs sdk/tests/VcDiEddsaTestVectors.test.ts and sdk-python/tests/test_vc_di_eddsa_vectors.py with VC_DI_EDDSA_DIR pointing at it. Pinned deliberately; update with a reason, never to make a run pass.",
+  "repository": "https://github.com/w3c/vc-di-eddsa",
+  "commit": "13e7070534d1ba1c2987cb26bfb1535e0f15bb72",
+  "keyPair": "TestVectors/keyPair.json",
+  "unsigned": "TestVectors/unsigned.json",
+  "eddsaJcs2022": {
+    "proofConfig": "TestVectors/eddsa-jcs-2022/proofConfigJCS.json",
+    "canonicalDocument": "TestVectors/eddsa-jcs-2022/canonDocJCS.txt",
+    "documentHash": "TestVectors/eddsa-jcs-2022/docHashJCS.txt",
+    "canonicalProofConfig": "TestVectors/eddsa-jcs-2022/proofCanonJCS.txt",
+    "proofConfigHash": "TestVectors/eddsa-jcs-2022/proofHashJCS.txt",
+    "combinedHash": "TestVectors/eddsa-jcs-2022/combinedHashJCS.txt",
+    "signatureHex": "TestVectors/eddsa-jcs-2022/sigHexJCS.txt",
+    "proofValue": "TestVectors/eddsa-jcs-2022/sigBTC58JCS.txt",
+    "signed": "TestVectors/eddsa-jcs-2022/signedJCS.json"
+  },
+  "notApplicable": {
+    "TestVectors/eddsa-rdfc-2022": "RDF Dataset Canonicalization: the SDKs implement only the JCS cryptosuite.",
+    "TestVectors/Ed25519Signature2020": "Legacy suite, not implemented.",
+    "TestVectors/proof-set-chain": "Proof sets and chains: an AgentMetadataCredential carries exactly one proof."
+  }
+}

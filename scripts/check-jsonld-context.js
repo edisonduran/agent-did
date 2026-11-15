@@ -87,8 +87,30 @@ async function main() {
       console.error(`document #${index} (${doc.id}): ${error.message}${error.details ? ' ' + JSON.stringify(error.details) : ''}`);
     }
   }
+  // AgentMetadataCredential (RFC-001 §4.4): VC 2.0 context + this context + the inline credential type term.
+  const credentials = [
+    JSON.parse(fs.readFileSync(path.join(root, 'fixtures', 'agent-metadata-credential-vectors.json'), 'utf8')).credential
+  ];
+  for (const credential of credentials) {
+    try {
+      const expanded = await jsonld.expand(credential, { documentLoader, safe: true });
+      const types = expanded[0]['@type'] || [];
+      if (!types.includes('https://agent-did.org/vocab#AgentMetadataCredential')) {
+        throw new Error('AgentMetadataCredential did not expand to the agentdid vocabulary');
+      }
+      const subject = expanded[0]['https://www.w3.org/2018/credentials#credentialSubject'] || [];
+      if (!subject[0] || !subject[0]['https://agent-did.org/vocab#agentMetadata']) {
+        throw new Error('credentialSubject.agentMetadata did not expand to the agentdid vocabulary');
+      }
+    } catch (error) {
+      failures += 1;
+      console.error(`AgentMetadataCredential: ${error.message}${error.details ? ' ' + JSON.stringify(error.details) : ''}`);
+    }
+  }
   if (failures > 0) process.exit(1);
-  console.log(`JSON-LD context OK: ${documents.length} document(s) expand in safe mode; sha256 ${actual}.`);
+  console.log(
+    `JSON-LD context OK: ${documents.length} document(s) and ${credentials.length} credential(s) expand in safe mode; sha256 ${actual}.`
+  );
 }
 
 main().catch((error) => {
