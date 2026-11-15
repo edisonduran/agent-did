@@ -10,7 +10,10 @@ import {
   resolveDidWebvhLog
 } from '../webvh/adapter';
 import {
+  DEFAULT_FETCH_DEADLINE_MS,
   DEFAULT_MAX_CONCURRENT_FETCHES,
+  DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST,
+  DEFAULT_MAX_QUEUED_FETCHES,
   DEFAULT_NEGATIVE_CACHE_TTL_MS,
   DEFAULT_RESOLVER_MAX_CACHE_ENTRIES,
   DocumentIntegrityError,
@@ -22,6 +25,17 @@ import {
 } from './types';
 
 const SHA256_DOCUMENT_REF_PREFIX = 'hash://sha256/';
+
+/**
+ * A resolution refused because the resolver is busy (the fetch queue is full, or no slot freed up before the
+ * deadline). It says nothing about the DID, so it is not remembered in the negative cache.
+ */
+class FetchCapacityError extends Error {}
+
+interface FetchWaiter {
+  host: string;
+  start: () => void;
+}
 
 // did:wba host grammar (parity: sdk-python/src/agent_did_sdk/resolver/universal.py). After percent-decoding, the
 // domain segment must be a DNS name with an optional port: ASCII letters, digits and hyphens in dot-separated labels.
@@ -152,13 +166,18 @@ export class UniversalResolverClient implements DIDResolver {
   private readonly cache = new Map<string, CachedDocument>();
   private readonly negativeCacheTtlMs: number;
   private readonly maxConcurrentFetches: number;
+  private readonly maxConcurrentFetchesPerHost: number;
+  private readonly maxQueuedFetches: number;
+  private readonly fetchDeadlineMs: number;
   private readonly allowedHosts: readonly string[] | undefined;
   /** Recent did:webvh / did:wba failures, answered again without fetching until they expire. */
   private readonly negativeCache = new Map<string, { error: unknown; expiresAt: number }>();
   /** Fetches in progress, shared by concurrent resolutions of the same DID. */
   private readonly inFlight = new Map<string, Promise<unknown>>();
   private activeFetches = 0;
-  private readonly waitingFetches: Array<() => void> = [];
+  private readonly activeFetchesByHost = new Map<string, number>();
+  /** Fetches waiting for a slot, oldest first. */
+  private readonly fetchQueue: FetchWaiter[] = [];
   private hits = 0;
   private misses = 0;
 
@@ -181,6 +200,18 @@ export class UniversalResolverClient implements DIDResolver {
     this.maxConcurrentFetches = limits.maxConcurrentFetches ?? DEFAULT_MAX_CONCURRENT_FETCHES;
     if (!Number.isSafeInteger(this.maxConcurrentFetches) || this.maxConcurrentFetches <= 0) {
       throw new TypeError('maxConcurrentFetches must be a positive integer');
+    }
+    this.maxConcurrentFetchesPerHost = limits.maxConcurrentFetchesPerHost ?? DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST;
+    if (!Number.isSafeInteger(this.maxConcurrentFetchesPerHost) || this.maxConcurrentFetchesPerHost <= 0) {
+      throw new TypeError('maxConcurrentFetchesPerHost must be a positive integer');
+    }
+    this.maxQueuedFetches = limits.maxQueuedFetches ?? DEFAULT_MAX_QUEUED_FETCHES;
+    if (!Number.isSafeInteger(this.maxQueuedFetches) || this.maxQueuedFetches < 0) {
+      throw new TypeError('maxQueuedFetches must be a non-negative integer');
+    }
+    this.fetchDeadlineMs = limits.fetchDeadlineMs ?? DEFAULT_FETCH_DEADLINE_MS;
+    if (!Number.isSafeInteger(this.fetchDeadlineMs) || this.fetchDeadlineMs <= 0) {
+      throw new TypeError('fetchDeadlineMs must be a positive integer');
     }
     if (limits.allowedHosts !== undefined) {
       if (!Array.isArray(limits.allowedHosts) || limits.allowedHosts.some((host) => typeof host !== 'string' || !host.trim())) {
@@ -319,7 +350,8 @@ export class UniversalResolverClient implements DIDResolver {
 
   /**
    * Runs `load` (a did:webvh or did:wba fetch) under the resolution limits: the host allow-list, the negative cache,
-   * one shared fetch per DID and at most `maxConcurrentFetches` fetches at once.
+   * one shared fetch per DID, at most `maxConcurrentFetches` fetches at once (`maxConcurrentFetchesPerHost` per host),
+   * at most `maxQueuedFetches` waiting, and `fetchDeadlineMs` for the wait and the fetch together.
    */
   private async guardedFetch<T>(did: string, startedAt: number, load: () => Promise<T>): Promise<T> {
     this.assertHostAllowed(did, startedAt);
@@ -333,13 +365,17 @@ export class UniversalResolverClient implements DIDResolver {
     if (pending) {
       return pending as Promise<T>;
     }
-    const run = this.withFetchSlot(load).then(
+    const run = this.withFetchSlot(this.fetchHostOf(did), load).then(
       (value) => {
         this.negativeCache.delete(did);
         return value;
       },
       (error: unknown) => {
-        this.rememberFailure(did, error);
+        if (error instanceof FetchCapacityError) {
+          this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message: error.message });
+        } else {
+          this.rememberFailure(did, error);
+        }
         throw error;
       }
     );
@@ -351,16 +387,99 @@ export class UniversalResolverClient implements DIDResolver {
     }
   }
 
-  private async withFetchSlot<T>(load: () => Promise<T>): Promise<T> {
-    while (this.activeFetches >= this.maxConcurrentFetches) {
-      await new Promise<void>((resolve) => this.waitingFetches.push(resolve));
-    }
-    this.activeFetches += 1;
+  /** The host name a did:webvh / did:wba DID is fetched from, or '' for a DID that does not derive a URL. */
+  private fetchHostOf(did: string): string {
     try {
-      return await load();
+      const url = this.isDidWebvh(did) ? deriveDidWebvhLogUrl(did) : this.deriveDidWbaDocumentUrl(did);
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  }
+
+  private hasFetchSlot(host: string): boolean {
+    return (
+      this.activeFetches < this.maxConcurrentFetches &&
+      (this.activeFetchesByHost.get(host) ?? 0) < this.maxConcurrentFetchesPerHost
+    );
+  }
+
+  private takeFetchSlot(host: string): void {
+    this.activeFetches += 1;
+    this.activeFetchesByHost.set(host, (this.activeFetchesByHost.get(host) ?? 0) + 1);
+  }
+
+  private releaseFetchSlot(host: string): void {
+    this.activeFetches -= 1;
+    const count = (this.activeFetchesByHost.get(host) ?? 1) - 1;
+    if (count > 0) {
+      this.activeFetchesByHost.set(host, count);
+    } else {
+      this.activeFetchesByHost.delete(host);
+    }
+    // Start the oldest waiters whose host has room; a waiter for a busy host does not hold up the others.
+    for (let i = 0; i < this.fetchQueue.length && this.activeFetches < this.maxConcurrentFetches; ) {
+      const waiter = this.fetchQueue[i];
+      if (this.hasFetchSlot(waiter.host)) {
+        this.fetchQueue.splice(i, 1);
+        this.takeFetchSlot(waiter.host);
+        waiter.start();
+      } else {
+        i += 1;
+      }
+    }
+  }
+
+  private async withFetchSlot<T>(host: string, load: () => Promise<T>): Promise<T> {
+    const deadline = Date.now() + this.fetchDeadlineMs;
+    if (this.hasFetchSlot(host)) {
+      this.takeFetchSlot(host);
+    } else {
+      if (this.fetchQueue.length >= this.maxQueuedFetches) {
+        throw new FetchCapacityError('Resolution refused: too many DID fetches are waiting (maxQueuedFetches)');
+      }
+      await new Promise<void>((resolve, reject) => {
+        const waiter: FetchWaiter = {
+          host,
+          start: () => {
+            clearTimeout(timer);
+            resolve();
+          }
+        };
+        const timer = setTimeout(() => {
+          const index = this.fetchQueue.indexOf(waiter);
+          if (index !== -1) {
+            this.fetchQueue.splice(index, 1);
+          }
+          reject(new FetchCapacityError(`Resolution refused: no fetch slot freed up within ${this.fetchDeadlineMs} ms`));
+        }, this.fetchDeadlineMs);
+        this.fetchQueue.push(waiter);
+      });
+    }
+
+    // The slot is held until the fetch settles, even when the caller stops waiting at the deadline.
+    let loading: Promise<T>;
+    try {
+      loading = load();
+    } catch (error) {
+      this.releaseFetchSlot(host);
+      throw error;
+    }
+    loading.then(
+      () => this.releaseFetchSlot(host),
+      () => this.releaseFetchSlot(host)
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`DID fetch did not finish within ${this.fetchDeadlineMs} ms (fetchDeadlineMs)`)),
+        Math.max(0, deadline - Date.now())
+      );
+    });
+    try {
+      return await Promise.race([loading, expired]);
     } finally {
-      this.activeFetches -= 1;
-      this.waitingFetches.shift()?.();
+      clearTimeout(timer);
     }
   }
 
