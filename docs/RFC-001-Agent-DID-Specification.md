@@ -105,7 +105,7 @@ Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients)
   "verificationMethod": [
     {
       "id": "did:webvh:example.com:agents:supportbot-x#key-1",
-      "type": "Ed25519VerificationKey2020",
+      "type": "Multikey",
       "controller": "did:webvh:example.com:organizations:acme-support",
       "publicKeyMultibase": "z6Mk..."
     }
@@ -134,6 +134,7 @@ The context is defined by [`contexts/v1.jsonld`](../contexts/v1.jsonld) (decisio
 | `agentMetadata.coreModelHash` | OPTIONAL | Commitment to the base model identifier (see §4.3) or another immutable URI such as `ipfs://`. An assertion by the controller (§4.3). |
 | `agentMetadata.systemPromptHash` | OPTIONAL | Commitment to the base prompt (see §4.3) or another immutable URI such as `ipfs://`. An assertion by the controller (§4.3). |
 | `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
+| `verificationMethod[].type` | **REQUIRED** | `Multikey` ([Controlled Identifiers v1.0](https://www.w3.org/TR/cid-1.0/#Multikey)) for every Ed25519 key, with `publicKeyMultibase` = `z` + base58btc(`0xed01` ‖ 32-byte public key). Implementations MUST write `Multikey`. Verifiers MUST also accept `Ed25519VerificationKey2020` with the same `publicKeyMultibase` encoding, which documents and did:webvh logs written before `1.0-rc.5` use. A document in which a method that carries `publicKeyMultibase` has any other type is not an Agent-DID document, and a verifier MUST NOT take a verification key from such a method. ([ADR-006](ADR-006-Wire-Alignment-rc5.md) D-8b) |
 | `verificationMethod[].deactivated` | OPTIONAL | ISO-8601 timestamp marking when a key was deactivated via rotation. Deactivated keys remain in the document; a signature by a deactivated key is checked against the key at the time the artifact states (Section 6.2.2), never accepted on the key's presence alone. A key that carries `deactivated` MUST NOT be listed in any verification relationship (`authentication`, `assertionMethod`, `capabilityDelegation`, `capabilityInvocation`) of the document that deactivates it or of any later one. |
 | `assertionMethod` | **REQUIRED** for signing flows | References to keys authorized for payload and HTTP signature verification by default. |
 | `authentication` | **REQUIRED** | References to valid authentication methods. |
@@ -339,6 +340,7 @@ Current fixture reference:
 - `fixtures/interop-vectors.json` (message and HTTP signatures: one valid did:webvh request)
 - `fixtures/http-verification-vectors.json` (the §6.5 verification rules: accepted requests and rejected requests, each rejected one differing from the valid request by a single change)
 - `fixtures/canonical-document-reference.json` (`documentRef` computation)
+- `fixtures/verification-relationship-vectors.json` (§6.2.1.3 relationship per artifact; `methodTypeVectors`: the accepted `verificationMethod[].type` values of §4.2)
 - `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)
 - `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
 

@@ -18,7 +18,7 @@ describe('AwsSigV4S3DIDDocumentSource', () => {
     verificationMethod: [
       {
         id: 'did:webvh:QmAwsScid:example.com:agents:aws-bot#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:webvh:QmAwsScid:example.com:organizations:ops-root',
         publicKeyMultibase: 'zabc'
       }

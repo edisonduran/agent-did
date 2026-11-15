@@ -510,7 +510,7 @@ class TestAgentIdentityResolve:
                 "verificationMethod": [
                     {
                         "id": f"{did}#key-1",
-                        "type": "Ed25519VerificationKey2020",
+                        "type": "Multikey",
                         "controller": controller,
                         "publicKeyMultibase": "z6MkjTsREfRXe13mbS7GZQ9DKcrTuexb5YYdpbSFkwtWdRva",
                     }
@@ -556,7 +556,7 @@ class TestAgentIdentityResolve:
             "verificationMethod": [
                 {
                     "id": f"{did}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": "did:web:agents.example",
                     "publicKeyMultibase": "z6MkexampleWeatherBotKey",
                 }

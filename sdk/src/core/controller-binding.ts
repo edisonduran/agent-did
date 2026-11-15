@@ -12,6 +12,7 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
 import { AgentDIDDocument } from './types';
+import { isEd25519VerificationMethodType } from './verification-method';
 
 /** The agent is not bound to its controller (see `assertBoundToController`). */
 export class ControllerBindingError extends Error {
@@ -39,7 +40,12 @@ export function activeCapabilityInvocationKeys(controller: AgentDIDDocument): Se
   const listed = new Set(controller.capabilityInvocation ?? []);
   const keys = new Set<string>();
   for (const method of controller.verificationMethod) {
-    if (!listed.has(method.id) || method.deactivated || !method.publicKeyMultibase) {
+    if (
+      !listed.has(method.id) ||
+      method.deactivated ||
+      !method.publicKeyMultibase ||
+      !isEd25519VerificationMethodType(method.type)
+    ) {
       continue;
     }
     const hex = rawKeyHex(method.publicKeyMultibase);

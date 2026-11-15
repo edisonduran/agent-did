@@ -276,7 +276,7 @@ def build_interop_controller_document(interop_vector: dict[str, object]) -> Agen
             "verificationMethod": [
                 {
                     "id": f"{controller}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": controller,
                     "publicKeyMultibase": verification_method["publicKeyMultibase"],
                 }

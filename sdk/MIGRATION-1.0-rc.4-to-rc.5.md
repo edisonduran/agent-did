@@ -155,7 +155,7 @@ If you import the did:webvh adapter module directly (`resolveDidWebvhLog` and th
 - Remove `didMethod: 'agent'` and `didMethod: 'webvh'` from `create` params: there is one profile, `did:webvh`.
 - Remove `network` from `new AgentIdentity({ ... })`, and the `network` argument of `AgentDidClient.createAgent(controllerSigner, params)`.
 - Existing `did:agent` documents registered in a registry still resolve and verify through the registry and `documentRef` path; new ones cannot be created. Create `did:webvh` agents and re-register.
-- Fixtures: if you pinned `fixtures/canonical-document-reference.json`, `expectedDocumentRef` is now `hash://sha256/6a9b500a0278d4f43280f5bc58788e14c63be092925b7bd0d165bdd49e933b94` (the document ids changed, not the canonicalization); `fixtures/interop-vectors.json` no longer has a `legacy` vector.
+- Fixtures: if you pinned `fixtures/canonical-document-reference.json`, `expectedDocumentRef` is now `hash://sha256/8671ddc531a02613d99c027cb1328f4ffcaedcf2e7e3a6dc93df13e66fe4ac65` (the document ids changed, not the canonicalization); `fixtures/interop-vectors.json` no longer has a `legacy` vector.
 
 ## 14. `exports` map and ES module entry
 
@@ -294,6 +294,15 @@ RFC-001 §4.3 now makes `coreModelHash` and `systemPromptHash` optional assertio
 - The local bootstrap controller document no longer carries placeholder commitments.
 - Verifiers: do not reject a document without commitments, and do not read a matching commitment as proof of what the agent runs.
 
+
+## 32. `Multikey` verification methods
+
+RFC-001 §4.2 now requires `Multikey` for Ed25519 keys ([ADR-006](../docs/ADR-006-Wire-Alignment-rc5.md) D-8b).
+
+- Documents created, updated or rotated by the SDK now write `"type": "Multikey"` for every key, with the same `publicKeyMultibase` value as before. Code or tests that compare the type with `Ed25519VerificationKey2020` must accept `Multikey`.
+- rc.4 documents and did:webvh logs keep resolving and verifying: `Ed25519VerificationKey2020` is still read, and their signed entries are not rewritten.
+- A document in which a method that carries `publicKeyMultibase` has any other type (`Ed25519VerificationKey2018`, `JsonWebKey2020`, a misspelt `multikey`, ...) is now rejected by every resolver source. Signature checks and the controller binding never take a key from such a method, and `checkDidWebvhKeyAtTime` reports `key_not_found` for it.
+- Fixtures: if you pinned `fixtures/canonical-document-reference.json`, `expectedDocumentRef` is `hash://sha256/8671ddc531a02613d99c027cb1328f4ffcaedcf2e7e3a6dc93df13e66fe4ac65` (the value given in the `did:agent` section already includes this change); `fixtures/verification-relationship-vectors.json` gains `methodTypeVectors`.
 
 ## Checklist
 

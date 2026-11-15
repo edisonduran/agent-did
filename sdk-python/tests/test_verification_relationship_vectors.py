@@ -23,6 +23,7 @@ from agent_did_sdk import (
     decode_public_key_multibase,
     required_relationship_for,
 )
+from agent_did_sdk.verification.signature import verify_with_active_keys
 
 FIXTURE: dict[str, Any] = json.loads(
     (pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "verification-relationship-vectors.json").read_text(
@@ -72,3 +73,29 @@ def test_vector(vector: dict[str, Any]) -> None:
     assert caught.value.key_id == vector["keyId"]
     assert caught.value.required_purpose == expected["requiredPurpose"]
     assert caught.value.found_in == expected["foundIn"]
+
+
+def _with_method_type(vector: dict[str, Any]) -> dict[str, Any]:
+    """``didDocument`` with the vector's key method set to the vector's ``type``."""
+    doc: dict[str, Any] = json.loads(json.dumps(FIXTURE["didDocument"]))
+    for method in doc["verificationMethod"]:
+        if method["id"] == vector["keyId"]:
+            method["type"] = vector["type"]
+    return doc
+
+
+@pytest.mark.parametrize(
+    "vector", FIXTURE["methodTypeVectors"], ids=[vector["id"] for vector in FIXTURE["methodTypeVectors"]]
+)
+def test_method_type_vector(vector: dict[str, Any]) -> None:
+    """ADR-006 D-8b: Ed25519 keys are read from ``Multikey`` or ``Ed25519VerificationKey2020`` methods only."""
+    raw = _with_method_type(vector)
+    if not vector["expected"]["documentValid"]:
+        with pytest.raises(ValueError, match="type must be Multikey or Ed25519VerificationKey2020"):
+            AgentDIDDocument.model_validate(raw)
+        return
+    doc = AgentDIDDocument.model_validate(raw)
+    assert (
+        verify_with_active_keys(doc, FIXTURE["payload"], vector["signatureHex"], vector["keyId"], "assertionMethod")
+        is vector["expected"]["signatureValid"]
+    )

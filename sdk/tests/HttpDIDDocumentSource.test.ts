@@ -16,7 +16,7 @@ describe('HttpDIDDocumentSource', () => {
     verificationMethod: [
       {
         id: 'did:agent:polygon:0xhttp#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:ethr:0xcontroller',
         publicKeyMultibase: 'zabc'
       }

@@ -14,6 +14,7 @@ import {
 } from '../core/types';
 import { createMetadataCommitment } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
+import { VERIFICATION_METHOD_TYPE } from '../core/verification-method';
 import { normalizeTimestampToIso } from '../core/time';
 
 /** Timestamp strictly after `previousTimestamp`, using `now` unless it is not later. */
@@ -152,7 +153,7 @@ export function buildAddedKeyDocument(
       ...existing.verificationMethod,
       {
         id: verificationMethodId,
-        type: 'Ed25519VerificationKey2020',
+        type: VERIFICATION_METHOD_TYPE,
         controller: existing.controller,
         publicKeyMultibase: encodePublicKeyMultibase(newPublicKey ?? ed25519.getPublicKey(privateKeyBytes as Uint8Array))
       }
@@ -187,7 +188,7 @@ export function buildRotatedDocument(
   const privateKeyBytes = newPublicKey ? undefined : ed25519.utils.randomPrivateKey();
   const newVerificationMethod: VerificationMethod = {
     id: verificationMethodId,
-    type: 'Ed25519VerificationKey2020',
+    type: VERIFICATION_METHOD_TYPE,
     controller: existing.controller,
     publicKeyMultibase: encodePublicKeyMultibase(newPublicKey ?? ed25519.getPublicKey(privateKeyBytes as Uint8Array))
   };

@@ -32,7 +32,7 @@ async function main() {
     verificationMethod: [
       {
         id: `${did}#key-1`,
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:ethr:0xcontroller',
         publicKeyMultibase: 'zabc'
       }

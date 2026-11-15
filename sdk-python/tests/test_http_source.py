@@ -26,7 +26,7 @@ def _make_jsonld_response(did: str = "did:agent:polygon:0xtest") -> dict:
         "verificationMethod": [
             {
                 "id": f"{did}#key-1",
-                "type": "Ed25519VerificationKey2020",
+                "type": "Multikey",
                 "controller": "did:ethr:0xcontroller",
                 "publicKeyMultibase": "z1234",
             }

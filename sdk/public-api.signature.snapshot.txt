@@ -1163,6 +1163,16 @@ export type VerifySignatureAtTimeResult = {
     }>;
 };
 
+## core/verification-method.d.ts
+/**
+ * Verification method types for Ed25519 keys (ADR-006 D-8b). Documents are written with `Multikey`; documents and
+ * did:webvh logs written before rc.5 use `Ed25519VerificationKey2020` with the same `publicKeyMultibase` encoding
+ * and stay valid. A method of any other type is never used to verify a signature.
+ */
+export declare const VERIFICATION_METHOD_TYPE = "Multikey";
+/** Whether `type` names an Ed25519 verification method this SDK reads. */
+export declare function isEd25519VerificationMethodType(type: unknown): boolean;
+
 ## crypto/base64.d.ts
 /**
  * Standard base64 (RFC 4648 §4) of bytes, without `Buffer`: the core runs where only web platform globals exist

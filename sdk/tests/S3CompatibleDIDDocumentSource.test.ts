@@ -16,7 +16,7 @@ describe('S3CompatibleDIDDocumentSource', () => {
     verificationMethod: [
       {
         id: 'did:webvh:QmS3Scid:example.com:agents:s3-bot#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:webvh:QmS3Scid:example.com:organizations:ops-root',
         publicKeyMultibase: 'zabc'
       }

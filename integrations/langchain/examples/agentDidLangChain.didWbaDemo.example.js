@@ -58,7 +58,7 @@ function buildPartnerDocument() {
     verificationMethod: [
       {
         id: `${PARTNER_DID}#key-1`,
-        type: "Ed25519VerificationKey2020",
+        type: "Multikey",
         controller: "did:web:agents.example",
         publicKeyMultibase: "z6Mkdispatchrouterkey",
       },

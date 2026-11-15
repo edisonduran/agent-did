@@ -35,7 +35,7 @@ def _make_doc(did: str = "did:agent:polygon:0xtest") -> AgentDIDDocument:
             "verificationMethod": [
                 {
                     "id": f"{did}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": "did:ethr:0xcontroller",
                     "publicKeyMultibase": "z1234",
                 }
@@ -62,7 +62,7 @@ def _make_webvh_doc(did: str = "did:webvh:QmExampleScid:example.com:agents:test"
             "verificationMethod": [
                 {
                     "id": f"{did}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": "did:webvh:QmControllerScid:example.com:organizations:acme-support",
                     "publicKeyMultibase": "z1234",
                 }

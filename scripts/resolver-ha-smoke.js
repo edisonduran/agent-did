@@ -33,7 +33,7 @@ async function main() {
       },
       verificationMethod: [{
         id: '{DID}#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: '{DID}',
         publicKeyMultibase: 'z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK'
       }],

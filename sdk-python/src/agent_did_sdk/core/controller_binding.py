@@ -15,6 +15,7 @@ from collections.abc import Sequence
 
 from ..crypto.multibase import decode_public_key_multibase
 from .types import AgentDIDDocument
+from .verification_method import is_ed25519_verification_method_type
 
 
 class ControllerBindingError(ValueError):
@@ -38,7 +39,12 @@ def active_capability_invocation_keys(controller: AgentDIDDocument) -> set[str]:
     listed = set(controller.capability_invocation or [])
     keys: set[str] = set()
     for method in controller.verification_method:
-        if method.id not in listed or method.deactivated or not method.public_key_multibase:
+        if (
+            method.id not in listed
+            or method.deactivated
+            or not method.public_key_multibase
+            or not is_ed25519_verification_method_type(method.type)
+        ):
             continue
         raw = _raw_key_hex(method.public_key_multibase)
         if raw is not None:

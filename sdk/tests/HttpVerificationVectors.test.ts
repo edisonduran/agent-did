@@ -47,7 +47,7 @@ const meta = (name: string) => ({
 function buildDocument(): AgentDIDDocument {
   const methods = Object.values(fixture.keys).map((key) => ({
     id: key.id,
-    type: 'Ed25519VerificationKey2020',
+    type: 'Multikey',
     controller: fixture.controller,
     publicKeyMultibase: key.publicKeyMultibase
   }));
@@ -79,7 +79,7 @@ function buildController(): AgentDIDDocument {
     agentMetadata: meta('HttpVerificationFixtureController'),
     verificationMethod: [{
       id: `${fixture.controller}#key-1`,
-      type: 'Ed25519VerificationKey2020',
+      type: 'Multikey',
       controller: fixture.controller,
       publicKeyMultibase: key.publicKeyMultibase
     }],

@@ -16,6 +16,7 @@ from nacl.signing import SigningKey
 from ..core.identity_composition import ADDITIONAL_VERIFICATION_RELATIONSHIPS
 from ..core.time_utils import normalize_timestamp_to_iso
 from ..core.types import AgentDIDDocument, SigningVerificationPurpose, UpdateAgentDocumentParams, VerificationMethod
+from ..core.verification_method import VERIFICATION_METHOD_TYPE
 from ..crypto.hash import create_metadata_commitment
 from ..crypto.multibase import encode_public_key_multibase
 
@@ -196,7 +197,7 @@ def build_added_key_document(
         public_key = new_public_key
     new_vm = VerificationMethod(
         id=vm_id,
-        type="Ed25519VerificationKey2020",
+        type=VERIFICATION_METHOD_TYPE,
         controller=existing.controller,
         publicKeyMultibase=encode_public_key_multibase(public_key),
     )
@@ -249,7 +250,7 @@ def build_rotated_document(
         public_key = new_public_key
     new_vm = VerificationMethod(
         id=vm_id,
-        type="Ed25519VerificationKey2020",
+        type=VERIFICATION_METHOD_TYPE,
         controller=existing.controller,
         publicKeyMultibase=encode_public_key_multibase(public_key),
     )

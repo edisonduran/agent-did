@@ -16,7 +16,7 @@ describe('BearerTokenHttpDIDDocumentSource', () => {
     verificationMethod: [
       {
         id: 'did:webvh:QmBearerScid:example.com:agents:bearer-bot#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:webvh:QmBearerScid:example.com:organizations:ops-root',
         publicKeyMultibase: 'zabc'
       }

@@ -51,7 +51,7 @@ def _build_did_document(
             "verificationMethod": [
                 {
                     "id": f"{did}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": "did:web:agents.example",
                     "publicKeyMultibase": public_key_multibase,
                 }

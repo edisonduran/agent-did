@@ -21,6 +21,7 @@ import {
 } from '../core/types';
 import { decodeSignatureHex, verifyEd25519 } from '../crypto/ed25519-verify';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
+import { isEd25519VerificationMethodType } from '../core/verification-method';
 import { resolveDidWebvhLog } from '../webvh/adapter';
 
 const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/iu;
@@ -92,7 +93,12 @@ function keyInState(state: Record<string, unknown>, keyId: string, requiredPurpo
     (candidate): candidate is Record<string, unknown> =>
       typeof candidate === 'object' && candidate !== null && (candidate as Record<string, unknown>).id === keyId
   );
-  if (!method || typeof method.publicKeyMultibase !== 'string' || method.publicKeyMultibase.length === 0) {
+  if (
+    !method ||
+    !isEd25519VerificationMethodType(method.type) ||
+    typeof method.publicKeyMultibase !== 'string' ||
+    method.publicKeyMultibase.length === 0
+  ) {
     return { ok: false, reason: 'key_not_found', foundIn };
   }
   // The log entry that gives a key a `deactivated` time retires it from that entry's versionTime. The time itself

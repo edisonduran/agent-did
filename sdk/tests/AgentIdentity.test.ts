@@ -90,7 +90,7 @@ describe('AgentIdentity Core Module', () => {
     const vm = document.verificationMethod[0];
     expect(vm.id).toEqual(`${document.id}#key-1`);
     expect(vm.controller).toEqual(document.controller);
-    expect(vm.type).toEqual("Ed25519VerificationKey2020");
+    expect(vm.type).toEqual("Multikey");
     expect(vm.blockchainAccountId).toBeUndefined();
 
     // 5. Verify verification relationship bindings
@@ -666,7 +666,7 @@ describe('AgentIdentity Core Module', () => {
       },
       verificationMethod: [{
         id: `${did}#key-1`,
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller,
         publicKeyMultibase: 'z6MkjTsREfRXe13mbS7GZQ9DKcrTuexb5YYdpbSFkwtWdRva'
       }],

@@ -27,31 +27,31 @@
     "verificationMethod": [
       {
         "id": "did:example:relationship-vectors#key-assertion",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:example:relationship-vectors",
         "publicKeyMultibase": "z6Mkj2zEWWgyji12Z8VtuSkk7UJGA4aWyhWhuxe34pRetMcC"
       },
       {
         "id": "did:example:relationship-vectors#key-delegation",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:example:relationship-vectors",
         "publicKeyMultibase": "z6MkiobXLfTzK8CEQ4tNt9oiopnHoY6tsL4pxybwsB9bG7N8"
       },
       {
         "id": "did:example:relationship-vectors#key-invocation",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:example:relationship-vectors",
         "publicKeyMultibase": "z6MkqxEc4gfhSE84HrKuyFAYhFpCMzMBd5AVAWu61gZgViRw"
       },
       {
         "id": "did:example:relationship-vectors#key-authentication",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:example:relationship-vectors",
         "publicKeyMultibase": "z6MkndvQdYK3HTPfgj8Vgwk3yJ8qy3v6pZVAUf7MHJeXPzY2"
       },
       {
         "id": "did:example:relationship-vectors#key-agreement",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:example:relationship-vectors",
         "publicKeyMultibase": "z6Mkw95MrCD4Zn5jPyt1ppmWrjehxW4gHGeJwKfpAeuVgVQx"
       }
@@ -397,6 +397,55 @@
           "keyAgreement"
         ]
       }
+    }
+  ],
+  "methodTypeVectors": [
+    {
+      "id": "multikey",
+      "type": "Multikey",
+      "expected": {
+        "documentValid": true,
+        "signatureValid": true
+      },
+      "keyId": "did:example:relationship-vectors#key-assertion",
+      "signatureHex": "065b8674479e4b4c230670f983a7baab0ca7ea5b6f5a6522e98fe8973123303879723876b00f45949ba32cd8d0c09b99b4ddbfe16c07c98e290e5a310a472b00"
+    },
+    {
+      "id": "ed25519-2020-legacy",
+      "type": "Ed25519VerificationKey2020",
+      "expected": {
+        "documentValid": true,
+        "signatureValid": true
+      },
+      "keyId": "did:example:relationship-vectors#key-assertion",
+      "signatureHex": "065b8674479e4b4c230670f983a7baab0ca7ea5b6f5a6522e98fe8973123303879723876b00f45949ba32cd8d0c09b99b4ddbfe16c07c98e290e5a310a472b00"
+    },
+    {
+      "id": "ed25519-2018",
+      "type": "Ed25519VerificationKey2018",
+      "expected": {
+        "documentValid": false
+      },
+      "keyId": "did:example:relationship-vectors#key-assertion",
+      "signatureHex": "065b8674479e4b4c230670f983a7baab0ca7ea5b6f5a6522e98fe8973123303879723876b00f45949ba32cd8d0c09b99b4ddbfe16c07c98e290e5a310a472b00"
+    },
+    {
+      "id": "json-web-key-2020",
+      "type": "JsonWebKey2020",
+      "expected": {
+        "documentValid": false
+      },
+      "keyId": "did:example:relationship-vectors#key-assertion",
+      "signatureHex": "065b8674479e4b4c230670f983a7baab0ca7ea5b6f5a6522e98fe8973123303879723876b00f45949ba32cd8d0c09b99b4ddbfe16c07c98e290e5a310a472b00"
+    },
+    {
+      "id": "multikey-wrong-case",
+      "type": "multikey",
+      "expected": {
+        "documentValid": false
+      },
+      "keyId": "did:example:relationship-vectors#key-assertion",
+      "signatureHex": "065b8674479e4b4c230670f983a7baab0ca7ea5b6f5a6522e98fe8973123303879723876b00f45949ba32cd8d0c09b99b4ddbfe16c07c98e290e5a310a472b00"
     }
   ]
 }

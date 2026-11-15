@@ -19,7 +19,7 @@ describe('FilesystemDIDDocumentSource', () => {
     verificationMethod: [
       {
         id: 'did:webvh:QmFilesystemScid:example.com:agents:file-bot#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:webvh:QmFilesystemScid:example.com:organizations:ops-root',
         publicKeyMultibase: 'zabc'
       }
