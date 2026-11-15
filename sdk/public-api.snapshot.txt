@@ -7,6 +7,8 @@ AddVerificationMethodResult
 AGENT_DID_HTTP_SIGNATURE_COMPONENTS
 AGENT_DID_HTTP_SIGNATURE_TAG
 AGENT_DID_MESSAGE_SIGNING_PREFIX
+AGENT_METADATA_CREDENTIAL_CONTEXT
+AGENT_METADATA_CREDENTIAL_TYPE
 AgentDidClient
 AgentDidClientOptions
 AgentDIDDocument
@@ -15,6 +17,8 @@ AgentDocumentHistoryEntry
 AgentIdentity
 AgentIdentityConfig
 AgentMetadata
+AgentMetadataCredential
+AgentMetadataCredentialRejection
 AgentRegistry
 AgentRegistryRecord
 AgentSigner
@@ -33,6 +37,7 @@ CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
 createMetadataCommitment
+DataIntegrityProof
 decodePublicKeyMultibase
 DEFAULT_FETCH_DEADLINE_MS
 DEFAULT_HTTP_TIMEOUT_MS
@@ -80,6 +85,7 @@ InMemoryNonceStoreOptions
 isoToUnixString
 isRedactedMarker
 isSensitiveFieldName
+IssueAgentMetadataCredentialParams
 isUnixTimestampString
 JsonRpcDIDDocumentSource
 JsonRpcDIDDocumentSourceConfig
@@ -133,6 +139,8 @@ validateHttpTarget
 VerifiableCredentialLink
 VerificationMethod
 VerificationRelationship
+VerifyAgentMetadataCredentialOptions
+VerifyAgentMetadataCredentialResult
 VerifyHttpRequestSignatureParams
 VerifyHttpRequestSignatureResult
 verifyMetadataCommitment

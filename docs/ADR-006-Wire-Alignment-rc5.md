@@ -64,6 +64,7 @@ Alternative considered: keep them REQUIRED and allow an explicit `none` value. R
 - Linking: the credential is presented out of band (A2A Agent Card, MCP, request body). A DID document MAY point to a hosted copy with a `service` entry of type `LinkedVerifiablePresentation` (DIF Linked VP); the SDKs do not fetch it during DID resolution.
 - `agentMetadata` stays in the DID document for rc.5 with the same members; the credential is an additional, selectively shareable form, not a replacement. Moving claims out of the document is a post-1.0 question.
 - Conformance: no claim of VC 2.0 or `eddsa-jcs-2022` conformance unless a CI job verifies the W3C `vc-di-eddsa` test vectors with our implementation (planned in WP-46). Until then the docs say "aligned with".
+- Implementation note (WP-46): the subject carries the members nested as `credentialSubject.agentMetadata`, not flat. The Agent-DID context `v1` defines `agentMetadata` with a scoped context for its members, so nesting gives every member a defined term; flat members such as `version` or `capabilities` would have none (the VC 2.0 context has no `@vocab`). The credential type is defined by an inline term in `@context`, because the published context `v1` is immutable. The `eddsa-jcs-2022` vectors run in CI (`ci-vc-di-eddsa-vectors.yml`), so the cryptosuite row of the External Conformance Matrix is PASS; VC 2.0 stays "aligned with".
 
 ## Consequences
 

@@ -29,7 +29,8 @@ const FROZEN_FIXTURES = [
   'fixtures/metadata-commitment-vectors.json',
   'fixtures/webvh-log-vectors.json',
   'fixtures/ed25519-verification-vectors.json',
-  'fixtures/key-at-time-vectors.json'
+  'fixtures/key-at-time-vectors.json',
+  'fixtures/agent-metadata-credential-vectors.json'
 ];
 
 /** SHA-256 of the file with line endings normalized, so a Windows checkout and Linux CI agree. */

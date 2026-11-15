@@ -424,6 +424,90 @@ class VerifySignatureAtTimeResult:
 
 
 # ---------------------------------------------------------------------------
+# AgentMetadataCredential (RFC-001 §4.4)
+# ---------------------------------------------------------------------------
+
+
+class IssueAgentMetadataCredentialParams(BaseModel):
+    """Parameters of ``AgentDidClient.issue_agent_metadata_credential``."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    agent_did: str
+    """The agent the credential is about (``credentialSubject.id``). Must resolve and not be deactivated."""
+    signer: Any
+    """``AgentSigner`` that holds the controller key named by ``verification_method_id`` (for example a KMS or HSM
+    key)."""
+    verification_method_id: str
+    """An active ``assertionMethod`` key of the agent's controller (the issuer), e.g.
+    ``controller_document.assertion_method[0]``."""
+    agent_metadata: dict[str, Any] | None = None
+    """The metadata to state, with its JSON member names (``coreModelHash``, ``memberOf``...). Defaults to the agent
+    document's ``agentMetadata``; pass a subset to share only some members. The values are the controller's assertion:
+    they are not compared with the document."""
+    credential_id: str | None = None
+    """Optional credential ``id`` (a URL, URN or DID URL)."""
+    valid_from: str | None = None
+    """RFC 3339 date-time from which the credential is valid. Defaults to now."""
+    valid_until: str | None = None
+    """RFC 3339 date-time after which the credential is no longer valid."""
+
+
+AgentMetadataCredentialRejection = Literal[
+    "malformed_credential",
+    "unsupported_proof",
+    "subject_mismatch",
+    "not_yet_valid",
+    "expired",
+    "did_deactivated",
+    "did_resolution_failed",
+    "controller_not_bound",
+    "issuer_not_controller",
+    "key_not_authorized",
+    "signature_invalid",
+]
+"""Why ``verify_agent_metadata_credential`` rejected a credential (RFC-001 §4.4).
+
+* ``malformed_credential``: not a VC 2.0 ``AgentMetadataCredential`` of the Agent-DID profile (``@context``,
+  ``type``, ``issuer``, ``credentialSubject.id``, ``credentialSubject.agentMetadata``, ``validFrom`` /
+  ``validUntil`` dates).
+* ``unsupported_proof``: the proof is absent, is a proof set, is not ``DataIntegrityProof`` / ``eddsa-jcs-2022`` /
+  ``assertionMethod``, its ``verificationMethod`` is not a key of ``issuer``, or its ``proofValue`` is malformed.
+* ``subject_mismatch``: ``expected_agent_did`` is set and ``credentialSubject.id`` differs.
+* ``not_yet_valid``: now is before ``validFrom``.
+* ``expired``: now is after ``validUntil`` (or after the proof's ``expires``).
+* ``did_deactivated``: the agent DID is deactivated.
+* ``did_resolution_failed``: the agent DID, or its controller, could not be resolved and verified.
+* ``controller_not_bound``: the agent is not bound to its controller now (RFC-001 §6.6 item 7).
+* ``issuer_not_controller``: ``issuer`` is not the agent document's ``controller``.
+* ``key_not_authorized``: ``proof.verificationMethod`` is not an active Ed25519 ``assertionMethod`` key of the
+  issuer.
+* ``signature_invalid``: the proof does not verify.
+"""
+
+
+@dataclass(frozen=True)
+class VerifyAgentMetadataCredentialResult:
+    """Result of ``verify_agent_metadata_credential``. Test ``result.ok``: the object is truthy for a rejection
+    too."""
+
+    ok: bool
+    reason: AgentMetadataCredentialRejection | None = None
+    agent_did: str | None = None
+    """For an accepted credential, the agent DID (``credentialSubject.id``)."""
+    issuer: str | None = None
+    """For an accepted credential, the controller that issued it."""
+    verification_method: str | None = None
+    """For an accepted credential, the key of the issuer that made the proof."""
+    agent_metadata: dict[str, Any] | None = None
+    """For an accepted credential, the metadata the controller states (JSON member names). An assertion of the
+    controller, not evidence of what the agent runs."""
+    controllers: list[str] = field(default_factory=list)
+    """For an accepted credential, the controller chain of the agent, nearest first (empty for an agent that
+    controls itself)."""
+
+
+# ---------------------------------------------------------------------------
 # Document history
 # ---------------------------------------------------------------------------
 

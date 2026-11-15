@@ -13,8 +13,9 @@ from typing import Any, Concatenate, Literal, ParamSpec, TypeVar
 import httpx
 from nacl.signing import SigningKey
 
+from ..crypto.data_integrity import create_eddsa_jcs_2022_proof, verify_eddsa_jcs_2022_proof
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
-from ..crypto.multibase import did_key_from_public_key
+from ..crypto.multibase import decode_public_key_multibase, did_key_from_public_key
 from ..http_signatures.verify_request import SignatureCheck, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
@@ -40,7 +41,7 @@ from ..resolver.types import (
 )
 from ..resolver.universal import UniversalResolverClient
 from ..resolver.webvh_source import WebvhDIDDocumentSource, WebvhDIDDocumentSourceConfig
-from ..verification.key_at_time import check_did_webvh_key_at_time, signature_result_for_key
+from ..verification.key_at_time import check_did_webvh_key_at_time, parse_rfc3339_millis, signature_result_for_key
 from ..verification.signature import verify_with_active_keys
 from ..webvh.adapter import (
     DidWebvhError,
@@ -61,9 +62,18 @@ from ..webvh.documents import (
     history_from_did_webvh_log,
     normalize_did_path_segment,
 )
+from .agent_metadata_credential import (
+    agent_metadata_problem,
+    build_unsigned_agent_metadata_credential,
+    check_agent_metadata_credential_form,
+)
 from .controller_binding import ControllerBindingError, assert_bound_to_controller
 from .http_security import HttpTargetValidationOptions
-from .identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT, IdentityCompositionError
+from .identity_composition import (
+    REQUIRED_RELATIONSHIP_BY_ARTIFACT,
+    IdentityCompositionError,
+    get_relationship_key_ids,
+)
 from .message_signing import message_signing_input
 from .nonce_store import InMemoryNonceStore, NonceStore
 from .signer import AgentSigner, LocalKeySigner
@@ -77,16 +87,19 @@ from .types import (
     CreateAgentResult,
     CreateDidWebvhOptions,
     DidWebvhControllerKeys,
+    IssueAgentMetadataCredentialParams,
     KeyAtTimeResult,
     MetadataCommitmentSalts,
     RotateVerificationMethodResult,
     SigningVerificationPurpose,
     UpdateAgentDocumentParams,
     VerificationRelationship,
+    VerifyAgentMetadataCredentialResult,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
     VerifySignatureAtTimeResult,
 )
+from .verification_method import is_ed25519_verification_method_type
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -666,6 +679,125 @@ class AgentDidClient:
                 return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed", key=result.key)
         return result
 
+    async def issue_agent_metadata_credential(self, params: IssueAgentMetadataCredentialParams) -> dict[str, Any]:
+        """Issue an ``AgentMetadataCredential`` (RFC-001 §4.4).
+
+        The agent's controller states the agent's metadata in a W3C VC 2.0 credential secured with an
+        ``eddsa-jcs-2022`` Data Integrity proof. ``verification_method_id`` must be an active Ed25519
+        ``assertionMethod`` key of the controller held by ``signer``. The credential is presented out of band (an A2A
+        Agent Card, an MCP exchange, a request body); DID resolution never fetches it.
+        """
+        agent = await self.resolve(params.agent_did)
+        issuer = (agent.controller or "").strip() or agent.id
+        if not params.verification_method_id.startswith(f"{issuer}#"):
+            raise ValueError(f"verification_method_id must be a key of the agent's controller {issuer}")
+        issuer_document = agent if issuer == agent.id else await self.resolve(issuer)
+        public_key = _active_assertion_key(issuer_document, params.verification_method_id)
+        if public_key is None:
+            raise ValueError(
+                f"{params.verification_method_id} is not an active Ed25519 assertionMethod key of {issuer}"
+            )
+        if await params.signer.get_public_key() != public_key:
+            raise ValueError(f"The signer does not hold {params.verification_method_id}")
+        agent_metadata = (
+            dict(params.agent_metadata)
+            if params.agent_metadata is not None
+            else agent.agent_metadata.model_dump(by_alias=True, exclude_none=True)
+        )
+        problem = agent_metadata_problem(agent_metadata)
+        if problem is not None:
+            raise TypeError(problem)
+        now = self._now_iso_timestamp()
+        valid_from = params.valid_from if params.valid_from is not None else now
+        valid_from_millis = parse_rfc3339_millis(valid_from)
+        if valid_from_millis is None:
+            raise TypeError("valid_from must be an RFC 3339 date-time")
+        if params.valid_until is not None:
+            valid_until_millis = parse_rfc3339_millis(params.valid_until)
+            if valid_until_millis is None or valid_until_millis < valid_from_millis:
+                raise TypeError("valid_until must be an RFC 3339 date-time not earlier than valid_from")
+        if params.credential_id is not None and not params.credential_id:
+            raise TypeError("credential_id must be a non-empty string")
+        unsigned = build_unsigned_agent_metadata_credential(
+            issuer=issuer,
+            agent_did=agent.id,
+            agent_metadata=agent_metadata,
+            valid_from=valid_from,
+            valid_until=params.valid_until,
+            credential_id=params.credential_id,
+        )
+
+        async def sign(hash_data: bytes) -> bytes:
+            return bytes.fromhex(await params.signer.sign(hash_data))
+
+        proof = await create_eddsa_jcs_2022_proof(
+            unsigned,
+            created=now,
+            verification_method=params.verification_method_id,
+            proof_purpose="assertionMethod",
+            sign=sign,
+        )
+        credential = {**unsigned, "proof": proof}
+        if not verify_eddsa_jcs_2022_proof(credential, public_key):
+            raise ValueError("The signer produced a signature that does not match its public key")
+        return credential
+
+    async def verify_agent_metadata_credential(
+        self, credential: object, *, expected_agent_did: str | None = None
+    ) -> VerifyAgentMetadataCredentialResult:
+        """Verify an ``AgentMetadataCredential`` (RFC-001 §4.4).
+
+        Checks its form and validity period, that the agent DID resolves, is not deactivated and is bound to its
+        controller (RFC-001 §6.6 item 7), that ``issuer`` is that controller, and the ``eddsa-jcs-2022`` proof by an
+        active ``assertionMethod`` key of the issuer. Never raises for a bad credential: test ``result.ok``. The
+        metadata in an accepted credential is the controller's assertion, not evidence of what runs.
+        """
+        try:
+            form = check_agent_metadata_credential_form(credential, int(self._clock().timestamp() * 1000))
+        except Exception:  # noqa: BLE001 - a value JCS cannot represent is a malformed credential
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="malformed_credential")
+        if isinstance(form, str):
+            return VerifyAgentMetadataCredentialResult(ok=False, reason=form)
+        if expected_agent_did is not None and expected_agent_did != form.agent_did:
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="subject_mismatch")
+        try:
+            state = await self.resolve_did_webvh_state(form.agent_did)
+        except Exception:
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="did_resolution_failed")
+        if state is not None and state.deactivated:
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="did_deactivated")
+        try:
+            chain = await self._resolve_active_verification_chain(form.agent_did)
+        except ControllerBindingError:
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="controller_not_bound")
+        except Exception:
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="did_resolution_failed")
+        agent = chain[0]
+        if form.issuer != ((agent.controller or "").strip() or agent.id):
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="issuer_not_controller")
+        if form.issuer == agent.id:
+            issuer_document = agent
+        elif len(chain) > 1 and chain[1].id == form.issuer:
+            issuer_document = chain[1]
+        else:
+            try:
+                issuer_document = await self.resolve(form.issuer)
+            except Exception:
+                return VerifyAgentMetadataCredentialResult(ok=False, reason="did_resolution_failed")
+        public_key = _active_assertion_key(issuer_document, form.verification_method)
+        if public_key is None:
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="key_not_authorized")
+        if not verify_eddsa_jcs_2022_proof(credential, public_key):
+            return VerifyAgentMetadataCredentialResult(ok=False, reason="signature_invalid")
+        return VerifyAgentMetadataCredentialResult(
+            ok=True,
+            agent_did=form.agent_did,
+            issuer=form.issuer,
+            verification_method=form.verification_method,
+            agent_metadata=form.agent_metadata,
+            controllers=[document.id for document in chain[1:]],
+        )
+
     def evict_cached_resolution(self, did: str) -> None:
         """Drop the resolver's cached resolution of *did*, so the next verification fetches and verifies it again (for a
         check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
@@ -1043,3 +1175,21 @@ class AgentDidClient:
             document_ref=compute_document_reference(document),
         )
         self._history_store[did] = [*current, entry]
+
+
+def _active_assertion_key(document: AgentDIDDocument, key_id: str) -> bytes | None:
+    """The raw public key of *key_id* when it is an active Ed25519 ``assertionMethod`` key of *document*."""
+    if key_id not in get_relationship_key_ids(document, "assertionMethod"):
+        return None
+    method = next((candidate for candidate in document.verification_method if candidate.id == key_id), None)
+    if (
+        method is None
+        or method.deactivated
+        or not method.public_key_multibase
+        or not is_ed25519_verification_method_type(method.type)
+    ):
+        return None
+    try:
+        return decode_public_key_multibase(method.public_key_multibase)
+    except ValueError:
+        return None

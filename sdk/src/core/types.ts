@@ -508,3 +508,98 @@ export type VerifySignatureAtTimeResult =
       key?: KeyAtTimeResult;
     }
   | { status: 'indeterminate'; key: Extract<KeyAtTimeResult, { status: 'indeterminate' }> };
+
+/**
+ * An `AgentMetadataCredential` (RFC-001 §4.4): a W3C VC Data Model 2.0 credential in which the controller (`issuer`)
+ * states the agent's metadata (`credentialSubject.agentMetadata`), secured with a Data Integrity proof
+ * (`eddsa-jcs-2022`). It is presented out of band; DID resolution never fetches it.
+ */
+export interface AgentMetadataCredential {
+  '@context': unknown[];
+  id?: string;
+  type: string[];
+  /** The controller DID of the agent. */
+  issuer: string;
+  validFrom: string;
+  validUntil?: string;
+  credentialSubject: {
+    /** The agent DID. */
+    id: string;
+    /** All or some of the agent's metadata, as its controller states it. */
+    agentMetadata: Partial<AgentMetadata>;
+  };
+  proof: import('../crypto/data-integrity').DataIntegrityProof;
+}
+
+/** Parameters of `AgentDidClient.issueAgentMetadataCredential`. */
+export interface IssueAgentMetadataCredentialParams {
+  /** The agent the credential is about (`credentialSubject.id`). Must resolve and not be deactivated. */
+  agentDid: string;
+  /** Signer that holds the controller key named by `verificationMethodId` (for example a KMS or HSM key). */
+  signer: import('./signer').AgentSigner;
+  /** An active `assertionMethod` key of the agent's controller (the issuer), e.g. `controllerDocument.assertionMethod[0]`. */
+  verificationMethodId: string;
+  /**
+   * The metadata to state. Defaults to the agent document's `agentMetadata`; pass a subset to share only some
+   * members. The values are the controller's assertion: they are not compared with the document.
+   */
+  agentMetadata?: Partial<AgentMetadata>;
+  /** Optional credential `id` (a URL, URN or DID URL). */
+  id?: string;
+  /** RFC 3339 date-time from which the credential is valid. Defaults to now. */
+  validFrom?: string;
+  /** RFC 3339 date-time after which the credential is no longer valid. */
+  validUntil?: string;
+}
+
+/** Options of `AgentDidClient.verifyAgentMetadataCredential`. */
+export interface VerifyAgentMetadataCredentialOptions {
+  /** Accept only credentials about this agent DID (`credentialSubject.id`), checked before any resolution. */
+  expectedAgentDid?: string;
+}
+
+/**
+ * Why `verifyAgentMetadataCredential` rejected a credential (RFC-001 §4.4):
+ * - `malformed_credential`: not a VC 2.0 `AgentMetadataCredential` of the Agent-DID profile (`@context`, `type`,
+ *   `issuer`, `credentialSubject.id`, `credentialSubject.agentMetadata`, `validFrom` / `validUntil` dates).
+ * - `unsupported_proof`: the proof is absent, is a proof set, is not `DataIntegrityProof` / `eddsa-jcs-2022` /
+ *   `assertionMethod`, its `verificationMethod` is not a key of `issuer`, or its `proofValue` is malformed.
+ * - `subject_mismatch`: `expectedAgentDid` is set and `credentialSubject.id` differs.
+ * - `not_yet_valid`: now is before `validFrom`.
+ * - `expired`: now is after `validUntil` (or after the proof's `expires`).
+ * - `did_deactivated`: the agent DID is deactivated.
+ * - `did_resolution_failed`: the agent DID, or its controller, could not be resolved and verified.
+ * - `controller_not_bound`: the agent is not bound to its controller now (RFC-001 §6.6 item 7).
+ * - `issuer_not_controller`: `issuer` is not the agent document's `controller`.
+ * - `key_not_authorized`: `proof.verificationMethod` is not an active Ed25519 `assertionMethod` key of the issuer.
+ * - `signature_invalid`: the proof does not verify.
+ */
+export type AgentMetadataCredentialRejection =
+  | 'malformed_credential'
+  | 'unsupported_proof'
+  | 'subject_mismatch'
+  | 'not_yet_valid'
+  | 'expired'
+  | 'did_deactivated'
+  | 'did_resolution_failed'
+  | 'controller_not_bound'
+  | 'issuer_not_controller'
+  | 'key_not_authorized'
+  | 'signature_invalid';
+
+/** Result of `verifyAgentMetadataCredential`. Test `result.ok`. */
+export type VerifyAgentMetadataCredentialResult =
+  | {
+      ok: true;
+      /** The agent DID (`credentialSubject.id`). */
+      agentDid: string;
+      /** The controller that issued the credential. */
+      issuer: string;
+      /** The key of the issuer that made the proof. */
+      verificationMethod: string;
+      /** The metadata the controller states. An assertion of the controller, not evidence of what the agent runs. */
+      agentMetadata: Partial<AgentMetadata>;
+      /** The controller chain of the agent, nearest first (empty for an agent that controls itself). */
+      controllers: string[];
+    }
+  | { ok: false; reason: AgentMetadataCredentialRejection };

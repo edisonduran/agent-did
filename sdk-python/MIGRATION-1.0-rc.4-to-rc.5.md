@@ -344,6 +344,13 @@ RFC-001 §4.2 now requires `Multikey` for Ed25519 keys ([ADR-006](../docs/ADR-00
 - A document in which a method that carries `publicKeyMultibase` has any other type (`Ed25519VerificationKey2018`, `JsonWebKey2020`, a misspelt `multikey`, ...) is now rejected by every resolver source and by `AgentDIDDocument.model_validate` (`ValidationError`). Signature checks and the controller binding never take a key from such a method, and `check_did_webvh_key_at_time` reports `key_not_found` for it.
 - Fixtures: if you pinned `fixtures/canonical-document-reference.json`, `expectedDocumentRef` is `hash://sha256/8671ddc531a02613d99c027cb1328f4ffcaedcf2e7e3a6dc93df13e66fe4ac65` (the value given in the `did:agent` section already includes this change); `fixtures/verification-relationship-vectors.json` gains `methodTypeVectors`.
 
+## 35. Agent metadata credential (new, optional)
+
+RFC-001 §4.4 adds the `AgentMetadataCredential` ([ADR-006](../docs/ADR-006-Wire-Alignment-rc5.md) D-8d). Nothing changes for existing code: documents, `agent_metadata` and signatures are as before.
+
+- The controller issues it with `await client.issue_agent_metadata_credential(IssueAgentMetadataCredentialParams(agent_did=..., signer=..., verification_method_id=...))`, where `verification_method_id` is an `assertionMethod` key of the controller (for the implicit bootstrap controller, `controller_document.assertion_method[0]` with `LocalKeySigner(created.controller_private_key)`). Pass `agent_metadata` (JSON member names, e.g. `{"name": ..., "capabilities": [...]}`) to share only some members, and `valid_until` to bound it. The credential is a `dict`.
+- A relying party verifies it with `await client.verify_agent_metadata_credential(credential, expected_agent_did=...)` and reads `result.ok`, `result.reason`, `result.agent_metadata` and `result.controllers`. The metadata is the controller's assertion, not evidence of what the agent runs.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

@@ -109,6 +109,7 @@ Since `1.0.0rc3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log 
 | S3-compatible object-store adapter | `S3CompatibleDIDDocumentSource` | ✅ |
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
+| Agent metadata credential (VC 2.0, `eddsa-jcs-2022`, RFC-001 §4.4; the controller signs, verification checks issuer, binding and proof) | `client.issue_agent_metadata_credential(params)` / `client.verify_agent_metadata_credential(credential)` | ✅ |
 
 By default, `verify_signature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
@@ -120,6 +121,8 @@ By default, `verify_signature` and HTTP signature verification require the signi
 | `core.identity` | `AgentIdentity` — main class for DID lifecycle |
 | `core.time_utils` | ISO-8601 ↔ Unix timestamp utilities |
 | `crypto.hash` | SHA-256 hashing with `hash://` URI format |
+| `crypto.data_integrity` | `eddsa-jcs-2022` Data Integrity proofs (W3C `vc-di-eddsa` vectors in CI) |
+| `core.agent_metadata_credential` | `AgentMetadataCredential` profile (RFC-001 §4.4) |
 | `registry.*` | Agent registry (in-memory) |
 | `resolver.*` | DID resolver (in-memory, filesystem source, HTTP source, bearer/authenticated HTTP source, presigned/object-storage source, S3-compatible source, AWS SigV4 S3 source, JSON-RPC source, universal) |
 
