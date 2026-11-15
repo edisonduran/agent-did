@@ -289,7 +289,8 @@ signatures, the reason is the one of the first signature that has ``tag="agent-d
 * ``digest_mismatch``: ``Content-Digest`` is absent or is not exactly the SHA-256 of the body.
 * ``tag_mismatch``: the ``tag`` parameter is not ``agent-did`` (for example another profile's signature).
 * ``alg_unsupported``: the ``alg`` parameter is not ``ed25519``.
-* ``params_missing``: ``created``, ``expires``, ``nonce`` or ``keyid`` is absent or has the wrong type.
+* ``params_missing``: ``created``, ``expires``, ``nonce`` or ``keyid`` is absent or has the wrong type, or ``nonce``
+  is not 1 to 256 characters of ``A-Z a-z 0-9 . _ ~ + / = -`` (RFC-001 §6.5 item 3).
 * ``keyid_not_bound``: ``keyid`` is not a key of the ``Signature-Agent`` DID.
 * ``components_missing``: a required covered component is absent.
 * ``components_order``: the required components are all covered but not first and in order.

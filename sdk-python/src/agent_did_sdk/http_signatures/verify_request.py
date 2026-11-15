@@ -25,7 +25,7 @@ from ..core.http_signatures import (
     request_url_form_problem,
 )
 from ..core.identity_composition import REQUIRED_RELATIONSHIP_BY_ARTIFACT
-from ..core.nonce_store import NonceStore
+from ..core.nonce_store import NONCE_PATTERN, NonceStore
 from ..core.types import (
     HttpSignatureRejection,
     VerificationRelationship,
@@ -119,7 +119,7 @@ async def verify_agent_did_http_request(
             or not isinstance(expires, int)
             or isinstance(expires, bool)
             or not isinstance(nonce, str)
-            or not nonce
+            or not NONCE_PATTERN.fullmatch(nonce)
             or not isinstance(key_id, str)
         ):
             failures.append(("params_missing", True))
