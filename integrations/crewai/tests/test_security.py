@@ -91,3 +91,25 @@ async def test_guardrail_callable_avoids_runtime_return_annotation() -> None:
     guardrail = create_identity_output_guardrail(integration, required_fields=["result"])
 
     assert inspect.signature(guardrail).return_annotation is inspect.Signature.empty
+
+
+@pytest.mark.asyncio
+async def test_allow_private_network_targets_reaches_the_sdk_signer() -> None:
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
+    runtime_identity = await identity.create(
+        CreateAgentParams(name="CrewPrivateTargetBot", core_model="gpt-4.1-mini", system_prompt="Policy test")
+    )
+    integration = create_agent_did_crewai_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,
+        expose={"sign_http": True},
+        allow_private_network_targets=True,
+    )
+    tools_by_name = {tool.name: tool for tool in integration.tools}
+    signed = await tools_by_name["agent_did_sign_http_request"].ainvoke(
+        {"method": "GET", "url": "http://127.0.0.1:8080/internal"}
+    )
+
+    assert "error" not in signed, signed
+    assert "Signature" in signed["headers"]

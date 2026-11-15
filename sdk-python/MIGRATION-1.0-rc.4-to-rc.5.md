@@ -317,6 +317,12 @@ ResolutionLimits(max_concurrent_fetches_per_host=16, max_queued_fetches=256, fet
 - `create_identity_output_guardrail` returns `(True, output)` on success (it returned `(True, None)`, which CrewAI rejects). Code that called the guardrail directly and checked `message is None` must check the first element only.
 - The guardrail checks the agent's output (`TaskOutput.pydantic`, `json_dict`, or `raw` parsed as a JSON object). An agent whose final answer is not a JSON object now fails the guardrail; set `output_pydantic` (as `create_task_kwargs` does) or ask for JSON in the task.
 
+## 32. Integration options that now take effect
+
+- CrewAI, Semantic Kernel, Microsoft Agent Framework: with `allow_private_network_targets=True` the signing tool now signs for loopback and private targets (it returned an error from the SDK before).
+- Semantic Kernel: `tool.invoke` / `tool.ainvoke` and kernel plugin calls raise `pydantic.ValidationError` for unknown arguments or oversized values.
+- A2A: remove `resolve_remote_did`, `document_history` and `rotate_keys` from `expose`, and `default_request_timeout_seconds` from `AgentDidA2AConfig` (they had no effect and are now rejected). `expose.sign_requests=False`, `verify_requests=False` and `enrich_agent_card=False` now make the matching methods raise `PermissionError`. Set `AgentDidA2AConfig(allow_private_network_targets=True)` to sign for private targets, or pass `http_security` to `sign_a2a_request`.
+
 
 ## Checklist
 

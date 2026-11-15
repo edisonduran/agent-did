@@ -84,17 +84,29 @@ class SemanticKernelTool:
     func: Callable[..., Any] | None = None
     coroutine: Callable[..., Awaitable[Any]] | None = None
 
+    def validated_arguments(self, input_data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """*input_data* validated by ``args_schema`` (unknown fields and oversized values are refused with
+        ``pydantic.ValidationError``), as keyword arguments for the handler."""
+        return validate_tool_arguments(self.args_schema, input_data)
+
     def invoke(self, input_data: dict[str, Any] | None = None) -> Any:
         if self.func is None:
             raise RuntimeError(f"Tool {self.name} does not expose a synchronous callable")
-        return self.func(**(input_data or {}))
+        return self.func(**self.validated_arguments(input_data))
 
     async def ainvoke(self, input_data: dict[str, Any] | None = None) -> Any:
+        arguments = self.validated_arguments(input_data)
         if self.coroutine is not None:
-            return await self.coroutine(**(input_data or {}))
+            return await self.coroutine(**arguments)
         if self.func is None:
             raise RuntimeError(f"Tool {self.name} does not expose an async callable")
-        return self.func(**(input_data or {}))
+        return self.func(**arguments)
+
+
+def validate_tool_arguments(args_schema: type[BaseModel], input_data: dict[str, Any] | None) -> dict[str, Any]:
+    """Validate tool arguments with *args_schema* and return them as keyword arguments (only the fields given)."""
+    model = args_schema.model_validate(input_data or {})
+    return model.model_dump(exclude_unset=True)
 
 
 def _with_prefix(prefix: str, name: str) -> str:
@@ -346,9 +358,9 @@ def _build_sign_http_request_tool(
             inputs={"method": method, "url": url, "body": body},
         )
         try:
-            validate_http_target(
-                url, HttpTargetValidationOptions(allow_private_targets=allow_private_network_targets)
-            )
+            # One policy for the tool's check and for the SDK's own check when it signs
+            http_security = HttpTargetValidationOptions(allow_private_targets=allow_private_network_targets)
+            validate_http_target(url, http_security)
             key_id = get_active_signing_key_id(runtime_identity)
             if key_id is None:
                 raise ValueError("The runtime identity has no active assertionMethod key to sign with")
@@ -360,6 +372,7 @@ def _build_sign_http_request_tool(
                     **runtime_signing_params(runtime_identity),
                     agent_did=runtime_identity.document.id,
                     verification_method_id=key_id,
+                    http_security=http_security,
                 )
             )
             result = {

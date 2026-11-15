@@ -10,6 +10,7 @@ from agent_did_a2a import (
     A2ASkill,
     create_agent_did_a2a_integration,
 )
+from agent_did_a2a.config import AgentDidA2AConfig
 
 
 @pytest.mark.asyncio
@@ -120,6 +121,52 @@ async def test_a2a_context_block_contains_identity() -> None:
     assert "HTTP Message Signatures" in context
 
 
+async def _runtime() -> tuple[AgentIdentity, object]:
+    AgentIdentity.set_registry(InMemoryAgentRegistry())
+    identity = AgentIdentity(AgentIdentityConfig(controller_signer=LocalKeySigner.generate()[0]))
+    runtime_identity = await identity.create(
+        CreateAgentParams(name="GateBot", core_model="gpt-4.1-mini", system_prompt="Gate test")
+    )
+    return identity, runtime_identity
+
+
+@pytest.mark.asyncio
+async def test_disabled_operations_raise() -> None:
+    identity, runtime_identity = await _runtime()
+    integration = create_agent_did_a2a_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,  # type: ignore[arg-type]
+        expose={"sign_requests": False, "verify_requests": False, "enrich_agent_card": False},
+    )
+
+    with pytest.raises(PermissionError, match="sign_requests"):
+        await integration.send_task(
+            target_url="https://remote-agent.example.com/a2a", request_id=1, task_id="t", message={}
+        )
+    with pytest.raises(PermissionError, match="verify_requests"):
+        await integration.verify_request(method="POST", url="https://me.example.com/a2a", headers={})
+    with pytest.raises(PermissionError, match="enrich_agent_card"):
+        integration.build_agent_card(agent_url="https://me.example.com")
+
+
+@pytest.mark.asyncio
+async def test_private_targets_are_refused_unless_allowed() -> None:
+    identity, runtime_identity = await _runtime()
+    default = create_agent_did_a2a_integration(
+        agent_identity=identity, runtime_identity=runtime_identity  # type: ignore[arg-type]
+    )
+    with pytest.raises(ValueError, match="Blocked request to private/reserved address"):
+        await default.send_task(target_url="http://127.0.0.1:8080/a2a", request_id=1, task_id="t", message={})
+
+    allowed = create_agent_did_a2a_integration(
+        agent_identity=identity,
+        runtime_identity=runtime_identity,  # type: ignore[arg-type]
+        config=AgentDidA2AConfig(allow_private_network_targets=True),
+    )
+    signed = await allowed.send_task(target_url="http://127.0.0.1:8080/a2a", request_id=1, task_id="t", message={})
+    assert "Signature" in signed.headers
+
+
 @pytest.mark.asyncio
 async def test_exposure_config_applies_defaults() -> None:
     AgentIdentity.set_registry(InMemoryAgentRegistry())
@@ -135,10 +182,9 @@ async def test_exposure_config_applies_defaults() -> None:
     integration = create_agent_did_a2a_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,
-        expose={"rotate_keys": True, "document_history": True},
+        expose={"enrich_agent_card": False},
     )
 
     assert integration.config.expose.sign_requests is True
     assert integration.config.expose.verify_requests is True
-    assert integration.config.expose.rotate_keys is True
-    assert integration.config.expose.document_history is True
+    assert integration.config.expose.enrich_agent_card is False

@@ -257,9 +257,9 @@ def create_agent_framework_tools(
             inputs = {"method": method, "url": url, "body": body}
             _emit_tool_started(observer, tool_name=tool_name, did=current_did, inputs=inputs)
             try:
-                validate_http_target(
-                    url, HttpTargetValidationOptions(allow_private_targets=allow_private_network_targets)
-                )
+                # One policy for the tool's check and for the SDK's own check when it signs
+                http_security = HttpTargetValidationOptions(allow_private_targets=allow_private_network_targets)
+                validate_http_target(url, http_security)
                 key_id = get_active_signing_key_id(runtime_identity)
                 if key_id is None:
                     raise ValueError("The runtime identity has no active assertionMethod key to sign with")
@@ -271,6 +271,7 @@ def create_agent_framework_tools(
                         **runtime_signing_params(runtime_identity),
                         agent_did=runtime_identity.document.id,
                         verification_method_id=key_id,
+                        http_security=http_security,
                     )
                 )
                 payload: dict[str, str] = result
