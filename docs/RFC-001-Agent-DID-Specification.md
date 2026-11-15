@@ -357,7 +357,7 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | DID Resolution (6.2) | `AgentIdentity.resolve(did)` |
 | Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
 | Verification Relationship Binding (6.2.1) | `assertKeyPurpose(...)` / `assert_key_purpose(...)`, default `assertionMethod` |
-| Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime })`, `checkDidWebvhKeyAtTime(log, ...)`. `verifyHistoricalSignature` is deprecated: it accepts a retired key without any time check |
+| Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime })`, `checkDidWebvhKeyAtTime(log, ...)`. `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted a retired key without any time check |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
 | Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
 | Revocation (6.4) | `revokeDid(did)` |
@@ -490,5 +490,5 @@ After `1.0.0`, corrections to this RFC must follow an explicit errata path:
 [did:webvh]: https://identity.foundation/didwebvh/v1.0/
 [DID-CORE]: https://www.w3.org/TR/did-core/
 
-**License:** MIT
+**License:** Apache-2.0
 **Canonical document:** `docs/RFC-001-Agent-DID-Specification.md`
