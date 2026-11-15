@@ -10,7 +10,7 @@ import {
   AgentDocumentHistoryEntry
 } from '../core/types';
 import { ADDITIONAL_VERIFICATION_RELATIONSHIPS } from '../core/identity-composition';
-import { generateAgentMetadataHash, generateCanonicalDocumentHash } from '../crypto/hash';
+import { generateCanonicalDocumentHash } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
 import { DID_WEBVH_PLACEHOLDER } from './adapter';
 
@@ -103,9 +103,7 @@ export function buildBootstrapControllerTemplate(params: {
     agentMetadata: {
       name: `controller-${normalizeDidPathSegment(keyId)}`,
       description: 'Local bootstrap controller root for canonical did:webvh flows.',
-      version: '1.0.0',
-      coreModelHash: generateAgentMetadataHash(`controller:${params.creatorKeyDid}`),
-      systemPromptHash: generateAgentMetadataHash('controller-bootstrap-root')
+      version: '1.0.0'
     },
     verificationMethod: [{
       id: verificationMethodId,

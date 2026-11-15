@@ -77,8 +77,8 @@ describe('AgentIdentity Core Module', () => {
     expect(document.agentMetadata.memberOf).toEqual("did:fleet:test-fleet-1");
 
     // Ensure sensitive data was hashed into URIs
-    expect(document.agentMetadata.coreModelHash.startsWith("hash://hmac-sha256/")).toBe(true);
-    expect(document.agentMetadata.systemPromptHash.startsWith("hash://hmac-sha256/")).toBe(true);
+    expect(document.agentMetadata.coreModelHash?.startsWith("hash://hmac-sha256/")).toBe(true);
+    expect(document.agentMetadata.systemPromptHash?.startsWith("hash://hmac-sha256/")).toBe(true);
     
     // The raw prompt should NOT be in the document
     expect(JSON.stringify(document)).not.toContain("You are a helpful test assistant.");
@@ -1462,6 +1462,37 @@ describe('Bootstrap controller keys', () => {
       const updated = await AgentIdentity.updateDidDocument(document.id, { systemPrompt: 'new prompt', systemPromptSalt });
       expect(verifyMetadataCommitment(updated.agentMetadata.systemPromptHash, 'new prompt', systemPromptSalt)).toBe(true);
       expect(updated.agentMetadata.coreModelHash).toEqual(document.agentMetadata.coreModelHash);
+    });
+
+    it('omits both commitments and their salts when model and prompt are not given', async () => {
+      const { document, metadataCommitmentSalts } = await identity.create({ name: 'NoClaimsBot' });
+      expect(document.agentMetadata).not.toHaveProperty('coreModelHash');
+      expect(document.agentMetadata).not.toHaveProperty('systemPromptHash');
+      expect(metadataCommitmentSalts).toEqual({});
+      expect(verifyMetadataCommitment(document.agentMetadata.coreModelHash, 'gpt-4o-mini', generateCommitmentSalt())).toBe(false);
+      expect((await AgentIdentity.resolve(document.id)).agentMetadata).not.toHaveProperty('coreModelHash');
+    });
+
+    it('commits only to the value that is given', async () => {
+      const { document, metadataCommitmentSalts } = await identity.create({ name: 'PromptOnlyBot', systemPrompt: 'Be brief.' });
+      expect(document.agentMetadata).not.toHaveProperty('coreModelHash');
+      expect(document.agentMetadata.systemPromptHash).toMatch(/^hash:\/\/hmac-sha256\//);
+      expect(Object.keys(metadataCommitmentSalts ?? {})).toEqual(['systemPrompt']);
+    });
+
+    it('rejects a salt given without its value', async () => {
+      await expect(identity.create({ name: 'SaltOnlyBot', coreModelSalt: generateCommitmentSalt() }))
+        .rejects.toThrow('coreModelSalt was given without coreModel');
+    });
+
+    it('keeps a document without commitments on update and can add one later', async () => {
+      const { document } = await identity.create({ name: 'LateClaimBot' });
+      const described = await AgentIdentity.updateDidDocument(document.id, { description: 'now described' });
+      expect(described.agentMetadata).not.toHaveProperty('coreModelHash');
+      const coreModelSalt = generateCommitmentSalt();
+      const committed = await AgentIdentity.updateDidDocument(document.id, { coreModel: 'gpt-4.1', coreModelSalt });
+      expect(verifyMetadataCommitment(committed.agentMetadata.coreModelHash, 'gpt-4.1', coreModelSalt)).toBe(true);
+      expect(committed.agentMetadata).not.toHaveProperty('systemPromptHash');
     });
   });
 });

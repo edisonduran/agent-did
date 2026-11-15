@@ -6,8 +6,13 @@ export interface AgentMetadata {
   name: string;
   description?: string;
   version: string;
-  coreModelHash: string; // URI pointing to the base LLM hash (e.g., ipfs://...)
-  systemPromptHash: string; // URI pointing to the system prompt hash
+  /**
+   * Optional commitment to the base model (RFC-001 §4.3): an assertion by the controller, not evidence of
+   * what the agent runs.
+   */
+  coreModelHash?: string;
+  /** Optional commitment to the system prompt (RFC-001 §4.3): an assertion by the controller. */
+  systemPromptHash?: string;
   capabilities?: string[]; // Array of authorized skills/permissions
   memberOf?: string; // DID of the Fleet/Class this agent belongs to
 }
@@ -169,11 +174,19 @@ export interface CreateAgentParams {
   name: string;
   description?: string;
   version?: string; // Defaults to "1.0.0"
-  coreModel: string; // The raw model name/string (committed to with a salted HMAC by the SDK)
-  systemPrompt: string; // The raw prompt string (committed to with a salted HMAC by the SDK)
-  /** 32-byte hex salt for the `coreModelHash` commitment. Generated randomly when omitted. */
+  /**
+   * The raw model name, committed to with a salted HMAC as `coreModelHash`. Optional: when omitted the
+   * document carries no `coreModelHash` (RFC-001 §4.3).
+   */
+  coreModel?: string;
+  /** The raw system prompt, committed to as `systemPromptHash`. Optional, like `coreModel`. */
+  systemPrompt?: string;
+  /**
+   * 32-byte hex salt for the `coreModelHash` commitment. Generated randomly when omitted. Only valid
+   * together with `coreModel`.
+   */
   coreModelSalt?: string;
-  /** 32-byte hex salt for the `systemPromptHash` commitment. Generated randomly when omitted. */
+  /** 32-byte hex salt for the `systemPromptHash` commitment. Only valid together with `systemPrompt`. */
   systemPromptSalt?: string;
   capabilities?: string[];
   memberOf?: string;
@@ -217,15 +230,16 @@ export interface CreateAgentResult {
    * Salts of the `coreModelHash` and `systemPromptHash` commitments (`hash://hmac-sha256/`).
    * Keep them private; reveal a salt together with its value only to a party that should be
    * able to verify it (see `verifyMetadataCommitment`). They are not stored anywhere else.
-   * Always set by `AgentIdentity.create()`; absent only when a result is built by hand.
+   * Set by `AgentIdentity.create()`; each salt is present only for the value (`coreModel`, `systemPrompt`)
+   * that was given.
    */
   metadataCommitmentSalts?: MetadataCommitmentSalts;
 }
 
 /** Salts (32-byte hex) of an agent's metadata commitments. */
 export interface MetadataCommitmentSalts {
-  coreModel: string;
-  systemPrompt: string;
+  coreModel?: string;
+  systemPrompt?: string;
 }
 
 /**

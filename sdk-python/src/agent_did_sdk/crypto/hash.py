@@ -91,12 +91,13 @@ def create_metadata_commitment(value: str, salt_hex: str) -> str:
     return f"{_HMAC_SHA256_COMMITMENT_PREFIX}{digest}"
 
 
-def verify_metadata_commitment(commitment_uri: str, value: str, salt_hex: str | None = None) -> bool:
+def verify_metadata_commitment(commitment_uri: str | None, value: str, salt_hex: str | None = None) -> bool:
     """Check a revealed value (and salt) against a metadata commitment URI.
 
     ``hash://hmac-sha256/...`` requires the salt used at commitment time.
     ``hash://sha256/...`` (unsalted, produced by ``1.0.0rc2`` and earlier) ignores the salt.
-    Returns ``False`` for a mismatch, an unknown scheme, or a missing or malformed salt.
+    Returns ``False`` for a mismatch, an unknown scheme, a missing or malformed salt, or a missing commitment
+    (the fields are optional, RFC-001 §4.3).
     """
     if not value or not isinstance(commitment_uri, str):
         return False

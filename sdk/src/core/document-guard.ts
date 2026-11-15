@@ -69,8 +69,8 @@ const agentMetadata: Check = (value, path) =>
     name: string,
     description: optionalString,
     version: string,
-    coreModelHash: string,
-    systemPromptHash: string,
+    coreModelHash: optionalString,
+    systemPromptHash: optionalString,
     capabilities: optionalStringList,
     memberOf: optionalString
   });
