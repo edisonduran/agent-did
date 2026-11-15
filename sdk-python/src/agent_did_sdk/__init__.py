@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from .core.agent_card import (
+    AGENT_CARD_SIGNATURE_ALG,
+    AGENT_DID_A2A_EXTENSION_URI,
+    MAX_AGENT_CARD_SIGNATURES,
+    AgentCardSignatureEntry,
+    ParsedAgentCard,
+    parse_signed_agent_card,
+    sign_agent_card,
+)
 from .core.agent_metadata_credential import AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE
 from .core.client import AgentDidClient, AgentDidClientOptions
 from .core.controller_binding import ControllerBindingError
@@ -71,6 +80,7 @@ from .core.types import (
     DidWebvhControllerKeys,
     HttpSignatureRejection,
     IdentityCompositionErrorReason,
+    IdentityCompositionRejection,
     IssueAgentMetadataCredentialParams,
     KeyAtTimeRejection,
     KeyAtTimeResult,
@@ -84,12 +94,16 @@ from .core.types import (
     VerifiableCredentialLink,
     VerificationMethod,
     VerificationRelationship,
+    VerifyAgentCardResult,
     VerifyAgentMetadataCredentialResult,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
+    VerifyIdentityCompositionParams,
+    VerifyIdentityCompositionResult,
     VerifySignatureAtTimeRejection,
     VerifySignatureAtTimeResult,
 )
+from .core.verification_method import REVOKED_CONTEXT_TERM
 from .crypto.hash import (
     canonicalize_json,
     create_metadata_commitment,
@@ -161,6 +175,18 @@ __all__ = [
     "SignedArtifactKind",
     "AdditionalVerificationRelationship",
     "IdentityCompositionErrorReason",
+    "IdentityCompositionRejection",
+    "VerifyAgentCardResult",
+    "VerifyIdentityCompositionParams",
+    "VerifyIdentityCompositionResult",
+    "AGENT_CARD_SIGNATURE_ALG",
+    "AGENT_DID_A2A_EXTENSION_URI",
+    "MAX_AGENT_CARD_SIGNATURES",
+    "AgentCardSignatureEntry",
+    "ParsedAgentCard",
+    "parse_signed_agent_card",
+    "sign_agent_card",
+    "REVOKED_CONTEXT_TERM",
     "CreateAgentParams",
     "CreateAgentResult",
     "MetadataCommitmentSalts",

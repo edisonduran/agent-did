@@ -321,6 +321,16 @@ RFC-001 §6.5 ([ADR-006](../docs/ADR-006-Wire-Alignment-rc5.md) D-8a). `Signatur
 - Third-party signers: send `Agent-DID: <label>="<did>"` and cover `"agent-did";key="<label>"` with the signature's own label, last among the seven required components.
 - Fixtures: `fixtures/http-verification-vectors.json` (84 vectors, with new `Agent-DID` cases) and `fixtures/interop-vectors.json` are regenerated, and the wire freeze is re-pinned.
 
+## 35. Composition contract: signed Agent Cards, revoked keys, single-key retirement (new)
+
+RFC-001 §4.2, §6.2.2, §6.6 item 3 and the [A2A Identity Composition Contract](../docs/RFC-001-A2A-Identity-Composition-Contract.md) (`[RFC]` #257).
+
+- **Signed Agent Cards.** `signAgentCard(card, signer, keyId)` adds an A2A 1.0 §8.4 JWS (`alg` `EdDSA`, `kid` = the DID URL of an `assertionMethod` key, `typ` `JOSE`) over the JCS form of the card without `signatures`. Publish the agent DID and its keys in `capabilities.extensions` with `uri` `AGENT_DID_A2A_EXTENSION_URI`. `AgentDidClient.verifyAgentCard(card)` checks the format and every signature; `verifyIdentityComposition({ ...request, agentCard })` also checks that the request verifies and that its `keyid` is a key the card publishes. Both return `{ ok: false, reason }` with the contract reasons (`rotation_window_closed`, `emergency_revoked`, `key_purpose_violation`, `tampered`, `card_keyid_mismatch`, `format_drift`, `did_document_unresolvable`, `request_rejected`).
+- **Single-key retirement.** `AgentDidClient.retireVerificationMethod(did, keyId)` retires one key and keeps the others. A planned rotation is now `addVerificationMethod` (both keys listed: the overlap) then `retireVerificationMethod` of the old key. It refuses the last `authentication` or `assertionMethod` key.
+- **Emergency revocation.** `retireVerificationMethod(did, keyId, { emergency: true })` and `rotateVerificationMethod(did, { emergency: true })` also set `revoked` on the retired keys. A revoked key is `not_authorized` (`key_revoked`) in `verifySignatureAtTime` at every stated time, even with `trustedTimeNotAfter`. Use it when a key may be compromised.
+- **Document format.** `VerificationMethod.revoked` is new, and a document with a revoked key ends its `@context` with the inline term `REVOKED_CONTEXT_TERM` (the published `https://agent-did.org/v1` context is immutable). `AgentDIDDocument['@context']` is now `AgentDidContextEntry[]` (a string or that term): code that treats every entry as a string must handle the object. The document guard rejects `revoked` without `deactivated`, a revoked key without the term, and the term without a revoked key. Documents without revoked keys are unchanged.
+- Fixtures: `fixtures/composition-contract-vectors.json` (new, in `interop:check` and the wire freeze).
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -339,6 +349,8 @@ RFC-001 §6.5 ([ADR-006](../docs/ADR-006-Wire-Alignment-rc5.md) D-8a). `Signatur
 - [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.
 - [ ] Direct users of the did:webvh adapter read `result.versionNumber` instead of `result.metadata.versionNumber`.
 - [ ] Every `signHttpRequest` call passes `verificationMethodId`.
+- [ ] Code that reads `@context` entries as strings handles the inline `revoked` term.
+- [ ] A planned key rotation that must not break in-flight requests uses `addVerificationMethod` then `retireVerificationMethod`; a suspected compromise uses `emergency: true`.
 - [ ] Stored payload signatures are re-signed with rc.5 (the signed bytes carry the `agent-did/v1/message` prefix).
 - [ ] Agents with an explicit controller are listed under the controller's `capabilityInvocation`; bootstrap controllers from rc.4 get the key added (`addVerificationMethod`).
 - [ ] Verifiers hold the agent's did:webvh log (production resolver or `importDidWebvhHistory`); no code relies on a fallback for did:webvh.

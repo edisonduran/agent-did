@@ -7,6 +7,8 @@
 > **Co-author push access**: `@aeoess` invited as repo collaborator (Write) 2026-04-30, scoped operationally to `spec/a2a-composition-contract` (`develop` and `main` are protected, require PR + 1 review).
 > **Sync state with APS**: All five sections (§4.3, §4.4, §5, §6.3, §6.4) are **APS-confirmed**. §4.3, §4.4, §6.3, §6.4 confirmed by `@aeoess` via direct push (commits `3fc38384` and `da473ee3`, 2026-04-30 / 2026-05-01). §5 (Error shape) confirmed by `@aeoess` via [a2aproject/A2A#1742 comment 2026-05-01 23:52 UTC](https://github.com/a2aproject/A2A/issues/1742#issuecomment-4362194636) under the explicit superset-with-aliases contract documented inline; flip applied by `@edisonduran` via commit `0e6a5d4c` on aeoess's behalf with text reflecting his 2026-05-01 23:52 UTC posture verbatim. When aeoess pushes commits directly against the spec branch, those commits are authoritative over the working baseline.
 >
+> **Implemented in `1.0.0-rc.5` (`[RFC]` [#257](https://github.com/edisonduran/agent-did/issues/257))**: both reference SDKs sign and verify Agent Cards and check requests against them. The text below changed with it: §1.1 and §3.1 follow the A2A 1.0 card signature (JWS) instead of the pre-pass shape, §3 defines the keys a card publishes, §4 and §4.3 say how the planned overlap and emergency revocation are expressed in the DID document, §4.1 scenario 3e and §5.2 record that the reference SDKs fail closed for a DID they cannot resolve, and §7 points to the published vectors. These changes were sent to `@aeoess` on [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6897760300) on 2026-11-15; the §4.3 reading is awaiting APS confirmation.
+>
 > **APS-aligned pre-pass (2026-04-30)**: §0 (threat model), §1.1 (canonicalization split), §4.1 scenario 3e (unknown DID method), §3.1 (wire shape reference), §8 (test vectors), §9 (vocabulary) below were added unilaterally by Agent-DID after analyzing publicly inspectable APS infrastructure (`agent-passport-system`, `aps-conformance-suite`, `a2a-compliance-harness`, `agent-governance-vocabulary`). Each carries `[APS-aligned pre-pass, open to revision in counter-draft]`. Counter-draft from `@aeoess` is authoritative over this pre-pass.
 
 ## 0. Threat model `[APS-aligned pre-pass, open to revision in counter-draft]`
@@ -38,7 +40,7 @@ The two identity surfaces use **different canonicalization rules** by design, an
 
 | Surface | Canonicalization | Signature mechanism | Lifetime |
 |---------|------------------|---------------------|----------|
-| Agent Card body (identity-at-rest) | **RFC 8785 JCS** (JSON Canonicalization Scheme); `signature` field stripped before canonicalization (detached-signature style) | Detached Ed25519 over JCS-canonical bytes | Lifetime of the published key |
+| Agent Card body (identity-at-rest) | **RFC 8785 JCS** (JSON Canonicalization Scheme) of the card without its `signatures` member (A2A 1.0 §8.4.1) | JWS (RFC 7515) with `alg` `EdDSA`, one entry of `signatures` per signing key (§3.1) | Lifetime of the published key |
 | Per-request (identity-in-motion) | **RFC 9421 §2** signature base (component canonicalization over `@signature-params` + selected headers) | RFC 9421 HTTP Message Signature, Ed25519 | Single message |
 
 The two coexist because they answer different questions: the Card answers "which keys is this agent authorized to sign with, and is that authorization signed?", the per-request signature answers "is this exact byte sequence authentic right now?". Mixing the two canonicalizations would not improve either property and would break interop with both `aps-conformance-suite` (which assumes JCS for the Card) and the RFC 9421 ecosystem (which assumes its own component canonicalization for HTTP messages).
@@ -57,28 +59,38 @@ For `did:` based identities resolved through DID document verification material:
 
 1. Verifier extracts `keyid` from the per-request signature (RFC 9421 `keyid` parameter).
 2. Verifier resolves the signing agent's DID → DID document → verification material.
-3. Verifier resolves the signing agent's Agent Card → published key material (JWKS or equivalent).
-4. Verifier asserts: `keyid` ∈ DID-document-verification-material ∩ Agent-Card-published-keys (subject to rotation rules in §4 and key-purpose scoping in §6.3).
+3. Verifier fetches the signing agent's Agent Card and verifies its signatures (§3.1) → published key material.
+4. Verifier asserts: `keyid` ∈ DID-document-verification-material ∩ Agent-Card-published-keys (subject to rotation rules in §4 and key-purpose scoping in §6.3), and the request's agent DID is the card's.
 
 Mismatch at step 4 → `IdentityCompositionError(reason=...)`.
 
-### 3.1 Wire shape reference `[APS-aligned pre-pass, open to revision in counter-draft]`
+**Keys a card publishes.** The `kid` of every card signature, and the `keyIds` of the Agent-DID extension when the card has one: an entry of `capabilities.extensions` with `uri` `https://agent-did.org/a2a/identity/v1` and `params` `{ "did": "<agent DID>", "keyIds": ["<DID URL>", …] }`. The extension lets a card publish a key that does not sign it, such as the other key of a planned overlap (§4). Every `kid` and the extension `did` MUST name the same agent DID; a card that has more than one Agent-DID extension, or whose extension lists a key of another DID, does not have the §3.1 shape.
 
-For cross-implementation interop with [`a2a-compliance-harness`](https://github.com/aeoess/a2a-compliance-harness), Agent Card bodies SHOULD follow the wire shape assumed by that harness:
+### 3.1 Signed Agent Card `[rc.5, #257]`
+
+Agent Cards are signed as A2A 1.0 §8.4 specifies, with a fixed profile. Each entry of `signatures` is an A2A `AgentCardSignature`:
 
 ```json
 {
   "name": "...",
-  "description": "...",
-  "issuer": "did:webvh:example.com:organizations:acme-support",
-  "capabilities": ["..."],
-  "schema_version": "...",
-  "signature": { "alg": "EdDSA", "kid": "did:webvh:example.com:agents:supportbot-x#key-1", "value": "<base64url>" },
-  "delegation_chain": []
+  "capabilities": {
+    "extensions": [
+      { "uri": "https://agent-did.org/a2a/identity/v1",
+        "params": { "did": "did:webvh:…:agents:supportbot-x", "keyIds": ["did:webvh:…:agents:supportbot-x#key-1"] } }
+    ]
+  },
+  "signatures": [
+    { "protected": "<base64url of {\"alg\":\"EdDSA\",\"kid\":\"did:webvh:…#key-1\",\"typ\":\"JOSE\"}>",
+      "signature": "<base64url of the Ed25519 signature>" }
+  ]
 }
 ```
 
-The `signature` field is stripped before JCS canonicalization (§1.1). The `kid` follows the DID URL fragment convention (`did:method:identifier#fragment`) and is the key whose membership the verifier checks per §2. Implementations MAY add fields beyond this shape; the listed fields MUST be present and MUST canonicalize identically across implementations for the harness to accept the Card.
+- **Protected header.** A JSON object with `alg` `EdDSA` (RFC 8037), `kid` a DID URL (`did:method:id#fragment`) of an Ed25519 key listed under the agent's `assertionMethod`, and `typ` `JOSE` when present. It MUST NOT contain `crit`. Other members (for example `jku`) are allowed and are not used to find the key: the key comes from the DID document.
+- **Signing input.** `BASE64URL(protected) || "." || BASE64URL(JCS(card without "signatures"))`, with unpadded base64url (RFC 7515 §2) and JCS as in RFC 8785. The signature is 64 bytes. The optional unprotected `header` is not covered and is ignored.
+- **Verification.** A verifier MUST reject (`format_drift`) a card that is not a JSON object, has no `signatures` or an empty one, or has an entry that does not follow the two items above, and MUST verify every signature against the current DID document of the agent (reasons as in §5). A card without signatures is not a signed card: the contract needs one.
+- A2A 1.0 §8.4.3 also asks verifiers to remove members with default values before canonicalizing. An Agent-DID signer canonicalizes the card exactly as it serves it and SHOULD NOT emit members with default values; a verifier canonicalizes the card exactly as received.
+- No conformance with A2A 1.0 is claimed: the signature is aligned with §8.4 and has not been verified against an independent A2A implementation. The `[APS-aligned pre-pass]` shape of earlier drafts (`signature: {alg, kid, value}`) is retired.
 
 ### 3.2 Canonical `did:webvh` controller-to-agent composition path
 
@@ -107,6 +119,8 @@ Rotation modes:
 - **Planned mode** — configurable overlap window. Both prior and current keys are listed in the resolved DID document for the duration of the overlap.
 - **Emergency mode** — immediate retirement of the prior key. Prior key transitions to `revoked` state in the DID document with no overlap.
 
+In Agent-DID (RFC-001 §4.2, §6.6 item 3) the planned overlap is written in the DID document: the controller adds the new key, both keys are listed under `assertionMethod` while the overlap lasts, and the controller then retires the prior key, which gains a `deactivated` time and leaves every relationship (`retireVerificationMethod`). An emergency retirement or rotation also sets `revoked` on the key. A verifier reads the state from the current document: a retired key is `rotation_window_closed`, a revoked key is `emergency_revoked`, and a revoked key is also refused at every stated time (RFC-001 §6.2.2).
+
 ### 4.1 Conformance scenarios (4 required)
 
 | # | Scenario | Expected verifier behavior |
@@ -115,7 +129,7 @@ Rotation modes:
 | 3b | Signature under **prior key** during planned overlap window, prior key still listed in resolved DID document | Accept. |
 | 3c | Signature under **prior key** after planned overlap window has closed | Reject with `IdentityCompositionError(reason="rotation_window_closed" / "OverlapWindowExceeded")`. |
 | 3d | Signature under **emergency-revoked prior key** at any time | Reject with `IdentityCompositionError(reason="emergency_revoked" / "EmergencyRevokedKey")`, regardless of in-flight signature timestamps or resolver cache state. |
-| 3e | Signature whose `keyid` resolves through a **DID method the verifier does not support** `[APS-aligned pre-pass, open to revision in counter-draft]` | **Degrade gracefully**: do NOT fail-closed. Mark the verification result with `did_resolver_unsupported` and surface it to the calling policy layer. The composition contract is undefined for unknown DID methods; failing closed would penalize agents using methods not yet registered with the verifier and contradicts APS posture (per `a2a-compliance-harness/README.md`). In the canonical Agent-DID profile this is a compatibility fallback, not the expected `did:webvh` path. |
+| 3e | Signature whose `keyid` resolves through a **DID method the verifier does not support** `[APS-aligned pre-pass, open to revision in counter-draft]` | **Degrade gracefully**: do NOT fail-closed. Mark the verification result with `did_resolver_unsupported` and surface it to the calling policy layer. The composition contract is undefined for unknown DID methods; failing closed would penalize agents using methods not yet registered with the verifier and contradicts APS posture (per `a2a-compliance-harness/README.md`). In the canonical Agent-DID profile this is a compatibility fallback, not the expected `did:webvh` path. **The Agent-DID reference SDKs do not emit this marker:** a DID they cannot resolve fails closed with `did_document_unresolvable` (§5.2), and the calling policy decides what to do with that rejection. `[rc.5, #257]` |
 
 ### 4.2 Resolver cache hazard
 
@@ -128,6 +142,8 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - **24 hours** is the spec default for planned-mode overlap.
 - A verifier **MAY** shorten the overlap below 24h via local configuration (private hardening; does not affect cross-implementation interop).
 - A verifier **MUST NOT** lengthen the overlap beyond a hard ceiling of **7 days**. Indefinite overlap defeats the rotation-state-machine semantics scenarios 3a–3d depend on.
+
+Agent-DID reading `[rc.5, #257, awaiting APS confirmation]`: the overlap is the time both keys are listed in the DID document (§4), so the verifier applies no time window of its own; the 24 h default and the 7 d ceiling are guidance for controllers on when to retire the prior key.
 
 ### 4.4 Maximum resolver cache TTL — `max_emergency_propagation_window` `[APS-confirmed via aeoess push 2026-04-30]`
 
@@ -167,7 +183,8 @@ Verifiers **MAY** surface additional reason codes for verifier-side failure mode
 - `card_unresolvable` — the Agent Card cannot be fetched or parsed.
 - `did_document_unresolvable` — the DID document cannot be resolved by any configured resolver.
 - `format_drift` — Card body fails JCS canonicalization or violates §3.1 wire shape.
-- `did_resolver_unsupported` — scenario 3e (§4.1); NOT a hard rejection, surfaced as a marker.
+- `did_resolver_unsupported` — scenario 3e (§4.1); NOT a hard rejection, surfaced as a marker. Not emitted by the Agent-DID reference SDKs, which report `did_document_unresolvable` for any DID they cannot resolve.
+- `request_rejected` — Agent-DID SDKs only: the per-request signature failed a check this contract does not name (for example a replayed nonce or an expired signature); the HTTP verifier's own reason is returned with it.
 
 ### 5.3 Alias mapping rule
 
@@ -193,6 +210,7 @@ IdentityCompositionError {
         | "did_document_unresolvable"
         | "format_drift"
         | "did_resolver_unsupported"   // marker, not a hard rejection (§4.1 scenario 3e)
+        | "request_rejected"           // Agent-DID SDKs: HTTP check outside this contract (§5.2)
   request_keyid: string
   card_published_keyids: string[]
   did_document_verification_keyids: string[]
@@ -267,29 +285,22 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - Cross-method bridging is **explicitly out of scope** for this draft and is recorded as **Future Work**.
 - Rationale: cross-method bridging touches DID method registry semantics still in flux at the broader DIF community level. Landing it here would force premature closure on that question and tie the composition contract's lifecycle to a DID-method-registry timeline that is not under this spec's control.
 
-## 7. Test vectors `[APS-aligned pre-pass, open to revision in counter-draft]`
+## 7. Test vectors `[rc.5, #257]`
 
-This spec commits to publishing a `fixtures/composition-contract/` directory with deterministic JCS-canonicalized fixtures, mirroring the shape used by [`aps-conformance-suite`](https://github.com/aeoess/aps-conformance-suite) so that suite can ingest these fixtures as a sub-corpus.
+The vectors are published in [`fixtures/composition-contract-vectors.json`](../fixtures/composition-contract-vectors.json), generated by [`scripts/regenerate-composition-contract-vectors.js`](../scripts/regenerate-composition-contract-vectors.js) with public TEST-ONLY Ed25519 seeds, and checked by both reference SDKs in `npm run interop:check`. They cover what needs no DID resolution: byte-exact card signing, the format and signature outcome of 32 cards, the document rules for `revoked`, and the reason a verifier derives from a DID document. The resolution-dependent fixtures run as tests of the SDKs.
 
-**Minimum corpus** (8 fixtures, locked at v0.1):
+| ID | Scenario | Expected verifier outcome | Where |
+|----|----------|---------------------------|-------|
+| F1 | Happy path: current key, valid Card, valid per-request signature | accept | SDK tests; `cards` ok cases |
+| F2 | Happy path during planned overlap, signed under prior key still listed in DID document | accept (scenario 3b) | SDK tests |
+| F3 | Negative: §2 cross-check fails (`keyid` not in Card) | reject `card_keyid_mismatch` | SDK tests |
+| F4 | Negative: prior key after the controller retired it | reject `rotation_window_closed` (scenario 3c) | `reasons`, SDK tests |
+| F5 | Negative: emergency-revoked key | reject `emergency_revoked` (scenario 3d) | `reasons`, `documents`, SDK tests |
+| F6 | Negative: signing key purpose is not `assertionMethod` | reject `key_purpose_violation` (§6.3) | `reasons`, SDK tests |
+| F7 | Unknown DID method on `keyid` resolution path | not emitted by the reference SDKs (§4.1 3e) | — |
+| F8 | Negative: Agent Card body fails §3.1 | reject `format_drift` | `cards` format_drift cases |
 
-| ID | Scenario | Expected verifier outcome |
-|----|----------|---------------------------|
-| F1 | Happy path: current key, valid Card, valid per-request signature | accept |
-| F2 | Happy path during planned overlap, signed under prior key still listed in DID document | accept (scenario 3b) |
-| F3 | Negative: §2 cross-check fails (`keyid` not in Card) | reject `card_keyid_mismatch` / `key_mismatch` |
-| F4 | Negative: prior key after planned overlap window closed | reject `rotation_window_closed` (scenario 3c) |
-| F5 | Negative: emergency-revoked key | reject `emergency_revoked` (scenario 3d) |
-| F6 | Negative: signing key purpose is not `assertionMethod` (e.g. `keyAgreement`) | reject `key_purpose_violation` (§6.3) |
-| F7 | Marker: unknown DID method on `keyid` resolution path | mark `did_resolver_unsupported`, surface to policy (scenario 3e) |
-| F8 | Negative: Agent Card body fails JCS canonicalization or §3.1 wire shape | reject `format_drift` |
-
-Fixture properties:
-
-- Deterministic Ed25519 seed (publicly published in the fixture README so any implementation can regenerate).
-- JCS-canonicalized Card body bytes (RFC 8785).
-- RFC 9421 signature base shown alongside the signature value for verifier debugging.
-- Each fixture shipped as a self-describing JSON with `expected_outcome`, `expected_reason` (if reject), `expected_marker` (if marker).
+The fixture file is self-describing (see its `description`); a resolution-backed vector set in the shape of `aps-conformance-suite` remains possible in a later interop directory.
 
 ## 8. Vocabulary `[APS-aligned pre-pass, open to revision in counter-draft]`
 
@@ -305,6 +316,9 @@ When vocabulary v0.2 lands canonical names for any of these, this spec will adop
 
 ## 9. References
 
+- A2A 1.0 specification (§4.4.7 `AgentCardSignature`, §8.4 Agent Card signing): https://a2a-protocol.org/latest/specification/
+- RFC 7515 JSON Web Signature: https://www.rfc-editor.org/rfc/rfc7515
+- RFC 8037 EdDSA in JOSE: https://www.rfc-editor.org/rfc/rfc8037
 - A2A upstream thread: https://github.com/a2aproject/A2A/issues/1742
 - APS posture source comment (2026-04-30 21:47 UTC): https://github.com/a2aproject/A2A/issues/1742#issuecomment-4355813752
 - APS test vectors directory: https://github.com/ScopeBlind/agent-governance-testvectors

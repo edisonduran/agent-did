@@ -9,6 +9,7 @@ from .types import (
     AdditionalVerificationRelationship,
     AgentDIDDocument,
     IdentityCompositionErrorReason,
+    IdentityCompositionRejection,
     SignedArtifactKind,
     SigningVerificationPurpose,
     VerificationRelationship,
@@ -144,3 +145,21 @@ def assert_signing_purpose(
             required_purpose=required_purpose,
             found_in=get_key_relationships(key_id, did_doc) if key_id else [],
         )
+
+
+def composition_reason_for_key(did_doc: AgentDIDDocument, key_id: str) -> IdentityCompositionRejection:
+    """Composition contract reason for a signature by *key_id* that did not verify as an ``assertionMethod``
+    signature, read from the current DID document (contract §4.1, §5.1): ``emergency_revoked`` for a key that carries
+    ``revoked``, ``rotation_window_closed`` for another retired key, ``key_purpose_violation`` for an active key
+    outside ``assertionMethod``, and ``tampered`` otherwise (the key is not a key of the document, or the signature is
+    wrong)."""
+    method = next((vm for vm in did_doc.verification_method if vm.id == key_id), None)
+    if method is None:
+        return "tampered"
+    if method.revoked is not None:
+        return "emergency_revoked"
+    if method.deactivated:
+        return "rotation_window_closed"
+    if key_id not in get_relationship_key_ids(did_doc, REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"]):
+        return "key_purpose_violation"
+    return "tampered"

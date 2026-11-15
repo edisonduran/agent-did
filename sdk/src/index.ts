@@ -19,6 +19,13 @@ export {
   SignedArtifactKind,
   AdditionalVerificationRelationship,
   IdentityCompositionErrorReason,
+  IdentityCompositionRejection,
+  VerifyAgentCardResult,
+  VerifyIdentityCompositionParams,
+  VerifyIdentityCompositionResult,
+  RetireVerificationMethodOptions,
+  AgentDidContextEntry,
+  RevokedContextTerm,
   CreateAgentParams,
   CreateAgentResult,
   CreateDidWebvhOptions,
@@ -50,6 +57,15 @@ export {
 } from './core/types';
 
 export type { DataIntegrityProof } from './crypto/data-integrity';
+export {
+  AGENT_DID_A2A_EXTENSION_URI,
+  AGENT_CARD_SIGNATURE_ALG,
+  MAX_AGENT_CARD_SIGNATURES,
+  signAgentCard,
+  parseSignedAgentCard
+} from './core/agent-card';
+export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
+export { REVOKED_CONTEXT_TERM } from './core/verification-method';
 export { AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE } from './core/agent-metadata-credential';
 
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';

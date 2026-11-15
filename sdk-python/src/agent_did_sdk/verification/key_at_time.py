@@ -86,6 +86,15 @@ def _relationships_of(state: dict[str, Any], key_id: str) -> tuple[VerificationR
     return tuple(r for r in DID_VERIFICATION_RELATIONSHIPS if key_id in _string_list(state.get(r)))
 
 
+def _revokes_key(state: dict[str, Any], key_id: str) -> bool:
+    """Whether ``state`` lists ``key_id`` as a verification method that carries ``revoked``."""
+    methods = state.get("verificationMethod")
+    return any(
+        isinstance(m, dict) and m.get("id") == key_id and m.get("revoked") is not None
+        for m in (methods if isinstance(methods, list) else [])
+    )
+
+
 def _key_in_state(state: dict[str, Any], key_id: str, required_purpose: VerificationRelationship) -> _KeyInState:
     """Whether ``key_id`` is an authorized ``required_purpose`` key in ``state``."""
     found_in = _relationships_of(state, key_id)
@@ -161,6 +170,16 @@ async def check_did_webvh_key_at_time(
                 deactivated=parameters.get("deactivated") is True,
                 state=entry["state"],
             )
+        )
+
+    # An emergency revocation is final for every stated time (composition contract scenario 3d): whoever holds the
+    # key may have signed anything, and trusted time evidence does not tell the holder from a thief.
+    if any(_revokes_key(entry.state, key_id) for entry in entries):
+        return KeyAtTimeResult(
+            status="not_authorized",
+            key_id=key_id,
+            reason="key_revoked",
+            found_in=_relationships_of(entries[-1].state, key_id),
         )
 
     index = -1

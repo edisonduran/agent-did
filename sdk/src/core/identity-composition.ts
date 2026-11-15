@@ -2,6 +2,7 @@ import {
   AdditionalVerificationRelationship,
   AgentDIDDocument,
   IdentityCompositionErrorReason,
+  IdentityCompositionRejection,
   SignedArtifactKind,
   SigningVerificationPurpose,
   VerificationRelationship
@@ -145,4 +146,27 @@ export function assertSigningPurpose(
       foundIn: keyId ? getKeyRelationships(keyId, didDoc) : []
     });
   }
+}
+
+/**
+ * Composition contract reason for a signature by `keyId` that did not verify as an `assertionMethod` signature,
+ * read from the current DID document (contract §4.1, §5.1): `emergency_revoked` for a key that carries `revoked`,
+ * `rotation_window_closed` for another retired key, `key_purpose_violation` for an active key outside
+ * `assertionMethod`, and `tampered` otherwise (the key is not a key of the document, or the signature is wrong).
+ */
+export function compositionReasonForKey(didDoc: AgentDIDDocument, keyId: string): IdentityCompositionRejection {
+  const method = didDoc.verificationMethod.find((candidate) => candidate.id === keyId);
+  if (!method) {
+    return 'tampered';
+  }
+  if (method.revoked !== undefined && method.revoked !== null) {
+    return 'emergency_revoked';
+  }
+  if (method.deactivated) {
+    return 'rotation_window_closed';
+  }
+  if (!getRelationshipKeyIds(didDoc, REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion).includes(keyId)) {
+    return 'key_purpose_violation';
+  }
+  return 'tampered';
 }

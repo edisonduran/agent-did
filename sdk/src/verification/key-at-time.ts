@@ -85,6 +85,18 @@ function relationshipsOf(state: Record<string, unknown>, keyId: string): Verific
   return DID_VERIFICATION_RELATIONSHIPS.filter((relationship) => stringList(state[relationship]).includes(keyId));
 }
 
+/** Whether `state` lists `keyId` as a verification method that carries `revoked`. */
+function revokesKey(state: Record<string, unknown>, keyId: string): boolean {
+  const methods = Array.isArray(state.verificationMethod) ? (state.verificationMethod as unknown[]) : [];
+  return methods.some((candidate) => {
+    if (typeof candidate !== 'object' || candidate === null) {
+      return false;
+    }
+    const method = candidate as Record<string, unknown>;
+    return method.id === keyId && method.revoked !== undefined && method.revoked !== null;
+  });
+}
+
 /** Whether `keyId` is an authorized `requiredPurpose` key in `state`. */
 function keyInState(state: Record<string, unknown>, keyId: string, requiredPurpose: VerificationRelationship): KeyInState {
   const foundIn = relationshipsOf(state, keyId);
@@ -163,6 +175,13 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
         state: entry.state
       };
     });
+
+  // An emergency revocation is final for every stated time (composition contract scenario 3d): whoever holds the
+  // key may have signed anything, and trusted time evidence does not tell the holder from a thief.
+  if (entries.some((entry) => revokesKey(entry.state, keyId))) {
+    const last = entries[entries.length - 1];
+    return { status: 'not_authorized', keyId, reason: 'key_revoked', foundIn: relationshipsOf(last.state, keyId) };
+  }
 
   let index = -1;
   entries.forEach((entry, position) => {
