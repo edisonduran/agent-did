@@ -189,7 +189,8 @@ def test_rejects_invalid_limits() -> None:
 
 class _Hanging:
     """Fetches hang until ``release_all``; tracks the peak of active fetches per host. *only* limits it to URLs
-    containing that text (others answer "not found" at once)."""
+    containing that text (others answer "not found" at once). After ``release_all`` new fetches fail at once (how
+    many event-loop turns a queued fetch needs to start differs between Python versions); ``hold`` re-arms it."""
 
     def __init__(self, only: str | None = None) -> None:
         self.only = only
@@ -197,11 +198,17 @@ class _Hanging:
         self.active: dict[str, int] = {}
         self.peak: dict[str, int] = {}
         self.calls = 0
+        self.released = False
+
+    def hold(self) -> None:
+        self.released = False
 
     async def __call__(self, url: str) -> str | None:
         if self.only is not None and self.only not in url:
             return None
         self.calls += 1
+        if self.released:
+            raise RuntimeError("connect ETIMEDOUT")
         host = url.split("/")[2]
         self.active[host] = self.active.get(host, 0) + 1
         self.peak[host] = max(self.peak.get(host, 0), self.active[host])
@@ -212,6 +219,8 @@ class _Hanging:
         raise RuntimeError("connect ETIMEDOUT")
 
     async def release_all(self) -> None:
+        self.released = True
+        await _flush()
         while self.pending:
             for gate in self.pending[:]:
                 self.pending.remove(gate)
@@ -221,7 +230,7 @@ class _Hanging:
 
 
 async def _flush() -> None:
-    for _ in range(5):
+    for _ in range(20):
         await asyncio.sleep(0)
 
 
@@ -314,6 +323,7 @@ async def test_a_fetch_past_the_deadline_fails_is_remembered_and_keeps_its_slot_
         await resolver.resolve("did:webvh:QmScid:other.example:agents:b")
     assert hanging.calls == 1
     await hanging.release_all()
+    hanging.hold()
     with pytest.raises(ValueError, match="did not finish"):
         await resolver.resolve("did:webvh:QmScid:other.example:agents:b")
     await hanging.release_all()
