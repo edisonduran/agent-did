@@ -63,6 +63,7 @@ from agent_did_sdk import (
     VerifySignatureAtTimeResult,
     canonicalize_json,
 )
+from agent_did_sdk.core.nonce_store import NONCE_PATTERN
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
@@ -183,6 +184,8 @@ async def sign_handoff(
     document = runtime_identity.document
     moment = time.time() if signed_at is None else signed_at
     single_use = nonce if nonce is not None else secrets.token_hex(16)
+    if not NONCE_PATTERN.fullmatch(single_use):
+        raise ValueError("nonce must be 1 to 256 characters of A-Z a-z 0-9 . _ ~ + / = -")
     envelope = build_handoff_envelope(
         did=document.id,
         key_id=key_id,
@@ -415,7 +418,9 @@ def build_handoff_verifier_function(ctx: _VerifierContext) -> Callable[..., Any]
 
         # The nonce is recorded only for a message whose signature verified, so garbage cannot burn nonces.
         remembered_until = int(message.signed_at + ctx.max_age_seconds) + 1
-        if not await ctx.nonce_store.check_and_store(f"{message.did}|{message.nonce}", remembered_until):
+        # "<did> <nonce>": the nonce has no space, so a store that scopes keys by the text before the last space
+        # (InMemoryNonceStore's per-signer quota) scopes this one by the DID.
+        if not await ctx.nonce_store.check_and_store(f"{message.did} {message.nonce}", remembered_until):
             error = _build_block_error(
                 failing_gates=["replay"],
                 checked_did=message.did,
@@ -443,6 +448,8 @@ def _check_envelope_fields(ctx: _VerifierContext, message: SignedHandoffMessage)
         )
     if not isinstance(message.nonce, str) or not message.nonce:
         return "nonce", "Handoff message carries no nonce"
+    if not NONCE_PATTERN.fullmatch(message.nonce):
+        return "nonce", "Handoff nonce is not 1 to 256 characters of A-Z a-z 0-9 . _ ~ + / = -"
     now = ctx.now()
     if not math.isfinite(message.signed_at) or not math.isfinite(now):
         return "signed_at", "Handoff signed_at is not a finite time"

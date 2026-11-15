@@ -86,7 +86,7 @@ if (!result.ok) {
 | `digest_mismatch` | `Content-Digest` is absent, or is not exactly the SHA-256 of the body |
 | `tag_mismatch` | `tag` is not `agent-did` (for example another profile's signature) |
 | `alg_unsupported` | `alg` is not `ed25519` |
-| `params_missing` | `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type |
+| `params_missing` | `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type, or `nonce` is not 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` |
 | `keyid_not_bound` | `keyid` is not a key of the `Signature-Agent` DID |
 | `components_missing` / `components_order` | a required covered component is absent / the required components are not first and in order |
 | `created_skew` | `created` is further from now than the allowed skew |
@@ -107,7 +107,9 @@ Step 5 uses a `NonceStore`.
 
 > **WARNING: the default store is per process.** By default it is a process-wide `InMemoryNonceStore`, which is correct only for a single verifier instance (and is lost on restart). With replicas, serverless functions or Kubernetes, a replayed request is accepted by any instance that has not seen its nonce. Pass a shared store, as below, before you run more than one instance.
 
-The in-memory store refuses new nonces when full rather than evicting live ones.
+The in-memory store refuses new nonces when full rather than evicting live ones. It also caps the live entries of one signer (`maxEntriesPerScope` / `max_entries_per_scope`, default 10 000), so one signer cannot fill the store and lock the others out.
+
+The key passed to a store is `<keyid> <nonce>`. A nonce never contains a space (RFC-001 §6.5 item 3: 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -`, checked before the store is called), so the text before the last space is always the `keyid`: a shared store that wants per-signer quotas can scope by it. The Microsoft Agent Framework handoff verifier uses `<did> <nonce>` with the same nonce grammar.
 
 When several instances verify requests for the same agents, pass a shared store. Tested reference implementations for Redis are in [`sdk/examples/redis-nonce-store.js`](../sdk/examples/redis-nonce-store.js) and [`sdk-python/examples/redis_nonce_store.py`](../sdk-python/examples/redis_nonce_store.py). Copy them into your service; they are not part of the SDK packages, so the SDKs have no Redis dependency.
 
