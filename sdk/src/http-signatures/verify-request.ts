@@ -20,7 +20,7 @@ import {
   requestUrlFormProblem,
   SignatureInput
 } from '../core/http-signatures';
-import { NonceStore } from '../core/nonce-store';
+import { NONCE_PATTERN, NonceStore } from '../core/nonce-store';
 import { AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG, computeContentDigest } from '../core/http-profile';
 
 /** What the injected cryptographic check found. */
@@ -122,7 +122,7 @@ export async function verifyAgentDidHttpRequest(
     if (
       typeof created !== 'number' ||
       typeof expires !== 'number' ||
-      typeof nonce !== 'string' || nonce.length === 0 ||
+      typeof nonce !== 'string' || !NONCE_PATTERN.test(nonce) ||
       typeof keyId !== 'string'
     ) {
       fail('params_missing', true);

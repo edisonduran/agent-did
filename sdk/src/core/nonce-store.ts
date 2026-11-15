@@ -9,6 +9,13 @@
  *
  * Python parity: `agent_did_sdk.core.nonce_store`.
  */
+
+/**
+ * Grammar of an Agent-DID nonce (RFC-001 §6.5 item 3): 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -`. A nonce has
+ * no space, so in a store key `"<keyid> <nonce>"` the text before the last space is always the `keyid`.
+ */
+export const NONCE_PATTERN = /^[A-Za-z0-9._~+/=-]{1,256}$/;
+
 export interface NonceStore {
   /**
    * Records `key` until `expiresAt` (Unix seconds). Resolves `true` when the key
