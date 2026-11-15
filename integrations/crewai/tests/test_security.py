@@ -62,13 +62,14 @@ async def test_callbacks_are_sanitized_and_guardrails_block_sensitive_outputs() 
     guardrail = create_identity_output_guardrail(integration, required_fields=["result"])
 
     event = step_callback({"payload": "secret", "signature": "sig", "result": "ok"})
-    allowed, allowed_message = guardrail({"did": runtime_identity.document.id, "result": "ok"})
+    approved_output = {"did": runtime_identity.document.id, "result": "ok"}
+    allowed, allowed_message = guardrail(approved_output)
     blocked, blocked_message = guardrail({"did": runtime_identity.document.id, "result": "ok", "payload": "secret"})
 
     assert event["step_output"]["payload"] == "[REDACTED]"
     assert event["step_output"]["signature"] == "[REDACTED]"
     assert allowed is True
-    assert allowed_message is None
+    assert allowed_message is approved_output  # CrewAI requires the output back, never None
     assert blocked is False
     assert blocked_message is not None
     assert "payload" in blocked_message

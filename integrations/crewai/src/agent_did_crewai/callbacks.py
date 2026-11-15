@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .integration import AgentDidCrewAIIntegration
-from .sanitization import sanitize_output
+from .sanitization import normalize_output, sanitize_output
 
 CallbackSink = Callable[[dict[str, Any]], None]
 
@@ -22,12 +22,13 @@ def create_step_callback(
             "identity": identity,
             "step_output": sanitized_step_output,
         }
+        # The observer sanitizes with the SDK's sanitizer; it gets the plain structure, never the framework object.
         integration.observer.emit(
             "agent_did.crewai.step",
             attributes={
                 "did": identity["did"],
                 "authentication_key_id": identity.get("authentication_key_id"),
-                "step_output": step_output,
+                "step_output": normalize_output(step_output),
             },
         )
         if sink:
@@ -53,7 +54,7 @@ def create_task_callback(
             attributes={
                 "did": identity["did"],
                 "authentication_key_id": identity.get("authentication_key_id"),
-                "task_output": task_output,
+                "task_output": normalize_output(task_output),
             },
         )
         if sink:

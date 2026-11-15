@@ -312,6 +312,11 @@ ResolutionLimits(max_concurrent_fetches_per_host=16, max_queued_fetches=256, fet
 - CrewAI, LangChain, A2A: a sensitive field that is not a string (a dict, a list, a number) is now redacted too.
 - The signing tools of the integrations validate the target URL with the SDK policy: the error messages are now `Unsupported protocol: …` and `Blocked request to private/reserved address: …`, and every non-global address range is refused, not only loopback and private ones.
 
+## 31. CrewAI guardrail and callbacks
+
+- `create_identity_output_guardrail` returns `(True, output)` on success (it returned `(True, None)`, which CrewAI rejects). Code that called the guardrail directly and checked `message is None` must check the first element only.
+- The guardrail checks the agent's output (`TaskOutput.pydantic`, `json_dict`, or `raw` parsed as a JSON object). An agent whose final answer is not a JSON object now fails the guardrail; set `output_pydantic` (as `create_task_kwargs` does) or ask for JSON in the task.
+
 
 ## Checklist
 
