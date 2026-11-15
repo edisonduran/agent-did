@@ -30,7 +30,7 @@ def _make_document() -> dict[str, object]:
         "verificationMethod": [
             {
                 "id": f"{did}#key-1",
-                "type": "Ed25519VerificationKey2020",
+                "type": "Multikey",
                 "controller": "did:webvh:QmPresignedScid:example.com:organizations:ops-root",
                 "publicKeyMultibase": "zabc",
             }

@@ -26,7 +26,7 @@ export interface VerifiableCredentialLink {
 
 export interface VerificationMethod {
   id: string; // e.g., "did:webvh:...#key-1"
-  type: string; // e.g., "Ed25519VerificationKey2020" or "EcdsaSecp256k1RecoveryMethod2020"
+  type: string; // "Multikey" (emitted) or "Ed25519VerificationKey2020" (accepted on read) for Ed25519 keys
   controller: string; // DID of the creator/owner
   publicKeyMultibase?: string;
   blockchainAccountId?: string; // For EVM/Smart Account compatibility (ERC-4337)

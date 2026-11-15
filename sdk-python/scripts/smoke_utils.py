@@ -44,7 +44,7 @@ def build_sample_document(did: str) -> AgentDIDDocument:
             "verificationMethod": [
                 {
                     "id": verification_method_id,
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": "did:ethr:0xcontroller",
                     "publicKeyMultibase": "zabc",
                 }

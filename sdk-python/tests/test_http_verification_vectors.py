@@ -58,7 +58,7 @@ def _agent_document() -> AgentDIDDocument:
             "verificationMethod": [
                 {
                     "id": key["id"],
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": FIXTURE["controller"],
                     "publicKeyMultibase": key["publicKeyMultibase"],
                 }
@@ -85,7 +85,7 @@ def _controller_document() -> AgentDIDDocument:
             "verificationMethod": [
                 {
                     "id": f"{controller}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": controller,
                     "publicKeyMultibase": key["publicKeyMultibase"],
                 }

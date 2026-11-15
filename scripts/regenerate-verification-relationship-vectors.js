@@ -97,7 +97,7 @@ const didDocument = {
   },
   verificationMethod: KEYS.map((key) => ({
     id: keyId(key.fragment),
-    type: 'Ed25519VerificationKey2020',
+    type: 'Multikey',
     controller: DID,
     publicKeyMultibase: publicKeyMultibase(key.seed)
   })),
@@ -126,6 +126,25 @@ for (const key of KEYS) {
   }
 }
 
+/**
+ * ADR-006 D-8b: an Ed25519 `publicKeyMultibase` key is read from a `Multikey` method (written since rc.5) or an
+ * `Ed25519VerificationKey2020` method (rc.4 documents and logs); a document with any other type for such a key is
+ * not an Agent-DID document. Each vector is `didDocument` with the assertion key's method set to `type`; the
+ * signature is the assertion key's signature of `payload`, checked as an `assertion` artifact.
+ */
+const assertionKey = KEYS[0];
+const methodTypeVectors = [
+  { id: 'multikey', type: 'Multikey', expected: { documentValid: true, signatureValid: true } },
+  { id: 'ed25519-2020-legacy', type: 'Ed25519VerificationKey2020', expected: { documentValid: true, signatureValid: true } },
+  { id: 'ed25519-2018', type: 'Ed25519VerificationKey2018', expected: { documentValid: false } },
+  { id: 'json-web-key-2020', type: 'JsonWebKey2020', expected: { documentValid: false } },
+  { id: 'multikey-wrong-case', type: 'multikey', expected: { documentValid: false } }
+].map((vector) => ({
+  ...vector,
+  keyId: keyId(assertionKey.fragment),
+  signatureHex: crypto.sign(null, Buffer.from(PAYLOAD, 'utf-8'), privateKeyObject(assertionKey.seed)).toString('hex')
+}));
+
 const fixture = {
   formatVersion: 1,
   description:
@@ -133,8 +152,9 @@ const fixture = {
   requiredRelationshipByArtifact: REQUIRED_RELATIONSHIP_BY_ARTIFACT,
   payload: PAYLOAD,
   didDocument,
-  vectors
+  vectors,
+  methodTypeVectors
 };
 
 fs.writeFileSync(OUTPUT, `${JSON.stringify(fixture, null, 2)}\n`);
-console.log(`Wrote ${vectors.length} vectors to ${path.relative(process.cwd(), OUTPUT)}`);
+console.log(`Wrote ${vectors.length} + ${methodTypeVectors.length} vectors to ${path.relative(process.cwd(), OUTPUT)}`);

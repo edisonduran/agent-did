@@ -68,7 +68,7 @@ describe('Interoperability Vectors', () => {
     },
     verificationMethod: [{
       id: `${fixture.controller}#key-1`,
-      type: 'Ed25519VerificationKey2020',
+      type: 'Multikey',
       controller: fixture.controller,
       publicKeyMultibase: fixture.verificationMethod.publicKeyMultibase
     }],

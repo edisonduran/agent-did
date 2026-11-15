@@ -23,6 +23,7 @@ from ..core.types import (
     VerificationRelationship,
     VerifySignatureAtTimeResult,
 )
+from ..core.verification_method import is_ed25519_verification_method_type
 from ..crypto.ed25519 import decode_signature_hex, verify_ed25519
 from ..crypto.multibase import decode_public_key_multibase
 from ..webvh.adapter import resolve_did_webvh_log
@@ -94,7 +95,12 @@ def _key_in_state(state: dict[str, Any], key_id: str, required_purpose: Verifica
         None,
     )
     public_key = method.get("publicKeyMultibase") if method is not None else None
-    if method is None or not isinstance(public_key, str) or not public_key:
+    if (
+        method is None
+        or not is_ed25519_verification_method_type(method.get("type"))
+        or not isinstance(public_key, str)
+        or not public_key
+    ):
         return _KeyInState(ok=False, reason="key_not_found", found_in=found_in)
     # The log entry that gives a key a ``deactivated`` time retires it from that entry's versionTime. The time
     # itself is not compared with anything: the SDK's rotation writes the document clock, with milliseconds, next

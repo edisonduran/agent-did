@@ -6,6 +6,7 @@ import { AgentDIDDocument, VerificationRelationship } from '../core/types';
 import { decodeSignatureHex, verifyEd25519 } from '../crypto/ed25519-verify';
 import { decodePublicKeyMultibase } from '../crypto/multibase';
 import { assertKeyPurpose, assertSigningPurpose, getRelationshipKeyIds } from '../core/identity-composition';
+import { isEd25519VerificationMethodType } from '../core/verification-method';
 
 /**
  * Verifies against active keys listed under `requiredPurpose` (and `keyId`, when given).
@@ -39,7 +40,7 @@ export function verifyWithActiveKeys(
 
   const activeKeyIds = new Set(getRelationshipKeyIds(didDoc, requiredPurpose));
   const candidateMethods = didDoc.verificationMethod.filter((method) => {
-    if (!method.publicKeyMultibase || method.deactivated) {
+    if (!method.publicKeyMultibase || method.deactivated || !isEd25519VerificationMethodType(method.type)) {
       return false;
     }
     return keyId !== undefined ? method.id === keyId && activeKeyIds.has(method.id) : activeKeyIds.has(method.id);

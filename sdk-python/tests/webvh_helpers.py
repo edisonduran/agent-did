@@ -28,7 +28,7 @@ def agent_document_template(name: str = "WebvhResolverBot") -> dict[str, Any]:
         "verificationMethod": [
             {
                 "id": f"{DID_WEBVH_PLACEHOLDER}#key-1",
-                "type": "Ed25519VerificationKey2020",
+                "type": "Multikey",
                 "controller": DID_WEBVH_PLACEHOLDER,
                 "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
             }

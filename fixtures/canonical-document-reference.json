@@ -23,7 +23,7 @@
     "verificationMethod": [
       {
         "id": "did:webvh:QmCanonicalFixtureScid:fixtures.example:agents:canonical-fixture#key-1",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:webvh:QmCanonicalControllerScid:fixtures.example:organizations:canonical-controller",
         "publicKeyMultibase": "z6MktPRkkheyNrEEUFkbdFKopndngf3BV4X5Xis3cDkwABu9"
       }
@@ -32,5 +32,5 @@
       "did:webvh:QmCanonicalFixtureScid:fixtures.example:agents:canonical-fixture#key-1"
     ]
   },
-  "expectedDocumentRef": "hash://sha256/6a9b500a0278d4f43280f5bc58788e14c63be092925b7bd0d165bdd49e933b94"
+  "expectedDocumentRef": "hash://sha256/8671ddc531a02613d99c027cb1328f4ffcaedcf2e7e3a6dc93df13e66fe4ac65"
 }

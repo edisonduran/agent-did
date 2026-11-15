@@ -77,7 +77,7 @@ async function generate(): Promise<Fixture> {
   const controller = new LocalKeySigner(INPUTS.controllerPrivateKeyHex);
   const method = (fragment: string, privateKeyHex: string, extra: Record<string, unknown> = {}) => ({
     id: `{DID}#${fragment}`,
-    type: 'Ed25519VerificationKey2020',
+    type: 'Multikey',
     controller: '{DID}',
     publicKeyMultibase: publicKeyMultibase(privateKeyHex),
     ...extra
@@ -379,6 +379,43 @@ describe('key checks at a stated time (RFC-001 §6.2.2)', () => {
   it('defaults to assertionMethod', async () => {
     const result = await checkDidWebvhKeyAtTime(fixture.logs.rotated, { keyId: keyId('key-2'), statedTime: '2026-01-03T12:00:00Z' });
     expect(result.status).toBe('authorized');
+  });
+});
+
+describe('verification method type in a did:webvh log (ADR-006 D-8b)', () => {
+  async function logWithKeyType(type: string): Promise<{ log: string; did: string }> {
+    const created = await createDidWebvhLog({
+      domain: INPUTS.domain,
+      pathSegments: ['fleet', 'type-bot'],
+      signer: new LocalKeySigner(INPUTS.controllerPrivateKeyHex),
+      created: INPUTS.created,
+      document: {
+        '@context': ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'],
+        id: '{DID}',
+        controller: '{DID}',
+        created: INPUTS.created,
+        updated: INPUTS.created,
+        agentMetadata: { name: 'type-bot', version: '1.0.0' },
+        verificationMethod: [
+          { id: '{DID}#key-1', type, controller: '{DID}', publicKeyMultibase: publicKeyMultibase(INPUTS.key1PrivateKeyHex) }
+        ],
+        authentication: ['{DID}#key-1'],
+        assertionMethod: ['{DID}#key-1']
+      }
+    });
+    return { log: created.log, did: created.did };
+  }
+
+  it('reads an rc.4 Ed25519VerificationKey2020 key', async () => {
+    const { log, did } = await logWithKeyType('Ed25519VerificationKey2020');
+    const result = await checkDidWebvhKeyAtTime(log, { keyId: `${did}#key-1`, statedTime: '2026-01-02T00:00:00Z' });
+    expect(result.status).toBe('authorized');
+  });
+
+  it('never authorizes a publicKeyMultibase key of another type', async () => {
+    const { log, did } = await logWithKeyType('JsonWebKey2020');
+    const result = await checkDidWebvhKeyAtTime(log, { keyId: `${did}#key-1`, statedTime: '2026-01-02T00:00:00Z' });
+    expect(result).toMatchObject({ status: 'not_authorized', reason: 'key_not_found' });
   });
 });
 

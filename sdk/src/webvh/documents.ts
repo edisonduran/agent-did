@@ -12,6 +12,7 @@ import {
 import { ADDITIONAL_VERIFICATION_RELATIONSHIPS } from '../core/identity-composition';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
+import { VERIFICATION_METHOD_TYPE } from '../core/verification-method';
 import { DID_WEBVH_PLACEHOLDER } from './adapter';
 
 const AGENT_DID_CONTEXT = ['https://www.w3.org/ns/did/v1', 'https://agent-did.org/v1'];
@@ -76,7 +77,7 @@ export function buildAgentDocumentTemplate(params: {
     agentMetadata: params.agentMetadata,
     verificationMethod: [{
       id: verificationMethodId,
-      type: 'Ed25519VerificationKey2020',
+      type: VERIFICATION_METHOD_TYPE,
       controller: params.controllerDid,
       publicKeyMultibase: encodePublicKeyMultibase(params.publicKeyBytes)
     }],
@@ -107,7 +108,7 @@ export function buildBootstrapControllerTemplate(params: {
     },
     verificationMethod: [{
       id: verificationMethodId,
-      type: 'Ed25519VerificationKey2020',
+      type: VERIFICATION_METHOD_TYPE,
       controller: DID_WEBVH_PLACEHOLDER,
       publicKeyMultibase: encodePublicKeyMultibase(params.publicKeyBytes)
     }],

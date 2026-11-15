@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .verification_method import is_ed25519_verification_method_type
 
 # ---------------------------------------------------------------------------
 # Agent metadata
@@ -43,6 +45,13 @@ class VerificationMethod(BaseModel):
     public_key_multibase: str | None = Field(default=None, alias="publicKeyMultibase")
     blockchain_account_id: str | None = Field(default=None, alias="blockchainAccountId")
     deactivated: str | None = None
+
+    @model_validator(mode="after")
+    def _ed25519_key_type(self) -> VerificationMethod:
+        # A publicKeyMultibase key is an Ed25519 key here, so its method must have one of the Ed25519 types.
+        if self.public_key_multibase is not None and not is_ed25519_verification_method_type(self.type):
+            raise ValueError("type must be Multikey or Ed25519VerificationKey2020 for a publicKeyMultibase key")
+        return self
 
 
 class CreateDidWebvhOptions(BaseModel):

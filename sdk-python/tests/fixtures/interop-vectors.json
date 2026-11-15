@@ -6,7 +6,7 @@
       "controller": "did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller",
       "verificationMethod": {
         "id": "did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1",
-        "type": "Ed25519VerificationKey2020",
+        "type": "Multikey",
         "controller": "did:webvh:QmControllerFixtureScid:interop.example:organizations:fixture-controller",
         "publicKeyMultibase": "z6MkmyqDu17CV8m1iYKabi9Jg5RsNuTsdikZXxpGmuR4b66S"
       },

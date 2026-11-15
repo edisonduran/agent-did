@@ -61,7 +61,7 @@ def _build_interop_controller_document(vector: dict) -> AgentDIDDocument:
             "verificationMethod": [
                 {
                     "id": f"{vector['controller']}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": vector["controller"],
                     "publicKeyMultibase": vector["verificationMethod"]["publicKeyMultibase"],
                 }

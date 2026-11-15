@@ -16,7 +16,7 @@ describe('PresignedHttpDIDDocumentSource', () => {
     verificationMethod: [
       {
         id: 'did:webvh:QmPresignedScid:example.com:agents:presigned-bot#key-1',
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: 'did:webvh:QmPresignedScid:example.com:organizations:ops-root',
         publicKeyMultibase: 'zabc'
       }

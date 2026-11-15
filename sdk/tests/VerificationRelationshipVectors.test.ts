@@ -17,6 +17,8 @@ import {
   requiredRelationshipFor
 } from '../src';
 import { decodePublicKeyMultibase } from '../src/crypto/multibase';
+import { agentDidDocumentProblem } from '../src/core/document-guard';
+import { verifyWithActiveKeys } from '../src/verification/signature';
 
 interface RelationshipVector {
   id: string;
@@ -33,7 +35,25 @@ const fixture = JSON.parse(
   payload: string;
   didDocument: AgentDIDDocument;
   vectors: RelationshipVector[];
+  methodTypeVectors: MethodTypeVector[];
 };
+
+interface MethodTypeVector {
+  id: string;
+  type: string;
+  keyId: string;
+  signatureHex: string;
+  expected: { documentValid: boolean; signatureValid?: boolean };
+}
+
+/** `didDocument` with the vector's key method set to the vector's `type`. */
+function withMethodType(vector: MethodTypeVector): AgentDIDDocument {
+  const doc = JSON.parse(JSON.stringify(fixture.didDocument)) as AgentDIDDocument;
+  doc.verificationMethod = doc.verificationMethod.map((method) =>
+    method.id === vector.keyId ? { ...method, type: vector.type } : method
+  );
+  return doc;
+}
 
 /** The SDK path for a signed artifact: pick the relationship from the table, then apply §6.2.1. */
 function checkKeyForArtifact(doc: AgentDIDDocument, keyId: string, artifact: SignedArtifactKind): void {
@@ -84,5 +104,24 @@ describe('verification relationship vectors (RFC-001 §6.2.1.3)', () => {
       requiredPurpose: vector.expected.requiredPurpose,
       foundIn: vector.expected.foundIn
     });
+  });
+});
+
+describe('verification method type vectors (ADR-006 D-8b)', () => {
+  it.each(fixture.methodTypeVectors.map((vector) => [vector.id, vector] as const))('%s', (_id, vector) => {
+    const doc = withMethodType(vector);
+    const problem = agentDidDocumentProblem(doc);
+    if (!vector.expected.documentValid) {
+      expect(problem).toMatch(/type must be Multikey or Ed25519VerificationKey2020/);
+      // A document that skipped the guard still never yields a verifying key of another type.
+      expect(verifyWithActiveKeys(doc, fixture.payload, vector.signatureHex, vector.keyId, 'assertionMethod')).toBe(
+        false
+      );
+      return;
+    }
+    expect(problem).toBeUndefined();
+    expect(verifyWithActiveKeys(doc, fixture.payload, vector.signatureHex, vector.keyId, 'assertionMethod')).toBe(
+      vector.expected.signatureValid
+    );
   });
 });

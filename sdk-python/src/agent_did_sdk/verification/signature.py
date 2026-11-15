@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from ..core.identity_composition import assert_key_purpose, assert_signing_purpose, get_relationship_key_ids
 from ..core.types import AgentDIDDocument, VerificationRelationship
+from ..core.verification_method import is_ed25519_verification_method_type
 from ..crypto.ed25519 import decode_signature_hex, verify_ed25519
 from ..crypto.multibase import decode_public_key_multibase
 
@@ -43,6 +44,7 @@ def verify_with_active_keys(
         for m in doc.verification_method
         if m.public_key_multibase
         and not m.deactivated
+        and is_ed25519_verification_method_type(m.type)
         and (m.id == key_id and m.id in active_ids if key_id is not None else m.id in active_ids)
     ]
 

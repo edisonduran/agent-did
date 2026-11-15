@@ -20,7 +20,7 @@ export function agentDocumentTemplate(name = 'WebvhResolverBot'): Record<string,
     verificationMethod: [
       {
         id: `${DID_WEBVH_PLACEHOLDER}#key-1`,
-        type: 'Ed25519VerificationKey2020',
+        type: 'Multikey',
         controller: DID_WEBVH_PLACEHOLDER,
         publicKeyMultibase: 'z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK'
       }

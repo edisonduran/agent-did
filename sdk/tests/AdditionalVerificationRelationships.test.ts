@@ -155,7 +155,7 @@ describe('additionalVerificationRelationships (RFC-001 §6.2.1.3)', () => {
         systemPromptHash: 'hash://sha256/00'
       },
       verificationMethod: [
-        { id: `${did}#key-1`, type: 'Ed25519VerificationKey2020', controller: did, publicKeyMultibase: 'z6Mk' }
+        { id: `${did}#key-1`, type: 'Multikey', controller: did, publicKeyMultibase: 'z6Mk' }
       ],
       authentication: [`${did}#key-1`],
       assertionMethod: [`${did}#key-1`],

@@ -18,6 +18,7 @@ from ..core.types import (
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
 )
+from ..core.verification_method import VERIFICATION_METHOD_TYPE
 from ..crypto.hash import generate_canonical_document_hash
 from ..crypto.multibase import encode_public_key_multibase
 from .adapter import DID_WEBVH_PLACEHOLDER
@@ -79,7 +80,7 @@ def build_agent_document_template(
         "verificationMethod": [
             {
                 "id": verification_method_id,
-                "type": "Ed25519VerificationKey2020",
+                "type": VERIFICATION_METHOD_TYPE,
                 "controller": controller_did,
                 "publicKeyMultibase": encode_public_key_multibase(public_key_bytes),
             }
@@ -110,7 +111,7 @@ def build_bootstrap_controller_template(
         "verificationMethod": [
             {
                 "id": verification_method_id,
-                "type": "Ed25519VerificationKey2020",
+                "type": VERIFICATION_METHOD_TYPE,
                 "controller": DID_WEBVH_PLACEHOLDER,
                 "publicKeyMultibase": encode_public_key_multibase(public_key_bytes),
             }

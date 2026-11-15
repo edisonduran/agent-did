@@ -173,7 +173,7 @@ def test_does_not_give_the_new_key_a_relationship_that_names_only_another_party_
             "verificationMethod": [
                 {
                     "id": f"{did}#key-1",
-                    "type": "Ed25519VerificationKey2020",
+                    "type": "Multikey",
                     "controller": did,
                     "publicKeyMultibase": "z6Mk",
                 }

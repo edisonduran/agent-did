@@ -19,8 +19,10 @@ from agent_did_sdk import (
     VerifySignatureAtTimeResult,
     check_did_webvh_key_at_time,
 )
+from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.crypto.multibase import encode_public_key_multibase
 from agent_did_sdk.verification.key_at_time import parse_rfc3339_millis
+from agent_did_sdk.webvh.adapter import create_did_webvh_log
 
 FIXTURE: dict[str, Any] = json.loads(
     (pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "key-at-time-vectors.json").read_text(
@@ -122,6 +124,49 @@ async def test_defaults_to_assertion_method() -> None:
         FIXTURE["logs"]["rotated"], key_id=_key_id("key-2"), stated_time="2026-01-03T12:00:00Z"
     )
     assert result.status == "authorized"
+
+
+async def _log_with_key_type(key_type: str) -> tuple[str, str]:
+    """A one-entry log whose key-1 method has ``key_type`` (same document as the TypeScript test)."""
+    created = await create_did_webvh_log(
+        domain=FIXTURE["inputs"]["domain"],
+        path_segments=["fleet", "type-bot"],
+        signer=LocalKeySigner(FIXTURE["inputs"]["controllerPrivateKeyHex"]),
+        created=FIXTURE["inputs"]["created"],
+        document={
+            "@context": ["https://www.w3.org/ns/did/v1", "https://agent-did.org/v1"],
+            "id": "{DID}",
+            "controller": "{DID}",
+            "created": FIXTURE["inputs"]["created"],
+            "updated": FIXTURE["inputs"]["created"],
+            "agentMetadata": {"name": "type-bot", "version": "1.0.0"},
+            "verificationMethod": [
+                {
+                    "id": "{DID}#key-1",
+                    "type": key_type,
+                    "controller": "{DID}",
+                    "publicKeyMultibase": _public_key_multibase("key-1"),
+                }
+            ],
+            "authentication": ["{DID}#key-1"],
+            "assertionMethod": ["{DID}#key-1"],
+        },
+    )
+    return created.log, created.did
+
+
+async def test_reads_an_rc4_ed25519_verification_key_2020_key() -> None:
+    """ADR-006 D-8b: rc.4 logs with Ed25519VerificationKey2020 methods stay valid."""
+    log, did = await _log_with_key_type("Ed25519VerificationKey2020")
+    result = await check_did_webvh_key_at_time(log, key_id=f"{did}#key-1", stated_time="2026-01-02T00:00:00Z")
+    assert result.status == "authorized"
+
+
+async def test_never_authorizes_a_public_key_multibase_key_of_another_type() -> None:
+    log, did = await _log_with_key_type("JsonWebKey2020")
+    result = await check_did_webvh_key_at_time(log, key_id=f"{did}#key-1", stated_time="2026-01-02T00:00:00Z")
+    assert result.status == "not_authorized"
+    assert result.reason == "key_not_found"
 
 
 @pytest.mark.parametrize(

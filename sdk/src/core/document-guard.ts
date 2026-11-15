@@ -4,6 +4,7 @@
  * `AgentDIDDocument` model does, so both SDKs fail the same way on a malformed document.
  */
 import { AgentDIDDocument } from './types';
+import { isEd25519VerificationMethodType } from './verification-method';
 
 type Check = (value: unknown, path: string) => string | undefined;
 
@@ -59,7 +60,17 @@ const verificationMethod: Check = (value, path) =>
     publicKeyMultibase: optionalString,
     blockchainAccountId: optionalString,
     deactivated: optionalString
-  });
+  }) ?? ed25519KeyType(value as Record<string, unknown>, path);
+
+/** A `publicKeyMultibase` key is an Ed25519 key here, so its method must have one of the Ed25519 types. */
+function ed25519KeyType(method: Record<string, unknown>, path: string): string | undefined {
+  if (method.publicKeyMultibase === undefined || method.publicKeyMultibase === null) {
+    return undefined;
+  }
+  return isEd25519VerificationMethodType(method.type)
+    ? undefined
+    : `${path}.type must be Multikey or Ed25519VerificationKey2020 for a publicKeyMultibase key`;
+}
 
 const credentialLink: Check = (value, path) =>
   fields(value, path, { type: string, issuer: string, credentialSubject: string, proofHash: string });

@@ -128,7 +128,7 @@ function buildVector({ did, controller }) {
     controller,
     verificationMethod: {
       id: keyId,
-      type: 'Ed25519VerificationKey2020',
+      type: 'Multikey',
       controller,
       publicKeyMultibase
     },
