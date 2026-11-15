@@ -37,6 +37,105 @@ interface FetchWaiter {
   start: () => void;
 }
 
+// did:wba host grammar (parity: sdk-python/src/agent_did_sdk/resolver/universal.py). After percent-decoding, the
+// domain segment must be a DNS name with an optional port: ASCII letters, digits and hyphens in dot-separated labels.
+// IP literals are rejected (did:web, which did:wba builds on, excludes them), and so is a numeric last label, which a
+// URL parser would read as an IPv4 address.
+const DID_WBA_LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
+const DID_WBA_NUMERIC_LABEL = /^(?:0x[0-9a-f]*|[0-9]+)$/i;
+const DID_WBA_PORT = /^[1-9][0-9]{0,4}$/;
+
+/** Splits a decoded did:wba domain into a lowercase host and a port (undefined for the default), or null if invalid. */
+function parseDidWbaDomain(domain: string): { host: string; port?: number } | null {
+  const separator = domain.indexOf(':');
+  const host = separator === -1 ? domain : domain.slice(0, separator);
+  let port: number | undefined;
+  if (separator !== -1) {
+    const portText = domain.slice(separator + 1);
+    if (!DID_WBA_PORT.test(portText) || Number(portText) > 65535) {
+      return null;
+    }
+    port = Number(portText);
+  }
+  const labels = host.split('.');
+  if (host.length > 253 || !labels.every((label) => DID_WBA_LABEL.test(label))) {
+    return null;
+  }
+  if (DID_WBA_NUMERIC_LABEL.test(labels[labels.length - 1])) {
+    return null;
+  }
+  return { host: host.toLowerCase(), port: port === 443 ? undefined : port };
+}
+
+/** Percent-encodes everything but the RFC 3986 unreserved characters. */
+function encodeDidWbaPathSegment(segment: string): string {
+  return encodeURIComponent(segment).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function decodeDidWbaSegment(segment: string, segmentType: 'domain' | 'path'): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    throw new Error(`Invalid did:wba ${segmentType} segment: ${segment}`);
+  }
+}
+
+/**
+ * The HTTPS URL of a did:wba DID's `did.json`. The URL is built from validated parts and parsed again, so the host,
+ * port and path that are fetched are exactly the ones derived from the DID.
+ */
+function deriveDidWbaDocumentUrl(did: string): string {
+  const suffix = did.startsWith('did:wba:') ? did.slice('did:wba:'.length) : '';
+  if (!suffix) {
+    throw new Error(`Invalid did:wba DID: ${did}`);
+  }
+
+  const [domainSegment, ...pathSegments] = suffix.split(':');
+  const domain = decodeDidWbaSegment(domainSegment, 'domain');
+  if (!domain) {
+    throw new Error(`Invalid did:wba DID: missing domain in ${did}`);
+  }
+  const parsedDomain = parseDidWbaDomain(domain);
+  if (!parsedDomain) {
+    throw new Error(`Invalid did:wba domain segment: ${domainSegment}`);
+  }
+  const { host, port } = parsedDomain;
+
+  const decodedSegments = pathSegments
+    .filter((segment) => segment.length > 0)
+    .map((segment) => decodeDidWbaSegment(segment, 'path'));
+  if (decodedSegments.some((segment) => segment === '.' || segment === '..')) {
+    throw new Error(`Invalid did:wba DID: dot path segment in ${did}`);
+  }
+  const pathname = decodedSegments.length === 0
+    ? '/.well-known/did.json'
+    : `/${decodedSegments.map(encodeDidWbaPathSegment).join('/')}/did.json`;
+
+  const authority = port === undefined ? host : `${host}:${port}`;
+  const url = `https://${authority}${pathname}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid did:wba DID: ${did}`);
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.hostname !== host ||
+    parsed.port !== (port === undefined ? '' : String(port)) ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
+    parsed.pathname !== pathname ||
+    parsed.search !== '' ||
+    parsed.hash !== '' ||
+    parsed.href !== url
+  ) {
+    throw new Error(`Invalid did:wba DID: ${did}`);
+  }
+  return url;
+}
+
 interface CachedDocument {
   document: AgentDIDDocument;
   expiresAt: number;
@@ -673,40 +772,7 @@ export class UniversalResolverClient implements DIDResolver {
   }
 
   private deriveDidWbaDocumentUrl(did: string): string {
-    const suffix = did.slice('did:wba:'.length);
-
-    if (!suffix) {
-      throw new Error(`Invalid did:wba DID: ${did}`);
-    }
-
-    const [domainSegment, ...pathSegments] = suffix.split(':');
-    const domain = this.decodeDidWbaSegment(domainSegment, 'domain');
-
-    if (!domain) {
-      throw new Error(`Invalid did:wba DID: missing domain in ${did}`);
-    }
-
-    const normalizedPathSegments = pathSegments
-      .filter((segment) => segment.length > 0)
-      .map((segment) => encodeURIComponent(this.decodeDidWbaSegment(segment, 'path')));
-
-    const pathname = normalizedPathSegments.length === 0
-      ? '/.well-known/did.json'
-      : `/${normalizedPathSegments.join('/')}/did.json`;
-
-    try {
-      return new URL(pathname, `https://${domain}`).toString();
-    } catch {
-      throw new Error(`Invalid did:wba DID: ${did}`);
-    }
-  }
-
-  private decodeDidWbaSegment(segment: string, segmentType: 'domain' | 'path'): string {
-    try {
-      return decodeURIComponent(segment);
-    } catch {
-      throw new Error(`Invalid did:wba ${segmentType} segment: ${segment}`);
-    }
+    return deriveDidWbaDocumentUrl(did);
   }
 
   private assertDocumentMatchesReference(
