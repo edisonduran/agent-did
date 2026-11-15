@@ -126,7 +126,7 @@ If you are auditing the project, these are the surfaces with the highest blast r
    - DID document validation on resolution
 2. **Canonicalization** of payloads before signing/verification — divergence between TS and Python implementations is a critical class of bug.
 3. **Resolver client** cache and failover (`UniversalResolverClient`): a malicious cache entry must not be trusted across resolution rounds.
-4. **Optional EVM `AgentRegistry` contract** access control: `owner`, delegated revoker, ownership transfer.
+4. **Optional EVM `AgentRegistry` contract** access control (`owner`, delegated revoker, ownership transfer): it lives and is audited in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm), not in this repository.
 5. **Integration adapters** in `integrations/*/`: identity must be injected without being mutable by the LLM-generated content.
 
 The conformance suite (`npm run conformance:rfc001`) and the smoke drills (`npm run smoke:e2e`, `npm run smoke:ha`, `npm run smoke:rpc`, `npm run smoke:policy`) are the primary defensive testing surface today.

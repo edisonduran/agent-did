@@ -17,6 +17,7 @@ This document tracks normative and materially relevant editorial changes to RFC-
 - §6.5 item 4: the request URL of an HTTP signature must be in normalized form (lowercase ASCII host, no user information or fragment, only unreserved, sub-delimiter, `:`, `@` and percent-encoded characters in the path and query, no dot segments, canonical IP hosts). Signers refuse other URLs and verifiers reject them (`url_not_normalized`), so implementations with different URL parsers derive the same signature base. New vectors in `fixtures/http-verification-vectors.json`.
 - §6.5 item 3: `nonce` is 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -`; verifiers reject other values (`params_missing`). Replay stores key a nonce by its `keyid`, and a nonce without spaces keeps that key unambiguous. New vectors in `fixtures/http-verification-vectors.json`.
 - §4.2 / §4.3: `agentMetadata.coreModelHash` and `agentMetadata.systemPromptHash` are OPTIONAL and are stated to be assertions by the controller: a verifier MUST NOT treat absence as a failure, nor a present or matching commitment as evidence of runtime behaviour ([ADR-006](ADR-006-Wire-Alignment-rc5.md) D-8c, `[RFC]` #250).
+- Editorial: the footer license is `Apache-2.0` (it said `MIT`, while the repository has been Apache-2.0 since 2026-03-22); §7.3 says `verifyHistoricalSignature` was removed in rc.5 instead of deprecated.
 - Wire change: payload signatures and the content of rotated documents change in rc.5; the wire freeze of [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) starts at this release.
 
 ---
