@@ -1,7 +1,7 @@
 import { LocalKeySigner } from '../src/core/signer';
 import { AgentDidClient, AgentIdentity, InMemoryAgentRegistry } from '../src';
 import { CreateAgentParams } from '../src/core/types';
-import { DidWebvhError } from '../src/webvh/adapter';
+import { DidWebvhError, deriveDidWebvhLogUrl } from '../src/webvh/adapter';
 import { ResolverResolutionEvent } from '../src/resolver/types';
 
 const params: CreateAgentParams = {
@@ -129,17 +129,44 @@ describe('did:webvh log held by a client', () => {
       expect(await client.verifySignature(document.id, 'hello', signature)).toBe(true);
     });
 
-    it('fails closed for an imported DID whose log cannot be refreshed after the cache expires', async () => {
+    it('fails closed for an imported DID whose log host cannot be reached: the import is not a fresh cache entry', async () => {
       const creator = new AgentDidClient();
       const { document, signature } = await createAgent(creator);
       const verifier = productionClient(60_000);
       await verifier.importDidWebvhHistory(creator.exportDidWebvhHistory(document.controller));
       await verifier.importDidWebvhHistory(creator.exportDidWebvhHistory(document.id));
-      expect(await verifier.verifySignature(document.id, 'hello', signature)).toBe(true);
-
-      advanceClock(120_000);
 
       expect(await verifier.verifySignature(document.id, 'hello', signature)).toBe(false);
+      await expect(verifier.resolve(document.id)).rejects.toThrow(/could not be fetched/u);
+    });
+
+    it('lets the newer log the host serves win at once over an older imported prefix', async () => {
+      const creator = new AgentDidClient();
+      const { document, signature } = await createAgent(creator);
+      const beforeRevocation = creator.exportDidWebvhHistory(document.id);
+      await creator.revokeDid(document.id);
+      const host = {
+        getByReference: async () => null,
+        getDidLogByReference: async (url: string): Promise<string | null> =>
+          [document.id, document.controller].map((did) => [deriveDidWebvhLogUrl(did), did])
+            .filter(([logUrl]) => logUrl === url)
+            .map(([, did]) => creator.exportDidWebvhHistory(did))[0] ?? null
+      };
+      const verifier = new AgentDidClient();
+      verifier.useProductionResolver({
+        registry: new InMemoryAgentRegistry(),
+        documentSource: { getByReference: async () => null },
+        webvhDocumentSource: host,
+        cacheTtlMs: 60_000
+      });
+
+      await verifier.importDidWebvhHistory(creator.exportDidWebvhHistory(document.controller));
+      await verifier.importDidWebvhHistory(beforeRevocation);
+
+      // No wait for a cache entry to expire: the revocation the host serves is seen at once.
+      await expect(verifier.resolve(document.id)).rejects.toThrow(/deactivated/u);
+      expect(await verifier.verifySignature(document.id, 'hello', signature)).toBe(false);
+      expect((await verifier.resolveDidWebvhState(document.id))?.deactivated).toBe(true);
     });
 
     it('does not serve a revoked DID from an older copy when its host is down', async () => {

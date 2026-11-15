@@ -265,6 +265,9 @@ export declare class AgentDidClient {
      * Verifies a did:webvh v1.0 log (SCID, hash chain, controller-signed proofs) and loads it
      * into this process: latest document, registry record and document history. Changing the
      * DID afterwards requires its controller signer (`options.controllerSigner`).
+     *
+     * The imported log is a copy of what the log host serves. With a resolver that fetches logs, it is not cached
+     * as the DID's current document: the next resolution fetches the host's log and the longer of the two wins.
      */
     importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
     private importResolvedDidWebvhLog;

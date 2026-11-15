@@ -839,6 +839,9 @@ class AgentDidClient:
         Checks the SCID, hash chain and controller-signed proofs, then loads the latest
         document, registry record and document history. Changing the DID afterwards requires
         its controller signer (``controller_signer=``).
+
+        The imported log is a copy of what the log host serves. With a resolver that fetches logs, it is not cached
+        as the DID's current document: the next resolution fetches the host's log and the longer of the two wins.
         """
         resolved = await resolve_did_webvh_log(did_log)
         async with self._did_locks.setdefault(resolved.did, asyncio.Lock()):
@@ -867,7 +870,17 @@ class AgentDidClient:
             if signer is not None and await did_webvh_update_key_for(signer) not in resolved.metadata.update_keys:
                 del self._did_webvh_signer_store[did]
 
-        self._resolver.register_document(latest)
+        # An imported log is a copy of what the log host serves, not an authority: a resolver that fetches logs must
+        # not answer from it as a fresh entry, or an older prefix would be served until the entry expires. Dropping
+        # its entry makes the next resolution fetch, and the longer of the fetched and the imported log wins at once.
+        # A DID whose controller signer this client retains (created or changed here) is registered as before, and so
+        # is any DID when the resolver cannot fetch logs (then the imported log is all there is: see the README).
+        evict = getattr(self._resolver, "evict", None)
+        fetches_logs = getattr(self._resolver, "resolve_did_webvh_log", None) is not None
+        if did not in self._did_webvh_signer_store and fetches_logs and evict is not None:
+            evict(did)
+        else:
+            self._resolver.register_document(latest)
         await self._registry.register(latest.id, latest.controller, document_ref)
         await self._registry.set_document_reference(latest.id, document_ref)
         if resolved.metadata.deactivated:

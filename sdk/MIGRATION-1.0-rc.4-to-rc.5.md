@@ -245,16 +245,16 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
 - `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
 
-## 27. HTTP signature nonces follow a token grammar
-
-- A `nonce` must be 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3). Verification rejects any other value with `params_missing`. The SDK signers send 32 hex digits, so only third-party signers that put spaces or other characters in the nonce must change.
-- A custom `NonceStore` receives `<keyid> <nonce>` as before; the text before the last space is now always the `keyid`, so a store can scope per-signer quotas by it (as `InMemoryNonceStore` does with `maxEntriesPerScope`).
-
-
 ## 26. did:wba host grammar
 
 - The domain segment of a did:wba DID must decode to a DNS name with an optional port (`did:wba:agents.example%3A8443`). IP literals (`did:wba:127.0.0.1`), a numeric last label, and any character other than ASCII letters, digits, hyphens and dots are rejected before any request. Use a host name; for local tests, `localhost%3A<port>` still works.
 - Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`, so `!`, `'`, `(`, `)` and `*` are now sent percent-encoded (TypeScript sent them as they were). The host is lowercased and port 443 is dropped from the URL.
+
+
+## 27. HTTP signature nonces follow a token grammar
+
+- A `nonce` must be 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3). Verification rejects any other value with `params_missing`. The SDK signers send 32 hex digits, so only third-party signers that put spaces or other characters in the nonce must change.
+- A custom `NonceStore` receives `<keyid> <nonce>` as before; the text before the last space is now always the `keyid`, so a store can scope per-signer quotas by it (as `InMemoryNonceStore` does with `maxEntriesPerScope`).
 
 
 ## 28. Bounded fetch queue in the universal resolver
@@ -269,6 +269,12 @@ client.useProductionResolverFromHttp({
   resolutionLimits: { maxConcurrentFetchesPerHost: 16, maxQueuedFetches: 256, fetchDeadlineMs: 30_000 }
 });
 ```
+
+
+## 29. An imported did:webvh log is not a fresh resolver entry
+
+- With a resolver that fetches did:webvh logs (the production resolver), `importDidWebvhHistory` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.
+- A verifier that imported a log and then resolved it while the log host was unreachable got the imported document for up to `cacheTtlMs`; it now gets a resolution error. Make the log host reachable, or use a resolver that does not fetch logs if the imported log is meant to be the only source.
 
 
 ## 30. Integrations share the SDK's sanitizer and target policy
