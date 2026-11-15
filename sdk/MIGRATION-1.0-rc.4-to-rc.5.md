@@ -245,6 +245,19 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - `@agentdid/langchain` depends on `zod` `^4.6.7`. If your code passes zod schemas of its own to the integration, build them with zod 4 (or its `zod/v3` entry point).
 - `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
 
+## 28. Bounded fetch queue in the universal resolver
+
+- At most 64 did:webvh / did:wba fetches wait for a slot (`maxQueuedFetches`); a resolution that would wait beyond that fails at once with "too many DID fetches are waiting". Such a refusal is not remembered, so a retry fetches.
+- At most 4 fetches run at once for one host name (`maxConcurrentFetchesPerHost`). A service that resolves many uncached DIDs on one host at the same time (a burst of new agents of one provider) sees the others wait; raise the limit for hosts you trust.
+- The wait and the fetch together must finish within 15 s (`fetchDeadlineMs`). Keep it above the document source timeout (`httpSecurity.timeoutMs`, default 10 s), or a slow but healthy host fails at the deadline.
+
+```ts
+client.useProductionResolverFromHttp({
+  registry,
+  resolutionLimits: { maxConcurrentFetchesPerHost: 16, maxQueuedFetches: 256, fetchDeadlineMs: 30_000 }
+});
+```
+
 
 ## Checklist
 

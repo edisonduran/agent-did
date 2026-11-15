@@ -248,11 +248,20 @@ class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_sign
   attr path_segments: list[str] | None
   member model_config = {'arbitrary_types_allowed': True, 'extra': 'forbid'}
 
+## DEFAULT_FETCH_DEADLINE_MS
+value DEFAULT_FETCH_DEADLINE_MS = 15000
+
 ## DEFAULT_HTTP_TIMEOUT_MS
 value DEFAULT_HTTP_TIMEOUT_MS = 10000
 
 ## DEFAULT_MAX_CONCURRENT_FETCHES
 value DEFAULT_MAX_CONCURRENT_FETCHES = 16
+
+## DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST
+value DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST = 4
+
+## DEFAULT_MAX_QUEUED_FETCHES
+value DEFAULT_MAX_QUEUED_FETCHES = 64
 
 ## DEFAULT_MAX_RESPONSE_BYTES
 value DEFAULT_MAX_RESPONSE_BYTES = 1048576
@@ -494,9 +503,12 @@ class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source
 value REQUIRED_RELATIONSHIP_BY_ARTIFACT = mappingproxy({'assertion': 'assertionMethod', 'http_request': 'assertionMethod', 'delegation': 'capabilityDelegation', 'invocation': 'capabilityInvocation', 'authentication': 'authentication'})
 
 ## ResolutionLimits
-class ResolutionLimits(negative_cache_ttl_ms: 'int' = 5000, max_concurrent_fetches: 'int' = 16, allowed_hosts: 'list[str] | None' = None) -> None
+class ResolutionLimits(negative_cache_ttl_ms: 'int' = 5000, max_concurrent_fetches: 'int' = 16, allowed_hosts: 'list[str] | None' = None, max_concurrent_fetches_per_host: 'int' = 4, max_queued_fetches: 'int' = 64, fetch_deadline_ms: 'int' = 15000) -> None
   attr allowed_hosts: list[str] | None
+  attr fetch_deadline_ms: int
   attr max_concurrent_fetches: int
+  attr max_concurrent_fetches_per_host: int
+  attr max_queued_fetches: int
   attr negative_cache_ttl_ms: int
 
 ## ResolverCacheStats

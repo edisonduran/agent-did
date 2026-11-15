@@ -71,6 +71,22 @@ export interface ResolutionLimits {
   /** At most this many did:webvh / did:wba fetches run at once; the others wait. Default 16. */
   maxConcurrentFetches?: number;
   /**
+   * At most this many fetches run at once for one host (host name, any port), so DIDs on a slow host cannot take
+   * every slot. Default `DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST` (4).
+   */
+  maxConcurrentFetchesPerHost?: number;
+  /**
+   * At most this many fetches wait for a slot. When the queue is full, a resolution that needs a fetch fails at once
+   * instead of waiting. Default `DEFAULT_MAX_QUEUED_FETCHES` (64); 0 means nothing waits.
+   */
+  maxQueuedFetches?: number;
+  /**
+   * A did:webvh / did:wba fetch, including the time it waits for a slot, must finish within this many milliseconds;
+   * the resolution fails otherwise. Default `DEFAULT_FETCH_DEADLINE_MS` (15 000). A fetch that outlives the deadline
+   * keeps its slot until the document source gives up (`httpSecurity.timeoutMs`, default 10 s).
+   */
+  fetchDeadlineMs?: number;
+  /**
    * When set, only did:webvh and did:wba DIDs on these hosts are fetched (`example.com`, or `*.example.com` for its
    * subdomains); any other DID fails before a request is made, with no fallback.
    */
@@ -79,6 +95,9 @@ export interface ResolutionLimits {
 
 export const DEFAULT_NEGATIVE_CACHE_TTL_MS = 5_000;
 export const DEFAULT_MAX_CONCURRENT_FETCHES = 16;
+export const DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST = 4;
+export const DEFAULT_MAX_QUEUED_FETCHES = 64;
+export const DEFAULT_FETCH_DEADLINE_MS = 15_000;
 
 export interface UniversalResolverConfig {
   registry: AgentRegistry;

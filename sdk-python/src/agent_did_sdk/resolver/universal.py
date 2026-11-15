@@ -34,6 +34,23 @@ _SHA256_DOCUMENT_REF_PREFIX = "hash://sha256/"
 _T = TypeVar("_T")
 
 
+class _FetchCapacityError(ValueError):
+    """A resolution refused because the resolver is busy (the fetch queue is full, or no slot freed up before the
+    deadline). It says nothing about the DID, so it is not remembered in the negative cache."""
+
+
+def _positive_int(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise TypeError(f"{name} must be a positive integer")
+    return value
+
+
+def _consume_exception(task: asyncio.Future[Any]) -> None:
+    """Mark a fetch's exception as retrieved when its caller stopped waiting at the deadline."""
+    if not task.cancelled():
+        task.exception()
+
+
 def _host_allowed(host: str, allowed_hosts: list[str]) -> bool:
     """*host* is listed, or a subdomain of a ``*.``-prefixed entry."""
     normalized = host.lower()
@@ -88,10 +105,19 @@ class UniversalResolverClient:
         if isinstance(ttl, bool) or not isinstance(ttl, int) or ttl < 0:
             raise TypeError("negative_cache_ttl_ms must be a non-negative integer")
         self._negative_cache_ttl_ms = ttl
-        slots = limits.max_concurrent_fetches
-        if isinstance(slots, bool) or not isinstance(slots, int) or slots <= 0:
-            raise TypeError("max_concurrent_fetches must be a positive integer")
-        self._fetch_slots = asyncio.Semaphore(slots)
+        self._max_concurrent_fetches = _positive_int(limits.max_concurrent_fetches, "max_concurrent_fetches")
+        self._max_concurrent_fetches_per_host = _positive_int(
+            limits.max_concurrent_fetches_per_host, "max_concurrent_fetches_per_host"
+        )
+        queued = limits.max_queued_fetches
+        if isinstance(queued, bool) or not isinstance(queued, int) or queued < 0:
+            raise TypeError("max_queued_fetches must be a non-negative integer")
+        self._max_queued_fetches = queued
+        self._fetch_deadline_ms = _positive_int(limits.fetch_deadline_ms, "fetch_deadline_ms")
+        self._active_fetches = 0
+        self._active_fetches_by_host: dict[str, int] = {}
+        # Fetches waiting for a slot, oldest first: (host, future set when the slot is handed over)
+        self._fetch_queue: list[tuple[str, asyncio.Future[None]]] = []
         self._allowed_hosts: list[str] | None = None
         if limits.allowed_hosts is not None:
             if any(not isinstance(host, str) or not host.strip() for host in limits.allowed_hosts):
@@ -215,7 +241,9 @@ class UniversalResolverClient:
 
     async def _guarded_fetch(self, did: str, started: float, load: Callable[[], Awaitable[_T]]) -> _T:
         """Run *load* (a did:webvh or did:wba fetch) under the resolution limits: the host allow-list, the negative
-        cache, one shared fetch per DID and at most ``max_concurrent_fetches`` fetches at once."""
+        cache, one shared fetch per DID, at most ``max_concurrent_fetches`` fetches at once
+        (``max_concurrent_fetches_per_host`` per host), at most ``max_queued_fetches`` waiting, and
+        ``fetch_deadline_ms`` for the wait and the fetch together."""
         self._assert_host_allowed(did, started)
         recent = self._negative_cache.get(did)
         if recent is not None and recent[1] > self._now_ms():
@@ -223,22 +251,101 @@ class UniversalResolverClient:
             raise recent[0]
         pending = self._in_flight.get(did)
         if pending is None:
-            pending = asyncio.ensure_future(self._run_fetch(did, load))
+            pending = asyncio.ensure_future(self._run_fetch(did, started, load))
             self._in_flight[did] = pending
             pending.add_done_callback(lambda _: self._in_flight.pop(did, None))
         # shield: a caller that is cancelled does not cancel the fetch the others wait for
         result: _T = await asyncio.shield(pending)
         return result
 
-    async def _run_fetch(self, did: str, load: Callable[[], Awaitable[_T]]) -> _T:
-        async with self._fetch_slots:
-            try:
-                value = await load()
-            except Exception as exc:
-                self._remember_failure(did, exc)
-                raise
+    async def _run_fetch(self, did: str, started: float, load: Callable[[], Awaitable[_T]]) -> _T:
+        try:
+            value = await self._with_fetch_slot(self._fetch_host_of(did), load)
+        except _FetchCapacityError as exc:
+            self._emit(did, "error", started, message=str(exc))
+            raise
+        except Exception as exc:
+            self._remember_failure(did, exc)
+            raise
         self._negative_cache.pop(did, None)
         return value
+
+    def _fetch_host_of(self, did: str) -> str:
+        """The host name a did:webvh / did:wba DID is fetched from, or "" for a DID that does not derive a URL."""
+        try:
+            url = derive_did_webvh_log_url(did) if self._is_did_webvh(did) else self._derive_did_wba_document_url(did)
+        except (DidWebvhError, ValueError):
+            return ""
+        return urlsplit(url).hostname or ""
+
+    def _has_fetch_slot(self, host: str) -> bool:
+        return (
+            self._active_fetches < self._max_concurrent_fetches
+            and self._active_fetches_by_host.get(host, 0) < self._max_concurrent_fetches_per_host
+        )
+
+    def _take_fetch_slot(self, host: str) -> None:
+        self._active_fetches += 1
+        self._active_fetches_by_host[host] = self._active_fetches_by_host.get(host, 0) + 1
+
+    def _release_fetch_slot(self, host: str) -> None:
+        self._active_fetches -= 1
+        count = self._active_fetches_by_host.get(host, 1) - 1
+        if count > 0:
+            self._active_fetches_by_host[host] = count
+        else:
+            self._active_fetches_by_host.pop(host, None)
+        # Start the oldest waiters whose host has room; a waiter for a busy host does not hold up the others.
+        index = 0
+        while index < len(self._fetch_queue) and self._active_fetches < self._max_concurrent_fetches:
+            waiter_host, started = self._fetch_queue[index]
+            if self._has_fetch_slot(waiter_host):
+                del self._fetch_queue[index]
+                self._take_fetch_slot(waiter_host)
+                started.set_result(None)
+            else:
+                index += 1
+
+    async def _with_fetch_slot(self, host: str, load: Callable[[], Awaitable[_T]]) -> _T:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self._fetch_deadline_ms / 1000
+        if self._has_fetch_slot(host):
+            self._take_fetch_slot(host)
+        else:
+            if len(self._fetch_queue) >= self._max_queued_fetches:
+                raise _FetchCapacityError(
+                    "Resolution refused: too many DID fetches are waiting (max_queued_fetches)"
+                )
+            waiter: tuple[str, asyncio.Future[None]] = (host, loop.create_future())
+            self._fetch_queue.append(waiter)
+            try:
+                await asyncio.wait_for(asyncio.shield(waiter[1]), self._fetch_deadline_ms / 1000)
+            except asyncio.TimeoutError:
+                if waiter in self._fetch_queue:
+                    self._fetch_queue.remove(waiter)
+                    raise _FetchCapacityError(
+                        f"Resolution refused: no fetch slot freed up within {self._fetch_deadline_ms} ms"
+                    ) from None
+                # The slot was handed over as the wait timed out: use it.
+            except asyncio.CancelledError:
+                if waiter in self._fetch_queue:
+                    self._fetch_queue.remove(waiter)
+                elif waiter[1].done():
+                    self._release_fetch_slot(host)
+                raise
+
+        # The slot is held until the fetch settles, even when the caller stops waiting at the deadline.
+        task = asyncio.ensure_future(load())
+        task.add_done_callback(lambda _: self._release_fetch_slot(host))
+        task.add_done_callback(_consume_exception)
+        try:
+            return await asyncio.wait_for(asyncio.shield(task), max(0.0, deadline - loop.time()))
+        except asyncio.TimeoutError:
+            if task.done():
+                return task.result()
+            raise ValueError(
+                f"DID fetch did not finish within {self._fetch_deadline_ms} ms (fetch_deadline_ms)"
+            ) from None
 
     def _remember_failure(self, did: str, error: BaseException) -> None:
         if self._negative_cache_ttl_ms == 0:

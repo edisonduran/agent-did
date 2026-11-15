@@ -89,6 +89,9 @@ class ResolverCacheStats:
 DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000
 DEFAULT_NEGATIVE_CACHE_TTL_MS = 5_000
 DEFAULT_MAX_CONCURRENT_FETCHES = 16
+DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST = 4
+DEFAULT_MAX_QUEUED_FETCHES = 64
+DEFAULT_FETCH_DEADLINE_MS = 15_000
 
 
 @dataclass(frozen=True)
@@ -105,6 +108,16 @@ class ResolutionLimits:
     allowed_hosts: list[str] | None = None
     """When set, only did:webvh and did:wba DIDs on these hosts are fetched (``example.com``, or ``*.example.com`` for
     its subdomains); any other DID fails before a request is made, with no fallback."""
+    max_concurrent_fetches_per_host: int = DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST
+    """At most this many fetches run at once for one host (host name, any port), so DIDs on a slow host cannot take
+    every slot."""
+    max_queued_fetches: int = DEFAULT_MAX_QUEUED_FETCHES
+    """At most this many fetches wait for a slot. When the queue is full, a resolution that needs a fetch fails at
+    once instead of waiting. 0 means nothing waits."""
+    fetch_deadline_ms: int = DEFAULT_FETCH_DEADLINE_MS
+    """A did:webvh / did:wba fetch, including the time it waits for a slot, must finish within this many
+    milliseconds; the resolution fails otherwise. A fetch that outlives the deadline keeps its slot until the document
+    source gives up (``HttpSecurityOptions.timeout_ms``, default 10 s)."""
 """Default maximum number of documents in the ``UniversalResolverClient`` cache."""
 
 
