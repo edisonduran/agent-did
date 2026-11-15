@@ -289,6 +289,17 @@ client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
 - Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`. The host is lowercased and port 443 is dropped from the URL.
 
 
+## 28. Bounded fetch queue in the universal resolver
+
+- At most 64 did:webvh / did:wba fetches wait for a slot (`max_queued_fetches`); a resolution that would wait beyond that fails at once with "too many DID fetches are waiting". Such a refusal is not remembered, so a retry fetches.
+- At most 4 fetches run at once for one host name (`max_concurrent_fetches_per_host`). A service that resolves many uncached DIDs on one host at the same time (a burst of new agents of one provider) sees the others wait; raise the limit for hosts you trust.
+- The wait and the fetch together must finish within 15 s (`fetch_deadline_ms`). Keep it above the document source timeout (`HttpSecurityOptions.timeout_ms`, default 10 s), or a slow but healthy host fails at the deadline.
+
+```python
+ResolutionLimits(max_concurrent_fetches_per_host=16, max_queued_fetches=256, fetch_deadline_ms=30_000)
+```
+
+
 ## 29. An imported did:webvh log is not a fresh resolver entry
 
 - With a resolver that fetches did:webvh logs (the production resolver), `import_did_webvh_history` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.

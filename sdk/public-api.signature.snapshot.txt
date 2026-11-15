@@ -1259,7 +1259,7 @@ export { encodePublicKeyMultibase, didKeyFromPublicKey, decodePublicKeyMultibase
 export { AgentSigner, LocalKeySigner } from './core/signer';
 export { validateHttpTarget, HttpTargetValidationOptions, HttpSecurityOptions, DEFAULT_HTTP_TIMEOUT_MS, DEFAULT_MAX_RESPONSE_BYTES } from './core/http-security';
 export { isUnixTimestampString, unixStringToIso, isoToUnixString, normalizeTimestampToIso } from './core/time';
-export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, DEFAULT_RESOLVER_MAX_CACHE_ENTRIES, DEFAULT_NEGATIVE_CACHE_TTL_MS, DEFAULT_MAX_CONCURRENT_FETCHES, ResolutionLimits, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
+export { DIDResolver, DIDDocumentSource, UniversalResolverConfig, DEFAULT_RESOLVER_MAX_CACHE_ENTRIES, DEFAULT_NEGATIVE_CACHE_TTL_MS, DEFAULT_MAX_CONCURRENT_FETCHES, DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST, DEFAULT_MAX_QUEUED_FETCHES, DEFAULT_FETCH_DEADLINE_MS, ResolutionLimits, ResolverCacheStats, ResolverResolutionEvent, ResolverResolutionStage, DocumentIntegrityError } from './resolver/types';
 export { InMemoryDIDResolver } from './resolver/InMemoryDIDResolver';
 export { UniversalResolverClient } from './resolver/UniversalResolverClient';
 export { HttpDIDDocumentSource, HttpDIDDocumentSourceConfig } from './resolver/HttpDIDDocumentSource';
@@ -1654,6 +1654,22 @@ export interface ResolutionLimits {
     /** At most this many did:webvh / did:wba fetches run at once; the others wait. Default 16. */
     maxConcurrentFetches?: number;
     /**
+     * At most this many fetches run at once for one host (host name, any port), so DIDs on a slow host cannot take
+     * every slot. Default `DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST` (4).
+     */
+    maxConcurrentFetchesPerHost?: number;
+    /**
+     * At most this many fetches wait for a slot. When the queue is full, a resolution that needs a fetch fails at once
+     * instead of waiting. Default `DEFAULT_MAX_QUEUED_FETCHES` (64); 0 means nothing waits.
+     */
+    maxQueuedFetches?: number;
+    /**
+     * A did:webvh / did:wba fetch, including the time it waits for a slot, must finish within this many milliseconds;
+     * the resolution fails otherwise. Default `DEFAULT_FETCH_DEADLINE_MS` (15 000). A fetch that outlives the deadline
+     * keeps its slot until the document source gives up (`httpSecurity.timeoutMs`, default 10 s).
+     */
+    fetchDeadlineMs?: number;
+    /**
      * When set, only did:webvh and did:wba DIDs on these hosts are fetched (`example.com`, or `*.example.com` for its
      * subdomains); any other DID fails before a request is made, with no fallback.
      */
@@ -1661,6 +1677,9 @@ export interface ResolutionLimits {
 }
 export declare const DEFAULT_NEGATIVE_CACHE_TTL_MS = 5000;
 export declare const DEFAULT_MAX_CONCURRENT_FETCHES = 16;
+export declare const DEFAULT_MAX_CONCURRENT_FETCHES_PER_HOST = 4;
+export declare const DEFAULT_MAX_QUEUED_FETCHES = 64;
+export declare const DEFAULT_FETCH_DEADLINE_MS = 15000;
 export interface UniversalResolverConfig {
     registry: AgentRegistry;
     documentSource: DIDDocumentSource;
@@ -1737,13 +1756,18 @@ export declare class UniversalResolverClient implements DIDResolver {
     private readonly cache;
     private readonly negativeCacheTtlMs;
     private readonly maxConcurrentFetches;
+    private readonly maxConcurrentFetchesPerHost;
+    private readonly maxQueuedFetches;
+    private readonly fetchDeadlineMs;
     private readonly allowedHosts;
     /** Recent did:webvh / did:wba failures, answered again without fetching until they expire. */
     private readonly negativeCache;
     /** Fetches in progress, shared by concurrent resolutions of the same DID. */
     private readonly inFlight;
     private activeFetches;
-    private readonly waitingFetches;
+    private readonly activeFetchesByHost;
+    /** Fetches waiting for a slot, oldest first. */
+    private readonly fetchQueue;
     private hits;
     private misses;
     constructor(config: UniversalResolverConfig);
@@ -1757,9 +1781,15 @@ export declare class UniversalResolverClient implements DIDResolver {
     resolveDidWebvhLog(did: string): Promise<DidWebvhResolution | undefined>;
     /**
      * Runs `load` (a did:webvh or did:wba fetch) under the resolution limits: the host allow-list, the negative cache,
-     * one shared fetch per DID and at most `maxConcurrentFetches` fetches at once.
+     * one shared fetch per DID, at most `maxConcurrentFetches` fetches at once (`maxConcurrentFetchesPerHost` per host),
+     * at most `maxQueuedFetches` waiting, and `fetchDeadlineMs` for the wait and the fetch together.
      */
     private guardedFetch;
+    /** The host name a did:webvh / did:wba DID is fetched from, or '' for a DID that does not derive a URL. */
+    private fetchHostOf;
+    private hasFetchSlot;
+    private takeFetchSlot;
+    private releaseFetchSlot;
     private withFetchSlot;
     private rememberFailure;
     /** Throws before any request when `allowedHosts` is set and the DID's host is not in it. */
