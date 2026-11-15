@@ -283,6 +283,12 @@ client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
 - Microsoft Agent Framework: `sign_handoff(nonce=...)` raises `ValueError` for a nonce outside the grammar, the verifier blocks such a message with `failing_gates=["nonce"]`, and the replay key is `<did> <nonce>` (was `<did>|<nonce>`). A shared store does not match keys written before the upgrade, so a handoff accepted just before it can be accepted once more until its maximum age passes, as after a restart with the default in-memory store; upgrade verifiers while no handoff is in flight if that matters.
 
 
+## 26. did:wba host grammar
+
+- The domain segment of a did:wba DID must decode to a DNS name with an optional port (`did:wba:agents.example%3A8443`). IP literals (`did:wba:127.0.0.1`), a numeric last label, and any character other than ASCII letters, digits, hyphens and dots are rejected before any request. Use a host name; for local tests, `localhost%3A<port>` still works.
+- Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`. The host is lowercased and port 443 is dropped from the URL.
+
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
