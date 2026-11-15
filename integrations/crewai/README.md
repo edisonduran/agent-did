@@ -80,6 +80,8 @@ El paquete ahora tambien expone helpers ligeros para conectar la identidad a cal
 
 Estos helpers no exponen secretos por defecto: redaccionan `payload`, `body`, `signature` y claves privadas si aparecen en callbacks, y el guardrail rechaza outputs con esos campos sensibles.
 
+El guardrail lee la salida estructurada del agente desde el `TaskOutput` de CrewAI (`pydantic`, `json_dict` o `raw` cuando es un objeto JSON) y devuelve `(True, output)` al aprobarla, como exige CrewAI; una salida que no es un objeto JSON se rechaza. `tests/test_runtime_kickoff.py` ejecuta tareas reales con `Crew.kickoff` y un LLM falso.
+
 ## Observabilidad
 
 La factory publica acepta instrumentacion opcional sin acoplar el paquete a un backend especifico:

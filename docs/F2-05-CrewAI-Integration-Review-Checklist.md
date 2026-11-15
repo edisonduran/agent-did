@@ -85,6 +85,7 @@ CrewAI review is complete when the current package state is accurately described
 
 | Date | Change |
 |------|--------|
+| 2026-11-14 | Review gate: the guardrail and callbacks are exercised through a real `Crew.kickoff` (fake LLM), not only with dictionaries. |
 | 2026-11-14 | Review gate: no local copy of target validation or observability sanitization; both come from the SDK. |
 | 2026-11-12 | Review gate: the default exposure is `current_identity` only; `resolve_did` and `verify_signatures` are opt-in. |
 | 2026-11-12 | Review gate: signing tools use an `assertionMethod` key. |

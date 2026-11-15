@@ -11,6 +11,8 @@ from typing import Any
 
 from agent_did_sdk import sanitize_observability_attributes as _sdk_sanitize_observability_attributes
 
+_LOG = logging.getLogger("agent_did_crewai")
+
 
 def sanitize_observability_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
     """Redact sensitive values before events leave the integration boundary.
@@ -87,7 +89,8 @@ def create_json_logger_event_handler(
             include_timestamp=include_timestamp,
             extra_fields=extra_fields,
         )
-        logger.log(_to_logging_level(event.level), json.dumps(record, sort_keys=True))
+        # The record is already JSON-safe; default=str keeps an unexpected value from dropping the event.
+        logger.log(_to_logging_level(event.level), json.dumps(record, sort_keys=True, default=str))
 
     return log_event
 
@@ -115,8 +118,9 @@ class AgentDidObserver:
         if self._event_handler is not None:
             try:
                 self._event_handler(event)
-            except Exception:
-                pass
+            except Exception as error:
+                # A failing handler must not break the agent run, but the event is not lost silently.
+                _LOG.warning("agent_did_crewai event handler failed for %s: %s", event.event_type, type(error).__name__)
 
         if self._logger is not None:
             try:
