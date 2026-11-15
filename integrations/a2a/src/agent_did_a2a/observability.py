@@ -8,29 +8,18 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
-REDACTED_VALUE = "<redacted>"
-SENSITIVE_FIELD_NAMES = {
-    "agent_private_key",
-    "body",
-    "mnemonic",
-    "payload",
-    "private_key",
-    "seed",
-    "signature",
-    "signatures",
-    "signed_payload",
-}
-SENSITIVE_HEADER_NAMES = {
-    "authorization",
-    "cookie",
-    "proxy-authorization",
-    "set-cookie",
-    "signature",
-    "signature-input",
-    "x-api-key",
-}
+from agent_did_sdk import sanitize_observability_attributes as _sdk_sanitize_observability_attributes
+
+
+def sanitize_observability_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
+    """Redact sensitive values before events leave the integration boundary.
+
+    Delegates to :func:`agent_did_sdk.sanitize_observability_attributes`, the one sanitizer every integration uses.
+    """
+
+    sanitized = _sdk_sanitize_observability_attributes(dict(attributes))
+    return sanitized if isinstance(sanitized, dict) else {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,38 +47,6 @@ def compose_event_handlers(*handlers: AgentDidA2AEventHandler | None) -> AgentDi
                 continue
 
     return composite_handler
-
-
-def sanitize_observability_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
-    """Deep-sanitize attribute maps before logging or exporting."""
-
-    sanitized: dict[str, Any] = {}
-    for key, value in attributes.items():
-        if key.lower() in SENSITIVE_FIELD_NAMES:
-            sanitized[key] = REDACTED_VALUE
-            continue
-        if isinstance(value, str) and key.lower() == "url":
-            try:
-                parts = urlsplit(value)
-                if parts.username or parts.password:
-                    safe_netloc = parts.hostname or ""
-                    if parts.port:
-                        safe_netloc += f":{parts.port}"
-                    sanitized[key] = urlunsplit(parts._replace(netloc=safe_netloc))
-                    continue
-            except Exception:
-                pass
-        if isinstance(value, dict):
-            if key.lower() == "headers":
-                sanitized[key] = {
-                    header_name: REDACTED_VALUE if header_name.lower() in SENSITIVE_HEADER_NAMES else header_value
-                    for header_name, header_value in value.items()
-                }
-                continue
-            sanitized[key] = sanitize_observability_attributes(value)
-            continue
-        sanitized[key] = value
-    return sanitized
 
 
 def serialize_observability_event(

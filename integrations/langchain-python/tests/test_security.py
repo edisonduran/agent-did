@@ -47,7 +47,7 @@ async def test_sensitive_tools_are_opt_in_and_http_signing_rejects_non_http_sche
     )
 
     assert rejected["error"]
-    assert "http" in rejected["error"].lower()
+    assert "unsupported protocol" in rejected["error"].lower()
 
     rejected_private = await tools_by_name["agent_did_sign_http_request"].ainvoke(
         {"method": "GET", "url": "http://127.0.0.1:8080/health"}

@@ -57,4 +57,4 @@ async def test_http_signing_rejects_private_targets_by_default() -> None:
         }
     )
 
-    assert result == {"error": "Private or loopback HTTP targets are not allowed by default"}
+    assert result == {"error": "Blocked request to private/reserved address: 127.0.0.1"}

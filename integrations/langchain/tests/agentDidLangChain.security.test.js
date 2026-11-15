@@ -31,7 +31,7 @@ describe("@agentdid/langchain security edge cases", () => {
     });
 
     expect(result.error).toBeDefined();
-    expect(result.error).toContain("http");
+    expect(result.error).toContain("Unsupported protocol");
   });
 
   it("sign_http_request rejects localhost targets by default", async () => {
@@ -54,7 +54,7 @@ describe("@agentdid/langchain security edge cases", () => {
       body: "{}",
     });
 
-    expect(result.error).toContain("Private or loopback");
+    expect(result.error).toContain("Blocked request to private/reserved address");
   });
 
   it("sign_http_request rejects IPv6 loopback and private literals by default", async () => {
@@ -68,7 +68,7 @@ describe("@agentdid/langchain security edge cases", () => {
 
     for (const url of ["http://[::1]:8080/tasks", "http://[fd00::1]/tasks", "http://[fe80::1]/tasks"]) {
       const result = await signHttp.invoke({ method: "POST", url, body: "{}" });
-      expect(result.error).toContain("Private or loopback");
+      expect(result.error).toContain("Blocked request to private/reserved address");
     }
   });
 

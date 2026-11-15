@@ -1,4 +1,4 @@
-const net = require("node:net");
+const { validateHttpTarget } = require("@agentdid/sdk");
 const { SystemMessage } = require("@langchain/core/messages");
 const { tool } = require("@langchain/core/tools");
 const { z } = require("zod");
@@ -114,82 +114,6 @@ function buildAgentDidSystemPrompt(snapshot, additionalSystemContext) {
   }
 
   return lines.join("\n");
-}
-
-function validateHttpTarget(url, allowPrivateNetworkTargets) {
-  const parsedUrl = new URL(url);
-  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-    throw new Error("Only http and https URLs are allowed");
-  }
-
-  if (parsedUrl.username || parsedUrl.password) {
-    throw new Error("URLs with embedded credentials are not allowed");
-  }
-
-  const hostname = parsedUrl.hostname;
-  if (!hostname) {
-    throw new Error("An absolute URL with hostname is required");
-  }
-
-  // URL.hostname keeps the brackets of an IPv6 literal ("[::1]"), which net.isIP does not accept
-  const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/gu, "");
-  if (allowPrivateNetworkTargets) {
-    return;
-  }
-
-  if (normalizedHostname === "localhost" || normalizedHostname.endsWith(".localhost")) {
-    throw new Error("Private or loopback HTTP targets are not allowed by default");
-  }
-
-  const ipVersion = net.isIP(normalizedHostname);
-  if (ipVersion === 4 && isRestrictedIpv4(normalizedHostname)) {
-    throw new Error("Private or loopback HTTP targets are not allowed by default");
-  }
-
-  if (ipVersion === 6 && isRestrictedIpv6(normalizedHostname)) {
-    throw new Error("Private or loopback HTTP targets are not allowed by default");
-  }
-}
-
-function isRestrictedIpv4(hostname) {
-  const octets = hostname.split(".").map((segment) => Number.parseInt(segment, 10));
-  if (octets.length !== 4 || octets.some((segment) => Number.isNaN(segment))) {
-    return false;
-  }
-
-  const [first, second] = octets;
-  if (first === 10 || first === 127 || first === 0) {
-    return true;
-  }
-  if (first === 169 && second === 254) {
-    return true;
-  }
-  if (first === 172 && second >= 16 && second <= 31) {
-    return true;
-  }
-  if (first === 192 && second === 168) {
-    return true;
-  }
-  if (first >= 224) {
-    return true;
-  }
-
-  return false;
-}
-
-function isRestrictedIpv6(hostname) {
-  const normalizedHostname = hostname.toLowerCase();
-  return (
-    normalizedHostname === "::1"
-    || normalizedHostname === "::"
-    || normalizedHostname.startsWith("fc")
-    || normalizedHostname.startsWith("fd")
-    || normalizedHostname.startsWith("fe8")
-    || normalizedHostname.startsWith("fe9")
-    || normalizedHostname.startsWith("fea")
-    || normalizedHostname.startsWith("feb")
-    || normalizedHostname.startsWith("ff")
-  );
 }
 
 function emitToolStarted(observer, { toolName, did, inputs = {} }) {
@@ -407,7 +331,7 @@ function createAgentDidTools(options) {
           inputs: { method, url, body },
         });
         try {
-          validateHttpTarget(url, options.allowPrivateNetworkTargets === true);
+          validateHttpTarget(url, { allowPrivateTargets: options.allowPrivateNetworkTargets === true });
           const keyId = getActiveSigningKeyId(options.runtimeIdentity);
           const headers = await options.agentIdentity.signHttpRequest({
             method,

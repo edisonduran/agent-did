@@ -1,19 +1,4 @@
-const REDACTED_VALUE = "<redacted>";
-const SENSITIVE_FIELD_NAMES = new Set([
-  "agent_private_key",
-  "body",
-  "payload",
-  "signature",
-]);
-const SENSITIVE_HEADER_NAMES = new Set([
-  "authorization",
-  "cookie",
-  "proxy-authorization",
-  "set-cookie",
-  "signature",
-  "signature-input",
-  "x-api-key",
-]);
+const { sanitizeObservabilityAttributes: sanitizeWithSdk } = require("@agentdid/sdk");
 
 function composeEventHandlers(...handlers) {
   const activeHandlers = handlers.filter(Boolean);
@@ -188,59 +173,13 @@ function createAgentDidObserver({ eventHandler, logger } = {}) {
   };
 }
 
+/**
+ * Redacts sensitive values before events leave the integration boundary. Delegates to the SDK's
+ * `sanitizeObservabilityAttributes`, the one sanitizer every integration uses.
+ */
 function sanitizeObservabilityAttributes(attributes) {
-  return Object.fromEntries(
-    Object.entries(attributes).map(([key, value]) => [String(key), sanitizeValue(String(key), value)])
-  );
-}
-
-function sanitizeValue(fieldName, value) {
-  const normalizedFieldName = fieldName.toLowerCase();
-
-  if (SENSITIVE_FIELD_NAMES.has(normalizedFieldName) && typeof value === "string") {
-    return { redacted: true, length: value.length };
-  }
-
-  if (normalizedFieldName === "url" && typeof value === "string") {
-    return sanitizeUrl(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => sanitizeValue(fieldName, entry));
-  }
-
-  if (value && typeof value === "object") {
-    if (normalizedFieldName === "headers") {
-      return sanitizeHeaders(value);
-    }
-
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nestedValue]) => [String(key), sanitizeValue(String(key), nestedValue)])
-    );
-  }
-
-  return value;
-}
-
-function sanitizeHeaders(headers) {
-  return Object.fromEntries(
-    Object.entries(headers).map(([headerName, headerValue]) => {
-      if (SENSITIVE_HEADER_NAMES.has(String(headerName).toLowerCase())) {
-        return [String(headerName), REDACTED_VALUE];
-      }
-
-      return [String(headerName), sanitizeValue(String(headerName), headerValue)];
-    })
-  );
-}
-
-function sanitizeUrl(url) {
-  const parsedUrl = new URL(url);
-  parsedUrl.username = "";
-  parsedUrl.password = "";
-  parsedUrl.search = "";
-  parsedUrl.hash = "";
-  return parsedUrl.toString();
+  const sanitized = sanitizeWithSdk(attributes ?? {});
+  return sanitized && typeof sanitized === "object" && !Array.isArray(sanitized) ? sanitized : {};
 }
 
 function logWithLogger(logger, level, message) {
@@ -404,7 +343,6 @@ function maybePostLangSmithRun(runTree, { postImmediately, finalized }) {
 }
 
 module.exports = {
-  REDACTED_VALUE,
   composeEventHandlers,
   createAgentDidObserver,
   createJsonLoggerEventHandler,

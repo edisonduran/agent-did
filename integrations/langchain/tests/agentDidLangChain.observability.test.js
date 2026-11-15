@@ -63,7 +63,7 @@ describe("@agentdid/langchain observability", () => {
 
     const record = serializeObservabilityEvent(event, { includeTimestamp: false });
     expect(record.attributes.url).toBe("https://example.com/path");
-    expect(record.attributes.headers.Authorization).toBe("<redacted>");
+    expect(record.attributes.headers.Authorization).toEqual({ redacted: true, length: 17 });
     expect(record.attributes.payload).toEqual({ redacted: true, length: 12 });
   });
 
