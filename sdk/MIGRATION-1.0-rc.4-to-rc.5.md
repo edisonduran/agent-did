@@ -271,6 +271,12 @@ client.useProductionResolverFromHttp({
 ```
 
 
+## 29. An imported did:webvh log is not a fresh resolver entry
+
+- With a resolver that fetches did:webvh logs (the production resolver), `importDidWebvhHistory` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.
+- A verifier that imported a log and then resolved it while the log host was unreachable got the imported document for up to `cacheTtlMs`; it now gets a resolution error. Make the log host reachable, or use a resolver that does not fetch logs if the imported log is meant to be the only source.
+
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
