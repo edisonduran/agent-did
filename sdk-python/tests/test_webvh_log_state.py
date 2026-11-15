@@ -14,7 +14,7 @@ from agent_did_sdk.core.identity import AgentIdentity, AgentIdentityConfig
 from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams, UpdateAgentDocumentParams
 from agent_did_sdk.resolver.types import ResolverResolutionEvent
-from agent_did_sdk.webvh.adapter import DidWebvhError
+from agent_did_sdk.webvh.adapter import DidWebvhError, derive_did_webvh_log_url
 
 PARAMS = CreateAgentParams(
     name="LogStateBot",
@@ -144,20 +144,51 @@ class TestResolvingWithAProductionResolver:
 
         assert await client.verify_signature(document.id, "hello", signature) is True
 
-    async def test_fails_closed_for_an_imported_did_whose_log_cannot_be_refreshed(
-        self, clock_offset_ms: list[float]
-    ) -> None:
+    async def test_fails_closed_for_an_imported_did_whose_log_host_cannot_be_reached(self) -> None:
+        # The import is not a fresh cache entry of the resolver.
         creator = AgentDidClient()
         document, signature = await _create_agent(creator)
         verifier = AgentDidClient()
         _production(verifier)
         await verifier.import_did_webvh_history(creator.export_did_webvh_history(document.controller))
         await verifier.import_did_webvh_history(creator.export_did_webvh_history(document.id))
-        assert await verifier.verify_signature(document.id, "hello", signature) is True
-
-        clock_offset_ms[0] += 120_000
 
         assert await verifier.verify_signature(document.id, "hello", signature) is False
+        with pytest.raises(ValueError, match="could not be fetched"):
+            await verifier.resolve(document.id)
+
+    async def test_the_newer_log_the_host_serves_wins_at_once_over_an_older_imported_prefix(self) -> None:
+        creator = AgentDidClient()
+        document, signature = await _create_agent(creator)
+        before_revocation = creator.export_did_webvh_history(document.id)
+        await creator.revoke_did(document.id)
+
+        class _Host:
+            async def get_by_reference(self, ref: str) -> None:
+                return None
+
+            async def get_did_log_by_reference(self, url: str) -> str | None:
+                for did in (document.id, document.controller):
+                    if derive_did_webvh_log_url(did) == url:
+                        return creator.export_did_webvh_history(did)
+                return None
+
+        verifier = AgentDidClient()
+        verifier.use_production_resolver(ProductionResolverProfileConfig(
+            registry=InMemoryAgentRegistry(),
+            document_source=_Document(),  # type: ignore[arg-type]
+            webvh_document_source=_Host(),  # type: ignore[arg-type]
+            cache_ttl_ms=60_000,
+        ))
+        await verifier.import_did_webvh_history(creator.export_did_webvh_history(document.controller))
+        await verifier.import_did_webvh_history(before_revocation)
+
+        # No wait for a cache entry to expire: the revocation the host serves is seen at once.
+        with pytest.raises(ValueError, match="deactivated"):
+            await verifier.resolve(document.id)
+        assert await verifier.verify_signature(document.id, "hello", signature) is False
+        state = await verifier.resolve_did_webvh_state(document.id)
+        assert state is not None and state.deactivated is True
 
     async def test_does_not_serve_a_revoked_did_from_an_older_copy_when_its_host_is_down(
         self, clock_offset_ms: list[float]

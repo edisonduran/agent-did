@@ -963,6 +963,9 @@ export class AgentDidClient {
    * Verifies a did:webvh v1.0 log (SCID, hash chain, controller-signed proofs) and loads it
    * into this process: latest document, registry record and document history. Changing the
    * DID afterwards requires its controller signer (`options.controllerSigner`).
+   *
+   * The imported log is a copy of what the log host serves. With a resolver that fetches logs, it is not cached
+   * as the DID's current document: the next resolution fetches the host's log and the longer of the two wins.
    */
   public async importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument> {
     const resolved = await resolveDidWebvhLog(didLog);
@@ -997,7 +1000,16 @@ export class AgentDidClient {
       }
     }
 
-    this.resolver.registerDocument(latestDocument);
+    // An imported log is a copy of what the log host serves, not an authority: a resolver that fetches logs must not
+    // answer from it as a fresh entry, or an older prefix would be served until the entry expires. Dropping its entry
+    // makes the next resolution fetch, and the longer of the fetched and the imported log wins at once. A DID whose
+    // controller signer this client retains (created or changed here) is registered as before, and so is any DID when
+    // the resolver cannot fetch logs (then the imported log is all there is: see the README).
+    if (!this.didWebvhSignerStore.has(did) && this.resolver.resolveDidWebvhLog && this.resolver.evict) {
+      this.resolver.evict(did);
+    } else {
+      this.resolver.registerDocument(latestDocument);
+    }
     await this.registry.register(latestDocument.id, latestDocument.controller, documentRef);
     await this.registry.setDocumentReference(latestDocument.id, documentRef);
     if (resolved.metadata.deactivated) {

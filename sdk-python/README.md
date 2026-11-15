@@ -148,6 +148,8 @@ AgentIdentity.use_production_resolver_from_http(
 
 Minimal `did:wba` example: `examples/did_wba_resolution.py`
 
+A did:webvh log imported with `import_did_webvh_history` is a copy, not an authority. With a resolver that fetches logs (the production resolver), the next resolution fetches the host's log at once and the longer of the two wins; if the host cannot be reached, the resolution fails closed. The imported log is used as is only when the resolver does not fetch logs (the in-memory default); then nothing tells an older copy (for example one from before a revocation) from the current log, so import logs only from a source you trust to be current.
+
 ## Testing
 
 Canonical local workflow:

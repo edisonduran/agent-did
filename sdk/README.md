@@ -144,7 +144,7 @@ When `signer` is provided, `result.agentPrivateKey` is empty string — the priv
 
 ## Signatures at a Stated Time
 
-After key rotation, old keys are marked `deactivated` but kept in the log. To check a signature against the key the DID had at the time the signed artifact states (RFC-001 §6.2.2), use the DID's did:webvh log. With the production resolver (`useProductionResolver`) the client fetches and verifies the log from the DID's host, so later rotations and a deactivation are seen once the resolver cache entry expires; a log imported with `importDidWebvhHistory` is used as is only when the resolver does not fetch logs (the in-memory default):
+After key rotation, old keys are marked `deactivated` but kept in the log. To check a signature against the key the DID had at the time the signed artifact states (RFC-001 §6.2.2), use the DID's did:webvh log. With the production resolver (`useProductionResolver`) the client fetches and verifies the log from the DID's host, so later rotations and a deactivation are seen once the resolver cache entry expires. A log imported with `importDidWebvhHistory` is a copy, not an authority: with a resolver that fetches logs the next resolution fetches the host's log at once and the longer of the two wins, and if the host cannot be reached the resolution fails closed. The imported log is used as is only when the resolver does not fetch logs (the in-memory default); then nothing tells an older copy (for example one from before a revocation) from the current log, so import logs only from a source you trust to be current:
 
 ```ts
 // await client.importDidWebvhHistory(didLog); // only without a resolver that fetches logs

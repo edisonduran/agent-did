@@ -276,6 +276,11 @@ client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
 - `agent-did-sdk` requires `did-webvh==1.0.1` exactly. An environment that installed another 1.0.x release of `did-webvh` gets 1.0.1.
 - Python 3.13 and 3.14 are tested and listed in the classifiers.
 
+## 29. An imported did:webvh log is not a fresh resolver entry
+
+- With a resolver that fetches did:webvh logs (the production resolver), `import_did_webvh_history` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.
+- A verifier that imported a log and then resolved it while the log host was unreachable got the imported document for up to `cache_ttl_ms`; it now gets a resolution error. Make the log host reachable, or use a resolver that does not fetch logs if the imported log is meant to be the only source.
+
 
 ## Checklist
 
