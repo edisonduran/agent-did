@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import http_sf
+from http_sf.innerlist import ser_item_or_inner_list
 
 
 @dataclass(frozen=True)
@@ -31,11 +32,27 @@ class Token:
 SignatureParamValue = str | int | bool | Token
 
 
+@dataclass(frozen=True)
+class KeyedComponent:
+    """A covered component selected with the ``key`` parameter (RFC 9421 §2.1.2).
+
+    It is the member *key* of the header field *name* parsed as a Structured Field Dictionary. ``key`` is the only
+    component parameter supported.
+    """
+
+    name: str
+    key: str
+
+
+ComponentIdentifier = str | KeyedComponent
+"""A covered component identifier: a component name, or a Dictionary member selected by ``key``."""
+
+
 @dataclass
 class SignatureInput:
-    """A signature's covered components (names only) and its parameters, in order."""
+    """A signature's covered component identifiers and its parameters, in order."""
 
-    components: list[str]
+    components: list[ComponentIdentifier]
     params: list[tuple[str, SignatureParamValue]] = field(default_factory=list)
 
     def get(self, name: str) -> SignatureParamValue | None:
@@ -95,9 +112,16 @@ def _serialize_params(params: Sequence[tuple[str, SignatureParamValue]]) -> str:
     return "".join(out)
 
 
+def serialize_component_identifier(component: ComponentIdentifier) -> str:
+    """Serialize a covered component identifier as it appears in ``Signature-Input`` and the signature base."""
+    if isinstance(component, str):
+        return _serialize_string(component)
+    return f"{_serialize_string(component.name)};key={_serialize_string(component.key)}"
+
+
 def serialize_signature_input(signature_input: SignatureInput) -> str:
     """Serialize a signature's inner list (the ``@signature-params`` value and ``Signature-Input`` member)."""
-    components = " ".join(_serialize_string(component) for component in signature_input.components)
+    components = " ".join(serialize_component_identifier(component) for component in signature_input.components)
     return f"({components}){_serialize_params(signature_input.params)}"
 
 
@@ -168,13 +192,18 @@ def parse_signature_input_header(value: str) -> dict[str, SignatureInput]:
         if not isinstance(member[0], list):
             raise HttpSignatureError(f"Signature-Input member {label} is not an inner list")
         items, params = member
-        components: list[str] = []
+        components: list[ComponentIdentifier] = []
         for component, component_params in items:
             if isinstance(component, http_sf.Token) or not isinstance(component, str):
                 raise HttpSignatureError("Covered component identifiers must be strings")
-            if component_params:
-                raise HttpSignatureError("Component identifier parameters are not supported")
-            components.append(component)
+            separators += len(component_params)
+            if not component_params:
+                components.append(component)
+                continue
+            key = component_params.get("key")
+            if len(component_params) != 1 or isinstance(key, http_sf.Token) or not isinstance(key, str):
+                raise HttpSignatureError("The only supported component parameter is key, with a string value")
+            components.append(KeyedComponent(name=component, key=key))
         separators += len(params)
         result[label] = SignatureInput(
             components=components,
@@ -292,6 +321,19 @@ def request_url_form_problem(url: str) -> str | None:
     return None
 
 
+def _dictionary_member_value(request: HttpRequestLike, component: KeyedComponent) -> str:
+    if component.name.startswith("@"):
+        raise HttpSignatureError(f"The key parameter applies only to header fields: {component.name}")
+    # RFC 9421 §2.1.2: the field is parsed as a Dictionary and the member value is re-serialized
+    member = _parse_dictionary(_header_value(request, component.name)).get(component.key)
+    if member is None:
+        raise HttpSignatureError(f"Covered dictionary member is missing: {component.name};key={component.key}")
+    try:
+        return ser_item_or_inner_list(member)
+    except (http_sf.StructuredFieldError, ValueError) as error:
+        raise HttpSignatureError(f"Dictionary member cannot be serialized: {error}") from None
+
+
 def _derived_component_value(request: HttpRequestLike, name: str) -> str:
     parts = urlsplit(request.url)
     path = parts.path or "/"
@@ -315,23 +357,29 @@ def _derived_component_value(request: HttpRequestLike, name: str) -> str:
 
 def build_signature_base(request: HttpRequestLike, signature_input: SignatureInput) -> str:
     """Build the RFC 9421 signature base for *signature_input* over *request*."""
-    if any(component.startswith("@") and component != "@method" for component in signature_input.components):
+    if any(
+        isinstance(component, str) and component.startswith("@") and component != "@method"
+        for component in signature_input.components
+    ):
         problem = request_url_form_problem(request.url)
         if problem is not None:
             raise HttpSignatureError(f"The request URL is not in normalized form: {problem}")
     seen: set[str] = set()
     lines: list[str] = []
     for component in signature_input.components:
-        if component in seen:
-            raise HttpSignatureError(f"Duplicate covered component: {component}")
-        seen.add(component)
-        if component != component.lower():
-            raise HttpSignatureError(f"Component names must be lowercase: {component}")
-        value = (
-            _derived_component_value(request, component)
-            if component.startswith("@")
-            else _header_value(request, component)
-        )
-        lines.append(f"{_serialize_string(component)}: {value}")
+        identifier = serialize_component_identifier(component)
+        if identifier in seen:
+            raise HttpSignatureError(f"Duplicate covered component: {identifier}")
+        seen.add(identifier)
+        name = component if isinstance(component, str) else component.name
+        if name != name.lower():
+            raise HttpSignatureError(f"Component names must be lowercase: {name}")
+        if isinstance(component, KeyedComponent):
+            value = _dictionary_member_value(request, component)
+        elif component.startswith("@"):
+            value = _derived_component_value(request, component)
+        else:
+            value = _header_value(request, component)
+        lines.append(f"{identifier}: {value}")
     lines.append(f'"@signature-params": {serialize_signature_input(signature_input)}')
     return "\n".join(lines)

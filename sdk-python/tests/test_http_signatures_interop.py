@@ -14,7 +14,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from http_message_signatures import HTTPMessageSigner, HTTPMessageVerifier, HTTPSignatureKeyResolver, algorithms
 
 from agent_did_sdk import (
-    AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
     AgentIdentity,
     AgentIdentityConfig,
     CreateAgentParams,
@@ -27,6 +26,10 @@ from agent_did_sdk import (
 
 URL = "https://api.example.com/v1/orders?id=42"
 BODY = '{"qty":1}'
+# Written out by hand, not taken from the SDK: the independent library parses serialized component identifiers
+AGENT_DID_COMPONENT_IDS = [
+    "@method", "@authority", "@path", "@query", "content-digest", "date", '"agent-did";key="sig1"',
+]
 
 
 class _Keys(HTTPSignatureKeyResolver):  # type: ignore[misc]
@@ -69,7 +72,7 @@ class TestRfc9421Interop:
             signature_algorithm=algorithms.ED25519, key_resolver=_Keys(key_id, public_key=public_key)
         )
         results = verifier.verify(
-            prepared, expect_tag="agent-did", require_components=list(AGENT_DID_HTTP_SIGNATURE_COMPONENTS)
+            prepared, expect_tag="agent-did", require_components=AGENT_DID_COMPONENT_IDS
         )
 
         assert len(results) == 1
@@ -80,7 +83,7 @@ class TestRfc9421Interop:
         key_id = f"{result.document.id}#key-1"
         created = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
         headers = {
-            "Signature-Agent": result.document.id,
+            "Agent-DID": f'sig1="{result.document.id}"',
             "Date": created.strftime("%a, %d %b %Y %H:%M:%S GMT"),
             "Content-Digest": f"sha-256=:{base64.b64encode(hashlib.sha256(BODY.encode()).digest()).decode()}:",
         }
@@ -98,7 +101,7 @@ class TestRfc9421Interop:
             nonce=os.urandom(16).hex(),
             label="sig1",
             tag="agent-did",
-            covered_component_ids=list(AGENT_DID_HTTP_SIGNATURE_COMPONENTS),
+            covered_component_ids=AGENT_DID_COMPONENT_IDS,
             use_existing_digest=True,
         )
         signed_headers = dict(prepared.headers)

@@ -63,7 +63,11 @@ function contentDigest(body) {
   return `sha-256=:${crypto.createHash('sha256').update(body || '', 'utf-8').digest().toString('base64')}:`;
 }
 
-const FULL_COMPONENTS = ['@method', '@authority', '@path', '@query', 'content-digest', 'date', 'signature-agent'];
+// A keyed component (RFC 9421 §2.1.2) is { name, key }: the Dictionary member `key` of header `name`
+const AGENT_DID_COMPONENT = { name: 'agent-did', key: 'sig1' };
+const FULL_COMPONENTS = ['@method', '@authority', '@path', '@query', 'content-digest', 'date', AGENT_DID_COMPONENT];
+const componentName = (c) => (typeof c === 'string' ? c : c.name);
+const componentIdentifier = (c) => (typeof c === 'string' ? `"${c}"` : `"${c.name}";key="${c.key}"`);
 
 // --- Fixture identities -------------------------------------------------------------------
 const DID = 'did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot';
@@ -88,7 +92,22 @@ function authorityOf(url) {
   return u.host; // the WHATWG URL parser drops the scheme's default port
 }
 
-function componentValue(name, request, headers) {
+// Splits a Dictionary field into its members' source text (enough for these fixtures: no `,` inside members)
+// and returns the text of member `key`, which is its serialization when the field is already canonical.
+function dictionaryMember(fieldValue, key) {
+  for (const member of fieldValue.split(',').map((m) => m.trim())) {
+    const eq = member.indexOf('=');
+    const name = eq === -1 ? member.split(';')[0] : member.slice(0, eq);
+    if (name === key) return eq === -1 ? `?1${member.slice(name.length)}` : member.slice(eq + 1);
+  }
+  throw new Error(`missing dictionary member ${key}`);
+}
+
+function componentValue(component, request, headers) {
+  if (typeof component !== 'string') {
+    return dictionaryMember(componentValue(component.name, request, headers), component.key);
+  }
+  const name = component;
   const u = new URL(request.url);
   switch (name) {
     case '@method': return request.method;
@@ -111,7 +130,7 @@ function signatureParams({ components, created, expires, nonce, keyid, alg, tag 
   if (keyid !== undefined) parts.push(`keyid="${keyid}"`);
   if (alg !== undefined) parts.push(`alg="${alg}"`);
   if (tag !== undefined) parts.push(`tag="${tag}"`);
-  return `(${components.map((c) => `"${c}"`).join(' ')})${parts.map((p) => `;${p}`).join('')}`;
+  return `(${components.map(componentIdentifier).join(' ')})${parts.map((p) => `;${p}`).join('')}`;
 }
 
 /**
@@ -120,7 +139,7 @@ function signatureParams({ components, created, expires, nonce, keyid, alg, tag 
  */
 function buildHeaders({ signedRequest = REQUEST, agent = DID, seed = KEY1_SEED, headers = {}, params = {}, signOverride }) {
   const allHeaders = {
-    'Signature-Agent': agent,
+    'Agent-DID': `sig1="${agent}"`,
     'Date': DATE,
     'Content-Digest': contentDigest(signedRequest.body),
     ...headers
@@ -136,7 +155,7 @@ function buildHeaders({ signedRequest = REQUEST, agent = DID, seed = KEY1_SEED, 
     ...params
   };
   const sp = signatureParams(p);
-  const lines = p.components.map((c) => `"${c}": ${componentValue(c, signedRequest, allHeaders)}`);
+  const lines = p.components.map((c) => `${componentIdentifier(c)}: ${componentValue(c, signedRequest, allHeaders)}`);
   lines.push(`"@signature-params": ${sp}`);
   const base = lines.join('\n');
   const signature = signOverride ? signOverride(base) : sign(base, seed);
@@ -229,7 +248,15 @@ add('accept-header-names-case-insensitive', '§6.5 item 1', 'Header field names 
 // Missing headers
 add('reject-missing-signature', '§6.5 item 5', 'No `Signature` header.', { headersTransform: dropHeader('Signature'), expected: false });
 add('reject-missing-signature-input', '§6.5 item 5', 'No `Signature-Input` header.', { headersTransform: dropHeader('Signature-Input'), expected: false });
-add('reject-missing-signature-agent', '§6.5 item 1', 'No `Signature-Agent` header.', { headersTransform: dropHeader('Signature-Agent'), expected: false });
+add('reject-missing-agent-did', '§6.5 item 1', 'No `Agent-DID` header.', { headersTransform: dropHeader('Agent-DID'), expected: false });
+add('reject-legacy-signature-agent', '§6.5 item 1', 'The rc.4 form: the DID as a bare `Signature-Agent` String covered as `"signature-agent"`, no `Agent-DID`. There is no legacy path.', {
+  build: (() => {
+    const built = buildHeaders({ headers: { 'Signature-Agent': DID }, params: { components: [...FULL_COMPONENTS.slice(0, 6), 'signature-agent'] } });
+    delete built.headers['Agent-DID'];
+    return built;
+  })(),
+  expected: false
+});
 add('reject-missing-date', '§6.5 item 1', 'No `Date` header (the signature covers it).', { headersTransform: dropHeader('Date'), expected: false });
 add('reject-missing-content-digest', '§6.5 item 1', 'No `Content-Digest` header.', { headersTransform: dropHeader('Content-Digest'), expected: false });
 
@@ -313,10 +340,10 @@ add('accept-lifetime-at-cap', 'verifier policy (maxSignatureLifetimeSeconds, def
 });
 
 // Key binding and purpose
-add('reject-keyid-under-other-did', '§6.5 item 3 (keyid)', '`keyid` is a key of another DID, not of the `Signature-Agent` DID. The Signature-Agent document even lists that key under assertionMethod and the signature is valid for it, so only the binding rule can reject it.', {
+add('reject-keyid-under-other-did', '§6.5 item 3 (keyid)', '`keyid` is a key of another DID, not of the agent DID. The agent DID document even lists that key under assertionMethod and the signature is valid for it, so only the binding rule can reject it.', {
   build: buildHeaders({ params: { keyid: `${OTHER_DID}#key-1` } }), expected: false
 });
-add('reject-keyid-not-in-document', '§6.5 item 3 (keyid)', '`keyid` names a fragment the `Signature-Agent` DID document does not have.', {
+add('reject-keyid-not-in-document', '§6.5 item 3 (keyid)', '`keyid` names a fragment the agent DID document does not have.', {
   build: buildHeaders({ params: { keyid: `${DID}#key-9` } }), expected: false
 });
 add('reject-keyagreement-only-key', '§6.5 item 5 / §6.2.1 (assertionMethod)', '`keyid` is a key listed only under `keyAgreement`, and the signature is valid for it.', {
@@ -343,9 +370,51 @@ add('reject-malformed-signature-input', 'RFC 8941', '`Signature-Input` is not a 
   expected: false
 });
 
+// The Agent-DID field (§6.5 item 1): a Dictionary whose member for the signature's label is the DID as a String
+add('accept-agent-did-other-members', '§6.5 item 1 (Agent-DID)', 'The `Agent-DID` field has a member for another label too; only the member of the signature\'s label counts.', {
+  build: buildHeaders({ headers: { 'Agent-DID': `sig0="${OTHER_DID}", sig1="${DID}"` } }), expected: true
+});
+add('reject-agent-did-not-dictionary', '§6.5 item 1 (Agent-DID)', '`Agent-DID` carries the DID without a label, so it is not a Structured Field Dictionary.', {
+  headersTransform: (h) => {
+    h['Agent-DID'] = DID;
+    return h;
+  },
+  expected: false
+});
+add('reject-agent-did-no-member-for-label', '§6.5 item 1 (Agent-DID)', '`Agent-DID` has no member for the signature\'s label (`sig2` instead of `sig1`).', {
+  headersTransform: (h) => {
+    h['Agent-DID'] = `sig2="${DID}"`;
+    return h;
+  },
+  expected: false
+});
+add('reject-agent-did-token-member', '§6.5 item 1 (Agent-DID)', 'The member is a Token (`sig1=did:webvh:...`), not a String. Re-signed, so only the member type rule can reject it.', {
+  build: buildHeaders({ headers: { 'Agent-DID': `sig1=${DID}` } }), expected: false
+});
+add('reject-agent-did-member-with-parameters', '§6.5 item 1 (Agent-DID)', 'The member has a parameter (`sig1="did:...";v=1`). Re-signed, so only the parameter rule can reject it.', {
+  build: buildHeaders({ headers: { 'Agent-DID': `sig1="${DID}";v=1` } }), expected: false
+});
+add('reject-agent-did-swapped', '§6.5 item 3 (keyid)', 'The `Agent-DID` member is replaced with another DID after signing; `keyid` is not a key of that DID.', {
+  headersTransform: (h) => {
+    h['Agent-DID'] = `sig1="${OTHER_DID}"`;
+    return h;
+  },
+  expected: false
+});
+add('reject-agent-did-component-without-key', '§6.5 item 2', 'The signature covers the whole `"agent-did"` field instead of `"agent-did";key="sig1"`.', {
+  build: buildHeaders({ params: { components: [...FULL_COMPONENTS.slice(0, 6), 'agent-did'] } }), expected: false
+});
+add('reject-agent-did-component-other-label', '§6.5 item 2', 'The signature `sig1` covers `"agent-did";key="sig0"`, the member of another label.', {
+  build: buildHeaders({
+    headers: { 'Agent-DID': `sig0="${DID}", sig1="${DID}"` },
+    params: { components: [...FULL_COMPONENTS.slice(0, 6), { name: 'agent-did', key: 'sig0' }] }
+  }),
+  expected: false
+});
+
 // Required components, one dropped at a time (re-signed, so only the profile check can reject)
 for (const component of FULL_COMPONENTS) {
-  add(`reject-component-dropped-${component.replace('@', '')}`, '§6.5 item 2', `The signature does not cover \`${component}\`.`, {
+  add(`reject-component-dropped-${componentName(component).replace('@', '')}`, '§6.5 item 2', `The signature does not cover \`${componentIdentifier(component)}\`.`, {
     build: buildHeaders({ params: { components: FULL_COMPONENTS.filter((c) => c !== component) } }),
     expected: false
   });
@@ -422,7 +491,15 @@ add('reject-replayed-nonce', '§6.5 item 6', 'The same request is verified twice
 const REASONS = {
   'reject-missing-signature': 'missing_headers',
   'reject-missing-signature-input': 'missing_headers',
-  'reject-missing-signature-agent': 'missing_headers',
+  'reject-missing-agent-did': 'missing_headers',
+  'reject-legacy-signature-agent': 'missing_headers',
+  'reject-agent-did-not-dictionary': 'malformed_headers',
+  'reject-agent-did-no-member-for-label': 'signed_component_missing',
+  'reject-agent-did-token-member': 'malformed_headers',
+  'reject-agent-did-member-with-parameters': 'malformed_headers',
+  'reject-agent-did-swapped': 'keyid_not_bound',
+  'reject-agent-did-component-without-key': 'components_missing',
+  'reject-agent-did-component-other-label': 'components_missing',
   'reject-missing-date': 'signed_component_missing',
   'reject-missing-content-digest': 'digest_mismatch',
   'reject-digest-mismatch': 'digest_mismatch',
@@ -460,7 +537,7 @@ const REASONS = {
   'reject-query-differs': 'signature_invalid'
 };
 for (const component of FULL_COMPONENTS) {
-  REASONS[`reject-component-dropped-${component.replace('@', '')}`] = 'components_missing';
+  REASONS[`reject-component-dropped-${componentName(component).replace('@', '')}`] = 'components_missing';
 }
 for (const [id] of URL_FORM_CASES) {
   REASONS[`reject-url-${id}`] = 'url_not_normalized';
@@ -477,7 +554,7 @@ for (const vector of vectors) {
 const fixture = {
   formatVersion: 1,
   description: 'Agent-DID HTTP verification vectors (RFC-001 §6.5): accepted and rejected requests. Each rejected vector differs from the valid one by a single change and is re-signed when that change touches signed material. Generated by scripts/regenerate-http-verification-vectors.js.',
-  usage: 'For each vector: build the Signature-Agent DID document from `keys` (every key is a verification method listed under its `relationships`), register it in a resolver, create a client whose clock returns `now` (the vector\'s own, else `clock`), and verify `request` with `headers` and a fresh nonce store whose own clock returns the same time.`expected` is the verdict and, for a rejection, `reason` is the `HttpSignatureRejection` a detailed verifier reports; `expectedSequence` is the sequence of verdicts (and `expectedReasons` the reasons, null for an accepted one) when the same request is verified repeatedly with ONE nonce store. Unless a vector gives its own, use the default verifier policy (skew 300 s, lifetime 300 s).',
+  usage: 'For each vector: build the agent DID document from `keys` (every key is a verification method listed under its `relationships`), register it in a resolver, create a client whose clock returns `now` (the vector\'s own, else `clock`), and verify `request` with `headers` and a fresh nonce store whose own clock returns the same time.`expected` is the verdict and, for a rejection, `reason` is the `HttpSignatureRejection` a detailed verifier reports; `expectedSequence` is the sequence of verdicts (and `expectedReasons` the reasons, null for an accepted one) when the same request is verified repeatedly with ONE nonce store. Unless a vector gives its own, use the default verifier policy (skew 300 s, lifetime 300 s).',
   keysNote: 'TEST-ONLY Ed25519 keys. The seeds are public on purpose; they sign nothing real.',
   clock: NOW,
   did: DID,

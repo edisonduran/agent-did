@@ -3,8 +3,8 @@
   "check": "node scripts/check-wire-freeze.js",
   "pin": "node scripts/check-wire-freeze.js --write",
   "fixtures": {
-    "fixtures/interop-vectors.json": "3d36a5a7f9c95525d231fcc26a12ad0ecc7945006071503c0d191111d0e7a08e",
-    "fixtures/http-verification-vectors.json": "2dcf96ad6a25bdb07417129285c7c51e2d57157afbf3bdc00bd4940108574d8a",
+    "fixtures/interop-vectors.json": "05eb1980b055e59fab5381cc8598b200d51d10b5037814c709a1786c2204aa64",
+    "fixtures/http-verification-vectors.json": "ab25f89ea291c490fe6bd865d374eca336a829c41b01374930ef3e272bc7000d",
     "fixtures/canonical-document-reference.json": "5fc2d83d2a1872e1063169b6d234946ac644ab06e5c3dfc040414472937758df",
     "fixtures/jcs-vectors.json": "65636f1e47bc7e9a557ce934a5bc737a4492148de19a957b188794647009f156",
     "fixtures/metadata-commitment-vectors.json": "30e59bb7b2c02563bfafa31a954522b046a316c2d300265bdbbed9747342d9d6",

@@ -1,5 +1,5 @@
 import { sha256 } from '@noble/hashes/sha256';
-import { AgentIdentity, AGENT_DID_HTTP_SIGNATURE_COMPONENTS, AGENT_DID_HTTP_SIGNATURE_TAG } from '../src/core/AgentIdentity';
+import { AgentIdentity, agentDidHttpSignatureComponents, AGENT_DID_HTTP_SIGNATURE_TAG } from '../src/core/AgentIdentity';
 import { AgentDidClient } from '../src/core/AgentDidClient';
 import { buildSignatureBase, parseSignatureInputHeader, serializeSignatureInput } from '../src/core/http-signatures';
 import { InMemoryNonceStore } from '../src/core/nonce-store';
@@ -175,7 +175,8 @@ describe('AgentIdentity Core Module', () => {
     
     expect(headers['Signature']).toBeDefined();
     expect(headers['Signature-Input']).toBeDefined();
-    expect(headers['Signature-Agent']).toEqual(document.id);
+    expect(headers['Agent-DID']).toEqual(`sig1="${document.id}"`);
+    expect(headers['Signature-Agent']).toBeUndefined();
     expect(headers['Date']).toContain('GMT');
     expect(headers['Content-Digest']).toMatch(/^sha-256=:.+:$/);
 
@@ -285,14 +286,14 @@ describe('AgentIdentity Core Module', () => {
     const signed = await agentIdentity.signHttpRequest({ method: 'POST', url, body, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
     const created = Math.floor(Date.now() / 1000);
     const headers: Record<string, string> = {
-      'Signature-Agent': document.id,
+      'Agent-DID': `sig-a="${document.id}"`,
       'Date': signed['Date'],
       'Content-Digest': signed['Content-Digest'],
       'X-Extra': 'covered too'
     };
     // An extra covered component must really be signed: build the base with it.
     const input = {
-      components: [...AGENT_DID_HTTP_SIGNATURE_COMPONENTS, 'x-extra'],
+      components: [...agentDidHttpSignatureComponents('sig-a'), 'x-extra'],
       params: [
         ['created', created],
         ['expires', created + 30],
@@ -364,7 +365,8 @@ describe('AgentIdentity Core Module', () => {
 
     expect(headers['X-Request-Nonce']).toBeUndefined();
     const input = parseSignatureInputHeader(headers['Signature-Input']).get('sig1')!;
-    expect(input.components).toEqual([...AGENT_DID_HTTP_SIGNATURE_COMPONENTS]);
+    expect(input.components).toEqual(agentDidHttpSignatureComponents('sig1'));
+    expect(headers['Signature-Input']).toContain('"date" "agent-did";key="sig1");created=');
     expect(input.params.map(([name]) => name)).toEqual(['created', 'expires', 'nonce', 'keyid', 'alg', 'tag']);
     const params = Object.fromEntries(input.params);
     expect(params.expires).toEqual((params.created as number) + 60);
@@ -559,7 +561,10 @@ describe('AgentIdentity Core Module', () => {
     ['foreign tag', (input: string) => input.replace('tag="agent-did"', 'tag="web-bot-auth"')],
     ['missing alg', (input: string) => input.replace(';alg="ed25519"', '')],
     ['missing expires', (input: string) => input.replace(/;expires=\d+/u, '')],
-    ['dropped signature-agent component', (input: string) => input.replace(' "signature-agent"', '')],
+    ['dropped agent-did component', (input: string) => input.replace(' "agent-did";key="sig1"', '')],
+    ['agent-did component without key', (input: string) => input.replace('"agent-did";key="sig1"', '"agent-did"')],
+    ['agent-did component keyed by another label', (input: string) => input.replace('key="sig1"', 'key="sig2"')],
+    ['unsupported component parameter', (input: string) => input.replace('key="sig1"', 'key="sig1";sf')],
     ['dropped @query component', (input: string) => input.replace(' "@query"', '')],
     ['malformed dictionary', (input: string) => input.replace('sig1=(', 'sig1=[')]
   ])('should reject Agent-DID signatures with %s', async (_label, mutate) => {
@@ -592,7 +597,7 @@ describe('AgentIdentity Core Module', () => {
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, ...change, headers })).resolves.toBe(false);
   });
 
-  it('should reject a Signature-Agent swapped to another DID', async () => {
+  it('should reject an Agent-DID member swapped to another DID', async () => {
     const victim = await agentIdentity.create({ name: 'VictimBot', coreModel: 'test', systemPrompt: 'test' });
     const attacker = await agentIdentity.create({ name: 'AttackerBot', coreModel: 'test', systemPrompt: 'test' });
     const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{}' };
@@ -602,8 +607,39 @@ describe('AgentIdentity Core Module', () => {
       agentDid: attacker.document.id, verificationMethodId: `${attacker.document.id}#key-1`
     });
 
-    const swapped = { ...headers, 'Signature-Agent': victim.document.id };
+    const swapped = { ...headers, 'Agent-DID': `sig1="${victim.document.id}"` };
     await expect(AgentIdentity.verifyHttpRequestSignature({ ...request, headers: swapped })).resolves.toBe(false);
+  });
+
+  it.each([
+    ['no Agent-DID header', undefined, 'missing_headers'],
+    ['a bare String (the Web Bot Auth legacy form)', 'DID', 'malformed_headers'],
+    ['no member for the label', 'sig2="DID"', 'signed_component_missing'],
+    ['a Token member', 'sig1=did', 'malformed_headers'],
+    ['a member with parameters', 'sig1="DID";v=1', 'malformed_headers'],
+    ['an Inner List member', 'sig1=("DID")', 'malformed_headers']
+  ])('should reject a request whose Agent-DID field has %s', async (_label, value, reason) => {
+    const { document, agentPrivateKey } = await agentIdentity.create({ name: 'HeaderBot', coreModel: 'test', systemPrompt: 'test' });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{}' };
+    const signed = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
+    const headers: Record<string, string> = { ...signed };
+    delete headers['Agent-DID'];
+    if (value !== undefined) {
+      headers['Agent-DID'] = value.replace('DID', document.id);
+    }
+    const client = AgentIdentity.getDefaultClient();
+    await expect(client.verifyHttpRequestSignatureDetailed({ ...request, headers })).resolves.toEqual({ ok: false, reason });
+  });
+
+  it('should take the agent DID from the member of the signature label when Agent-DID has several members', async () => {
+    const { document, agentPrivateKey } = await agentIdentity.create({ name: 'MultiMemberBot', coreModel: 'test', systemPrompt: 'test' });
+    const other = await agentIdentity.create({ name: 'OtherBot', coreModel: 'test', systemPrompt: 'test' });
+    const request = { method: 'POST', url: 'https://api.example.com/v1/data', body: '{}' };
+    const signed = await agentIdentity.signHttpRequest({ ...request, agentPrivateKey, agentDid: document.id, verificationMethodId: `${document.id}#key-1` });
+    // Another member is not covered by sig1, so adding it does not change the signature base
+    const headers = { ...signed, 'Agent-DID': `sig0="${other.document.id}", ${signed['Agent-DID']}` };
+    const client = AgentIdentity.getDefaultClient();
+    await expect(client.verifyHttpRequestSignatureDetailed({ ...request, headers })).resolves.toMatchObject({ ok: true, did: document.id });
   });
 
   it('should resolve a created DID document', async () => {

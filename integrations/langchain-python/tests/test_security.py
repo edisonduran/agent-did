@@ -121,7 +121,7 @@ async def test_private_network_targets_can_be_enabled_explicitly() -> None:
 
     result = await tool.ainvoke({"method": "GET", "url": "http://127.0.0.1:8080/health"})
 
-    assert result["headers"]["Signature-Agent"] == runtime_identity.document.id
+    assert result["headers"]["Agent-DID"] == f'sig1="{runtime_identity.document.id}"'
 
 
 @pytest.mark.asyncio

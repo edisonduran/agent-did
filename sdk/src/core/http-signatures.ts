@@ -10,6 +10,8 @@
 import { bytesToBase64 } from '../crypto/base64';
 import {
   parseDictionary,
+  serializeInnerList,
+  serializeItem,
   Token,
   type BareItem,
   type Dictionary,
@@ -21,9 +23,21 @@ import {
 /** An RFC 8941 bare item as used by signature parameters. */
 export type SignatureParamValue = string | number | boolean | { token: string };
 
+/**
+ * A covered component selected with the `key` parameter (RFC 9421 §2.1.2): the member `key` of a header field
+ * parsed as a Structured Field Dictionary. `key` is the only component parameter supported.
+ */
+export interface KeyedComponent {
+  name: string;
+  key: string;
+}
+
+/** A covered component identifier: a component name, or a Dictionary member selected by `key`. */
+export type ComponentIdentifier = string | KeyedComponent;
+
 export interface SignatureInput {
-  /** Covered component identifiers, in order (names only; component parameters are not supported). */
-  components: string[];
+  /** Covered component identifiers, in order. */
+  components: ComponentIdentifier[];
   /** Signature parameters, in order. */
   params: Array<[string, SignatureParamValue]>;
 }
@@ -86,9 +100,16 @@ function serializeParams(params: Array<[string, SignatureParamValue]>): string {
     .join('');
 }
 
+/** Serializes a covered component identifier as it appears in `Signature-Input` and the signature base. */
+export function serializeComponentIdentifier(component: ComponentIdentifier): string {
+  return typeof component === 'string'
+    ? serializeString(component)
+    : `${serializeString(component.name)};key=${serializeString(component.key)}`;
+}
+
 /** Serializes a signature's inner list (the `@signature-params` value and the `Signature-Input` member). */
 export function serializeSignatureInput(input: SignatureInput): string {
-  return `(${input.components.map(serializeString).join(' ')})${serializeParams(input.params)}`;
+  return `(${input.components.map(serializeComponentIdentifier).join(' ')})${serializeParams(input.params)}`;
 }
 
 export function serializeSignature(label: string, signature: Uint8Array): string {
@@ -171,14 +192,19 @@ export function parseSignatureInputHeader(value: string): Map<string, SignatureI
       throw new HttpSignatureError(`Signature-Input member ${label} is not an inner list`);
     }
     const [items, params] = member as InnerList;
-    const components = items.map(([component, componentParams]) => {
+    const components = items.map(([component, componentParams]): ComponentIdentifier => {
       if (typeof component !== 'string') {
         throw new HttpSignatureError('Covered component identifiers must be strings');
       }
-      if (componentParams.size > 0) {
-        throw new HttpSignatureError('Component identifier parameters are not supported');
+      separators += componentParams.size;
+      if (componentParams.size === 0) {
+        return component;
       }
-      return component;
+      const key = componentParams.get('key');
+      if (componentParams.size !== 1 || typeof key !== 'string') {
+        throw new HttpSignatureError('The only supported component parameter is key, with a string value');
+      }
+      return { name: component, key };
     });
     separators += params.size;
     result.set(label, { components, params: toParams(params) });
@@ -277,6 +303,22 @@ export function requestUrlFormProblem(url: string): string | undefined {
   return undefined;
 }
 
+function dictionaryMemberValue(request: HttpRequestLike, component: KeyedComponent): string {
+  if (component.name.startsWith('@')) {
+    throw new HttpSignatureError(`The key parameter applies only to header fields: ${component.name}`);
+  }
+  // RFC 9421 §2.1.2: the field is parsed as a Dictionary and the member value is re-serialized
+  const member = parseDictionaryStrict(headerValue(request, component.name)).get(component.key);
+  if (member === undefined) {
+    throw new HttpSignatureError(`Covered dictionary member is missing: ${component.name};key=${component.key}`);
+  }
+  try {
+    return Array.isArray(member[0]) ? serializeInnerList(member as InnerList) : serializeItem(member as Item);
+  } catch (error) {
+    throw new HttpSignatureError(`Dictionary member cannot be serialized: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function derivedComponentValue(request: HttpRequestLike, name: string): string {
   const url = new URL(request.url);
   switch (name) {
@@ -301,7 +343,7 @@ function derivedComponentValue(request: HttpRequestLike, name: string): string {
 
 /** Builds the RFC 9421 signature base for `input` over `request`. */
 export function buildSignatureBase(request: HttpRequestLike, input: SignatureInput): string {
-  if (input.components.some((component) => component.startsWith('@') && component !== '@method')) {
+  if (input.components.some((component) => typeof component === 'string' && component.startsWith('@') && component !== '@method')) {
     const problem = requestUrlFormProblem(request.url);
     if (problem !== undefined) {
       throw new HttpSignatureError(`The request URL is not in normalized form: ${problem}`);
@@ -310,17 +352,21 @@ export function buildSignatureBase(request: HttpRequestLike, input: SignatureInp
   const seen = new Set<string>();
   const lines: string[] = [];
   for (const component of input.components) {
-    if (seen.has(component)) {
-      throw new HttpSignatureError(`Duplicate covered component: ${component}`);
+    const identifier = serializeComponentIdentifier(component);
+    if (seen.has(identifier)) {
+      throw new HttpSignatureError(`Duplicate covered component: ${identifier}`);
     }
-    seen.add(component);
-    if (component !== component.toLowerCase()) {
-      throw new HttpSignatureError(`Component names must be lowercase: ${component}`);
+    seen.add(identifier);
+    const name = typeof component === 'string' ? component : component.name;
+    if (name !== name.toLowerCase()) {
+      throw new HttpSignatureError(`Component names must be lowercase: ${name}`);
     }
-    const value = component.startsWith('@')
-      ? derivedComponentValue(request, component)
-      : headerValue(request, component);
-    lines.push(`${serializeString(component)}: ${value}`);
+    const value = typeof component !== 'string'
+      ? dictionaryMemberValue(request, component)
+      : component.startsWith('@')
+        ? derivedComponentValue(request, component)
+        : headerValue(request, component);
+    lines.push(`${identifier}: ${value}`);
   }
   lines.push(`"@signature-params": ${serializeSignatureInput(input)}`);
   return lines.join('\n');

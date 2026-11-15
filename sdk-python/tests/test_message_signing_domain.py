@@ -15,10 +15,10 @@ from agent_did_sdk.core.http_signatures import (
     serialize_signature_input,
 )
 from agent_did_sdk.core.identity import (
-    AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
     AGENT_DID_HTTP_SIGNATURE_TAG,
     AgentIdentity,
     AgentIdentityConfig,
+    agent_did_http_signature_components,
 )
 from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.types import CreateAgentParams, SignHttpRequestParams, VerifyHttpRequestSignatureParams
@@ -73,12 +73,12 @@ async def test_a_payload_signature_does_not_stand_in_for_the_signature_of_an_htt
 
     created = int(time.time())
     headers = {
-        "Signature-Agent": document.id,
+        "Agent-DID": f'sig1="{document.id}"',
         "Date": signed["Date"],
         "Content-Digest": signed["Content-Digest"],
     }
     signature_input = SignatureInput(
-        components=list(AGENT_DID_HTTP_SIGNATURE_COMPONENTS),
+        components=agent_did_http_signature_components("sig1"),
         params=[
             ("created", created),
             ("expires", created + 30),

@@ -69,20 +69,22 @@ function computeContentDigest(body) {
 }
 
 // RFC 9421 §2.5 signature base for the Agent-DID profile, built independently of the SDKs.
-const COMPONENTS = ['@method', '@authority', '@path', '@query', 'content-digest', 'date', 'signature-agent'];
+// The last component is the `Agent-DID` Dictionary member of label sig1 (RFC 9421 §2.1.2): its value is the
+// serialized member, the quoted DID.
+const COMPONENTS = ['"@method"', '"@authority"', '"@path"', '"@query"', '"content-digest"', '"date"', '"agent-did";key="sig1"'];
 
 function buildHttpSignatureBase({ method, url, headers, signatureParams }) {
   const urlObj = new URL(url);
-  const values = {
-    '@method': method,
-    '@authority': urlObj.host,
-    '@path': urlObj.pathname || '/',
-    '@query': urlObj.search || '?',
-    'content-digest': headers['Content-Digest'],
-    'date': headers['Date'],
-    'signature-agent': headers['Signature-Agent']
-  };
-  const lines = COMPONENTS.map((component) => `"${component}": ${values[component]}`);
+  const values = [
+    method,
+    urlObj.host,
+    urlObj.pathname || '/',
+    urlObj.search || '?',
+    headers['Content-Digest'],
+    headers['Date'],
+    headers['Agent-DID'].replace(/^sig1=/u, '')
+  ];
+  const lines = COMPONENTS.map((component, index) => `${component}: ${values[index]}`);
   lines.push(`"@signature-params": ${signatureParams}`);
   return lines.join('\n');
 }
@@ -112,9 +114,9 @@ const contentDigest = computeContentDigest(httpBody);
 
 function buildVector({ did, controller }) {
   const keyId = `${did}#key-1`;
-  const signatureParams = `(${COMPONENTS.map((component) => `"${component}"`).join(' ')})` +
+  const signatureParams = `(${COMPONENTS.join(' ')})` +
     `;created=${created};expires=${expiresAt};nonce="${nonce}";keyid="${keyId}";alg="ed25519";tag="agent-did"`;
-  const signedHeaders = { 'Signature-Agent': did, 'Date': httpDate, 'Content-Digest': contentDigest };
+  const signedHeaders = { 'Agent-DID': `sig1="${did}"`, 'Date': httpDate, 'Content-Digest': contentDigest };
   const signatureBase = buildHttpSignatureBase({
     method: httpMethod,
     url: httpUrl,
@@ -145,7 +147,7 @@ function buildVector({ did, controller }) {
       headers: {
         'Signature': `sig1=:${httpSigBase64}:`,
         'Signature-Input': `sig1=${signatureParams}`,
-        'Signature-Agent': did,
+        'Agent-DID': `sig1="${did}"`,
         'Date': httpDate,
         'Content-Digest': contentDigest
       },

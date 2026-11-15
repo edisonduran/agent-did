@@ -558,7 +558,7 @@ export class AgentDidClient {
    * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
    *
    * Requires the Agent-DID profile (covered components, `tag="agent-did"`, `alg="ed25519"`,
-   * `created`, `expires`, `nonce`, a `keyid` under the `Signature-Agent` DID), a matching
+   * `created`, `expires`, `nonce`, a `keyid` under the DID of the `Agent-DID` member), a matching
    * `Content-Digest`, and a signature by an active `assertionMethod` key. The nonce is then
    * recorded in `nonceStore` (default: a process-wide `InMemoryNonceStore`), so a replayed
    * request is rejected. Returns `false` on any failure; use `verifyHttpRequestSignatureDetailed`

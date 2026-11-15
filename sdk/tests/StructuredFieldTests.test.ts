@@ -69,10 +69,17 @@ function expectedSignatureInput(expected: Member[]): unknown[] | null {
   const result: unknown[] = [];
   for (const [label, [value, params]] of expected) {
     if (!Array.isArray(value)) return null;
-    const components: string[] = [];
-    for (const [item, itemParams] of value as Array<[unknown, unknown[]]>) {
-      if (typeof item !== 'string' || itemParams.length > 0) return null;
-      components.push(item);
+    const components: Array<string | { name: string; key: string }> = [];
+    for (const [item, itemParams] of value as Array<[unknown, Array<[string, unknown]>]>) {
+      if (typeof item !== 'string') return null;
+      if (itemParams.length === 0) {
+        components.push(item);
+        continue;
+      }
+      // The one component parameter in the subset: `key` with a String value (RFC 9421 §2.1.2)
+      const [[paramName, paramValue]] = itemParams;
+      if (itemParams.length !== 1 || paramName !== 'key' || typeof paramValue !== 'string') return null;
+      components.push({ name: item, key: paramValue });
     }
     const mapped: Array<[string, unknown]> = [];
     for (const [name, param] of params) {

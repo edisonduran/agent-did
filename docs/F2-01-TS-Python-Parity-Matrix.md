@@ -88,7 +88,7 @@ They are consumed by:
 | Identity creation | `AgentIdentity.create` | `AgentIdentity.create` | ✅ | Same RFC-001 lifecycle role. |
 | Message signing | `signMessage` | `sign_message` | ✅ | Ed25519 in both SDKs. |
 | Message verification | `verifySignature` | `verify_signature` | ✅ | Revocation-aware in both SDKs. |
-| HTTP signing | `signHttpRequest` | `sign_http_request` | ✅ | Shared Bot Auth model. |
+| HTTP signing | `signHttpRequest` | `sign_http_request` | ✅ | Shared RFC 9421 profile (`Agent-DID` header) and HTTP vectors. |
 | HTTP verification | `verifyHttpRequestSignature` | `verify_http_request_signature` | ✅ | Shared header semantics and interop vectors. |
 | DID resolution | `resolve` | `resolve` | ✅ | Resolver abstraction aligned. |
 | DID revocation | `revokeDid` | `revoke_did` | ✅ | Registry-backed and history-aware. |

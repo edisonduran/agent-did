@@ -197,13 +197,16 @@ export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
 
 // HTTP Message Signatures (RFC 9421) and replay protection
 export {
-  AGENT_DID_HTTP_SIGNATURE_COMPONENTS,
-  AGENT_DID_HTTP_SIGNATURE_TAG
+  AGENT_DID_HTTP_HEADER,
+  AGENT_DID_HTTP_SIGNATURE_TAG,
+  agentDidHttpSignatureComponents
 } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
 export {
+  ComponentIdentifier,
   HttpSignatureError,
   HttpRequestLike,
+  KeyedComponent,
   SignatureInput,
   SignatureParamValue,
   buildSignatureBase,

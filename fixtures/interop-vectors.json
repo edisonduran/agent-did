@@ -21,13 +21,13 @@
         "date": "Mon, 01 Jan 2024 00:00:00 GMT",
         "contentDigest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:",
         "headers": {
-          "Signature": "sig1=:b1nXCiknPcoRq/hrDk7wlCc+AhBoJaM8/9HAHkmMGMSC7Sa3rKPZ81IaWaGMIM0td5/IcBGCxIFWDNxgm49fCA==:",
-          "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067200;expires=2704067199;nonce=\"7c1f0e9ab23d4658a1b0c9d8e7f60514\";keyid=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
-          "Signature-Agent": "did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot",
+          "Signature": "sig1=:dZ1dS+XZgK5oePXNtu0mVuQpUKXB060PV8183ci76Y5uXz22pNvkPvAzgai+zkB6U6lAvr8LnY8k+z6S/m+5Aw==:",
+          "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"agent-did\";key=\"sig1\");created=1704067200;expires=2704067199;nonce=\"7c1f0e9ab23d4658a1b0c9d8e7f60514\";keyid=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+          "Agent-DID": "sig1=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot\"",
           "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
           "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/interop\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:00 GMT\n\"signature-agent\": did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"signature-agent\");created=1704067200;expires=2704067199;nonce=\"7c1f0e9ab23d4658a1b0c9d8e7f60514\";keyid=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "signatureBase": "\"@method\": POST\n\"@authority\": api.example.com\n\"@path\": /v1/interop\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:00 GMT\n\"agent-did\";key=\"sig1\": \"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot\"\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"agent-did\";key=\"sig1\");created=1704067200;expires=2704067199;nonce=\"7c1f0e9ab23d4658a1b0c9d8e7f60514\";keyid=\"did:webvh:QmInteropFixtureScid:interop.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
         "maxCreatedSkewSeconds": 999999999,
         "maxSignatureLifetimeSeconds": 999999999
       }

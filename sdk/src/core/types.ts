@@ -323,10 +323,10 @@ export interface VerifyHttpRequestSignatureParams {
    */
   nonceStore?: import('./nonce-store').NonceStore;
   /**
-   * Accept only these `Signature-Agent` DIDs (exact match). Checked before any resolution, so a request from any
-   * other DID costs no network call. A valid signature only proves which DID signed: without `allowedDids` or
-   * `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job (read
-   * `result.did` / `result.controllers`).
+   * Accept only these agent DIDs (the `Agent-DID` member; exact match). Checked before any resolution, so a
+   * request from any other DID costs no network call. A valid signature only proves which DID signed: without
+   * `allowedDids` or `allowedControllers`, any DID with a valid key passes, and authorization is the caller's job
+   * (read `result.did` / `result.controllers`).
    */
   allowedDids?: readonly string[];
   /**
@@ -341,31 +341,33 @@ export interface VerifyHttpRequestSignatureParams {
  * signatures, the reason is the one of the first signature that has `tag="agent-did"` (else the
  * first signature).
  *
- * - `missing_headers`: `Signature`, `Signature-Input` or `Signature-Agent` is absent.
+ * - `missing_headers`: `Signature`, `Signature-Input` or `Agent-DID` is absent.
  * - `url_not_normalized`: the request URL is not in the normalized form of RFC-001 §6.5 item 4 (see
  *   `requestUrlFormProblem`); the SDK refuses to sign such a URL too.
- * - `malformed_headers`: `Signature` / `Signature-Input` do not parse, or no signature has a matching label.
+ * - `malformed_headers`: `Signature` / `Signature-Input` / `Agent-DID` do not parse, no signature has a matching
+ *   label, or the `Agent-DID` member of the signature's label is not a String without parameters.
  * - `digest_mismatch`: `Content-Digest` is absent or is not exactly the SHA-256 of the body.
  * - `tag_mismatch`: the `tag` parameter is not `agent-did` (for example another profile's signature).
  * - `alg_unsupported`: the `alg` parameter is not `ed25519`.
  * - `params_missing`: `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type, or `nonce` is not 1 to
  *   256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3).
- * - `keyid_not_bound`: `keyid` is not a key of the `Signature-Agent` DID.
+ * - `keyid_not_bound`: `keyid` is not a key of the agent DID (the `Agent-DID` member of the signature's label).
  * - `components_missing`: a required covered component is absent.
  * - `components_order`: the required components are all covered but not first and in order.
  * - `created_skew`: `created` is further from now than `maxCreatedSkewSeconds`.
  * - `expires_before_created`: `expires` is earlier than `created`.
  * - `lifetime_exceeded`: `expires - created` is greater than `maxSignatureLifetimeSeconds`.
  * - `expired`: now is after `expires`.
- * - `signed_component_missing`: a covered component has no value in the request (for example no `Date`).
- * - `did_resolution_failed`: the `Signature-Agent` DID has no active verification chain: unknown,
+ * - `signed_component_missing`: a covered component has no value in the request (for example no `Date`, or no
+ *   `Agent-DID` member for the signature's label).
+ * - `did_resolution_failed`: the agent DID has no active verification chain: unknown,
  *   revoked, deactivated, inactive controller, or the resolver failed. The SDK does not tell a
  *   resolver outage from a revocation; treat this reason as "could not establish the key".
  * - `keyid_not_authorized`: `keyid` is not an `assertionMethod` key of the DID document (a fragment
  *   the document does not have, or a key listed only under another relationship).
  * - `signature_invalid`: the signature does not verify, or the key is no longer active.
  * - `nonce_replayed`: the `(keyid, nonce)` pair was already seen.
- * - `did_not_allowed`: `allowedDids` is set and the `Signature-Agent` DID is not in it.
+ * - `did_not_allowed`: `allowedDids` is set and the agent DID is not in it.
  * - `controller_not_allowed`: `allowedControllers` is set and no DID of the controller chain is in it.
  */
 export type HttpSignatureRejection =
@@ -399,7 +401,10 @@ export type HttpSignatureRejection =
 export type VerifyHttpRequestSignatureResult =
   | {
       ok: true;
-      /** The `Signature-Agent` DID: who signed. A valid signature does not make it authorized. */
+      /**
+       * The agent DID (the `Agent-DID` member of the accepted signature's label): who signed. A valid signature
+       * does not make it authorized.
+       */
       did: string;
       /** The verification method that signed (`keyid`). */
       keyId: string;

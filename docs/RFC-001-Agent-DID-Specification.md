@@ -50,7 +50,7 @@ Where this RFC says an item is defined "by" one of these documents, that documen
 | [did:webvh] | DID method, `did.jsonl` log format, SCID, `entryHash` chain, `updateKeys`, deactivation | **v1.0** (`method` parameter `did:webvh:1.0`) |
 | [DID-CORE] | DID document data model and verification relationships | W3C Recommendation, DID Core v1.0 |
 | [RFC 9421] | HTTP Message Signatures (signature base, `Signature-Input`, `Signature`) | RFC 9421 |
-| [RFC 8941] | Structured Field Values, as used by `Signature-Input` and `Signature` | RFC 8941 |
+| [RFC 8941] | Structured Field Values, as used by `Signature-Input`, `Signature` and `Agent-DID` | RFC 8941 |
 | [RFC 9530] | `Content-Digest` header (`sha-256`) | RFC 9530 |
 | [RFC 8785] | JSON Canonicalization Scheme (JCS) for hashing | RFC 8785 |
 | [RFC 8032] | Ed25519 signatures | RFC 8032 |
@@ -242,7 +242,7 @@ graph TD
 
 ### 6.2 Resolution and Verification
 
-1. Consumer obtains `Signature-Agent` or the issuer's DID.
+1. Consumer obtains the agent's DID (the `Agent-DID` member of an HTTP signature's label, §6.5) or the issuer's DID.
 2. Resolves DID via universal resolver (with fallback/failover in production profile). When the document is located through a registry `documentRef`, the resolver MUST verify that the retrieved document's `id` equals the requested DID and, for `hash://sha256/` references, that the document hashes to the reference as defined in §6.1. A document that fails either check MUST be rejected, and the resolver MUST NOT fall back to another source; fallback and failover apply only to availability failures (source unreachable, document not found). References whose scheme cannot be verified MUST be rejected unless the deployment explicitly accepts that scheme as unverified.
 3. Verifies the signing key is authorized for the required DID verification relationship.
 4. Verifies signature with `verificationMethod`.
@@ -326,12 +326,14 @@ Other delegation formats draw the same line for the same reason (for example the
 
 Agents sign HTTP requests with RFC 9421 HTTP Message Signatures using the following profile:
 
-1. The request MUST carry `Signature-Agent` (the agent's DID), `Date`, and `Content-Digest` (RFC 9530, `sha-256`). The `Content-Digest` value is exactly `sha-256=:<base64 of SHA-256(body)>:`: a verifier MUST reject a field with any other form, including a dictionary that adds further algorithms.
-2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "signature-agent"`. Additional components MAY follow. A verifier MUST reject a signature whose covered components start with anything else (a missing, reordered or preceded component).
-3. The signature parameters MUST include `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `keyid` MUST be a verification method of the `Signature-Agent` DID. `nonce` MUST be 1 to 256 characters from `A-Z`, `a-z`, `0-9` and `. _ ~ + / = -` (no space); a signer MUST NOT send another value and a verifier MUST reject it (`params_missing`).
+1. The request MUST carry `Agent-DID`, `Date`, and `Content-Digest` (RFC 9530, `sha-256`). `Agent-DID` is a Structured Field Dictionary (RFC 8941 §3.2) keyed by signature label: the member for a signature's label MUST be a String, without parameters, whose value is the agent's DID (for example `Agent-DID: sig1="did:webvh:…"`). A verifier MUST reject a signature whose label has no member in `Agent-DID`, or whose member is not a String or has parameters; members of other labels are ignored. A `Signature-Agent` header is not read: the bare-String form of earlier release candidates is not accepted. The `Content-Digest` value is exactly `sha-256=:<base64 of SHA-256(body)>:`: a verifier MUST reject a field with any other form, including a dictionary that adds further algorithms.
+2. The signature MUST cover, in this order, `"@method" "@authority" "@path" "@query" "content-digest" "date" "agent-did";key="<label>"`, where `<label>` is the signature's own label. The last component selects the `Agent-DID` member of that label (RFC 9421 §2.1.2), so its line in the signature base is the serialized member, for example `"agent-did";key="sig1": "did:webvh:…"`. Additional components MAY follow. A verifier MUST reject a signature whose covered components start with anything else (a missing, reordered or preceded component).
+3. The signature parameters MUST include `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `keyid` MUST be a verification method of the DID in the `Agent-DID` member of the signature's label. `nonce` MUST be 1 to 256 characters from `A-Z`, `a-z`, `0-9` and `. _ ~ + / = -` (no space); a signer MUST NOT send another value and a verifier MUST reject it (`params_missing`).
 4. The signature base MUST be built as defined in RFC 9421 §2.5. Verifiers MUST rebuild it from the received request, with the `"@signature-params"` line re-serialized from the parsed `Signature-Input`. The request URL MUST already be in **normalized form**, so that every URL parser derives the same `@authority`, `@path` and `@query`: an `http` or `https` URL with a lowercase scheme; a host that is lowercase ASCII (an internationalized name in its punycode form), a canonical dotted-decimal IPv4 address or a bracketed IPv6 address in RFC 5952 form, with no empty label; an optional port without leading zeros; no user information and no fragment; a path and query made only of unreserved characters, sub-delimiters, `:`, `@` and percent-encoded octets (`%` followed by two hex digits), with `/` and `?` also allowed in the query and `'` not allowed there; no `.` or `..` path segment, also when percent-encoded; and no `?` without a query. A signer MUST NOT sign a request whose URL is not in normalized form (it percent-encodes the URL first), and a verifier MUST reject such a request (`url_not_normalized`). An explicit default port is allowed and is not part of `@authority`.
 5. Verifiers MUST reject the signature unless: the profile in items 2 and 3 is present; `created` is within the allowed clock skew; `now <= expires`; `Content-Digest` matches the body; and the signature verifies with an active key listed under `assertionMethod` in the resolved DID document.
 6. Verifiers MUST record each accepted `(keyid, nonce)` pair until `expires` and reject a request that repeats one. The pair MUST be recorded only after the signature has verified.
+
+The `tag` separates Agent-DID signatures from other RFC 9421 profiles. The header name `Agent-DID` is deliberately not `Signature-Agent`: the IETF Web Bot Auth draft ([draft-ietf-webbotauth-httpsig-protocol-01], compared on 2026-10-29) defines `Signature-Agent` as a Dictionary of `https` key-directory URIs, and a verifier of that profile would misread a DID there. Both profiles can sign one request under different labels: an agent that also publishes a Web Bot Auth key directory MAY add a second signature (`tag="web-bot-auth"`, its own `Signature-Agent` member). An Agent-DID verifier ignores that signature when another label carries a valid Agent-DID signature. This specification claims no conformance with Web Bot Auth. See [Anti-Replay-HTTP-Signatures.md](Anti-Replay-HTTP-Signatures.md) for guidance and a shared-store example.
 
 ### 6.6 Lifecycle Authorization
 
@@ -346,7 +348,6 @@ Update, key rotation and revocation (deactivation) change the identity that othe
 7. **Controller chain and binding.** An agent controlled by another DID (§4.2 `controller`) is operated through that controller's keys; the controller chain MUST be resolvable and active for the agent to verify (§6.2). A `did:webvh` agent is **bound** to its controller only if the data-integrity proof of the **last entry** of its log was made by a key that is active now under `capabilityInvocation` of the controller's document (the last entry holds the full current document, so that proof is the controller's endorsement of it). Listing a controller key in `updateKeys` is not enough. A verifier MUST check the binding for every link of the chain against the controller's state as it is now (never at a stated time, §6.2.2) and MUST reject (`controller_not_bound`) when it fails, when the controller cannot be resolved, or when the agent's log is not available to check. Rotating the controller's key without unbinding its agents takes three steps: the controller adds the new key under `capabilityInvocation`, each agent gets an entry signed by the new key, and only then the controller retires the old key. With pre-rotation (item 8) the committed key that signs the agent's next entry MUST already be listed under the controller's `capabilityInvocation`.
 8. **Pre-rotation (optional).** A `did:webvh` DID MAY commit to the hashes of its next update keys (`nextKeyHashes`, did:webvh v1.0). While commitments are in force, an implementation MUST sign the next entry only with a key whose hash is committed and MUST set `updateKeys` in that entry to committed keys; a key that was active before can no longer authorize an entry, and verifiers MUST reject an entry that does not meet this. An implementation that offers pre-rotation MUST NOT accept a commitment to a key that is active in the same entry, and SHOULD advise keeping the private keys of committed keys apart from the active controller key (offline). Pre-rotation protects only if it is in force **before** a compromise: an attacker who holds the active key of a DID without commitments can start pre-rotation with their own keys.
 
-The `tag` separates Agent-DID signatures from other RFC 9421 profiles such as the IETF *web-bot-auth* drafts. See [Anti-Replay-HTTP-Signatures.md](Anti-Replay-HTTP-Signatures.md) for guidance and a shared-store example.
 
 ---
 
@@ -388,7 +389,7 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 - A commitment salt carried as text is the lowercase hexadecimal encoding of its bytes (64 characters for the required 32 bytes); the HMAC key is the decoded bytes (§4.3).
 - `signMessage` signs the UTF-8 bytes of `agent-did/v1/message` followed by a line feed (`0x0A`) and then the payload, and signatures are carried as lowercase hexadecimal. The prefix never equals the start of an RFC 9421 signature base (which begins with `"@method"`) or of a did:webvh proof input (a JSON object), so a payload signature is never valid as one of those. An RFC 9421 signature base is signed as it is, without the prefix. `verifySignature` and `verifySignatureAtTime` verify against the prefixed bytes.
 - The Ed25519 verification rule (RFC 8032) every verifier applies before the curve equation, so that implementations agree on edge cases (`fixtures/ed25519-verification-vectors.json`): the signature is 64 bytes and the public key 32 bytes; `S` is below the group order; and the public key `A` and the signature point `R` are canonical encodings of points of the prime-order subgroup (not of small order, with no torsion component). Retired keys and the empty `keyid` are not verified; a malformed signature is a failed verification, never an exception.
-- A verifier returns a rejection, never an exception, for a request whose `keyid` is not an `assertionMethod` key of the `Signature-Agent` DID document.
+- A verifier returns a rejection, never an exception, for a request whose `keyid` is not an `assertionMethod` key of the agent DID document (§6.5 item 3).
 
 ### 7.3 Quick Mapping: RFC → SDK
 
@@ -529,6 +530,7 @@ After `1.0.0`, corrections to this RFC must follow an explicit errata path:
 [RFC 8941]: https://www.rfc-editor.org/rfc/rfc8941
 [RFC 9421]: https://www.rfc-editor.org/rfc/rfc9421
 [RFC 9530]: https://www.rfc-editor.org/rfc/rfc9530
+[draft-ietf-webbotauth-httpsig-protocol-01]: https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/
 [RFC 8032]: https://www.rfc-editor.org/rfc/rfc8032
 [RFC 2104]: https://www.rfc-editor.org/rfc/rfc2104
 [did:webvh]: https://identity.foundation/didwebvh/v1.0/
