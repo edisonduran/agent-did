@@ -3,7 +3,7 @@
 - **Status:** Accepted (2026-11-15)
 - **Deciders:** Maintainer
 - **Applies from:** `1.0.0-rc.5`
-- **Discussion:** `[RFC]` issue to be opened after the maintainer accepts the options
+- **Discussion:** `[RFC]` #265
 
 ## Context
 
