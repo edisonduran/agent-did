@@ -13,7 +13,7 @@ import {
   REQUIRED_RELATIONSHIP_BY_ARTIFACT
 } from '../core/identity-composition';
 import {
-  CheckKeyAtTimeOptions,
+  CheckDidWebvhKeyAtTimeOptions,
   KeyAtTimeRejection,
   KeyAtTimeResult,
   VerificationRelationship,
@@ -134,7 +134,10 @@ function keyInState(state: Record<string, unknown>, keyId: string, requiredPurpo
  * `authorized` into `indeterminate`, unless `trustedTimeNotAfter` is earlier than that entry. A key is retired
  * from the `versionTime` of the entry that gives it a `deactivated` time, whatever that time says.
  */
-export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTimeOptions): Promise<KeyAtTimeResult> {
+export async function checkDidWebvhKeyAtTime(
+  log: string,
+  options: CheckDidWebvhKeyAtTimeOptions
+): Promise<KeyAtTimeResult> {
   const { keyId } = options;
   const requiredPurpose = options.requiredPurpose ?? REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion;
   let evidenceMillis: number | undefined;
@@ -145,7 +148,10 @@ export async function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTim
     }
   }
 
-  const resolved = await resolveDidWebvhLog(log, options.did !== undefined ? { did: options.did } : {});
+  const resolved = await resolveDidWebvhLog(log, {
+    ...(options.did !== undefined ? { did: options.did } : {}),
+    ...(options.witnessFile !== undefined ? { witnessFile: options.witnessFile } : {}),
+  });
 
   const statedMillis = parseRfc3339Millis(options.statedTime);
   if (statedMillis === undefined) {

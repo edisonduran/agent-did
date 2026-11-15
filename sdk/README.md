@@ -155,14 +155,34 @@ After key rotation, old keys are marked `deactivated` but kept in the log. To ch
 // await client.importDidWebvhHistory(didLog); // only without a resolver that fetches logs
 const result = await client.verifySignatureAtTime(did, payload, signatureHex, `${did}#key-1`, {
   statedTime: '2026-01-02T10:00:00Z',            // from the artifact; asserted by the signer
-  // trustedTimeNotAfter: '2026-01-02T10:00:05Z' // only from evidence you trust, e.g. a verified RFC 3161 token
+  // timestampToken: tsr, tsaTrustAnchors: [tsaRootPem], // an RFC 3161 token over the signature (see below)
+  // trustedTimeNotAfter: '2026-01-02T10:00:05Z' // other evidence you trust; not together with timestampToken
 });
 if (result.status !== 'valid') { /* 'invalid' or 'indeterminate': reject */ }
 ```
 
 The stated time is the signer's claim, so a key retired after it gives `indeterminate` unless you pass trusted time evidence earlier than the retirement. `checkDidWebvhKeyAtTime(log, { keyId, statedTime })` returns the same key check, with the public key, without verifying a signature.
 
+**RFC 3161 timestamps** ([ADR-007](../docs/ADR-007-Witnesses-and-Timestamps.md)). A Time Stamping Authority can attest that a signature existed at a given time. Build the request with `createTimestampRequest(signatureBytes)` (the raw 64 signature bytes), send it to a TSA you trust with content type `application/timestamp-query` (the SDK does not contact TSAs), and keep the response with the artifact. A verifier passes it as `timestampToken` with the TSA trust anchors it chooses; the SDK checks the token (status, imprint, `id-kp-timeStamping`, CMS signature, path to an anchor at `genTime`) and uses `genTime + accuracy` as the evidence. A token that does not verify gives `{ status: 'invalid', reason: 'timestamp_invalid', timestampRejection }`. `verifyTimestampToken(token, signatureBytes, { trustAnchors })` is the check on its own. Revocation of TSA certificates is not checked.
+
 `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted any retired key still in the document, with no time check, so it also accepted signatures forged with a compromised key after it was retired.
+
+## did:webvh Witnesses
+
+Witnesses make a forked or rewritten log visible: `threshold` of the listed `did:key` DIDs must approve every log entry before it is published, and resolvers reject entries without enough approvals ([ADR-007](../docs/ADR-007-Witnesses-and-Timestamps.md), did:webvh v1.0).
+
+```ts
+const client = new AgentDidClient({
+  // Ask each witness to approve the entry (over the network in production); a witness signs with createDidWebvhWitnessProof
+  collectWitnessProofs: async (request) =>
+    Promise.all(witnessSigners.map((signer) => createDidWebvhWitnessProof({ log: request.log, witnessFile: request.witnessFile, signer })))
+});
+// webvh: { ..., witness: { threshold: 2, witnesses: ['did:key:z6Mk...', 'did:key:z6Mk...'] } }
+// await client.setDidWebvhWitnesses(did, { threshold: 1, witnesses: ['did:key:z6Mk...'] }); // or null to remove
+const witnessFile = client.exportDidWebvhWitnessFile(did); // publish as did-witness.json, before did.jsonl
+```
+
+`UniversalResolverClient` (through `WebvhDIDDocumentSource`) fetches `did-witness.json` next to `did.jsonl` and fails closed when it is missing or the approvals do not reach a threshold. Watchers are not supported.
 
 ## Agent Metadata Credential
 

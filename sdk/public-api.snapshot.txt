@@ -37,13 +37,17 @@ BearerTokenHttpDIDDocumentSourceConfig
 buildSignatureBase
 canonicalizeJson
 checkDidWebvhKeyAtTime
+CheckDidWebvhKeyAtTimeOptions
 CheckKeyAtTimeOptions
 ComponentIdentifier
 ControllerBindingError
 CreateAgentParams
 CreateAgentResult
 CreateDidWebvhOptions
+createDidWebvhWitnessProof
+CreateDidWebvhWitnessProofParams
 createMetadataCommitment
+createTimestampRequest
 DataIntegrityProof
 decodePublicKeyMultibase
 DEFAULT_FETCH_DEADLINE_MS
@@ -65,6 +69,10 @@ DidWebvhErrorCode
 DidWebvhLifecycleOptions
 DidWebvhResolution
 DidWebvhState
+DidWebvhWitnessCollector
+DidWebvhWitnessConfig
+DidWebvhWitnessProofEntry
+DidWebvhWitnessRequest
 DocumentIntegrityError
 encodePublicKeyMultibase
 FilesystemDIDDocumentSource
@@ -148,6 +156,7 @@ SignedArtifactKind
 SignHttpRequestParams
 SIGNING_VERIFICATION_PURPOSES
 SigningVerificationPurpose
+TimestampRejection
 UniversalResolverClient
 UniversalResolverConfig
 unixStringToIso
@@ -167,5 +176,8 @@ VerifyIdentityCompositionResult
 verifyMetadataCommitment
 VerifySignatureAtTimeOptions
 VerifySignatureAtTimeResult
+verifyTimestampToken
+VerifyTimestampTokenOptions
+VerifyTimestampTokenResult
 WebvhDIDDocumentSource
 WebvhDIDDocumentSourceConfig

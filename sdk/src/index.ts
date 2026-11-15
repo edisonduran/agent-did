@@ -46,6 +46,7 @@ export {
   VerifyHttpRequestSignatureResult,
   HttpSignatureRejection,
   CheckKeyAtTimeOptions,
+  CheckDidWebvhKeyAtTimeOptions,
   KeyAtTimeRejection,
   KeyAtTimeResult,
   KeyAtTimeUncertainty,
@@ -211,7 +212,16 @@ export {
 } from './registry/InMemoryAgentRegistry';
 
 // did:webvh v1.0 errors (log verification, unauthorized controller signer)
-export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
+export { DidWebvhError, DidWebvhErrorCode, createDidWebvhWitnessProof } from './webvh/adapter';
+export { createTimestampRequest, verifyTimestampToken } from './crypto/timestamp';
+export type { TimestampRejection, VerifyTimestampTokenOptions, VerifyTimestampTokenResult } from './crypto/timestamp';
+export type {
+  CreateDidWebvhWitnessProofParams,
+  DidWebvhWitnessCollector,
+  DidWebvhWitnessConfig,
+  DidWebvhWitnessProofEntry,
+  DidWebvhWitnessRequest
+} from './webvh/adapter';
 
 // HTTP Message Signatures (RFC 9421) and replay protection
 export {

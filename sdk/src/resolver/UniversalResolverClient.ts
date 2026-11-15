@@ -6,7 +6,9 @@ import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
 import {
   compareDidWebvhLogs,
   deriveDidWebvhLogUrl,
+  deriveDidWebvhWitnessUrl,
   didWebvhLastEntrySigners,
+  didWebvhLogRequiresWitnesses,
   resolveDidWebvhLog
 } from '../webvh/adapter';
 import {
@@ -688,9 +690,11 @@ export class UniversalResolverClient implements DIDResolver {
       throw new Error(message);
     }
 
+    const witnessFile = await this.fetchDidWebvhWitnessFile(did, logText, startedAt);
+
     let resolved;
     try {
-      resolved = await resolveDidWebvhLog(logText, { did });
+      resolved = await resolveDidWebvhLog(logText, { did, ...(witnessFile !== undefined ? { witnessFile } : {}) });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw this.integrityFailure(did, `did:webvh log verification failed for ${did}: ${message}`, startedAt);
@@ -718,10 +722,55 @@ export class UniversalResolverClient implements DIDResolver {
       versionId: resolved.metadata.versionId,
       updateKeys: [...resolved.metadata.updateKeys],
       lastEntrySignerKeys: didWebvhLastEntrySigners(resolved.log),
-      deactivated
+      deactivated,
+      ...(resolved.witnessFile !== undefined ? { witnessFile: resolved.witnessFile } : {})
     }, deactivated);
 
     return this.cache.get(did) as CachedDocument;
+  }
+
+  /**
+   * The `did-witness.json` of `did` when its log has witnessed entries (ADR-007), fetched from the same source and
+   * under the same limits as the log; `undefined` when the log has none. A log with witnessed entries whose witness
+   * file cannot be fetched is an integrity failure: resolving it without the approvals is never an option.
+   */
+  private async fetchDidWebvhWitnessFile(did: string, logText: string, startedAt: number): Promise<string | undefined> {
+    let required: boolean;
+    try {
+      required = didWebvhLogRequiresWitnesses(logText);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw this.integrityFailure(did, `did:webvh log verification failed for ${did}: ${message}`, startedAt);
+    }
+    if (!required) {
+      return undefined;
+    }
+    const source = this.webvhDocumentSource;
+    if (!source.getDidWitnessFileByReference) {
+      throw this.integrityFailure(
+        did,
+        `The did:webvh log of ${did} has witnessed entries and webvhDocumentSource cannot fetch did-witness.json`,
+        startedAt
+      );
+    }
+    const witnessUrl = deriveDidWebvhWitnessUrl(did);
+    this.emitEvent({ did, stage: 'source-fetch', durationMs: Date.now() - startedAt, message: `url=${witnessUrl}` });
+    let witnessFile: string | null;
+    try {
+      witnessFile = await source.getDidWitnessFileByReference(witnessUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.emitEvent({ did, stage: 'error', durationMs: Date.now() - startedAt, message });
+      throw new Error(`did:webvh witness file could not be fetched for ${did}: ${message}`);
+    }
+    if (witnessFile === null) {
+      throw this.integrityFailure(
+        did,
+        `The did:webvh log of ${did} has witnessed entries and no did-witness.json was found at ${witnessUrl}`,
+        startedAt
+      );
+    }
+    return witnessFile;
   }
 
   /**
@@ -758,8 +807,12 @@ export class UniversalResolverClient implements DIDResolver {
         durationMs: Date.now() - startedAt,
         message: 'fetched did:webvh log is older than the local one; using the local log'
       });
+      const localWitnessFile = this.config.didWebvhLocalWitnessFile?.(did);
       try {
-        return await resolveDidWebvhLog(local, { did });
+        return await resolveDidWebvhLog(local, {
+          did,
+          ...(localWitnessFile !== undefined ? { witnessFile: localWitnessFile } : {})
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw this.integrityFailure(did, `did:webvh log verification failed for ${did}: ${message}`, startedAt);

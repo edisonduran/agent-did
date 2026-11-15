@@ -8,7 +8,7 @@
     "fixtures/canonical-document-reference.json": "5fc2d83d2a1872e1063169b6d234946ac644ab06e5c3dfc040414472937758df",
     "fixtures/jcs-vectors.json": "65636f1e47bc7e9a557ce934a5bc737a4492148de19a957b188794647009f156",
     "fixtures/metadata-commitment-vectors.json": "30e59bb7b2c02563bfafa31a954522b046a316c2d300265bdbbed9747342d9d6",
-    "fixtures/webvh-log-vectors.json": "6371dbfb113b972e111a00dfd9bf78405a20bbcfb9c26964ebd6d42d0c8aba31",
+    "fixtures/webvh-log-vectors.json": "b163d9abfa17b3eb3e5b66eb2c0ca17ee5017cb1872b5c499f9c46bbd24d83b6",
     "fixtures/ed25519-verification-vectors.json": "f30b0c637f0246d00adbda38c850da51ead2c74caee2e002b23181e127e2f5ff",
     "fixtures/key-at-time-vectors.json": "8bf88e0c29d5c62f9de9879a2c82dfa7885985b49182a6226175f372c5f4133b",
     "fixtures/agent-metadata-credential-vectors.json": "28d464763a1e23e5815400eb389fae2aa3f79201d6dc895b7d853ef6b624fd4e",

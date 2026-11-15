@@ -16,7 +16,9 @@ from ..webvh.adapter import (
     DidWebvhLogResult,
     compare_did_webvh_logs,
     derive_did_webvh_log_url,
+    derive_did_webvh_witness_url,
     did_webvh_last_entry_signers,
+    did_webvh_log_requires_witnesses,
     resolve_did_webvh_log,
 )
 from .http_source import HttpDIDDocumentSource
@@ -171,6 +173,7 @@ class UniversalResolverClient:
         self._webvh_source = config.webvh_document_source or WebvhDIDDocumentSource()
         self._fallback = config.fallback_resolver
         self._did_webvh_local_log = config.did_webvh_local_log
+        self._did_webvh_local_witness_file = config.did_webvh_local_witness_file
         self._cache_ttl_ms = config.cache_ttl_ms
         max_entries = config.max_cache_entries
         if isinstance(max_entries, bool) or not isinstance(max_entries, int) or max_entries <= 0:
@@ -605,8 +608,10 @@ class UniversalResolverClient:
             self._emit(did, "error", started, message=msg)
             raise ValueError(msg)
 
+        witness_file = await self._fetch_did_webvh_witness_file(did, log_text, started)
+
         try:
-            resolved = await resolve_did_webvh_log(log_text, did=did)
+            resolved = await resolve_did_webvh_log(log_text, did=did, witness_file=witness_file)
         except DidWebvhError as exc:
             raise self._integrity_failure(did, f"did:webvh log verification failed for {did}: {exc}", started) from None
 
@@ -633,10 +638,46 @@ class UniversalResolverClient:
                 update_keys=list(resolved.metadata.update_keys),
                 last_entry_signer_keys=did_webvh_last_entry_signers(resolved.log),
                 deactivated=deactivated,
+                witness_file=resolved.witness_file,
             ),
             deactivated,
         )
         return self._cache[did]
+
+    async def _fetch_did_webvh_witness_file(self, did: str, log_text: str, started: float) -> str | None:
+        """The ``did-witness.json`` of *did* when its log has witnessed entries (ADR-007), fetched from the same source
+        and under the same limits as the log; ``None`` when the log has none. A log with witnessed entries whose
+        witness file cannot be fetched is an integrity failure: resolving it without the approvals is never an
+        option."""
+        try:
+            required = did_webvh_log_requires_witnesses(log_text)
+        except DidWebvhError as exc:
+            raise self._integrity_failure(did, f"did:webvh log verification failed for {did}: {exc}", started) from None
+        if not required:
+            return None
+        get_witness_file = getattr(self._webvh_source, "get_did_witness_file_by_reference", None)
+        if not callable(get_witness_file):
+            raise self._integrity_failure(
+                did,
+                f"The did:webvh log of {did} has witnessed entries and webvh_document_source cannot fetch "
+                "did-witness.json",
+                started,
+            )
+        witness_url = derive_did_webvh_witness_url(did)
+        self._emit(did, "source-fetch", started, message=f"url={witness_url}")
+        try:
+            witness_file: str | None = await get_witness_file(witness_url)
+        except Exception as exc:  # noqa: BLE001 - availability failure: fail closed
+            msg = str(exc)
+            self._emit(did, "error", started, message=msg)
+            raise ValueError(f"did:webvh witness file could not be fetched for {did}: {msg}") from exc
+        if witness_file is None:
+            raise self._integrity_failure(
+                did,
+                f"The did:webvh log of {did} has witnessed entries and no did-witness.json was found at {witness_url}",
+                started,
+            )
+        return witness_file
 
     async def _reconcile_with_local_log(
         self, did: str, fetched: DidWebvhLogResult, started: float
@@ -664,8 +705,10 @@ class UniversalResolverClient:
                 started,
                 message="fetched did:webvh log is older than the local one; using the local log",
             )
+            witness_lookup = self._did_webvh_local_witness_file
+            local_witness_file = witness_lookup(did) if witness_lookup is not None else None
             try:
-                return await resolve_did_webvh_log(local, did=did)
+                return await resolve_did_webvh_log(local, did=did, witness_file=local_witness_file)
             except DidWebvhError as exc:
                 raise self._integrity_failure(
                     did, f"did:webvh log verification failed for {did}: {exc}", started

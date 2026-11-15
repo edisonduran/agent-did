@@ -20,11 +20,22 @@ import {
   deactivateDID,
   defaultVerifier,
   deriveNextKeyHash,
+  getWitnessRequirements,
   prepareDataForSigning,
   resolveDIDFromLog,
+  signWitnessProofEntry,
   updateDID,
 } from 'didwebvh-ts';
-import type { DIDDocument, DIDLog, DIDLogEntry, Signer, SigningInput, SigningOutput } from 'didwebvh-ts';
+import type {
+  DIDDocument,
+  DIDLog,
+  DIDLogEntry,
+  Signer,
+  SigningInput,
+  SigningOutput,
+  WitnessParameter,
+  WitnessProofFileEntry,
+} from 'didwebvh-ts';
 import type { AgentSigner } from '../core/signer';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
 
@@ -47,10 +58,45 @@ export class DidWebvhError extends Error {
 export type DidWebvhDocument = Record<string, unknown> & { id: string };
 
 /**
- * Resolution metadata exposed by Agent-DID for a did:webvh log. Witness and
- * watcher configuration are deliberately not exposed until the SDK supports
- * them (ADR-002, condition 7). Every value is a string, list or boolean, as
- * DID Core §7.3 requires of DID document metadata.
+ * Witnesses of a did:webvh DID (did:webvh v1.0 `witness` parameter, ADR-007): `threshold` of the `witnesses`
+ * (`did:key` DIDs with Ed25519 keys) must approve each entry the rule governs before it is published.
+ */
+export interface DidWebvhWitnessConfig {
+  /** Integer from 1 to `witnesses.length`. */
+  threshold: number;
+  /** `did:key:z6Mk...` DIDs, without fragment, no repeats. */
+  witnesses: string[];
+}
+
+/** One entry of `did-witness.json`: the witness proofs approving `versionId` (and every earlier entry). */
+export interface DidWebvhWitnessProofEntry {
+  versionId: string;
+  proof: Record<string, unknown>[];
+}
+
+/** What a witness approval collector is asked to approve: the last entry of `log`. */
+export interface DidWebvhWitnessRequest {
+  did: string;
+  /** `versionId` of the entry to approve (the last entry of `log`). */
+  versionId: string;
+  /** The candidate log, ending with the entry to approve. It is not published yet. */
+  log: string;
+  /** The `did-witness.json` in force before this entry, if the log has one. */
+  witnessFile?: string;
+  /** The witness rule that governs the entry. */
+  witness: DidWebvhWitnessConfig;
+}
+
+/**
+ * Obtains the approvals of an entry from its witnesses (for example over the network, or in process with
+ * `createDidWebvhWitnessProof`). Returning fewer approvals than the threshold makes the operation fail.
+ */
+export type DidWebvhWitnessCollector = (request: DidWebvhWitnessRequest) => Promise<DidWebvhWitnessProofEntry[]>;
+
+/**
+ * Resolution metadata exposed by Agent-DID for a did:webvh log. Watcher configuration is deliberately not
+ * exposed (ADR-002, condition 7). Every value is a string, list or boolean, as DID Core §7.3 requires of DID
+ * document metadata.
  */
 export interface DidWebvhMetadata {
   versionId: string;
@@ -68,6 +114,10 @@ export interface DidWebvhMetadata {
   deactivated: boolean;
   /** Cache TTL in seconds; the did:webvh default (3600) when the log does not set one. */
   ttl: string;
+  /** Witness threshold in force after this version (ADR-007); `"0"` when the DID has no witnesses. */
+  witnessThreshold: string;
+  /** Witness DIDs in force after this version; empty when the DID has no witnesses. */
+  witnesses: string[];
 }
 
 export interface DidWebvhLogResult {
@@ -81,6 +131,11 @@ export interface DidWebvhLogResult {
   versionNumber: number;
   /** The full `did.jsonl` text, one entry per line, newline-terminated. */
   log: string;
+  /**
+   * The `did-witness.json` text that approves the log, when any entry is governed by a witness rule. Publish it
+   * next to `did.jsonl`, and before it: a resolver rejects a witnessed entry without its approvals.
+   */
+  witnessFile?: string;
 }
 
 export interface CreateDidWebvhLogParams {
@@ -99,6 +154,10 @@ export interface CreateDidWebvhLogParams {
   nextUpdateKeys?: string[];
   /** Optional `versionTime` of the genesis entry (UTC, second precision). Defaults to now. */
   created?: string;
+  /** Witnesses that must approve the genesis entry and every later one until the rule changes (ADR-007). */
+  witness?: DidWebvhWitnessConfig;
+  /** Obtains the witness approvals; required when `witness` is set. */
+  collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 
 export interface UpdateDidWebvhLogParams {
@@ -119,16 +178,34 @@ export interface UpdateDidWebvhLogParams {
   nextUpdateKeys?: string[];
   /** Optional `versionTime` for the new entry (UTC, second precision). Defaults to now. */
   updated?: string;
+  /**
+   * New witness rule for the entries after this one. `null` removes witnessing; omitted keeps the rule in force.
+   * The witnesses in force (if any) approve this entry, including the change of rule.
+   */
+  witness?: DidWebvhWitnessConfig | null;
+  /** The current `did-witness.json`; required when the log has witnessed entries. */
+  witnessFile?: string;
+  /** Obtains the witness approvals; required when the new entry is governed by a witness rule. */
+  collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 
 export interface DeactivateDidWebvhLogParams {
   log: string;
   signer: AgentSigner;
+  /** The current `did-witness.json`; required when the log has witnessed entries. */
+  witnessFile?: string;
+  /** Obtains the witness approvals; required when the DID has witnesses. */
+  collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 
 export interface ResolveDidWebvhLogOptions {
   /** When set, the log must belong to this DID. */
   did?: string;
+  /**
+   * The `did-witness.json` published next to the log. Required when any entry is governed by a witness rule:
+   * without it, or when its approvals do not reach a threshold, resolution fails (no fallback).
+   */
+  witnessFile?: string;
   versionId?: string;
   versionNumber?: number;
   versionTime?: string;
@@ -146,13 +223,13 @@ const DEFAULT_TTL = '3600';
 
 /**
  * Passed as `fetch` to every library call. The adapter never does network
- * I/O: logs are fetched by the SDK's document sources (with their SSRF
- * guards), and witness proofs are not supported yet (ADR-002, condition 7).
- * Without this, the library would fetch `did-witness.json` with the global
- * `fetch` for logs that declare witnesses.
+ * I/O: logs and `did-witness.json` are fetched by the SDK's document sources
+ * (with their SSRF guards) and handed to the adapter as text. Every call also
+ * passes `witnessProofs`, so the library has no reason to fetch; this is the
+ * backstop.
  */
 const noNetworkFetch = async (): Promise<Response> => {
-  throw new DidWebvhError('invalidDid', 'did:webvh witnesses are not supported by Agent-DID yet');
+  throw new DidWebvhError('invalidDid', 'did:webvh witness proofs (did-witness.json) must be supplied by the caller');
 };
 
 /** Returns the did:webvh `updateKeys` entry (an Ed25519 multikey) for a signer. */
@@ -168,6 +245,7 @@ export async function createDidWebvhLog(params: CreateDidWebvhLogParams): Promis
     validateVersionTime(params.created, 'created', 0);
   }
 
+  const witness = params.witness !== undefined ? toLibraryWitness(params.witness) : undefined;
   const updateKey = await didWebvhUpdateKeyFor(params.signer);
   const nextKeyHashes = await nextKeyHashesFor(params.nextUpdateKeys, [updateKey]);
   const result = await runLibraryOperation(() =>
@@ -177,18 +255,21 @@ export async function createDidWebvhLog(params: CreateDidWebvhLogParams): Promis
       didDocument: params.document as unknown as DIDDocument,
       updateKeys: [updateKey],
       ...(nextKeyHashes !== undefined ? { nextKeyHashes } : {}),
+      ...(witness !== undefined ? { witness } : {}),
       signer: toLibrarySigner(params.signer, updateKey),
       created: params.created,
       verifier: defaultVerifier,
     })
   );
 
-  return resolveDidWebvhLog(serializeLog(result.log));
+  return finishWitnessedEntry(serializeLog(result.log), undefined, params.collectWitnessProofs);
 }
 
 export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promise<DidWebvhLogResult> {
   const log = parseLog(params.log);
-  const current = await resolveDidWebvhLog(params.log);
+  const current = await resolveDidWebvhLog(params.log, witnessFileOption(params.witnessFile));
+  const witness =
+    params.witness === undefined ? undefined : params.witness === null ? {} : toLibraryWitness(params.witness);
   if (params.updateKeys !== undefined) {
     if (params.updateKeys.length === 0) {
       throw new DidWebvhError('invalidInput', 'updateKeys must not be empty; use deactivateDidWebvhLog instead');
@@ -208,21 +289,29 @@ export async function updateDidWebvhLog(params: UpdateDidWebvhLogParams): Promis
       didDocument: params.document as unknown as DIDDocument | undefined,
       updateKeys,
       ...(nextKeyHashes !== undefined ? { nextKeyHashes } : {}),
+      ...(witness !== undefined ? { witness } : {}),
       updated: params.updated,
       verifier: defaultVerifier,
+      witnessProofs: parseWitnessFile(current.witnessFile),
       fetch: noNetworkFetch,
     })
   );
 
-  return resolveDidWebvhLog(serializeLog(result.log));
+  return finishWitnessedEntry(serializeLog(result.log), current.witnessFile, params.collectWitnessProofs);
 }
 
 export async function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams): Promise<DidWebvhLogResult> {
-  let current = await resolveDidWebvhLog(params.log);
+  let current = await resolveDidWebvhLog(params.log, witnessFileOption(params.witnessFile));
   // did:webvh v1.0 deactivates a pre-rotated DID in two entries: an entry under pre-rotation must carry the
   // committed keys, so it cannot also empty `updateKeys`. A committed key first ends pre-rotation.
   if (current.metadata.nextKeyHashes.length > 0) {
-    current = await updateDidWebvhLog({ log: params.log, signer: params.signer, nextUpdateKeys: [] });
+    current = await updateDidWebvhLog({
+      log: params.log,
+      signer: params.signer,
+      nextUpdateKeys: [],
+      ...witnessFileOption(params.witnessFile),
+      ...(params.collectWitnessProofs ? { collectWitnessProofs: params.collectWitnessProofs } : {}),
+    });
   }
   const { signerKey } = await authorizeSigner(params.signer, current.metadata, undefined);
 
@@ -232,11 +321,12 @@ export async function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParams)
       log: parseLog(current.log),
       signer: toLibrarySigner(params.signer, signerKey),
       verifier: defaultVerifier,
+      witnessProofs: parseWitnessFile(current.witnessFile),
       fetch: noNetworkFetch,
     })
   );
 
-  return resolveDidWebvhLog(serializeLog(result.log));
+  return finishWitnessedEntry(serializeLog(result.log), current.witnessFile, params.collectWitnessProofs);
 }
 
 /**
@@ -253,6 +343,14 @@ export async function resolveDidWebvhLog(
   options: ResolveDidWebvhLogOptions = {}
 ): Promise<DidWebvhLogResult> {
   const log = parseLog(logText);
+  const requirements = witnessRequirementsOf(log);
+  if (requirements.length > 0 && options.witnessFile === undefined) {
+    throw new DidWebvhError(
+      'invalidDid',
+      'did:webvh log has witnessed entries and no witness proofs (did-witness.json) were supplied'
+    );
+  }
+  const witnessProofs = requirements.length > 0 ? parseWitnessFile(options.witnessFile) : [];
 
   let versionTime: Date | undefined;
   if (options.versionTime !== undefined) {
@@ -268,6 +366,7 @@ export async function resolveDidWebvhLog(
       versionId: options.versionId,
       versionNumber: options.versionNumber,
       versionTime,
+      witnessProofs,
       fetch: noNetworkFetch,
     });
   } catch (error) {
@@ -310,6 +409,7 @@ export async function resolveDidWebvhLog(
     nextKeyHashes: Array.isArray(meta.nextKeyHashes) ? [...(meta.nextKeyHashes as string[])] : [],
     deactivated: meta.deactivated === true,
     ttl: meta.ttl !== undefined && meta.ttl !== null ? String(meta.ttl) : DEFAULT_TTL,
+    ...witnessMetadata(meta.witness),
   };
 
   return {
@@ -319,8 +419,209 @@ export async function resolveDidWebvhLog(
     metadata,
     versionNumber: Number.parseInt(versionId.split('-', 1)[0], 10),
     log: serializeLog(log),
+    ...(requirements.length > 0 ? { witnessFile: serializeWitnessFile(witnessProofs) } : {}),
   };
 }
+
+/**
+ * Whether a did:webvh log has entries governed by a witness rule, so resolving it needs its `did-witness.json`.
+ * Rule of did:webvh v1.0 (as `didwebvh-ts` applies it): an entry is governed by the rule in force before it, or,
+ * when there is none, by the rule the entry itself sets. Throws `DidWebvhError` for a malformed log.
+ */
+export function didWebvhLogRequiresWitnesses(logText: string): boolean {
+  return witnessRequirementsOf(parseLog(logText)).length > 0;
+}
+
+/** The URL of `did-witness.json` for a did:webvh DID: next to its `did.jsonl` (did:webvh v1.0). */
+export function deriveDidWebvhWitnessUrl(did: string): string {
+  return deriveDidWebvhLogUrl(did).replace(/did\.jsonl$/u, 'did-witness.json');
+}
+
+export interface CreateDidWebvhWitnessProofParams {
+  /** The candidate log, ending with the entry to approve (`DidWebvhWitnessRequest.log`). */
+  log: string;
+  /** The `did-witness.json` in force before that entry (`DidWebvhWitnessRequest.witnessFile`). */
+  witnessFile?: string;
+  /** The witness's own key: its `did:key` must be in the rule that governs the entry. */
+  signer: AgentSigner;
+}
+
+/**
+ * A witness's approval of the last entry of a candidate log (did:webvh v1.0): an `eddsa-jcs-2022` proof over
+ * `{ versionId }` made with the witness's `did:key`. The whole candidate log is verified first, including the
+ * approvals of earlier entries, so a witness never approves an entry that does not extend a valid log.
+ */
+export async function createDidWebvhWitnessProof(
+  params: CreateDidWebvhWitnessProofParams
+): Promise<DidWebvhWitnessProofEntry> {
+  const candidateLog = parseLog(params.log);
+  const witnessKey = await didWebvhUpdateKeyFor(params.signer);
+  const entry = await runLibraryOperation(() =>
+    signWitnessProofEntry({
+      trustedLog: candidateLog.slice(0, -1),
+      candidateLog,
+      witnessSigner: toLibrarySigner(params.signer, witnessKey),
+      witnessProofs: parseWitnessFile(params.witnessFile),
+      verifier: defaultVerifier,
+    })
+  );
+  return JSON.parse(JSON.stringify(entry)) as DidWebvhWitnessProofEntry;
+}
+
+function witnessFileOption(witnessFile: string | undefined): { witnessFile?: string } {
+  return witnessFile !== undefined ? { witnessFile } : {};
+}
+
+function witnessRequirementsOf(log: DIDLog): { versionId: string; threshold: number; witnesses: string[] }[] {
+  let requirements;
+  try {
+    requirements = getWitnessRequirements(log);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new DidWebvhError('invalidDid', `did:webvh log verification failed: ${message}`);
+  }
+  return requirements
+    .filter((requirement) => requirement.threshold > 0)
+    .map((requirement) => ({
+      versionId: requirement.versionId,
+      threshold: requirement.threshold,
+      witnesses: requirement.witnesses.map((witness) => witness.id),
+    }));
+}
+
+/**
+ * Collects the approvals of the last entry of a candidate log when a witness rule governs it, and resolves the
+ * result with them. The candidate is never returned without its approvals reaching the threshold.
+ */
+async function finishWitnessedEntry(
+  candidate: string,
+  witnessFile: string | undefined,
+  collect: DidWebvhWitnessCollector | undefined
+): Promise<DidWebvhLogResult> {
+  const log = parseLog(candidate);
+  const tip = log[log.length - 1];
+  const requirement = witnessRequirementsOf(log).find((entry) => entry.versionId === tip.versionId);
+  if (requirement === undefined) {
+    return resolveDidWebvhLog(candidate, witnessFileOption(witnessFile));
+  }
+  if (!collect) {
+    throw new DidWebvhError(
+      'invalidInput',
+      `did:webvh entry ${tip.versionId} needs approval from ${requirement.threshold} witness(es); pass collectWitnessProofs`
+    );
+  }
+  const approvals = await collect({
+    did: String(tip.state.id),
+    versionId: tip.versionId,
+    log: candidate,
+    ...witnessFileOption(witnessFile),
+    witness: { threshold: requirement.threshold, witnesses: [...requirement.witnesses] },
+  });
+  if (!Array.isArray(approvals)) {
+    throw new DidWebvhError('invalidInput', 'collectWitnessProofs must return an array of witness proof entries');
+  }
+  const merged = serializeWitnessFile([...parseWitnessFile(witnessFile), ...approvals.map(validateWitnessEntry)]);
+  return resolveDidWebvhLog(candidate, { witnessFile: merged });
+}
+
+function toLibraryWitness(config: DidWebvhWitnessConfig): WitnessParameter {
+  if (config === null || typeof config !== 'object' || !Array.isArray(config.witnesses)) {
+    throw new DidWebvhError('invalidInput', 'witness must be { threshold, witnesses }');
+  }
+  const { threshold, witnesses } = config;
+  if (witnesses.length === 0) {
+    throw new DidWebvhError('invalidInput', 'witness.witnesses must not be empty; pass null to remove witnessing');
+  }
+  if (!Number.isInteger(threshold) || threshold < 1 || threshold > witnesses.length) {
+    throw new DidWebvhError('invalidInput', 'witness.threshold must be an integer from 1 to the number of witnesses');
+  }
+  const seen = new Set<string>();
+  for (const witness of witnesses) {
+    const match = typeof witness === 'string' ? /^did:key:(z[1-9A-HJ-NP-Za-km-z]+)$/u.exec(witness) : null;
+    if (!match) {
+      throw new DidWebvhError('invalidInput', `witness.witnesses entries must be did:key DIDs: ${String(witness)}`);
+    }
+    try {
+      validateUpdateKey(match[1]);
+    } catch {
+      throw new DidWebvhError('invalidInput', `witness DIDs must use Ed25519 keys: ${witness}`);
+    }
+    if (seen.has(witness)) {
+      throw new DidWebvhError('invalidInput', `witness.witnesses must not repeat a DID: ${witness}`);
+    }
+    seen.add(witness);
+  }
+  return { threshold, witnesses: witnesses.map((id) => ({ id })) };
+}
+
+function witnessMetadata(value: unknown): { witnessThreshold: string; witnesses: string[] } {
+  const witness = value as { threshold?: unknown; witnesses?: unknown } | null | undefined;
+  const ids = Array.isArray(witness?.witnesses)
+    ? (witness.witnesses as { id?: unknown }[])
+        .map((entry) => entry?.id)
+        .filter((id): id is string => typeof id === 'string')
+    : [];
+  // The library reports the threshold as a string in resolution metadata.
+  const threshold = Number(witness?.threshold);
+  const active = ids.length > 0 && Number.isInteger(threshold) && threshold > 0;
+  return { witnessThreshold: active ? String(threshold) : '0', witnesses: active ? ids : [] };
+}
+
+function parseWitnessFile(witnessFile: string | undefined): WitnessProofFileEntry[] {
+  if (witnessFile === undefined) {
+    return [];
+  }
+  if (typeof witnessFile !== 'string') {
+    throw new DidWebvhError('invalidInput', 'did:webvh witness file must be a string');
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(witnessFile);
+  } catch {
+    throw new DidWebvhError('invalidDid', 'did:webvh witness file is not valid JSON');
+  }
+  if (!Array.isArray(parsed)) {
+    throw new DidWebvhError('invalidDid', 'did:webvh witness file must be a JSON array');
+  }
+  return parsed.map((entry) => validateWitnessEntry(entry) as unknown as WitnessProofFileEntry);
+}
+
+function validateWitnessEntry(entry: unknown): DidWebvhWitnessProofEntry {
+  const candidate = entry as { versionId?: unknown; proof?: unknown } | null;
+  if (
+    candidate === null ||
+    typeof candidate !== 'object' ||
+    Array.isArray(candidate) ||
+    typeof candidate.versionId !== 'string' ||
+    !Array.isArray(candidate.proof) ||
+    !candidate.proof.every((proof) => proof !== null && typeof proof === 'object' && !Array.isArray(proof))
+  ) {
+    throw new DidWebvhError('invalidDid', 'did:webvh witness file entries must be { versionId, proof: [ ... ] }');
+  }
+  return { versionId: candidate.versionId, proof: candidate.proof as Record<string, unknown>[] };
+}
+
+/** Serializes witness proof entries, merging the proofs of entries with the same `versionId` in first-seen order. */
+function serializeWitnessFile(entries: (WitnessProofFileEntry | DidWebvhWitnessProofEntry)[]): string {
+  const merged: DidWebvhWitnessProofEntry[] = [];
+  for (const entry of entries) {
+    const proofs = (entry.proof as unknown as Record<string, unknown>[]).map(
+      (proof) => JSON.parse(JSON.stringify(proof)) as Record<string, unknown>
+    );
+    const existing = merged.find((item) => item.versionId === entry.versionId);
+    if (existing === undefined) {
+      merged.push({ versionId: entry.versionId, proof: proofs });
+      continue;
+    }
+    for (const proof of proofs) {
+      if (!existing.proof.some((known) => JSON.stringify(known) === JSON.stringify(proof))) {
+        existing.proof.push(proof);
+      }
+    }
+  }
+  return JSON.stringify(merged);
+}
+
 
 function toLibrarySigner(signer: AgentSigner, updateKey: string): Signer {
   return {

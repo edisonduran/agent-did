@@ -3,7 +3,7 @@ import { createSafeFetch } from '../core/safe-fetch';
 import { AgentDIDDocument } from '../core/types';
 import { validateHttpTarget, HttpSecurityOptions } from '../core/http-security';
 import { DIDDocumentSource, DocumentIntegrityError } from './types';
-import { DidWebvhError, resolveDidWebvhLog } from '../webvh/adapter';
+import { DidWebvhError, didWebvhLogRequiresWitnesses, resolveDidWebvhLog } from '../webvh/adapter';
 
 type FetchLikeResponse = {
   ok: boolean;
@@ -36,7 +36,8 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
 
   /**
    * Fetches the did:webvh log and returns the latest state after verifying the
-   * whole log (SCID, hash chain, controller-signed proofs). Throws
+   * whole log (SCID, hash chain, controller-signed proofs and, when the log has
+   * witnessed entries, the `did-witness.json` next to it). Throws
    * `DocumentIntegrityError` when verification fails; returns `null` when no
    * endpoint has the log.
    */
@@ -47,7 +48,20 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
     }
 
     try {
-      const resolved = await resolveDidWebvhLog(logText);
+      let witnessFile: string | undefined;
+      if (didWebvhLogRequiresWitnesses(logText)) {
+        if (!/did\.jsonl$/u.test(documentRef)) {
+          throw new DocumentIntegrityError(
+            `The did:webvh log at ${documentRef} has witnessed entries and its did-witness.json cannot be located`
+          );
+        }
+        const fetched = await this.getDidWitnessFileByReference(documentRef.replace(/did\.jsonl$/u, 'did-witness.json'));
+        if (fetched === null) {
+          throw new DocumentIntegrityError(`The did:webvh log at ${documentRef} has witnessed entries and no did-witness.json`);
+        }
+        witnessFile = fetched;
+      }
+      const resolved = await resolveDidWebvhLog(logText, witnessFile !== undefined ? { witnessFile } : {});
       assertAgentDidDocument(resolved.state, `The did:webvh state at ${documentRef}`);
       return resolved.state;
     } catch (error) {
@@ -60,6 +74,18 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
 
   /** Fetches the raw `did.jsonl` text. The caller must verify it before trusting it. */
   public async getDidLogByReference(documentRef: string): Promise<string | null> {
+    return this.fetchText(documentRef, 'did:webvh DID log');
+  }
+
+  /**
+   * Fetches the raw `did-witness.json` text (ADR-007), with the same SSRF policy and limits as the log. The caller
+   * verifies the proofs (`resolveDidWebvhLog`).
+   */
+  public async getDidWitnessFileByReference(documentRef: string): Promise<string | null> {
+    return this.fetchText(documentRef, 'did:webvh witness file');
+  }
+
+  private async fetchText(documentRef: string, what: string): Promise<string | null> {
     if (!this.fetchFn) {
       throw new Error('No fetch implementation available for WebvhDIDDocumentSource');
     }
@@ -100,7 +126,7 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
       return null;
     }
 
-    throw new Error(`Failed to fetch did:webvh DID log from all endpoints. ${errors.join(' | ')}`);
+    throw new Error(`Failed to fetch ${what} from all endpoints. ${errors.join(' | ')}`);
   }
 
   private resolveCandidateUrls(documentRef: string): string[] {

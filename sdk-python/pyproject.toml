@@ -39,7 +39,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# RFC 3161 timestamp tokens (ADR-007): verify_timestamp_token / create_timestamp_request and the
+# timestamp_token option of verify_signature_at_time. Native wheels; none for Windows ARM64.
+timestamps = ["rfc3161-client==1.0.9", "cryptography>=43"]
 dev = [
+  "rfc3161-client==1.0.9",
   "pytest>=8.0",
   "pytest-asyncio>=0.23",
   "pytest-cov>=5.0",

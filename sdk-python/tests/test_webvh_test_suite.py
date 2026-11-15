@@ -45,14 +45,19 @@ def _read_log(path: pathlib.Path) -> str | None:
     return text if text.strip() else None
 
 
+def _read_witness_file(path: pathlib.Path) -> str | None:
+    file = path / "did-witness.json"
+    return file.read_text(encoding="utf-8") if file.exists() else None
+
+
 def _collect() -> tuple[list[str], list[Any], list[Any], list[Any], list[Any]]:
     scenarios: list[str] = []
     positive: list[Any] = []
-    unsupported: list[Any] = []
+    witnessed: list[Any] = []
     negative: list[Any] = []
     did_url_negative: list[Any] = []
     if _VECTORS is None:
-        return scenarios, positive, unsupported, negative, did_url_negative
+        return scenarios, positive, witnessed, negative, did_url_negative
 
     for scenario_dir in _dirs(_VECTORS):
         scenario = scenario_dir.name
@@ -67,11 +72,13 @@ def _collect() -> tuple[list[str], list[Any], list[Any], list[Any], list[Any]]:
             if log is None:
                 continue
             name = f"{scenario}/{impl_dir.name}"
+            witness_file = _read_witness_file(impl_dir)
             if scenario.startswith("negative-"):
                 negative.append(pytest.param(log, id=name))
-            elif scenario in _EXPECTATIONS["unsupported"]:
-                unsupported.append(pytest.param(log, id=name))
             else:
+                if scenario in _EXPECTATIONS["witnessed"]:
+                    assert witness_file is not None, f"{name} has no did-witness.json"
+                    witnessed.append(pytest.param(log, witness_file, id=name))
                 for result in sorted(impl_dir.iterdir()):
                     match = _RESULT_FILE.match(result.name)
                     if not match:
@@ -79,11 +86,13 @@ def _collect() -> tuple[list[str], list[Any], list[Any], list[Any], list[Any]]:
                     expected = json.loads(result.read_text(encoding="utf-8"))
                     version = int(match.group(1)) if match.group(1) else None
                     case_name = f"{name}/{result.name}"
-                    positive.append(pytest.param(case_name, log, expected, version, id=case_name))
-    return scenarios, positive, unsupported, negative, did_url_negative
+                    positive.append(
+                        pytest.param(case_name, log, witness_file, expected, version, id=case_name)
+                    )
+    return scenarios, positive, witnessed, negative, did_url_negative
 
 
-_SCENARIOS, _POSITIVE, _UNSUPPORTED, _NEGATIVE, _DID_URL_NEGATIVE = _collect()
+_SCENARIOS, _POSITIVE, _WITNESSED, _NEGATIVE, _DID_URL_NEGATIVE = _collect()
 
 
 def _without_implicit_services(document: dict[str, Any]) -> dict[str, Any]:
@@ -108,23 +117,25 @@ def test_runs_against_pinned_commit_and_classifies_every_scenario() -> None:
         ).stdout.strip()
         assert head == _EXPECTATIONS["commit"]
 
-    for listed in [*_EXPECTATIONS["unsupported"], *_EXPECTATIONS["didUrlNegative"]]:
+    for listed in [*_EXPECTATIONS["witnessed"], *_EXPECTATIONS["didUrlNegative"]]:
         assert listed in _SCENARIOS
     positive_names = {case.values[0] for case in _POSITIVE}
     for listed in _EXPECTATIONS["vectorDefects"]:
         assert listed in positive_names
 
     covered = {
-        re.split(r"[/ ]", case.id)[0] for case in [*_POSITIVE, *_UNSUPPORTED, *_NEGATIVE, *_DID_URL_NEGATIVE]
+        re.split(r"[/ ]", case.id)[0] for case in [*_POSITIVE, *_NEGATIVE, *_DID_URL_NEGATIVE]
     }
     unclassified = [s for s in _SCENARIOS if s not in covered]
     assert unclassified == []
 
 
 @requires_suite
-@pytest.mark.parametrize(("name", "log", "expected", "version_number"), _POSITIVE)
-async def test_resolves(name: str, log: str, expected: dict[str, Any], version_number: int | None) -> None:
-    resolved = await resolve_did_webvh_log(log, version_number=version_number)
+@pytest.mark.parametrize(("name", "log", "witness_file", "expected", "version_number"), _POSITIVE)
+async def test_resolves(
+    name: str, log: str, witness_file: str | None, expected: dict[str, Any], version_number: int | None
+) -> None:
+    resolved = await resolve_did_webvh_log(log, version_number=version_number, witness_file=witness_file)
     entries = [json.loads(line) for line in log.splitlines() if line.strip()]
     selected = entries[(version_number or len(entries)) - 1]
 
@@ -145,10 +156,16 @@ async def test_resolves(name: str, log: str, expected: dict[str, Any], version_n
 
 
 @requires_suite
-@pytest.mark.parametrize("log", _UNSUPPORTED)
-async def test_rejects_witness_logs(log: str) -> None:
+@pytest.mark.parametrize(("log", "witness_file"), _WITNESSED)
+async def test_witness_logs_fail_closed_without_enough_approvals(log: str, witness_file: str) -> None:
+    # No did-witness.json, an empty one, and each entry with one proof dropped.
     with pytest.raises(DidWebvhError):
         await resolve_did_webvh_log(log)
+    with pytest.raises(DidWebvhError):
+        await resolve_did_webvh_log(log, witness_file="[]")
+    reduced = [{**entry, "proof": entry["proof"][1:]} for entry in json.loads(witness_file)]
+    with pytest.raises(DidWebvhError):
+        await resolve_did_webvh_log(log, witness_file=json.dumps(reduced))
 
 
 @requires_suite
@@ -169,5 +186,5 @@ def test_rejects_did_url_vector(did: str) -> None:
 
 def test_expectations_pin_a_full_commit_with_reasons() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", _EXPECTATIONS["commit"])
-    for section in ("unsupported", "didUrlNegative", "vectorDefects"):
+    for section in ("witnessed", "didUrlNegative", "vectorDefects"):
         assert all(reason for reason in _EXPECTATIONS[section].values())

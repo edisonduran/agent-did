@@ -84,6 +84,10 @@ class CreateDidWebvhOptions(BaseModel):
     go into the log (``nextKeyHashes``). From then on the key in ``controller_signer`` can no longer sign log
     entries: a compromised controller key cannot rotate or deactivate the DID, and the holder of one of these
     keys can. Keep their private keys offline. Rotate with ``AgentDidClient.rotate_controller_key``."""
+    witness: Any = None  # DidWebvhWitnessConfig
+    """Witnesses (ADR-007), a ``DidWebvhWitnessConfig``: ``threshold`` of these ``did:key`` DIDs must approve the
+    genesis entry and every later entry before it is published. The client obtains the approvals with
+    ``AgentDidClientOptions.collect_witness_proofs``."""
 
 
 @dataclass(frozen=True)
@@ -493,7 +497,7 @@ class KeyAtTimeResult:
 
 
 VerifySignatureAtTimeRejection = Literal[
-    "did_resolution_failed", "key_not_authorized", "controller_not_bound", "signature_invalid"
+    "did_resolution_failed", "key_not_authorized", "controller_not_bound", "signature_invalid", "timestamp_invalid"
 ]
 
 
@@ -505,12 +509,15 @@ class VerifySignatureAtTimeResult:
     ``reason`` (for ``invalid``): ``did_resolution_failed`` (the did:webvh log, or a controller's, could not be
     fetched or failed verification),
     ``key_not_authorized`` (see ``key.reason``), ``controller_not_bound`` (the agent is not bound to its controller
-    now, RFC-001 §6.6 item 7) or ``signature_invalid``.
+    now, RFC-001 §6.6 item 7), ``signature_invalid`` or ``timestamp_invalid`` (the RFC 3161 ``timestamp_token`` does
+    not verify; see ``timestamp_rejection``, ADR-007).
     """
 
     status: Literal["valid", "invalid", "indeterminate"]
     reason: VerifySignatureAtTimeRejection | None = None
     key: KeyAtTimeResult | None = None
+    timestamp_rejection: str | None = None
+    """Set with ``reason="timestamp_invalid"``: a ``TimestampRejection``."""
 
 
 # ---------------------------------------------------------------------------

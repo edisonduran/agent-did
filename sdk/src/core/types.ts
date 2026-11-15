@@ -67,6 +67,11 @@ export interface CreateDidWebvhOptions {
    * these keys can. Keep their private keys offline. Rotate with `rotateControllerKey`.
    */
   nextUpdateKeys?: string[];
+  /**
+   * Witnesses (ADR-007): `threshold` of these `did:key` DIDs must approve the genesis entry and every later entry
+   * before it is published. The client obtains the approvals with `AgentDidClientOptions.collectWitnessProofs`.
+   */
+  witness?: import('../webvh/adapter').DidWebvhWitnessConfig;
 }
 
 /** Options of `AgentDidClient.rotateControllerKey`. */
@@ -611,7 +616,21 @@ export interface CheckKeyAtTimeOptions {
   trustedTimeNotAfter?: string;
 }
 
-export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' | 'did'>;
+/** Options of `checkDidWebvhKeyAtTime`: the log's `did-witness.json` is needed when it has witnessed entries. */
+export interface CheckDidWebvhKeyAtTimeOptions extends CheckKeyAtTimeOptions {
+  witnessFile?: string;
+}
+
+export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' | 'did'> & {
+  /**
+   * An RFC 3161 timestamp token (DER `TimeStampResp` or `TimeStampToken`) over the raw signature bytes (ADR-007). The
+   * SDK verifies it against `tsaTrustAnchors` and uses `genTime + accuracy` as `trustedTimeNotAfter`; a token that does
+   * not verify makes the result `invalid` (`timestamp_invalid`). Not together with `trustedTimeNotAfter`.
+   */
+  timestampToken?: Uint8Array;
+  /** TSA trust anchors (DER bytes or PEM text) for `timestampToken`; required with it. */
+  tsaTrustAnchors?: (Uint8Array | string)[];
+};
 
 /**
  * Result of `verifySignatureAtTime`. `valid` only when the signature verifies and the key was authorized at
@@ -620,6 +639,7 @@ export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' |
  * - `key_not_authorized`: the key was not authorized at the stated time (see `key.reason`).
  * - `controller_not_bound`: the controller binding does not hold now (RFC-001 §6.6 item 7).
  * - `signature_invalid`: the signature does not verify with the key.
+ * - `timestamp_invalid`: the RFC 3161 `timestampToken` does not verify (ADR-007).
  */
 export type VerifySignatureAtTimeResult =
   | { status: 'valid'; key: Extract<KeyAtTimeResult, { status: 'authorized' }> }
@@ -627,6 +647,14 @@ export type VerifySignatureAtTimeResult =
       status: 'invalid';
       reason: 'did_resolution_failed' | 'key_not_authorized' | 'controller_not_bound' | 'signature_invalid';
       key?: KeyAtTimeResult;
+    }
+  | {
+      status: 'invalid';
+      /** `timestampToken` was given and does not verify (see `timestampRejection`). */
+      reason: 'timestamp_invalid';
+      timestampRejection: import('../crypto/timestamp').TimestampRejection;
+      /** Never set: the key is not checked when the timestamp is invalid. Kept so `result.key` reads on every member. */
+      key?: undefined;
     }
   | { status: 'indeterminate'; key: Extract<KeyAtTimeResult, { status: 'indeterminate' }> };
 

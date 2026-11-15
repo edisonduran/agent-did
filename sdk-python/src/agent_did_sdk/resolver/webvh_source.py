@@ -10,7 +10,7 @@ import httpx
 from ..core.http_security import HttpTargetValidationOptions, validate_http_target
 from ..core.safe_client import create_safe_client
 from ..core.types import AgentDIDDocument
-from ..webvh.adapter import DidWebvhError, resolve_did_webvh_log
+from ..webvh.adapter import DidWebvhError, did_webvh_log_requires_witnesses, resolve_did_webvh_log
 from .types import DocumentIntegrityError
 
 
@@ -35,20 +35,44 @@ class WebvhDIDDocumentSource:
     async def get_by_reference(self, document_ref: str) -> AgentDIDDocument | None:
         """Fetch the did:webvh log and return the latest state after verifying the whole log.
 
-        Raises :class:`DocumentIntegrityError` when verification fails (or the state is not an
-        Agent-DID document); returns ``None`` when no endpoint has the log.
+        A log with witnessed entries is verified with the ``did-witness.json`` next to it (ADR-007). Raises
+        :class:`DocumentIntegrityError` when verification fails (or the state is not an Agent-DID document);
+        returns ``None`` when no endpoint has the log.
         """
         log_text = await self.get_did_log_by_reference(document_ref)
         if log_text is None:
             return None
         try:
-            resolved = await resolve_did_webvh_log(log_text)
+            witness_file: str | None = None
+            if did_webvh_log_requires_witnesses(log_text):
+                if not document_ref.endswith("did.jsonl"):
+                    raise DocumentIntegrityError(
+                        f"The did:webvh log at {document_ref} has witnessed entries and its did-witness.json "
+                        "cannot be located"
+                    )
+                witness_file = await self.get_did_witness_file_by_reference(
+                    document_ref.removesuffix("did.jsonl") + "did-witness.json"
+                )
+                if witness_file is None:
+                    raise DocumentIntegrityError(
+                        f"The did:webvh log at {document_ref} has witnessed entries and no did-witness.json"
+                    )
+            resolved = await resolve_did_webvh_log(log_text, witness_file=witness_file)
         except DidWebvhError as exc:
             raise DocumentIntegrityError(str(exc)) from None
         return _to_agent_document(resolved.state)
 
     async def get_did_log_by_reference(self, document_ref: str) -> str | None:
         """Fetch the raw ``did.jsonl`` text. The caller must verify it before trusting it."""
+        return await self._fetch_text(document_ref, "did:webvh DID log")
+
+    async def get_did_witness_file_by_reference(self, document_ref: str) -> str | None:
+        """Fetch the raw ``did-witness.json`` text (ADR-007), with the same SSRF policy and limits as the log.
+
+        The caller verifies the proofs (``resolve_did_webvh_log``)."""
+        return await self._fetch_text(document_ref, "did:webvh witness file")
+
+    async def _fetch_text(self, document_ref: str, what: str) -> str | None:
         urls = self._resolve_candidate_urls(document_ref)
         errors: list[str] = []
         all_not_found = True
@@ -86,7 +110,7 @@ class WebvhDIDDocumentSource:
         if all_not_found:
             return None
 
-        raise RuntimeError(f"Failed to fetch did:webvh DID log from all endpoints. {' | '.join(errors)}")
+        raise RuntimeError(f"Failed to fetch {what} from all endpoints. {' | '.join(errors)}")
 
     async def store_did_log_by_reference(self, document_ref: str, did_log: str) -> None:
         raise NotImplementedError("WebvhDIDDocumentSource is read-only")

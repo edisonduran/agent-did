@@ -47,7 +47,7 @@ Where this RFC says an item is defined "by" one of these documents, that documen
 
 | Reference | Used for | Version |
 | :--- | :--- | :--- |
-| [did:webvh] | DID method, `did.jsonl` log format, SCID, `entryHash` chain, `updateKeys`, deactivation | **v1.0** (`method` parameter `did:webvh:1.0`) |
+| [did:webvh] | DID method, `did.jsonl` log format, SCID, `entryHash` chain, `updateKeys`, deactivation, witnesses (`witness` parameter, `did-witness.json`) | **v1.0** (`method` parameter `did:webvh:1.0`) |
 | [DID-CORE] | DID document data model and verification relationships | W3C Recommendation, DID Core v1.0 |
 | [RFC 9421] | HTTP Message Signatures (signature base, `Signature-Input`, `Signature`) | RFC 9421 |
 | [RFC 8941] | Structured Field Values, as used by `Signature-Input`, `Signature` and `Agent-DID` | RFC 8941 |
@@ -55,6 +55,7 @@ Where this RFC says an item is defined "by" one of these documents, that documen
 | [RFC 8785] | JSON Canonicalization Scheme (JCS) for hashing | RFC 8785 |
 | [RFC 8032] | Ed25519 signatures | RFC 8032 |
 | [RFC 2104] | HMAC, for salted commitments (§4.3) | RFC 2104 |
+| [RFC 3161] | Timestamp tokens as trusted time evidence (§6.2.2) | RFC 3161 |
 | [VC-DATA-MODEL-2.0] | Data model of the `AgentMetadataCredential` (§4.4) | W3C Recommendation, Verifiable Credentials Data Model v2.0 |
 | [VC-DI-EDDSA] | `eddsa-jcs-2022` proofs of the `AgentMetadataCredential` (§4.4), with the common algorithms of VC Data Integrity | W3C Recommendation, Data Integrity EdDSA Cryptosuites v1.0; test vectors at the commit pinned in `fixtures/vc-di-eddsa-test-vectors.json` |
 | [RFC 2119], [RFC 8174] | Requirement keywords | BCP 14 |
@@ -258,6 +259,8 @@ graph TD
 
 **did:webvh verifiability (MUST).** For `did:webvh` identities, the documents and logs an implementation emits MUST be verifiable by any conforming did:webvh v1.0 resolver, with no Agent-DID-specific code. Concretely, the published `did.jsonl` MUST follow [did:webvh] v1.0 (SCID derivation, `versionId` and `entryHash` chain, `eddsa-jcs-2022` data-integrity proofs by a current `updateKey`, parameters including `method: "did:webvh:1.0"`), and the Agent-DID-specific content (`agentMetadata`, `complianceCertifications`) MUST be carried only inside the DID document state of the log entries. An implementation MUST NOT depend on a side channel, a private log extension, or an Agent-DID-only field to make its log verify. A resolver in this RFC's sense MUST verify the whole log as required by §8.1 item 2 before using any of its state.
 
+**did:webvh witnesses.** A controller MAY name witnesses with the did:webvh `witness` parameter: `threshold` of the listed `did:key` DIDs must approve each log entry the rule governs, with proofs published in `did-witness.json` next to `did.jsonl` ([did:webvh] v1.0). An entry is governed by the rule in force before it or, when there is none, by the rule the entry itself sets; a change of rule is approved by the witnesses in force. Witnesses make a split view (two valid logs served to different audiences) or a rewrite of the latest entry visible to anyone who checks with them. When any entry of a log is governed by a witness rule, a resolver MUST obtain `did-witness.json` from the same location and under the same fetch limits as the log, and MUST reject the log (integrity failure, no fallback, §8.1 item 2) when the file is missing, malformed, or its valid approvals from the governing witnesses do not reach a threshold. A controller MUST publish the approvals before the entry they approve. Watchers are not used by this RFC. ([ADR-007](ADR-007-Witnesses-and-Timestamps.md) D-11a)
+
 **Document reference (`documentRef`).** When an implementation addresses a DID document by content hash, the reference MUST be computed as `hash://sha256/<hex>`, where `<hex>` is the lowercase hexadecimal SHA-256 digest of the UTF-8 bytes of the document's JSON Canonicalization Scheme (JCS, RFC 8785) serialization. Values, including timestamps, MUST be hashed exactly as they appear in the document; implementations MUST NOT normalize them before canonicalization.
 
 ### 6.2 Resolution and Verification
@@ -329,9 +332,11 @@ First, if any entry of the log gives the key a `revoked` time (§4.2), the key i
 3. If a later change ends the key's authorization (a later entry removes the key, deactivates it, takes it out of the required relationship, or deactivates the DID), the result is **indeterminate** (`key_retired_after_stated_time` or `did_deactivated_after_stated_time`), unless the verifier holds trusted time evidence that the signature existed before that change (for example an RFC 3161 timestamp it has verified). With such evidence earlier than the change, the key is **authorized**.
 4. Otherwise the key is **authorized**.
 
+**RFC 3161 timestamp tokens as evidence.** A timestamp token is evidence for item 3 only when it covers the signature: its `messageImprint` MUST be the SHA-256, SHA-384 or SHA-512 hash of the raw signature bytes (the decoded value, not its hexadecimal text). A verifier that uses one MUST check that the response status is `granted`, that the token is a CMS `SignedData` over a `TSTInfo` with exactly one signer whose certificate is embedded, that the signer certificate has a critical extended key usage including `id-kp-timeStamping`, and that the CMS signature verifies with a certificate path from that certificate to a trust anchor the verifier chose, valid at `genTime`. The evidence is then `genTime` plus the token's `accuracy`. A token that fails any check MUST make the result invalid (`timestamp_invalid`), never "no evidence". Revocation of TSA certificates is the verifier's policy. Reasons for a rejected token: `token_malformed`, `not_granted`, `hash_algorithm_unsupported`, `imprint_mismatch`, `not_a_timestamping_certificate`, `verification_failed`. ([ADR-007](ADR-007-Witnesses-and-Timestamps.md) D-11b)
+
 A verifier MUST NOT accept an indeterminate result as authorized, and MUST NOT treat the stated time, a log `versionTime` or a document `created`/`updated` value as trusted time evidence. When no verified log is available for the DID, the result is indeterminate (`history_unavailable`). Comparisons use millisecond precision; sub-millisecond digits are truncated.
 
-Other delegation formats draw the same line for the same reason (for example the `KEY_AMBIGUOUS` outcome of APS `AuthorityDelegationV1`, draft-pidlisnyi-aps §3.4); this section does not claim conformance with them. Conforming SDKs expose the check as `checkDidWebvhKeyAtTime` / `check_did_webvh_key_at_time` and `verifySignatureAtTime` / `verify_signature_at_time`. The shared vectors are in `fixtures/key-at-time-vectors.json`.
+Other delegation formats draw the same line for the same reason (for example the `KEY_AMBIGUOUS` outcome of APS `AuthorityDelegationV1`, draft-pidlisnyi-aps §3.4); this section does not claim conformance with them. Conforming SDKs expose the check as `checkDidWebvhKeyAtTime` / `check_did_webvh_key_at_time` and `verifySignatureAtTime` / `verify_signature_at_time` (option `timestampToken` / `timestamp_token` with TSA trust anchors), and the token check as `verifyTimestampToken` / `verify_timestamp_token`. The shared vectors are in `fixtures/key-at-time-vectors.json` and `fixtures/timestamp-vectors.json`.
 
 ### 6.3 Evolution
 
@@ -406,6 +411,8 @@ Current fixture reference:
 - `fixtures/jcs-vectors.json` (RFC 8785 reference vectors)
 - `fixtures/agent-metadata-credential-vectors.json` (§4.4: one credential both SDKs build byte for byte, and its accepted and rejected variants with their reason codes)
 - `fixtures/vc-di-eddsa-test-vectors.json` (the pinned W3C `vc-di-eddsa` revision whose `eddsa-jcs-2022` vectors both SDKs reproduce; external, not self-written)
+- `fixtures/webvh-log-vectors.json` (did:webvh logs both SDKs resolve or reject, including witnessed logs with their `did-witness.json`) and `fixtures/didwebvh-test-suite.json` (the pinned DIF `didwebvh-test-suite` revision; its witness scenarios resolve with their `did-witness.json`; external)
+- `fixtures/timestamp-vectors.json` (§6.2.2: RFC 3161 tokens recorded from two public TSAs and a test TSA, with the expected outcome and reason; the accepted ones and the signature, chain and imprint rejections are cross-checked with `openssl ts -verify`)
 - `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
 
 Conventions the shared vectors rely on, stated here so that an independent implementation does not have to infer them:
@@ -426,13 +433,14 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | Controller Documents (4.2.1) | `AgentDidClient.resolveDocument(did)` / `resolveControllerChain(did)` (DID Core documents, `DidDocument`); Python `resolve_document` / `resolve_controller_chain` |
 | Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
 | Verification Relationship Binding (6.2.1) | `assertKeyPurpose(...)` / `assert_key_purpose(...)`, default `assertionMethod` |
-| Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime })`, `checkDidWebvhKeyAtTime(log, ...)`. `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted a retired key without any time check |
+| Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime, timestampToken?, tsaTrustAnchors? })`, `checkDidWebvhKeyAtTime(log, ...)`, `verifyTimestampToken(token, signatureBytes, { trustAnchors })`, `createTimestampRequest(signatureBytes)`; Python adds the `timestamps` extra. `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted a retired key without any time check |
 | Agent Metadata Credential (4.4) | `AgentDidClient.issueAgentMetadataCredential(params)` / `verifyAgentMetadataCredential(credential)`; Python `issue_agent_metadata_credential` / `verify_agent_metadata_credential` |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
 | Key Rotation (8.2) | `rotateVerificationMethod(did, { emergency })` — marks old keys as `deactivated` (and `revoked` with `emergency`) |
 | Single-Key Retirement (6.6 item 3) | `AgentDidClient.retireVerificationMethod(did, keyId, { emergency })` / Python `retire_verification_method` |
 | Identity Composition (6.2.1.1) | `signAgentCard(card, signer, keyId)`, `AgentDidClient.verifyAgentCard(card)` / `verifyIdentityComposition({ ...request, agentCard })`; Python `sign_agent_card`, `verify_agent_card`, `verify_identity_composition` |
 | Revocation (6.4) | `revokeDid(did)` |
+| did:webvh Witnesses (6.1) | `webvh.witness` at creation, `AgentDidClient.setDidWebvhWitnesses(did, witness \| null)`, `exportDidWebvhWitnessFile(did)`, option `collectWitnessProofs`; a witness approves with `createDidWebvhWitnessProof(...)`. Python `set_did_webvh_witnesses`, `export_did_webvh_witness_file`, `collect_witness_proofs`, `create_did_webvh_witness_proof` |
 | Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
 | Optional EVM Integration (5.3) | `@agentdid/evm` / `agent-did-evm` (`EvmAgentRegistry`), in `edisonduran/agent-did-evm` |
 
@@ -482,7 +490,7 @@ The full STRIDE analysis is in [Threat-Model.md](Threat-Model.md). Implementers 
 
 1. **Authentication is not trust.** A valid signature proves control of a DID, not that the DID deserves access. Verifiers MUST authorize DIDs themselves.
 2. **Verify the whole log.** A `did:webvh` log MUST be verified in full (SCID, `entryHash` chain, proofs, `updateKeys` authorization) before any of its state is used. An integrity failure MUST NOT fall back to another resolution source.
-3. **Freshness is not authenticated.** A log host can serve an older valid prefix or withhold new entries. Verifiers SHOULD bound resolver cache lifetime; for emergency revocation, see the `max_emergency_propagation_window` in the A2A composition contract.
+3. **Freshness is not authenticated.** A log host can serve an older valid prefix or withhold new entries. did:webvh witnesses (§6.1) make a rewritten or forked log detectable by whoever checks with them; they do not stop a host from withholding new entries. Verifiers SHOULD bound resolver cache lifetime; for emergency revocation, see the `max_emergency_propagation_window` in the A2A composition contract.
 4. **Replay state is the verifier's.** Verifiers MUST record `(keyid, nonce)` until `expires` after the signature verifies, in a store shared by all verifier instances.
 5. **Time is signer-asserted.** `created` and log `versionTime` are not trusted timestamps; do not infer "signed before compromise" from them alone. A key retired after the time an artifact states gives an indeterminate result unless trusted time evidence is available (§6.2.2).
 6. **Controller key custody.** Compromise of the controller key allows an attacker to rotate or deactivate the identity. The only in-protocol recovery is pre-rotation (§6.6 item 8), and only if the DID committed to successor keys before the compromise; without it there is none. Protect the active key with an HSM or KMS and keep the committed keys offline.

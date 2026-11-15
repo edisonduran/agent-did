@@ -97,6 +97,7 @@ import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
+import { DidWebvhWitnessCollector, DidWebvhWitnessConfig } from '../webvh/adapter';
 export interface ProductionResolverProfileConfig {
     registry: AgentRegistry;
     documentSource: DIDDocumentSource;
@@ -173,6 +174,11 @@ export interface AgentDidClientOptions {
     clock?: () => Date;
     /** Domain of the implicit local did:webvh profile. Defaults to `agents.local`. */
     webvhDomain?: string;
+    /**
+     * Obtains witness approvals for did:webvh entries governed by a witness rule (ADR-007): when the DID was created
+     * with `webvh.witness` or `setDidWebvhWitnesses`. Without it, changing such a DID fails before anything is stored.
+     */
+    collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 /**
  * Owns all mutable identity state (resolver, registry, replay store, document history,
@@ -188,6 +194,9 @@ export declare class AgentDidClient {
     private readonly documentHistoryStore;
     /** did:webvh v1.0 logs (`did.jsonl`) of the DIDs created or imported in this process. */
     private readonly didWebvhLogStore;
+    /** `did-witness.json` of the stored logs that have witnessed entries (ADR-007), keyed by DID. */
+    private readonly didWebvhWitnessStore;
+    private readonly collectWitnessProofs;
     /**
      * Deactivation state derived from the verified log, keyed by DID and tied to the exact
      * log text it was computed from. It is recomputed whenever the stored log changes.
@@ -202,6 +211,12 @@ export declare class AgentDidClient {
     /** One lifecycle operation (update, rotation, revocation, import) at a time per DID, so none is lost. */
     private readonly didLocks;
     constructor(options?: AgentDidClientOptions);
+    /** Stores a verified log and its witness file (or drops the stale one when the log has none). */
+    private storeDidWebvhLog;
+    /** The stored witness file of `did` and the client's collector, as adapter options. */
+    private didWebvhWitnessOptions;
+    /** The stored witness file of `did`, as a `resolveDidWebvhLog` option. */
+    private storedWitnessFileOption;
     private nowIsoTimestamp;
     /**
      * Creates a new Agent-DID Document (Passport) from raw parameters.
@@ -309,7 +324,10 @@ export declare class AgentDidClient {
      * - `indeterminate`: the key was retired or the DID deactivated after `statedTime` and there is no trusted
      *   time evidence, or no did:webvh log is available for the DID. Do not accept it.
      *
-     * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone.
+     * The stated time is asserted by the signer, so a retired key is never accepted on the signer's word alone. With
+     * `timestampToken` (an RFC 3161 token over the raw signature bytes) and `tsaTrustAnchors`, the SDK verifies the
+     * token and uses its `genTime + accuracy` as the trusted time evidence (ADR-007); a token that does not verify gives
+     * `invalid` / `timestamp_invalid`.
      */
     verifySignatureAtTime(did: string, payload: string, signature: string, keyId: string, options: VerifySignatureAtTimeOptions): Promise<VerifySignatureAtTimeResult>;
     /** The binding of `did` (and of its controllers) to its controller chain as it is now. */
@@ -406,6 +424,20 @@ export declare class AgentDidClient {
     private rotateControllerKeyLocked;
     /** The controller keys of a did:webvh DID, from its verified log (including pre-rotation commitments). */
     getDidWebvhControllerKeys(did: string): Promise<DidWebvhControllerKeys>;
+    /**
+     * Sets, changes or (with `null`) removes the witnesses of a did:webvh DID (ADR-007) by appending a log entry. The
+     * witnesses in force approve that entry (through `AgentDidClientOptions.collectWitnessProofs`); the new rule
+     * governs the entries after it. Returns the witness configuration now in force.
+     */
+    setDidWebvhWitnesses(did: string, witness: DidWebvhWitnessConfig | null, options?: DidWebvhLifecycleOptions): Promise<{
+        threshold: number;
+        witnesses: string[];
+    }>;
+    /**
+     * The `did-witness.json` of a did:webvh DID created, changed or imported in this process, or `undefined` when its
+     * log has no witnessed entries. Publish it next to `did.jsonl`, and before it.
+     */
+    exportDidWebvhWitnessFile(did: string): string | undefined;
     getDocumentHistory(did: string): AgentDocumentHistoryEntry[];
     /** Returns the DID's did:webvh v1.0 log (`did.jsonl`) as created or imported in this process. */
     exportDidWebvhHistory(did: string): string;
@@ -417,12 +449,22 @@ export declare class AgentDidClient {
      * The imported log is a copy of what the log host serves. With a resolver that fetches logs, it is not cached
      * as the DID's current document: the next resolution fetches the host's log and the longer of the two wins.
      */
-    importDidWebvhHistory(didLog: string): Promise<AgentDIDDocument>;
+    importDidWebvhHistory(didLog: string, witnessFile?: string): Promise<AgentDIDDocument>;
     private importResolvedDidWebvhLog;
-    saveDidWebvhHistoryToFile(did: string, filePath: string): Promise<void>;
-    loadDidWebvhHistoryFromFile(filePath: string): Promise<AgentDIDDocument>;
-    persistDidWebvhHistoryToSource(did: string, documentRef: string, source: DIDDocumentSource): Promise<void>;
-    restoreDidWebvhHistoryFromSource(documentRef: string, source: DIDDocumentSource): Promise<AgentDIDDocument>;
+    /**
+     * Writes the DID's `did.jsonl` to `filePath`. A DID with witnessed entries also needs `witnessFilePath` for its
+     * `did-witness.json` (written first, as when publishing).
+     */
+    saveDidWebvhHistoryToFile(did: string, filePath: string, witnessFilePath?: string): Promise<void>;
+    /** Imports a `did.jsonl` file, with its `did-witness.json` when the log has witnessed entries. */
+    loadDidWebvhHistoryFromFile(filePath: string, witnessFilePath?: string): Promise<AgentDIDDocument>;
+    /**
+     * Stores the DID's log in `source` under `documentRef`. A DID with witnessed entries also needs `witnessRef`, where
+     * its `did-witness.json` is stored first.
+     */
+    persistDidWebvhHistoryToSource(did: string, documentRef: string, source: DIDDocumentSource, witnessRef?: string): Promise<void>;
+    /** Imports a log from `source`, with its `did-witness.json` from `witnessRef` when given. */
+    restoreDidWebvhHistoryFromSource(documentRef: string, source: DIDDocumentSource, witnessRef?: string): Promise<AgentDIDDocument>;
     setResolver(resolver: DIDResolver): void;
     setRegistry(registry: AgentRegistry): void;
     useProductionResolver(config: ProductionResolverProfileConfig): void;
@@ -979,6 +1021,11 @@ export interface CreateDidWebvhOptions {
      * these keys can. Keep their private keys offline. Rotate with `rotateControllerKey`.
      */
     nextUpdateKeys?: string[];
+    /**
+     * Witnesses (ADR-007): `threshold` of these `did:key` DIDs must approve the genesis entry and every later entry
+     * before it is published. The client obtains the approvals with `AgentDidClientOptions.collectWitnessProofs`.
+     */
+    witness?: import('../webvh/adapter').DidWebvhWitnessConfig;
 }
 /** Options of `AgentDidClient.rotateControllerKey`. */
 export interface RotateControllerKeyOptions {
@@ -1435,7 +1482,20 @@ export interface CheckKeyAtTimeOptions {
      */
     trustedTimeNotAfter?: string;
 }
-export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' | 'did'>;
+/** Options of `checkDidWebvhKeyAtTime`: the log's `did-witness.json` is needed when it has witnessed entries. */
+export interface CheckDidWebvhKeyAtTimeOptions extends CheckKeyAtTimeOptions {
+    witnessFile?: string;
+}
+export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' | 'did'> & {
+    /**
+     * An RFC 3161 timestamp token (DER `TimeStampResp` or `TimeStampToken`) over the raw signature bytes (ADR-007). The
+     * SDK verifies it against `tsaTrustAnchors` and uses `genTime + accuracy` as `trustedTimeNotAfter`; a token that does
+     * not verify makes the result `invalid` (`timestamp_invalid`). Not together with `trustedTimeNotAfter`.
+     */
+    timestampToken?: Uint8Array;
+    /** TSA trust anchors (DER bytes or PEM text) for `timestampToken`; required with it. */
+    tsaTrustAnchors?: (Uint8Array | string)[];
+};
 /**
  * Result of `verifySignatureAtTime`. `valid` only when the signature verifies and the key was authorized at
  * the stated time. Treat `indeterminate` as not accepted.
@@ -1443,6 +1503,7 @@ export type VerifySignatureAtTimeOptions = Omit<CheckKeyAtTimeOptions, 'keyId' |
  * - `key_not_authorized`: the key was not authorized at the stated time (see `key.reason`).
  * - `controller_not_bound`: the controller binding does not hold now (RFC-001 §6.6 item 7).
  * - `signature_invalid`: the signature does not verify with the key.
+ * - `timestamp_invalid`: the RFC 3161 `timestampToken` does not verify (ADR-007).
  */
 export type VerifySignatureAtTimeResult = {
     status: 'valid';
@@ -1453,6 +1514,13 @@ export type VerifySignatureAtTimeResult = {
     status: 'invalid';
     reason: 'did_resolution_failed' | 'key_not_authorized' | 'controller_not_bound' | 'signature_invalid';
     key?: KeyAtTimeResult;
+} | {
+    status: 'invalid';
+    /** `timestampToken` was given and does not verify (see `timestampRejection`). */
+    reason: 'timestamp_invalid';
+    timestampRejection: import('../crypto/timestamp').TimestampRejection;
+    /** Never set: the key is not checked when the timestamp is invalid. Kept so `result.key` reads on every member. */
+    key?: undefined;
 } | {
     status: 'indeterminate';
     key: Extract<KeyAtTimeResult, {
@@ -1728,6 +1796,50 @@ export declare function decodePublicKeyMultibase(encoded: string): Uint8Array;
  */
 export declare function didKeyFromPublicKey(rawPublicKey: Uint8Array): string;
 
+## crypto/timestamp.d.ts
+/** Why a timestamp token was rejected. */
+export type TimestampRejection =
+/** Not a DER `TimeStampResp` or `TimeStampToken`, not exactly one signer, or no embedded signer certificate. */
+'token_malformed'
+/** The response status is not `granted` (0). */
+ | 'not_granted'
+/** The message imprint uses a hash other than SHA-256, SHA-384 or SHA-512. */
+ | 'hash_algorithm_unsupported'
+/** The message imprint is not the hash of the bytes the token should cover. */
+ | 'imprint_mismatch'
+/** The signer certificate lacks a critical extended key usage with `id-kp-timeStamping`. */
+ | 'not_a_timestamping_certificate'
+/** The CMS signature does not verify, or the signer certificate does not chain to a trust anchor at `genTime`. */
+ | 'verification_failed';
+export type VerifyTimestampTokenResult = {
+    status: 'valid';
+    /** The TSA's `genTime` (RFC 3339, millisecond precision). */
+    genTime: string;
+    /** `genTime` plus the token's `accuracy`: the latest time the covered bytes can have come into existence. */
+    trustedTimeNotAfter: string;
+    /** The token's serial number, lowercase hex. */
+    serialNumber: string;
+} | {
+    status: 'invalid';
+    reason: TimestampRejection;
+};
+export interface VerifyTimestampTokenOptions {
+    /** The TSA trust anchors, as DER bytes or PEM text. The caller chooses which TSAs it trusts. */
+    trustAnchors: (Uint8Array | string)[];
+}
+/**
+ * Verifies an RFC 3161 timestamp token over `message` (the exact bytes the token's message imprint must hash). Accepts
+ * a DER `TimeStampResp` or a bare DER `TimeStampToken`. Returns the verified `genTime` and `genTime + accuracy`, or
+ * the reason for rejecting it. Throws `TypeError` for invalid arguments (not for an invalid token).
+ */
+export declare function verifyTimestampToken(token: Uint8Array, message: Uint8Array, options: VerifyTimestampTokenOptions): Promise<VerifyTimestampTokenResult>;
+/**
+ * Builds a DER `TimeStampReq` (RFC 3161 §2.4.1) for `message`: SHA-256 imprint, `certReq: true` (the TSA embeds its
+ * certificate, which verification needs) and a random 64-bit nonce. Send it to a TSA with content type
+ * `application/timestamp-query`; the SDK does not.
+ */
+export declare function createTimestampRequest(message: Uint8Array): Uint8Array;
+
 ## http-signatures/verify-request.d.ts
 import { VerificationRelationship, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult } from '../core/types';
 import { NonceStore } from '../core/nonce-store';
@@ -1754,7 +1866,7 @@ export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSigna
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, DidDocument, VerificationRelationshipEntry, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, DidDocument, VerificationRelationshipEntry, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, CheckDidWebvhKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
 export type { DataIntegrityProof } from './crypto/data-integrity';
 export { AGENT_DID_A2A_EXTENSION_URI, AGENT_CARD_SIGNATURE_ALG, MAX_AGENT_CARD_SIGNATURES, signAgentCard, parseSignedAgentCard } from './core/agent-card';
 export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
@@ -1785,7 +1897,10 @@ export { AwsSigV4S3DIDDocumentSource, AwsSigV4S3DIDDocumentSourceConfig } from '
 export { JsonRpcDIDDocumentSource, JsonRpcDIDDocumentSourceConfig } from './resolver/JsonRpcDIDDocumentSource';
 export { AgentRegistry, AgentRegistryRecord } from './registry/types';
 export { InMemoryAgentRegistry } from './registry/InMemoryAgentRegistry';
-export { DidWebvhError, DidWebvhErrorCode } from './webvh/adapter';
+export { DidWebvhError, DidWebvhErrorCode, createDidWebvhWitnessProof } from './webvh/adapter';
+export { createTimestampRequest, verifyTimestampToken } from './crypto/timestamp';
+export type { TimestampRejection, VerifyTimestampTokenOptions, VerifyTimestampTokenResult } from './crypto/timestamp';
+export type { CreateDidWebvhWitnessProofParams, DidWebvhWitnessCollector, DidWebvhWitnessConfig, DidWebvhWitnessProofEntry, DidWebvhWitnessRequest } from './webvh/adapter';
 export { AGENT_DID_HTTP_HEADER, AGENT_DID_HTTP_SIGNATURE_TAG, agentDidHttpSignatureComponents } from './core/AgentIdentity';
 export { NonceStore, InMemoryNonceStore, InMemoryNonceStoreOptions } from './core/nonce-store';
 export { ComponentIdentifier, HttpSignatureError, HttpRequestLike, KeyedComponent, SignatureInput, SignatureParamValue, buildSignatureBase, parseSignatureHeader, parseSignatureInputHeader, requestUrlFormProblem, serializeSignatureInput } from './core/http-signatures';
@@ -2130,6 +2245,8 @@ export interface DidWebvhResolution {
     lastEntrySignerKeys: string[];
     /** `true` when the log ends in a deactivation entry. A resolver that leaves it out reports an active DID. */
     deactivated?: boolean;
+    /** The `did-witness.json` that approves the log, when it has witnessed entries (ADR-007). */
+    witnessFile?: string;
 }
 /** A `DidWebvhResolution` and where the client got it from (see `AgentDidClient.resolveDidWebvhState`). */
 export interface DidWebvhState extends DidWebvhResolution {
@@ -2170,6 +2287,12 @@ export interface DIDDocumentSource {
     storeByReference?(documentRef: string, document: AgentDIDDocument): Promise<void>;
     getDidLogByReference?(documentRef: string): Promise<string | null>;
     storeDidLogByReference?(documentRef: string, didLog: string): Promise<void>;
+    /**
+     * Fetches the raw `did-witness.json` of a did:webvh DID (ADR-007), by its URL. Needed to resolve a log with witnessed
+     * entries; a source without it cannot resolve such logs (fail closed). The caller verifies the proofs.
+     */
+    getDidWitnessFileByReference?(documentRef: string): Promise<string | null>;
+    storeDidWitnessFileByReference?(documentRef: string, witnessFile: string): Promise<void>;
 }
 /** Default maximum number of documents in the `UniversalResolverClient` cache. */
 export declare const DEFAULT_RESOLVER_MAX_CACHE_ENTRIES = 1000;
@@ -2229,6 +2352,8 @@ export interface UniversalResolverConfig {
      * local log wins (a stale host never rolls the DID back), and a log that diverges is an integrity failure.
      */
     didWebvhLocalLog?: (did: string) => string | undefined;
+    /** The `did-witness.json` that goes with `didWebvhLocalLog(did)`, when that log has witnessed entries. */
+    didWebvhLocalWitnessFile?: (did: string) => string | undefined;
     cacheTtlMs?: number;
     /**
      * Maximum documents kept in the cache. When it is full, expired entries are dropped first and
@@ -2360,6 +2485,12 @@ export declare class UniversalResolverClient implements DIDResolver {
     /** Fetches, verifies and caches the did:webvh log behind `did`, deactivated or not, and returns the cache entry. */
     private loadDidWebvh;
     /**
+     * The `did-witness.json` of `did` when its log has witnessed entries (ADR-007), fetched from the same source and
+     * under the same limits as the log; `undefined` when the log has none. A log with witnessed entries whose witness
+     * file cannot be fetched is an integrity failure: resolving it without the approvals is never an option.
+     */
+    private fetchDidWebvhWitnessFile;
+    /**
      * Applies the rule for a fetched log against the log the caller holds: the longer one wins and a log
      * that is not a prefix or an extension of the other is an integrity failure (never a fallback).
      */
@@ -2401,20 +2532,27 @@ export declare class WebvhDIDDocumentSource implements DIDDocumentSource {
     constructor(config?: WebvhDIDDocumentSourceConfig);
     /**
      * Fetches the did:webvh log and returns the latest state after verifying the
-     * whole log (SCID, hash chain, controller-signed proofs). Throws
+     * whole log (SCID, hash chain, controller-signed proofs and, when the log has
+     * witnessed entries, the `did-witness.json` next to it). Throws
      * `DocumentIntegrityError` when verification fails; returns `null` when no
      * endpoint has the log.
      */
     getByReference(documentRef: string): Promise<AgentDIDDocument | null>;
     /** Fetches the raw `did.jsonl` text. The caller must verify it before trusting it. */
     getDidLogByReference(documentRef: string): Promise<string | null>;
+    /**
+     * Fetches the raw `did-witness.json` text (ADR-007), with the same SSRF policy and limits as the log. The caller
+     * verifies the proofs (`resolveDidWebvhLog`).
+     */
+    getDidWitnessFileByReference(documentRef: string): Promise<string | null>;
+    private fetchText;
     private resolveCandidateUrls;
     private readResponseText;
 }
 export {};
 
 ## verification/key-at-time.d.ts
-import { CheckKeyAtTimeOptions, KeyAtTimeResult, VerifySignatureAtTimeResult } from '../core/types';
+import { CheckDidWebvhKeyAtTimeOptions, KeyAtTimeResult, VerifySignatureAtTimeResult } from '../core/types';
 /**
  * Parses an RFC 3339 date-time into milliseconds since the epoch, truncating sub-millisecond digits.
  * Returns `undefined` for anything else (no other formats, no out-of-range fields).
@@ -2429,7 +2567,7 @@ export declare function parseRfc3339Millis(value: unknown): number | undefined;
  * `authorized` into `indeterminate`, unless `trustedTimeNotAfter` is earlier than that entry. A key is retired
  * from the `versionTime` of the entry that gives it a `deactivated` time, whatever that time says.
  */
-export declare function checkDidWebvhKeyAtTime(log: string, options: CheckKeyAtTimeOptions): Promise<KeyAtTimeResult>;
+export declare function checkDidWebvhKeyAtTime(log: string, options: CheckDidWebvhKeyAtTimeOptions): Promise<KeyAtTimeResult>;
 /** Combines a key check at a stated time with the Ed25519 check of `signature` (hex) over `payload` (UTF-8 text or bytes). */
 export declare function signatureResultForKey(key: KeyAtTimeResult, payload: string | Uint8Array, signature: string): VerifySignatureAtTimeResult;
 
@@ -2462,10 +2600,41 @@ export type DidWebvhDocument = Record<string, unknown> & {
     id: string;
 };
 /**
- * Resolution metadata exposed by Agent-DID for a did:webvh log. Witness and
- * watcher configuration are deliberately not exposed until the SDK supports
- * them (ADR-002, condition 7). Every value is a string, list or boolean, as
- * DID Core §7.3 requires of DID document metadata.
+ * Witnesses of a did:webvh DID (did:webvh v1.0 `witness` parameter, ADR-007): `threshold` of the `witnesses`
+ * (`did:key` DIDs with Ed25519 keys) must approve each entry the rule governs before it is published.
+ */
+export interface DidWebvhWitnessConfig {
+    /** Integer from 1 to `witnesses.length`. */
+    threshold: number;
+    /** `did:key:z6Mk...` DIDs, without fragment, no repeats. */
+    witnesses: string[];
+}
+/** One entry of `did-witness.json`: the witness proofs approving `versionId` (and every earlier entry). */
+export interface DidWebvhWitnessProofEntry {
+    versionId: string;
+    proof: Record<string, unknown>[];
+}
+/** What a witness approval collector is asked to approve: the last entry of `log`. */
+export interface DidWebvhWitnessRequest {
+    did: string;
+    /** `versionId` of the entry to approve (the last entry of `log`). */
+    versionId: string;
+    /** The candidate log, ending with the entry to approve. It is not published yet. */
+    log: string;
+    /** The `did-witness.json` in force before this entry, if the log has one. */
+    witnessFile?: string;
+    /** The witness rule that governs the entry. */
+    witness: DidWebvhWitnessConfig;
+}
+/**
+ * Obtains the approvals of an entry from its witnesses (for example over the network, or in process with
+ * `createDidWebvhWitnessProof`). Returning fewer approvals than the threshold makes the operation fail.
+ */
+export type DidWebvhWitnessCollector = (request: DidWebvhWitnessRequest) => Promise<DidWebvhWitnessProofEntry[]>;
+/**
+ * Resolution metadata exposed by Agent-DID for a did:webvh log. Watcher configuration is deliberately not
+ * exposed (ADR-002, condition 7). Every value is a string, list or boolean, as DID Core §7.3 requires of DID
+ * document metadata.
  */
 export interface DidWebvhMetadata {
     versionId: string;
@@ -2483,6 +2652,10 @@ export interface DidWebvhMetadata {
     deactivated: boolean;
     /** Cache TTL in seconds; the did:webvh default (3600) when the log does not set one. */
     ttl: string;
+    /** Witness threshold in force after this version (ADR-007); `"0"` when the DID has no witnesses. */
+    witnessThreshold: string;
+    /** Witness DIDs in force after this version; empty when the DID has no witnesses. */
+    witnesses: string[];
 }
 export interface DidWebvhLogResult {
     did: string;
@@ -2495,6 +2668,11 @@ export interface DidWebvhLogResult {
     versionNumber: number;
     /** The full `did.jsonl` text, one entry per line, newline-terminated. */
     log: string;
+    /**
+     * The `did-witness.json` text that approves the log, when any entry is governed by a witness rule. Publish it
+     * next to `did.jsonl`, and before it: a resolver rejects a witnessed entry without its approvals.
+     */
+    witnessFile?: string;
 }
 export interface CreateDidWebvhLogParams {
     /** Lowercase ASCII fully qualified host name, optionally with `:port`. IP literals are rejected. */
@@ -2512,6 +2690,10 @@ export interface CreateDidWebvhLogParams {
     nextUpdateKeys?: string[];
     /** Optional `versionTime` of the genesis entry (UTC, second precision). Defaults to now. */
     created?: string;
+    /** Witnesses that must approve the genesis entry and every later one until the rule changes (ADR-007). */
+    witness?: DidWebvhWitnessConfig;
+    /** Obtains the witness approvals; required when `witness` is set. */
+    collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 export interface UpdateDidWebvhLogParams {
     log: string;
@@ -2531,14 +2713,32 @@ export interface UpdateDidWebvhLogParams {
     nextUpdateKeys?: string[];
     /** Optional `versionTime` for the new entry (UTC, second precision). Defaults to now. */
     updated?: string;
+    /**
+     * New witness rule for the entries after this one. `null` removes witnessing; omitted keeps the rule in force.
+     * The witnesses in force (if any) approve this entry, including the change of rule.
+     */
+    witness?: DidWebvhWitnessConfig | null;
+    /** The current `did-witness.json`; required when the log has witnessed entries. */
+    witnessFile?: string;
+    /** Obtains the witness approvals; required when the new entry is governed by a witness rule. */
+    collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 export interface DeactivateDidWebvhLogParams {
     log: string;
     signer: AgentSigner;
+    /** The current `did-witness.json`; required when the log has witnessed entries. */
+    witnessFile?: string;
+    /** Obtains the witness approvals; required when the DID has witnesses. */
+    collectWitnessProofs?: DidWebvhWitnessCollector;
 }
 export interface ResolveDidWebvhLogOptions {
     /** When set, the log must belong to this DID. */
     did?: string;
+    /**
+     * The `did-witness.json` published next to the log. Required when any entry is governed by a witness rule:
+     * without it, or when its approvals do not reach a threshold, resolution fails (no fallback).
+     */
+    witnessFile?: string;
     versionId?: string;
     versionNumber?: number;
     versionTime?: string;
@@ -2558,6 +2758,28 @@ export declare function deactivateDidWebvhLog(params: DeactivateDidWebvhLogParam
  * every version of a deactivated DID (DID Core section 7.1.2).
  */
 export declare function resolveDidWebvhLog(logText: string, options?: ResolveDidWebvhLogOptions): Promise<DidWebvhLogResult>;
+/**
+ * Whether a did:webvh log has entries governed by a witness rule, so resolving it needs its `did-witness.json`.
+ * Rule of did:webvh v1.0 (as `didwebvh-ts` applies it): an entry is governed by the rule in force before it, or,
+ * when there is none, by the rule the entry itself sets. Throws `DidWebvhError` for a malformed log.
+ */
+export declare function didWebvhLogRequiresWitnesses(logText: string): boolean;
+/** The URL of `did-witness.json` for a did:webvh DID: next to its `did.jsonl` (did:webvh v1.0). */
+export declare function deriveDidWebvhWitnessUrl(did: string): string;
+export interface CreateDidWebvhWitnessProofParams {
+    /** The candidate log, ending with the entry to approve (`DidWebvhWitnessRequest.log`). */
+    log: string;
+    /** The `did-witness.json` in force before that entry (`DidWebvhWitnessRequest.witnessFile`). */
+    witnessFile?: string;
+    /** The witness's own key: its `did:key` must be in the rule that governs the entry. */
+    signer: AgentSigner;
+}
+/**
+ * A witness's approval of the last entry of a candidate log (did:webvh v1.0): an `eddsa-jcs-2022` proof over
+ * `{ versionId }` made with the witness's `did:key`. The whole candidate log is verified first, including the
+ * approvals of earlier entries, so a witness never approves an entry that does not extend a valid log.
+ */
+export declare function createDidWebvhWitnessProof(params: CreateDidWebvhWitnessProofParams): Promise<DidWebvhWitnessProofEntry>;
 /**
  * The multikeys (`z6Mk...`) that made the proofs of the LAST entry of a log: the keys that endorsed the current
  * document. The log must already be verified (`resolveDidWebvhLog`), which guarantees each proof is valid and was
