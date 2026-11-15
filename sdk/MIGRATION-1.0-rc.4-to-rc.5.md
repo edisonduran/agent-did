@@ -251,6 +251,12 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - A custom `NonceStore` receives `<keyid> <nonce>` as before; the text before the last space is now always the `keyid`, so a store can scope per-signer quotas by it (as `InMemoryNonceStore` does with `maxEntriesPerScope`).
 
 
+## 26. did:wba host grammar
+
+- The domain segment of a did:wba DID must decode to a DNS name with an optional port (`did:wba:agents.example%3A8443`). IP literals (`did:wba:127.0.0.1`), a numeric last label, and any character other than ASCII letters, digits, hyphens and dots are rejected before any request. Use a host name; for local tests, `localhost%3A<port>` still works.
+- Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`, so `!`, `'`, `(`, `)` and `*` are now sent percent-encoded (TypeScript sent them as they were). The host is lowercased and port 443 is dropped from the URL.
+
+
 ## 29. An imported did:webvh log is not a fresh resolver entry
 
 - With a resolver that fetches did:webvh logs (the production resolver), `importDidWebvhHistory` of a DID whose controller signer the client does not hold no longer caches the imported document. The next resolution fetches the host's log, and the longer of the fetched and the imported log wins.

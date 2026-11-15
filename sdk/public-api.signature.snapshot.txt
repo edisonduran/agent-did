@@ -1795,7 +1795,6 @@ export declare class UniversalResolverClient implements DIDResolver {
     private isDidWba;
     private isDidWebvh;
     private deriveDidWbaDocumentUrl;
-    private decodeDidWbaSegment;
     private assertDocumentMatchesReference;
     private integrityFailure;
     private computeDocumentReference;
