@@ -3,7 +3,7 @@
 - **Status:** Accepted (2026-11-15)
 - **Deciders:** Maintainer
 - **Applies from:** `1.0.0-rc.5`
-- **Discussion:** `[RFC]` issue (drafted; opened after the maintainer confirms the text)
+- **Discussion:** `[RFC]` #262
 
 ## Context
 
@@ -77,7 +77,7 @@ There are no official RFC 3161 test vectors. Plan:
 - **Reasons and order.** The libraries report failures differently (`rfc3161-client` cannot tell a bad CMS signature from a bad path), so both SDKs run the same checks in the same order and report one reason each: `token_malformed` (not DER, not exactly one signer, signer certificate not embedded), `not_granted`, `hash_algorithm_unsupported`, `imprint_mismatch`, `not_a_timestamping_certificate`, `verification_failed` (CMS signature or path to an anchor at `genTime`). Only status 0 (`granted`) is accepted, as `rfc3161-client` does.
 - **ESSCertID is not checked separately.** The signer certificate is the embedded certificate named by the signer's `issuerAndSerialNumber`, as `rfc3161-client` does; neither SDK compares the `signingCertificate(V2)` hash. Substituting a different certificate with the same issuer and serial needs a misissuing CA, and the path is still checked to the caller's anchors.
 - **Trust anchor first.** When the token embeds a certificate with the same subject and key as an anchor (DigiCert embeds a cross-signed copy of its root), the TypeScript SDK drops the embedded copy so the path ends at the anchor; pkijs otherwise follows the cross-signature and fails.
-- **Unsorted certificate sets.** DigiCert sends the token's `certificates` SET OF unsorted (valid BER, not DER), which `rfc3161-client` rejects. The Python SDK sorts that set before parsing: it is not covered by the CMS signature and keeps its length, so nothing verified changes. An upstream issue is proposed, not opened.
+- **Unsorted certificate sets.** DigiCert sends the token's `certificates` SET OF unsorted (valid BER, not DER), which `rfc3161-client` rejects. The Python SDK sorts that set before parsing: it is not covered by the CMS signature and keeps its length, so nothing verified changes. Upstream: trailofbits/rfc3161-client#339.
 - **Recording.** The fixture was recorded on 2026-11-15; the recording script ran four times that day while it was being fixed, each time sending only the SHA-256 of a TEST-ONLY signature. `openssl ts -verify` checks the chain at the current time by default, so the cross-check passes `-attime` with each token's `genTime`.
 - **Witness sources.** Only `WebvhDIDDocumentSource` fetches `did-witness.json` (`getDidWitnessFileByReference`); a log with witnessed entries served through another source fails closed. The Python SDK removes witnessing with `REMOVE_WITNESSES` (its update API uses `None` for "unchanged"), where TypeScript uses `null`. `did-webvh` 1.0.1 checks an entry only against the rule in force before it; the Python adapter adds the `didwebvh-ts` rule (an entry that switches witnessing on is approved under its own rule) so both SDKs accept the same logs.
 
