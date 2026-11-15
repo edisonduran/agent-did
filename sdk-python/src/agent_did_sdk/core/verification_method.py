@@ -8,7 +8,10 @@ method of any other type is never used to verify a signature.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .types import AnyDidDocument, DidCoreVerificationMethod
 
 VERIFICATION_METHOD_TYPE = "Multikey"
 
@@ -51,3 +54,64 @@ def context_for_methods(context: Sequence[object], revoked_flags: Iterable[bool]
     if any(revoked_flags):
         return [*urls, {"revoked": dict(REVOKED_CONTEXT_TERM["revoked"])}]
     return urls
+
+
+_RELATIONSHIP_ATTRIBUTES = {
+    "authentication": "authentication",
+    "assertionMethod": "assertion_method",
+    "capabilityDelegation": "capability_delegation",
+    "capabilityInvocation": "capability_invocation",
+    "keyAgreement": "key_agreement",
+}
+
+
+def absolute_method_id(document_id: str, reference: str) -> str:
+    """*reference* as an absolute DID URL: a relative reference (``#key-1``) is read against *document_id*."""
+    return f"{document_id}{reference}" if reference.startswith("#") else reference
+
+
+def _with_absolute_id(method: Any, document_id: str) -> DidCoreVerificationMethod:
+    from .types import DidCoreVerificationMethod
+
+    return DidCoreVerificationMethod(
+        id=absolute_method_id(document_id, method.id),
+        type=method.type,
+        controller=method.controller,
+        public_key_multibase=method.public_key_multibase,
+        deactivated=method.deactivated,
+        revoked=method.revoked,
+    )
+
+
+def relationship_methods(document: AnyDidDocument, relationship: str) -> list[DidCoreVerificationMethod]:
+    """The verification methods *document* lists under *relationship* (``"capabilityInvocation"``...), with absolute
+    ids: references (absolute or relative) resolved against ``verificationMethod``, and methods embedded in the
+    relationship. A reference to a method the document does not have is skipped."""
+    declared = {absolute_method_id(document.id, method.id): method for method in document.verification_method or []}
+    methods: list[DidCoreVerificationMethod] = []
+    for entry in getattr(document, _RELATIONSHIP_ATTRIBUTES[relationship]) or []:
+        if isinstance(entry, str):
+            method = declared.get(absolute_method_id(document.id, entry))
+            if method is not None:
+                methods.append(_with_absolute_id(method, document.id))
+        else:
+            methods.append(_with_absolute_id(entry, document.id))
+    return methods
+
+
+def active_ed25519_public_key(method: DidCoreVerificationMethod) -> bytes | None:
+    """The raw Ed25519 public key of *method* when it is active (no ``deactivated``, no ``revoked``) and is an
+    Ed25519 ``publicKeyMultibase`` key; ``None`` otherwise."""
+    from ..crypto.multibase import decode_public_key_multibase
+
+    if (
+        method.deactivated
+        or method.revoked is not None
+        or not method.public_key_multibase
+        or not is_ed25519_verification_method_type(method.type)
+    ):
+        return None
+    try:
+        return decode_public_key_multibase(method.public_key_multibase)
+    except ValueError:
+        return None

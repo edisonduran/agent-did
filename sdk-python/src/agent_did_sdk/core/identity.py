@@ -58,6 +58,7 @@ from .signer import AgentSigner
 from .types import (
     AgentDIDDocument,
     AgentDocumentHistoryEntry,
+    AnyDidDocument,
     CreateAgentParams,
     CreateAgentResult,
     RotateVerificationMethodResult,
@@ -210,7 +211,7 @@ class AgentIdentity:
         return await cls._default_client.resolve(did)
 
     @classmethod
-    async def resolve_controller_chain(cls, did: str, max_depth: int = 8) -> list[AgentDIDDocument]:
+    async def resolve_controller_chain(cls, did: str, max_depth: int = 8) -> list[AnyDidDocument]:
         """Deprecated: use the same method on an ``AgentDidClient``; removed in 2.0."""
         return await cls._default_client.resolve_controller_chain(did, max_depth)
 

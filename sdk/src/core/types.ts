@@ -241,7 +241,30 @@ export type VerifyIdentityCompositionResult =
       keyId?: string;
     };
 
-export interface AgentDIDDocument {
+/**
+ * An entry of a verification relationship in a DID Core document: a reference to a `verificationMethod` (absolute
+ * DID URL, or relative such as `#key-1`, read against the document `id`) or a method embedded in the relationship.
+ */
+export type VerificationRelationshipEntry = string | VerificationMethod;
+
+/**
+ * A DID Core document as this SDK reads a controller (RFC-001 §4.2.1): a did:webvh controller does not need the
+ * Agent-DID members (`agentMetadata`, `created`, `updated`). Only the members the SDK uses are typed; a document may
+ * carry others. `AgentDIDDocument` is the agent profile of it.
+ */
+export interface DidDocument {
+  "@context"?: unknown;
+  id: string;
+  controller?: string | string[];
+  verificationMethod?: VerificationMethod[];
+  authentication?: VerificationRelationshipEntry[];
+  assertionMethod?: VerificationRelationshipEntry[];
+  capabilityDelegation?: VerificationRelationshipEntry[];
+  capabilityInvocation?: VerificationRelationshipEntry[];
+  keyAgreement?: VerificationRelationshipEntry[];
+}
+
+export interface AgentDIDDocument extends DidDocument {
   "@context": AgentDidContextEntry[];
   id: string; // The Agent's unique DID
   controller: string; // The Creator's DID or Wallet Address

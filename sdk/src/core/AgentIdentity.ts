@@ -3,6 +3,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
   AgentDocumentHistoryEntry,
   AgentDIDDocument,
+  DidDocument,
   CreateAgentParams,
   CreateAgentResult,
   DidWebvhLifecycleOptions,
@@ -204,7 +205,7 @@ export class AgentIdentity {
   }
 
   /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
-  public static async resolveControllerChain(did: string, maxDepth = 8): Promise<AgentDIDDocument[]> {
+  public static async resolveControllerChain(did: string, maxDepth = 8): Promise<DidDocument[]> {
     return AgentIdentity.defaultClient.resolveControllerChain(did, maxDepth);
   }
 

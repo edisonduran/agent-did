@@ -1,6 +1,6 @@
-import { AgentDIDDocument } from '../core/types';
+import { AgentDIDDocument, DidDocument } from '../core/types';
 import { generateCanonicalDocumentHash } from '../crypto/hash';
-import { agentDidDocumentProblem } from '../core/document-guard';
+import { agentDidDocumentProblem, didDocumentProblem } from '../core/document-guard';
 import { HttpDIDDocumentSource } from './HttpDIDDocumentSource';
 import { WebvhDIDDocumentSource } from './WebvhDIDDocumentSource';
 import {
@@ -137,7 +137,8 @@ function deriveDidWbaDocumentUrl(did: string): string {
 }
 
 interface CachedDocument {
-  document: AgentDIDDocument;
+  /** An Agent-DID document, or (did:webvh only) any DID Core document: `resolve` checks the agent profile. */
+  document: DidDocument;
   expiresAt: number;
   /** Set when the document came from a verified did:webvh log fetched by this resolver. */
   webvh?: DidWebvhResolution;
@@ -245,31 +246,19 @@ export class UniversalResolverClient implements DIDResolver {
   }
 
   public async resolve(did: string): Promise<AgentDIDDocument> {
-    const startedAt = Date.now();
-    const cached = this.cache.get(did);
-    const now = Date.now();
-
-    if (cached && cached.expiresAt > now) {
-      // Most recently used goes last, so eviction drops the least recently used first.
-      this.cache.delete(did);
-      this.cache.set(did, cached);
-      this.hits += 1;
-      this.emitEvent({ did, stage: 'cache-hit', durationMs: Date.now() - startedAt });
-      if (cached.deactivated) {
-        throw this.deactivatedError(did, startedAt);
-      }
-      return this.clone(cached.document);
+    if (this.isDidWebvh(did)) {
+      return this.agentDocument(did, await this.resolveDocument(did));
     }
-
-    this.misses += 1;
-    this.emitEvent({ did, stage: 'cache-miss', durationMs: Date.now() - startedAt });
+    const startedAt = Date.now();
+    const now = Date.now();
+    const cached = this.cacheHit(did, startedAt, now);
+    if (cached !== undefined) {
+      // Only did:webvh entries can hold a document that is not an Agent-DID document
+      return cached as AgentDIDDocument;
+    }
 
     if (this.isDidWba(did)) {
       return this.clone(await this.guardedFetch(did, startedAt, () => this.resolveDidWba(did, startedAt, now)));
-    }
-
-    if (this.isDidWebvh(did)) {
-      return this.resolveDidWebvh(did, startedAt, now);
     }
 
     this.emitEvent({ did, stage: 'registry-lookup', durationMs: Date.now() - startedAt });
@@ -322,6 +311,57 @@ export class UniversalResolverClient implements DIDResolver {
     this.emitEvent({ did, stage: 'resolved', durationMs: Date.now() - startedAt });
 
     return this.clone(resolved);
+  }
+
+  /**
+   * The DID Core document of `did`. A did:webvh document need not be an Agent-DID document (a controller, RFC-001
+   * §4.2.1): the log is verified as for `resolve`, and the state only has to be a DID Core document. Any other DID
+   * is answered by `resolve`.
+   */
+  public async resolveDocument(did: string): Promise<DidDocument> {
+    if (!this.isDidWebvh(did)) {
+      return this.resolve(did);
+    }
+    const startedAt = Date.now();
+    const now = Date.now();
+    const cached = this.cacheHit(did, startedAt, now);
+    if (cached !== undefined) {
+      return cached;
+    }
+    return this.resolveDidWebvh(did, startedAt, now);
+  }
+
+  /**
+   * A fresh cached document of `did` (rejecting a deactivated did:webvh DID), or `undefined` on a miss. Counts the
+   * hit or the miss.
+   */
+  private cacheHit(did: string, startedAt: number, now: number): DidDocument | undefined {
+    const cached = this.cache.get(did);
+    if (cached && cached.expiresAt > now) {
+      // Most recently used goes last, so eviction drops the least recently used first.
+      this.cache.delete(did);
+      this.cache.set(did, cached);
+      this.hits += 1;
+      this.emitEvent({ did, stage: 'cache-hit', durationMs: Date.now() - startedAt });
+      if (cached.deactivated) {
+        throw this.deactivatedError(did, startedAt);
+      }
+      return this.clone(cached.document);
+    }
+    this.misses += 1;
+    this.emitEvent({ did, stage: 'cache-miss', durationMs: Date.now() - startedAt });
+    return undefined;
+  }
+
+  /** `document` as an Agent-DID document; rejects a DID Core document that is not one (a plain controller). */
+  private agentDocument(did: string, document: DidDocument): AgentDIDDocument {
+    const problem = agentDidDocumentProblem(document);
+    if (problem !== undefined) {
+      const message = `${did} is not an Agent-DID document: ${problem}`;
+      this.emitEvent({ did, stage: 'error', durationMs: 0, message });
+      throw new Error(message);
+    }
+    return document as AgentDIDDocument;
   }
 
   /**
@@ -604,7 +644,7 @@ export class UniversalResolverClient implements DIDResolver {
    * log, an invalid DID, a log that fails verification, a log that contradicts
    * the one held locally and a deactivated DID all fail closed.
    */
-  private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<AgentDIDDocument> {
+  private async resolveDidWebvh(did: string, startedAt: number, now: number): Promise<DidDocument> {
     const entry = await this.guardedFetch(did, startedAt, () => this.loadDidWebvh(did, startedAt, now));
     if (entry.deactivated) {
       throw this.deactivatedError(did, startedAt);
@@ -658,11 +698,12 @@ export class UniversalResolverClient implements DIDResolver {
 
     resolved = await this.reconcileWithLocalLog(did, resolved, startedAt);
 
-    const problem = agentDidDocumentProblem(resolved.state);
+    // A controller need not be an Agent-DID document (RFC-001 §4.2.1): `resolve` checks the agent profile
+    const problem = didDocumentProblem(resolved.state);
     if (problem !== undefined) {
-      throw this.integrityFailure(did, `did:webvh state for ${did} is not an Agent-DID document: ${problem}`, startedAt);
+      throw this.integrityFailure(did, `did:webvh state for ${did} is not a DID document: ${problem}`, startedAt);
     }
-    const document = resolved.state as unknown as AgentDIDDocument;
+    const document = resolved.state as unknown as DidDocument;
     const deactivated = resolved.metadata.deactivated;
     this.emitEvent({
       did,
@@ -730,7 +771,7 @@ export class UniversalResolverClient implements DIDResolver {
   /** Stores a copy of `document`, keeping the cache within `maxCacheEntries`. */
   private cachePut(
     did: string,
-    document: AgentDIDDocument,
+    document: DidDocument,
     expiresAt: number,
     webvh?: DidWebvhResolution,
     deactivated = false
@@ -818,7 +859,7 @@ export class UniversalResolverClient implements DIDResolver {
     return generateCanonicalDocumentHash(document);
   }
 
-  private clone(document: AgentDIDDocument): AgentDIDDocument {
-    return JSON.parse(JSON.stringify(document)) as AgentDIDDocument;
+  private clone<T extends DidDocument>(document: T): T {
+    return JSON.parse(JSON.stringify(document)) as T;
   }
 }

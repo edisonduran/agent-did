@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 from urllib.parse import quote, unquote, urlsplit
 
-from ..core.types import AgentDIDDocument
+from ..core.types import AgentDIDDocument, AnyDidDocument, parse_did_document
 from ..crypto.hash import generate_canonical_document_hash
 from ..webvh.adapter import (
     DidWebvhError,
@@ -149,7 +149,7 @@ class _CachedDocument:
 
     def __init__(
         self,
-        document: AgentDIDDocument,
+        document: AnyDidDocument,
         expires_at: float,
         webvh: DidWebvhResolution | None = None,
         deactivated: bool = False,
@@ -242,28 +242,19 @@ class UniversalResolverClient:
             task.add_done_callback(self._store_tasks.discard)
 
     async def resolve(self, did: str) -> AgentDIDDocument:
+        if self._is_did_webvh(did):
+            return self._agent_document(did, await self.resolve_document(did))
         started = self._now_ms()
-        cached = self._cache.get(did)
         now = self._now_ms()
-
-        if cached and cached.expires_at > now:
-            # Most recently used goes last, so eviction drops the least recently used first.
-            self._cache[did] = self._cache.pop(did)
-            self._hits += 1
-            self._emit(did, "cache-hit", started)
-            if cached.deactivated:
-                raise self._deactivated_error(did, started)
-            return cached.document.model_copy(deep=True)
-
-        self._misses += 1
-        self._emit(did, "cache-miss", started)
+        cached = self._cache_hit(did, started, now)
+        if cached is not None:
+            # Only did:webvh entries can hold a document that is not an Agent-DID document
+            assert isinstance(cached, AgentDIDDocument)
+            return cached
 
         if self._is_did_wba(did):
             document = await self._guarded_fetch(did, started, lambda: self._resolve_did_wba(did, started, now))
             return document.model_copy(deep=True)
-
-        if self._is_did_webvh(did):
-            return await self._resolve_did_webvh(did, started, now)
 
         self._emit(did, "registry-lookup", started)
 
@@ -477,7 +468,7 @@ class UniversalResolverClient:
     def _cache_put(
         self,
         did: str,
-        document: AgentDIDDocument,
+        document: AnyDidDocument,
         expires_at: float,
         webvh: DidWebvhResolution | None = None,
         deactivated: bool = False,
@@ -532,7 +523,47 @@ class UniversalResolverClient:
         self._emit(did, "resolved", started)
         return resolved.model_copy(deep=True)
 
-    async def _resolve_did_webvh(self, did: str, started: float, now: float) -> AgentDIDDocument:
+    async def resolve_document(self, did: str) -> AnyDidDocument:
+        """The DID Core document of *did*. A did:webvh document need not be an Agent-DID document (a controller,
+        RFC-001 §4.2.1): the log is verified as for :meth:`resolve`, and the state only has to be a DID Core document.
+        Any other DID is answered by :meth:`resolve`."""
+        if not self._is_did_webvh(did):
+            return await self.resolve(did)
+        started = self._now_ms()
+        now = self._now_ms()
+        cached = self._cache_hit(did, started, now)
+        if cached is not None:
+            return cached
+        return await self._resolve_did_webvh(did, started, now)
+
+    def _cache_hit(self, did: str, started: float, now: float) -> AnyDidDocument | None:
+        """A fresh cached document of *did* (raising for a deactivated did:webvh DID), or ``None`` on a miss. Counts
+        the hit or the miss."""
+        cached = self._cache.get(did)
+        if cached and cached.expires_at > now:
+            # Most recently used goes last, so eviction drops the least recently used first.
+            self._cache[did] = self._cache.pop(did)
+            self._hits += 1
+            self._emit(did, "cache-hit", started)
+            if cached.deactivated:
+                raise self._deactivated_error(did, started)
+            return cached.document.model_copy(deep=True)
+        self._misses += 1
+        self._emit(did, "cache-miss", started)
+        return None
+
+    def _agent_document(self, did: str, document: AnyDidDocument) -> AgentDIDDocument:
+        """*document* as an Agent-DID document; raises for a DID Core document that is not one (a plain controller)."""
+        if isinstance(document, AgentDIDDocument):
+            return document
+        try:
+            return AgentDIDDocument.model_validate(document.model_dump(by_alias=True, exclude_none=True))
+        except ValueError as exc:
+            message = f"{did} is not an Agent-DID document: {exc}"
+            self._emit(did, "error", self._now_ms(), message=message)
+            raise ValueError(message) from None
+
+    async def _resolve_did_webvh(self, did: str, started: float, now: float) -> AnyDidDocument:
         """Fetch ``did.jsonl`` from the URL derived from the DID, verify it, return the latest state.
 
         There is no fallback to another resolver: a fetch error, a missing log, an invalid DID, a log that
@@ -582,11 +613,12 @@ class UniversalResolverClient:
         resolved = await self._reconcile_with_local_log(did, resolved, started)
         deactivated = bool(resolved.metadata.deactivated)
 
+        # A controller need not be an Agent-DID document (RFC-001 §4.2.1): ``resolve`` checks the agent profile
         try:
-            document = AgentDIDDocument.model_validate(resolved.state)
+            document = parse_did_document(resolved.state)
         except ValueError as exc:
             raise self._integrity_failure(
-                did, f"did:webvh state for {did} is not an Agent-DID document: {exc}", started
+                did, f"did:webvh state for {did} is not a DID document: {exc}", started
             ) from None
 
         self._emit(did, "source-fetched", started, message=f"versionId={resolved.metadata.version_id}")

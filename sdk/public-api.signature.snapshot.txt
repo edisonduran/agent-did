@@ -92,7 +92,7 @@ export declare function checkAgentMetadataCredentialForm(credential: unknown, no
 };
 
 ## core/AgentDidClient.d.ts
-import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
+import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, CreateAgentParams, CreateAgentResult, DidDocument, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -233,6 +233,10 @@ export declare class AgentDidClient {
      */
     private appendDidWebvhEntry;
     private requireDidWebvhLifecycle;
+    /**
+     * The agent's document and its controller chain, every link active and (did:webvh) bound. The first document is
+     * the agent's and must be an Agent-DID document; the controllers may be any DID Core documents (RFC-001 §4.2.1).
+     */
     private resolveActiveVerificationChain;
     /**
      * Every link of a controller chain (agent -> controller -> its controller ...) must be bound: the last entry of the
@@ -249,6 +253,7 @@ export declare class AgentDidClient {
      */
     resolveDidWebvhState(did: string): Promise<DidWebvhState | undefined>;
     private didWebvhStateFromLog;
+    /** Whether `document` has an active `publicKeyMultibase` key, declared or embedded in a relationship. */
     private hasActiveVerificationMethod;
     /**
      * Verifies an Agent-DID RFC 9421 HTTP Message Signature.
@@ -333,7 +338,17 @@ export declare class AgentDidClient {
      * Resolves a DID into its corresponding Agent-DID Document.
      * Uses the configured resolver (in-memory or production) to retrieve the document.
      */
+    /**
+     * The Agent-DID document of `did`. Rejects when the DID resolves to a DID Core document that is not an Agent-DID
+     * document (a plain controller: use `resolveDocument`).
+     */
     resolve(did: string): Promise<AgentDIDDocument>;
+    /**
+     * The DID Core document of `did`. A did:webvh DID may resolve to any DID Core document (a controller, RFC-001
+     * §4.2.1), with the same log verification and revocation rules as `resolve`; any other DID is answered by
+     * `resolve`, so its document must be an Agent-DID document.
+     */
+    resolveDocument(did: string): Promise<DidDocument>;
     /**
      * State of the locally stored did:webvh log: whether it ends in a deactivation entry and its
      * latest document. The log is verified (SCID, hash chain, controller proofs) before its state is
@@ -341,7 +356,7 @@ export declare class AgentDidClient {
      * no log is stored for the DID.
      */
     private didWebvhState;
-    resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
+    resolveControllerChain(did: string, maxDepth?: number): Promise<DidDocument[]>;
     /**
      * Revokes a DID. For did:webvh DIDs this appends a controller-signed deactivation entry
      * (`deactivated: true`) to the DID's log, which is what makes the DID revoked; the
@@ -418,7 +433,7 @@ export declare class AgentDidClient {
 }
 
 ## core/AgentIdentity.d.ts
-import { AgentDocumentHistoryEntry, AgentDIDDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
+import { AgentDocumentHistoryEntry, AgentDIDDocument, DidDocument, CreateAgentParams, CreateAgentResult, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, SignHttpRequestParams, UpdateAgentDocumentParams, VerifyHttpRequestSignatureParams, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { DIDDocumentSource, DIDResolver } from '../resolver/types';
 import { AgentRegistry } from '../registry/types';
@@ -481,7 +496,7 @@ export declare class AgentIdentity {
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static resolve(did: string): Promise<AgentDIDDocument>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
-    static resolveControllerChain(did: string, maxDepth?: number): Promise<AgentDIDDocument[]>;
+    static resolveControllerChain(did: string, maxDepth?: number): Promise<DidDocument[]>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
@@ -515,20 +530,23 @@ export declare class AgentIdentity {
 }
 
 ## core/controller-binding.d.ts
-import { AgentDIDDocument } from './types';
+import { DidDocument } from './types';
 /** The agent is not bound to its controller (see `assertBoundToController`). */
 export declare class ControllerBindingError extends Error {
     readonly did: string;
     readonly controllerDid: string;
     constructor(did: string, controllerDid: string, detail: string);
 }
-/** Raw public keys (hex) of the controller's keys that are active now under `capabilityInvocation`. */
-export declare function activeCapabilityInvocationKeys(controller: AgentDIDDocument): Set<string>;
+/**
+ * Raw public keys (hex) of the controller's keys that are active now under `capabilityInvocation`: references
+ * (absolute or relative to the controller's `id`) and embedded methods, Ed25519 `publicKeyMultibase` keys only.
+ */
+export declare function activeCapabilityInvocationKeys(controller: DidDocument): Set<string>;
 /**
  * Throws `ControllerBindingError` unless one of `lastEntrySignerKeys` (multikeys of the proofs of the agent's last log
  * entry) is an active `capabilityInvocation` key of `controller`.
  */
-export declare function assertBoundToController(agent: AgentDIDDocument, lastEntrySignerKeys: readonly string[], controller: AgentDIDDocument): void;
+export declare function assertBoundToController(agent: DidDocument, lastEntrySignerKeys: readonly string[], controller: DidDocument): void;
 
 ## core/document-guard.d.ts
 /**
@@ -536,7 +554,14 @@ export declare function assertBoundToController(agent: AgentDIDDocument, lastEnt
  * file): the TypeScript types say nothing about them. It accepts and rejects what the Python SDK's
  * `AgentDIDDocument` model does, so both SDKs fail the same way on a malformed document.
  */
-import { AgentDIDDocument } from './types';
+import { AgentDIDDocument, DidDocument } from './types';
+/**
+ * Why `value` is not a DID Core document as the SDK reads a controller (RFC-001 §4.2.1), or `undefined` when it is
+ * one. Only the members the SDK uses are checked; an Agent-DID document is also a DID Core document.
+ */
+export declare function didDocumentProblem(value: unknown): string | undefined;
+/** Throws unless `value` is a DID Core document (see `didDocumentProblem`); `source` says where it came from. */
+export declare function assertDidDocument(value: unknown, source: string): asserts value is DidDocument;
 /** Why `value` is not an Agent-DID document, or `undefined` when it is one. */
 export declare function agentDidDocumentProblem(value: unknown): string | undefined;
 /** Throws unless `value` is an Agent-DID document; `source` says where it came from in the message. */
@@ -1092,7 +1117,28 @@ export type VerifyIdentityCompositionResult = {
     httpReason?: HttpSignatureRejection;
     keyId?: string;
 };
-export interface AgentDIDDocument {
+/**
+ * An entry of a verification relationship in a DID Core document: a reference to a `verificationMethod` (absolute
+ * DID URL, or relative such as `#key-1`, read against the document `id`) or a method embedded in the relationship.
+ */
+export type VerificationRelationshipEntry = string | VerificationMethod;
+/**
+ * A DID Core document as this SDK reads a controller (RFC-001 §4.2.1): a did:webvh controller does not need the
+ * Agent-DID members (`agentMetadata`, `created`, `updated`). Only the members the SDK uses are typed; a document may
+ * carry others. `AgentDIDDocument` is the agent profile of it.
+ */
+export interface DidDocument {
+    "@context"?: unknown;
+    id: string;
+    controller?: string | string[];
+    verificationMethod?: VerificationMethod[];
+    authentication?: VerificationRelationshipEntry[];
+    assertionMethod?: VerificationRelationshipEntry[];
+    capabilityDelegation?: VerificationRelationshipEntry[];
+    capabilityInvocation?: VerificationRelationshipEntry[];
+    keyAgreement?: VerificationRelationshipEntry[];
+}
+export interface AgentDIDDocument extends DidDocument {
     "@context": AgentDidContextEntry[];
     id: string;
     controller: string;
@@ -1495,7 +1541,7 @@ export type VerifyAgentMetadataCredentialResult = {
 };
 
 ## core/verification-method.d.ts
-import type { AgentDidContextEntry, RevokedContextTerm, VerificationMethod } from './types';
+import type { AgentDidContextEntry, DidDocument, RevokedContextTerm, VerificationMethod, VerificationRelationship } from './types';
 /**
  * Verification method types for Ed25519 keys (ADR-006 D-8b). Documents are written with `Multikey`; documents and
  * did:webvh logs written before rc.5 use `Ed25519VerificationKey2020` with the same `publicKeyMultibase` encoding
@@ -1515,6 +1561,19 @@ export declare function isRevokedMethod(method: Pick<VerificationMethod, 'revoke
  * context URLs keep their order.
  */
 export declare function contextForMethods(context: readonly AgentDidContextEntry[], methods: readonly VerificationMethod[]): AgentDidContextEntry[];
+/** `reference` as an absolute DID URL: a relative reference (`#key-1`) is read against `documentId`. */
+export declare function absoluteMethodId(documentId: string, reference: string): string;
+/**
+ * The verification methods `document` lists under `relationship`, with absolute ids: references (absolute or
+ * relative) resolved against `verificationMethod`, and methods embedded in the relationship. A reference to a method
+ * the document does not have is skipped.
+ */
+export declare function relationshipMethods(document: DidDocument, relationship: VerificationRelationship): VerificationMethod[];
+/**
+ * The raw Ed25519 public key of `method` when it is active (no `deactivated`, no `revoked`) and is an Ed25519
+ * `publicKeyMultibase` key; `undefined` otherwise.
+ */
+export declare function activeEd25519PublicKey(method: VerificationMethod): Uint8Array | undefined;
 
 ## crypto/base64.d.ts
 /**
@@ -1695,7 +1754,7 @@ export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSigna
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, DidDocument, VerificationRelationshipEntry, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
 export type { DataIntegrityProof } from './crypto/data-integrity';
 export { AGENT_DID_A2A_EXTENSION_URI, AGENT_CARD_SIGNATURE_ALG, MAX_AGENT_CARD_SIGNATURES, signAgentCard, parseSignedAgentCard } from './core/agent-card';
 export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
@@ -2050,15 +2109,18 @@ export declare class S3CompatibleDIDDocumentSource implements DIDDocumentSource 
 }
 
 ## resolver/types.d.ts
-import { AgentDIDDocument } from '../core/types';
+import { AgentDIDDocument, DidDocument } from '../core/types';
 import { AgentRegistry } from '../registry/types';
 /**
  * A verified did:webvh log and what is derived from it. `lastEntrySignerKeys` are the multikeys that made the proofs
  * of the last entry: the keys that endorsed the current document (see ADR-005 / RFC-001 §6.6 item 7).
  */
 export interface DidWebvhResolution {
-    /** The document in force (the state of the last entry). */
-    document: AgentDIDDocument;
+    /**
+     * The document in force (the state of the last entry): an Agent-DID document for an agent, any DID Core document
+     * for a controller (RFC-001 §4.2.1).
+     */
+    document: DidDocument;
     /** The verified log text (`did.jsonl`). */
     log: string;
     versionId: string;
@@ -2080,7 +2142,14 @@ export interface DidWebvhState extends DidWebvhResolution {
 }
 export interface DIDResolver {
     registerDocument(document: AgentDIDDocument): void;
+    /** The Agent-DID document of `did`; rejects when the DID's document is not an Agent-DID document. */
     resolve(did: string): Promise<AgentDIDDocument>;
+    /**
+     * Optional: the DID Core document of `did`, which need not be an Agent-DID document (a did:webvh controller,
+     * RFC-001 §4.2.1). Controller chains are resolved with it; a resolver without it answers controllers with `resolve`,
+     * so their documents must then be Agent-DID documents.
+     */
+    resolveDocument?(did: string): Promise<DidDocument>;
     remove(did: string): void;
     /**
      * Optional: the verified did:webvh log behind `did`, or `undefined` when the resolver holds only the document
@@ -2203,7 +2272,7 @@ export declare class DocumentIntegrityError extends Error {
 }
 
 ## resolver/UniversalResolverClient.d.ts
-import { AgentDIDDocument } from '../core/types';
+import { AgentDIDDocument, DidDocument } from '../core/types';
 import { DidWebvhResolution, DIDResolver, ResolverCacheStats, UniversalResolverConfig } from './types';
 export declare class UniversalResolverClient implements DIDResolver {
     private readonly config;
@@ -2236,6 +2305,19 @@ export declare class UniversalResolverClient implements DIDResolver {
     constructor(config: UniversalResolverConfig);
     registerDocument(document: AgentDIDDocument): void;
     resolve(did: string): Promise<AgentDIDDocument>;
+    /**
+     * The DID Core document of `did`. A did:webvh document need not be an Agent-DID document (a controller, RFC-001
+     * §4.2.1): the log is verified as for `resolve`, and the state only has to be a DID Core document. Any other DID
+     * is answered by `resolve`.
+     */
+    resolveDocument(did: string): Promise<DidDocument>;
+    /**
+     * A fresh cached document of `did` (rejecting a deactivated did:webvh DID), or `undefined` on a miss. Counts the
+     * hit or the miss.
+     */
+    private cacheHit;
+    /** `document` as an Agent-DID document; rejects a DID Core document that is not one (a plain controller). */
+    private agentDocument;
     /**
      * The verified did:webvh log behind `did`: from the cache while the entry is fresh, otherwise fetched and verified
      * (rejecting when it cannot be, with no fallback). The log of a deactivated DID is returned with
@@ -2501,8 +2583,8 @@ export declare function compareDidWebvhLogs(stored: string, candidate: string): 
 export declare function deriveDidWebvhLogUrl(did: string): string;
 
 ## webvh/documents.d.ts
-import { AdditionalVerificationRelationship, AgentDIDDocument, AgentDocumentHistoryEntry } from '../core/types';
-export declare function cloneDocument(document: AgentDIDDocument): AgentDIDDocument;
+import { AdditionalVerificationRelationship, AgentDIDDocument, AgentDocumentHistoryEntry, DidDocument } from '../core/types';
+export declare function cloneDocument<T extends DidDocument = AgentDIDDocument>(document: T): T;
 export declare function computeDocumentReference(document: AgentDIDDocument): string;
 export declare function normalizeDidPathSegment(value: string): string;
 /**

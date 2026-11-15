@@ -3,7 +3,7 @@ import { AgentIdentity, agentDidHttpSignatureComponents, AGENT_DID_HTTP_SIGNATUR
 import { AgentDidClient } from '../src/core/AgentDidClient';
 import { buildSignatureBase, parseSignatureInputHeader, serializeSignatureInput } from '../src/core/http-signatures';
 import { InMemoryNonceStore } from '../src/core/nonce-store';
-import { CreateAgentParams } from '../src/core/types';
+import { AgentDIDDocument, CreateAgentParams } from '../src/core/types';
 import { assertKeyPurpose, assertSigningPurpose, IdentityCompositionError } from '../src/core/identity-composition';
 import { LocalKeySigner } from '../src/core/signer';
 import { DidWebvhError, didWebvhUpdateKeyFor, resolveDidWebvhLog } from '../src/webvh/adapter';
@@ -812,7 +812,8 @@ describe('AgentIdentity Core Module', () => {
     // A verifier that did not create the DID and resolves a misbound document
     const resolver = new InMemoryDIDResolver();
     resolver.registerDocument(misboundDocument);
-    resolver.registerDocument(controllerChain[1]);
+    // The bootstrap controller is an Agent-DID document; a controller in general is any DID Core document
+    resolver.registerDocument(controllerChain[1] as AgentDIDDocument);
     const verifier = new AgentDidClient({ resolver, registry: new InMemoryAgentRegistry() });
 
     await expect(

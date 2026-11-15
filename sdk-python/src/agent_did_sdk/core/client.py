@@ -15,7 +15,7 @@ from nacl.signing import SigningKey
 
 from ..crypto.data_integrity import create_eddsa_jcs_2022_proof, verify_eddsa_jcs_2022_proof
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
-from ..crypto.multibase import decode_public_key_multibase, did_key_from_public_key
+from ..crypto.multibase import did_key_from_public_key
 from ..http_signatures.verify_request import SignatureCheck, SignatureCheckOutcome, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
@@ -72,10 +72,10 @@ from .agent_metadata_credential import (
 from .controller_binding import ControllerBindingError, assert_bound_to_controller
 from .http_security import HttpTargetValidationOptions
 from .identity_composition import (
+    DID_VERIFICATION_RELATIONSHIPS,
     REQUIRED_RELATIONSHIP_BY_ARTIFACT,
     IdentityCompositionError,
     composition_reason_for_key,
-    get_relationship_key_ids,
 )
 from .message_signing import message_signing_input
 from .nonce_store import InMemoryNonceStore, NonceStore
@@ -86,6 +86,7 @@ from .types import (
     AgentDIDDocument,
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
+    AnyDidDocument,
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
@@ -105,8 +106,9 @@ from .types import (
     VerifyIdentityCompositionParams,
     VerifyIdentityCompositionResult,
     VerifySignatureAtTimeResult,
+    parse_did_document,
 )
-from .verification_method import is_ed25519_verification_method_type
+from .verification_method import active_ed25519_public_key, relationship_methods
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -217,7 +219,7 @@ class AgentDidClient:
         self._did_webvh_log_store: dict[str, str] = {}
         # Deactivation state derived from the verified log, keyed by DID and tied to the exact
         # log text it was computed from. It is recomputed whenever the stored log changes.
-        self._did_webvh_state_cache: dict[str, tuple[str, bool, AgentDIDDocument]] = {}
+        self._did_webvh_state_cache: dict[str, tuple[str, bool, AnyDidDocument]] = {}
         # Controller signers (did:webvh updateKeys) retained for DIDs created in this process.
         self._did_webvh_signer_store: dict[str, AgentSigner] = {}
         # Local bootstrap controllers, keyed by lowercase controller wallet address.
@@ -479,15 +481,22 @@ class AgentDidClient:
             next_key_hashes=list(resolved.metadata.next_key_hashes),
         )
 
-    async def _resolve_active_verification_chain(self, did: str) -> list[AgentDIDDocument]:
-        chain = await self.resolve_controller_chain(did) if did.startswith("did:webvh:") else [await self.resolve(did)]
+    async def _resolve_active_verification_chain(self, did: str) -> tuple[AgentDIDDocument, list[AnyDidDocument]]:
+        """The agent's document and its controller chain, every link active and (did:webvh) bound. The agent's
+        document must be an Agent-DID document; the controllers may be any DID Core documents (RFC-001 §4.2.1)."""
+        if did.startswith("did:webvh:"):
+            first, *controllers = await self.resolve_controller_chain(did)
+            agent = _agent_document(first, did)
+        else:
+            agent, controllers = await self.resolve(did), []
+        chain: list[AnyDidDocument] = [agent, *controllers]
         if any(not self._has_active_verification_method(document) for document in chain):
             raise ValueError(f"DID is not active: {did}")
         if did.startswith("did:webvh:"):
             await self._assert_controller_chain_bound(chain)
-        return chain
+        return agent, controllers
 
-    async def _assert_controller_chain_bound(self, chain: list[AgentDIDDocument]) -> None:
+    async def _assert_controller_chain_bound(self, chain: list[AnyDidDocument]) -> None:
         """Every link of a controller chain (agent -> controller -> its controller ...) must be bound: the last entry
         of the agent's did:webvh log was signed by a key that is active now under ``capabilityInvocation`` of the
         controller (RFC-001 §6.6 item 7). Fails closed with :class:`ControllerBindingError`, also when no log is
@@ -534,7 +543,7 @@ class AgentDidClient:
     ) -> DidWebvhState:
         resolved = await resolve_did_webvh_log(log, did=did)
         return DidWebvhState(
-            document=AgentDIDDocument.model_validate(resolved.state),
+            document=parse_did_document(resolved.state),
             log=resolved.log,
             version_id=resolved.metadata.version_id,
             update_keys=list(resolved.metadata.update_keys),
@@ -545,9 +554,10 @@ class AgentDidClient:
 
     async def _assert_did_webvh_bound_now(self, did: str, state: DidWebvhState) -> None:
         """The binding of *did* (and of its controllers) to its controller chain as it is now."""
-        if not state.document.controller or state.document.controller.strip() == did:
+        controller = state.document.controller
+        if not isinstance(controller, str) or not controller.strip() or controller.strip() == did:
             return
-        controller_did = state.document.controller.strip()
+        controller_did = controller.strip()
         try:
             controllers = await self.resolve_controller_chain(controller_did)
         except Exception as exc:
@@ -555,8 +565,17 @@ class AgentDidClient:
         await self._assert_controller_chain_bound([state.document, *controllers])
 
     @staticmethod
-    def _has_active_verification_method(document: AgentDIDDocument) -> bool:
-        return any(method.public_key_multibase and not method.deactivated for method in document.verification_method)
+    def _has_active_verification_method(document: AnyDidDocument) -> bool:
+        """Whether *document* has an active ``publicKeyMultibase`` key, declared or embedded in a relationship."""
+        listed = [
+            method
+            for relationship in DID_VERIFICATION_RELATIONSHIPS
+            for method in relationship_methods(document, relationship)
+        ]
+        return any(
+            method.public_key_multibase and not method.deactivated
+            for method in [*(document.verification_method or []), *listed]
+        )
 
     # ------------------------------------------------------------------
     # Class methods — verification & resolution
@@ -689,18 +708,18 @@ class AgentDidClient:
     ) -> SignatureCheck:
         """``verify_signature`` that tells apart the ways a verification can fail, with the controller chain."""
         try:
-            verification_chain = await self._resolve_active_verification_chain(did)
+            agent, controllers = await self._resolve_active_verification_chain(did)
         except ControllerBindingError:
             return SignatureCheck("controller_not_bound")
         except Exception:
             return SignatureCheck("did_resolution_failed")
         try:
-            valid = verify_with_active_keys(verification_chain[0], payload, signature, key_id, required_purpose)
+            valid = verify_with_active_keys(agent, payload, signature, key_id, required_purpose)
         except IdentityCompositionError:
             return SignatureCheck("key_not_authorized")
         if not valid:
             return SignatureCheck("invalid")
-        return SignatureCheck("valid", tuple(document.id for document in verification_chain[1:]))
+        return SignatureCheck("valid", tuple(document.id for document in controllers))
 
     async def verify_signature(
         self,
@@ -713,12 +732,12 @@ class AgentDidClient:
         """Verify that *signature* (``sign_message``: it covers ``AGENT_DID_MESSAGE_SIGNING_PREFIX + payload``)
         was produced by *did* for *payload*. HTTP request signatures use ``verify_http_request_signature``."""
         try:
-            verification_chain = await self._resolve_active_verification_chain(did)
+            agent, controllers = await self._resolve_active_verification_chain(did)
         except Exception:
             return False
 
         return verify_with_active_keys(
-            verification_chain[0], message_signing_input(payload), signature, key_id, required_purpose
+            agent, message_signing_input(payload), signature, key_id, required_purpose
         )
 
     async def verify_signature_at_time(
@@ -757,6 +776,12 @@ class AgentDidClient:
                 status="indeterminate",
                 key=KeyAtTimeResult(status="indeterminate", key_id=key_id, reason="history_unavailable"),
             )
+        if not isinstance(state.document, AgentDIDDocument):
+            try:
+                AgentDIDDocument.model_validate(state.document.model_dump(by_alias=True, exclude_none=True))
+            except ValueError:
+                # Signatures are verified for agents; a plain DID Core document (a controller) is not one
+                return VerifySignatureAtTimeResult(status="invalid", reason="did_resolution_failed")
         try:
             key = await check_did_webvh_key_at_time(
                 state.log,
@@ -791,7 +816,7 @@ class AgentDidClient:
         issuer = (agent.controller or "").strip() or agent.id
         if not params.verification_method_id.startswith(f"{issuer}#"):
             raise ValueError(f"verification_method_id must be a key of the agent's controller {issuer}")
-        issuer_document = agent if issuer == agent.id else await self.resolve(issuer)
+        issuer_document: AnyDidDocument = agent if issuer == agent.id else await self.resolve_document(issuer)
         public_key = _active_assertion_key(issuer_document, params.verification_method_id)
         if public_key is None:
             raise ValueError(
@@ -867,21 +892,21 @@ class AgentDidClient:
         if state is not None and state.deactivated:
             return VerifyAgentMetadataCredentialResult(ok=False, reason="did_deactivated")
         try:
-            chain = await self._resolve_active_verification_chain(form.agent_did)
+            agent, controllers = await self._resolve_active_verification_chain(form.agent_did)
         except ControllerBindingError:
             return VerifyAgentMetadataCredentialResult(ok=False, reason="controller_not_bound")
         except Exception:
             return VerifyAgentMetadataCredentialResult(ok=False, reason="did_resolution_failed")
-        agent = chain[0]
         if form.issuer != ((agent.controller or "").strip() or agent.id):
             return VerifyAgentMetadataCredentialResult(ok=False, reason="issuer_not_controller")
+        issuer_document: AnyDidDocument
         if form.issuer == agent.id:
             issuer_document = agent
-        elif len(chain) > 1 and chain[1].id == form.issuer:
-            issuer_document = chain[1]
+        elif controllers and controllers[0].id == form.issuer:
+            issuer_document = controllers[0]
         else:
             try:
-                issuer_document = await self.resolve(form.issuer)
+                issuer_document = await self.resolve_document(form.issuer)
             except Exception:
                 return VerifyAgentMetadataCredentialResult(ok=False, reason="did_resolution_failed")
         public_key = _active_assertion_key(issuer_document, form.verification_method)
@@ -895,7 +920,7 @@ class AgentDidClient:
             issuer=form.issuer,
             verification_method=form.verification_method,
             agent_metadata=form.agent_metadata,
-            controllers=[document.id for document in chain[1:]],
+            controllers=[document.id for document in controllers],
         )
 
     def evict_cached_resolution(self, did: str) -> None:
@@ -907,6 +932,20 @@ class AgentDidClient:
             evict(did)
 
     async def resolve(self, did: str) -> AgentDIDDocument:
+        """The Agent-DID document of *did*. Raises when the DID resolves to a DID Core document that is not an
+        Agent-DID document (a plain controller: use :meth:`resolve_document`)."""
+        if did.startswith("did:webvh:"):
+            return _agent_document(await self.resolve_document(did), did)
+
+        is_revoked = await self._registry.is_revoked(did)
+        if is_revoked:
+            raise ValueError(f"DID is revoked: {did}")
+        return await self._resolver.resolve(did)
+
+    async def resolve_document(self, did: str) -> AnyDidDocument:
+        """The DID Core document of *did*. A did:webvh DID may resolve to any DID Core document (a controller,
+        RFC-001 §4.2.1), with the same log verification and revocation rules as :meth:`resolve`; any other DID is
+        answered by :meth:`resolve`, so its document must be an Agent-DID document."""
         if did.startswith("did:webvh:"):
             # For did:webvh the verified log is the only source of revocation state: a DID is
             # revoked only by a controller-signed deactivation entry. The registry record is a
@@ -922,14 +961,14 @@ class AgentDidClient:
                 raise ValueError(f"DID is revoked: {did}")
             if state is not None and did in self._did_webvh_signer_store:
                 return state[1].model_copy(deep=True)
+            resolve_document = getattr(self._resolver, "resolve_document", None)
+            if callable(resolve_document):
+                document: AnyDidDocument = await resolve_document(did)
+                return document
             return await self._resolver.resolve(did)
+        return await self.resolve(did)
 
-        is_revoked = await self._registry.is_revoked(did)
-        if is_revoked:
-            raise ValueError(f"DID is revoked: {did}")
-        return await self._resolver.resolve(did)
-
-    async def _did_webvh_state(self, did: str) -> tuple[bool, AgentDIDDocument] | None:
+    async def _did_webvh_state(self, did: str) -> tuple[bool, AnyDidDocument] | None:
         """State of the locally stored did:webvh log: ``(deactivated, latest document)``.
 
         The log is verified (SCID, hash chain, controller proofs) before its state is
@@ -943,15 +982,15 @@ class AgentDidClient:
         if cached is not None and cached[0] == log:
             return cached[1], cached[2]
         resolved = await resolve_did_webvh_log(log, did=did)
-        document = AgentDIDDocument.model_validate(resolved.state)
+        document = parse_did_document(resolved.state)
         self._did_webvh_state_cache[did] = (log, resolved.metadata.deactivated, document)
         return resolved.metadata.deactivated, document
 
-    async def resolve_controller_chain(self, did: str, max_depth: int = 8) -> list[AgentDIDDocument]:
+    async def resolve_controller_chain(self, did: str, max_depth: int = 8) -> list[AnyDidDocument]:
         if max_depth < 1:
             raise ValueError("max_depth must be a positive integer")
 
-        chain: list[AgentDIDDocument] = []
+        chain: list[AnyDidDocument] = []
         visited: set[str] = set()
         current_did = did
 
@@ -963,9 +1002,13 @@ class AgentDidClient:
                 raise ValueError(f"Controller chain exceeded max depth of {max_depth} starting from DID: {did}")
 
             visited.add(current_did)
-            current = await self.resolve(current_did)
+            current = await self.resolve_document(current_did)
             chain.append(current)
 
+            # A list of controllers is not followed in 1.0: the chain fails closed instead of skipping them
+            # (RFC-001 §4.2.1)
+            if isinstance(current.controller, list):
+                raise ValueError(f"Controller chain cannot follow a list of controllers at DID: {current_did}")
             controller_did = current.controller.strip() if current.controller else ""
             if not controller_did or controller_did == current_did or not controller_did.startswith("did:"):
                 return chain
@@ -1315,19 +1358,20 @@ class AgentDidClient:
         self._history_store[did] = [*current, entry]
 
 
-def _active_assertion_key(document: AgentDIDDocument, key_id: str) -> bytes | None:
+def _active_assertion_key(document: AnyDidDocument, key_id: str) -> bytes | None:
     """The raw public key of *key_id* when it is an active Ed25519 ``assertionMethod`` key of *document*."""
-    if key_id not in get_relationship_key_ids(document, "assertionMethod"):
-        return None
-    method = next((candidate for candidate in document.verification_method if candidate.id == key_id), None)
-    if (
-        method is None
-        or method.deactivated
-        or not method.public_key_multibase
-        or not is_ed25519_verification_method_type(method.type)
-    ):
-        return None
+    method = next(
+        (candidate for candidate in relationship_methods(document, "assertionMethod") if candidate.id == key_id), None
+    )
+    return None if method is None else active_ed25519_public_key(method)
+
+
+def _agent_document(document: AnyDidDocument, did: str) -> AgentDIDDocument:
+    """*document* as an Agent-DID document; raises ``ValueError`` for a DID Core document that is not one (a plain
+    controller)."""
+    if isinstance(document, AgentDIDDocument):
+        return document
     try:
-        return decode_public_key_multibase(method.public_key_multibase)
-    except ValueError:
-        return None
+        return AgentDIDDocument.model_validate(document.model_dump(by_alias=True, exclude_none=True))
+    except ValueError as exc:
+        raise ValueError(f"The document of {did} is not an Agent-DID document: {exc}") from exc

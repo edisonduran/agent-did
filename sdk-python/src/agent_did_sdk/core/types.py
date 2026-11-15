@@ -100,6 +100,51 @@ class DidWebvhControllerKeys:
 # DID Document (top-level JSON-LD)
 # ---------------------------------------------------------------------------
 
+class DidCoreVerificationMethod(BaseModel):
+    """A verification method as a DID Core document (a controller) may write it: the members the SDK reads must have
+    the right type, and the key type is not restricted (a method that is not Ed25519 is never used to verify)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    id: str
+    type: str
+    controller: str
+    public_key_multibase: str | None = Field(default=None, alias="publicKeyMultibase")
+    deactivated: str | None = None
+    revoked: str | None = None
+
+
+VerificationRelationshipEntry = str | DidCoreVerificationMethod
+"""A relationship entry: a reference to a ``verificationMethod`` (absolute DID URL, or relative such as ``#key-1``,
+read against the document ``id``) or a method embedded in the relationship."""
+
+
+class DidDocument(BaseModel):
+    """A DID Core document as this SDK reads a controller (RFC-001 §4.2.1): a did:webvh controller does not need the
+    Agent-DID members (``agentMetadata``, ``created``, ``updated``). Only the members the SDK uses are checked; a
+    document may carry others. An agent's document is an :class:`AgentDIDDocument` (the agent profile)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    context: Any = Field(default=None, alias="@context")
+    id: str
+    controller: str | list[str] | None = None
+    verification_method: list[DidCoreVerificationMethod] | None = Field(default=None, alias="verificationMethod")
+    authentication: list[VerificationRelationshipEntry] | None = None
+    assertion_method: list[VerificationRelationshipEntry] | None = Field(default=None, alias="assertionMethod")
+    capability_delegation: list[VerificationRelationshipEntry] | None = Field(
+        default=None, alias="capabilityDelegation"
+    )
+    capability_invocation: list[VerificationRelationshipEntry] | None = Field(
+        default=None, alias="capabilityInvocation"
+    )
+    key_agreement: list[VerificationRelationshipEntry] | None = Field(default=None, alias="keyAgreement")
+
+    def model_dump_jsonld(self) -> dict[str, object]:
+        """Serialize using JSON-LD aliases, dropping ``None`` values."""
+        return self.model_dump(by_alias=True, exclude_none=True)
+
+
 class AgentDIDDocument(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -137,6 +182,21 @@ class AgentDIDDocument(BaseModel):
     def model_dump_jsonld(self) -> dict[str, object]:
         """Serialize using JSON-LD aliases, dropping ``None`` values."""
         return self.model_dump(by_alias=True, exclude_none=True)
+
+
+AnyDidDocument = DidDocument | AgentDIDDocument
+"""A resolved document: an :class:`AgentDIDDocument` for an agent, a :class:`DidDocument` for a controller that is
+not one (RFC-001 §4.2.1)."""
+
+
+def parse_did_document(value: object) -> AnyDidDocument:
+    """*value* (a did:webvh state) as an :class:`AgentDIDDocument` when it is one, otherwise as a
+    :class:`DidDocument`. Raises ``ValueError`` when it is not even a DID Core document."""
+    document = DidDocument.model_validate(value)
+    try:
+        return AgentDIDDocument.model_validate(value)
+    except ValueError:
+        return document
 
 
 # ---------------------------------------------------------------------------

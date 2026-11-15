@@ -86,6 +86,8 @@ This quickstart validates the local signing lifecycle first. By default the SDK 
 
 Since `1.0.0rc3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` log has a self-certifying SCID and every entry is signed by the controller key, through the DIF reference implementation `did-webvh`. CI runs the pinned DIF `didwebvh-test-suite` vectors against the SDK's did:webvh layer. See [MIGRATION-1.0-rc.2-to-rc.3.md](MIGRATION-1.0-rc.2-to-rc.3.md) for the explicit profile's `controller_signer` and for re-issuing older DIDs.
 
+An agent's controller does not have to be an Agent-DID document: any DID Core `did:webvh` document works, for example your organization's DID created with another did:webvh tool (RFC-001 §4.2.1). Pass it as `CreateDidWebvhOptions.controller_did` with a `controller_signer` whose key the controller lists under `capabilityInvocation`. `resolve_document(did)` returns such a document; `resolve(did)` returns Agent-DID documents only.
+
 ## Features
 
 | Feature | API | Status |

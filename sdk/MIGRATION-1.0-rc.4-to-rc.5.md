@@ -331,6 +331,17 @@ RFC-001 §4.2, §6.2.2, §6.6 item 3 and the [A2A Identity Composition Contract]
 - **Document format.** `VerificationMethod.revoked` is new, and a document with a revoked key ends its `@context` with the inline term `REVOKED_CONTEXT_TERM` (the published `https://agent-did.org/v1` context is immutable). `AgentDIDDocument['@context']` is now `AgentDidContextEntry[]` (a string or that term): code that treats every entry as a string must handle the object. The document guard rejects `revoked` without `deactivated`, a revoked key without the term, and the term without a revoked key. Documents without revoked keys are unchanged.
 - Fixtures: `fixtures/composition-contract-vectors.json` (new, in `interop:check` and the wire freeze).
 
+## 36. Controllers may be plain DID Core documents (breaking types)
+
+RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID document: an organization can use any DID Core `did:webvh` document as the `controller` of its agents. The binding rule (§6.6 item 7) does not change.
+
+- **New:** `DidDocument` (a DID Core document; `AgentDIDDocument` extends it) and `VerificationRelationshipEntry`. `AgentDidClient.resolveDocument(did)` returns the DID Core document of a did:webvh DID; `resolve(did)` still returns only Agent-DID documents and now rejects a plain controller DID (`is not an Agent-DID document`). `DIDResolver.resolveDocument` is optional: a custom resolver without it keeps working, but then answers controllers with `resolve`, so they must be Agent-DID documents.
+- **Breaking types:** `resolveControllerChain` returns `DidDocument[]` (it returned `AgentDIDDocument[]`), and `DidWebvhResolution.document` / `DidWebvhState.document` are `DidDocument`. The first element of a chain started at an agent is still that agent's document; cast it or check it before reading `agentMetadata`. Passing a chain element to `registerDocument` needs a cast.
+- **Controller relationships:** the controller's `capabilityInvocation` (binding) and `assertionMethod` (`AgentMetadataCredential` issuer) accept relative references (`#key-1`) and embedded verification methods. Only Ed25519 `publicKeyMultibase` keys count; `publicKeyJwk` methods are ignored.
+- **Fails closed:** a controller whose `controller` is a list rejects the chain (`did_resolution_failed` in the detailed results). A fetched did:webvh log whose state is not a DID Core document is a `DocumentIntegrityError` (`is not a DID document`); a state that is a DID Core document but not an Agent-DID document is no longer an integrity failure, `resolve` rejects it with a plain error.
+- `verifySignature` / `verifySignatureAtTime` for a DID whose document is not an Agent-DID document fail (`did_resolution_failed`): signatures are verified for agents only.
+- For other DID methods (did:wba, registry sources) controllers must still be Agent-DID documents.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -344,6 +355,7 @@ RFC-001 §4.2, §6.2.2, §6.6 item 3 and the [A2A Identity Composition Contract]
 - [ ] Decide whether your controller DIDs should commit to recovery keys (`webvh.nextUpdateKeys`); it only helps if done before a compromise.
 - [ ] Verifiers of delegations, invocations or authentication challenges pass `requiredRelationshipFor(...)` instead of the `assertionMethod` default.
 - [ ] Agents that issue delegations or invoke capabilities are created with `additionalVerificationRelationships`.
+- [ ] Code that reads `resolveControllerChain` results or `DidWebvhState.document` as `AgentDIDDocument` checks or casts them (controllers may be plain DID Core documents).
 - [ ] Code that reads the controller keys of a revoked did:webvh DID expects an empty list.
 - [ ] Calls to `verifyHistoricalSignature` are replaced with `verifySignatureAtTime`, and `indeterminate` is handled as not accepted.
 - [ ] EVM users follow `@agentdid/evm` in `edisonduran/agent-did-evm` for issues and releases.
