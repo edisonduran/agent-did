@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
-from urllib.parse import quote, unquote, urlparse, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from ..core.types import AgentDIDDocument
 from ..crypto.hash import generate_canonical_document_hash
@@ -32,6 +33,86 @@ from .webvh_source import WebvhDIDDocumentSource
 _SHA256_DOCUMENT_REF_PREFIX = "hash://sha256/"
 
 _T = TypeVar("_T")
+
+
+# did:wba host grammar (parity: sdk/src/resolver/UniversalResolverClient.ts). After percent-decoding, the domain
+# segment must be a DNS name with an optional port: ASCII letters, digits and hyphens in dot-separated labels.
+# IP literals are rejected (did:web, which did:wba builds on, excludes them), and so is a numeric last label, which a
+# URL parser would read as an IPv4 address.
+_DID_WBA_LABEL = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
+_DID_WBA_NUMERIC_LABEL = re.compile(r"0x[0-9a-f]*|[0-9]+", re.IGNORECASE)
+_DID_WBA_PORT = re.compile(r"[1-9][0-9]{0,4}")
+# Characters a path segment keeps unencoded: RFC 3986 unreserved.
+_DID_WBA_UNRESERVED = "-._~"
+
+
+def _parse_did_wba_domain(domain: str) -> tuple[str, int | None] | None:
+    """Split a decoded did:wba domain into a lowercase host and a port (None for the default), or None if invalid."""
+    host, separator, port_text = domain.partition(":")
+    port: int | None = None
+    if separator:
+        if not _DID_WBA_PORT.fullmatch(port_text) or int(port_text) > 65535:
+            return None
+        port = int(port_text)
+    labels = host.split(".")
+    if len(host) > 253 or not all(_DID_WBA_LABEL.fullmatch(label) for label in labels):
+        return None
+    if _DID_WBA_NUMERIC_LABEL.fullmatch(labels[-1]):
+        return None
+    return host.lower(), (None if port == 443 else port)
+
+
+def _derive_did_wba_document_url(did: str) -> str:
+    """The HTTPS URL of a did:wba DID's ``did.json``. The URL is built from validated parts and parsed again, so
+    the host, port and path that are fetched are exactly the ones derived from the DID."""
+    suffix = did[len("did:wba:"):]
+    if not did.startswith("did:wba:") or not suffix:
+        raise ValueError(f"Invalid did:wba DID: {did}")
+
+    domain_segment, *path_segments = suffix.split(":")
+    try:
+        domain = unquote(domain_segment, errors="strict")
+    except UnicodeDecodeError:
+        domain = None
+    if domain == "":
+        raise ValueError(f"Invalid did:wba DID: missing domain in {did}")
+    parsed_domain = None if domain is None else _parse_did_wba_domain(domain)
+    if parsed_domain is None:
+        raise ValueError(f"Invalid did:wba domain segment: {domain_segment}")
+    host, port = parsed_domain
+
+    decoded_segments = [_decode_did_wba_path_segment(segment) for segment in path_segments if segment]
+    if any(segment in (".", "..") for segment in decoded_segments):
+        raise ValueError(f"Invalid did:wba DID: dot path segment in {did}")
+    if decoded_segments:
+        pathname = "/" + "/".join(quote(segment, safe=_DID_WBA_UNRESERVED) for segment in decoded_segments)
+        pathname += "/did.json"
+    else:
+        pathname = "/.well-known/did.json"
+
+    authority = host if port is None else f"{host}:{port}"
+    url = f"https://{authority}{pathname}"
+
+    parts = urlsplit(url)
+    if (
+        parts.scheme != "https"
+        or parts.hostname != host
+        or parts.port != port
+        or parts.username is not None
+        or parts.password is not None
+        or parts.path != pathname
+        or parts.query
+        or parts.fragment
+    ):
+        raise ValueError(f"Invalid did:wba DID: {did}")
+    return url
+
+
+def _decode_did_wba_path_segment(segment: str) -> str:
+    try:
+        return unquote(segment, errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Invalid did:wba path segment: {segment}") from exc
 
 
 def _host_allowed(host: str, allowed_hosts: list[str]) -> bool:
@@ -473,39 +554,9 @@ class UniversalResolverClient:
     def _is_did_webvh(did: str) -> bool:
         return did.startswith("did:webvh:")
 
-    def _derive_did_wba_document_url(self, did: str) -> str:
-        suffix = did[len("did:wba:"):]
-        if not suffix:
-            raise ValueError(f"Invalid did:wba DID: {did}")
-
-        domain_segment, *path_segments = suffix.split(":")
-        domain = self._decode_did_wba_segment(domain_segment, "domain")
-        if not domain:
-            raise ValueError(f"Invalid did:wba DID: missing domain in {did}")
-
-        safe_segments = [
-            quote(self._decode_did_wba_segment(segment, "path"), safe="")
-            for segment in path_segments
-            if segment
-        ]
-        if safe_segments:
-            pathname = f"/{'/'.join(safe_segments)}/did.json"
-        else:
-            pathname = "/.well-known/did.json"
-
-        url = f"https://{domain}{pathname}"
-        parsed = urlparse(url)
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise ValueError(f"Invalid did:wba DID: {did}")
-
-        return url
-
     @staticmethod
-    def _decode_did_wba_segment(segment: str, segment_type: str) -> str:
-        try:
-            return unquote(segment)
-        except Exception as exc:
-            raise ValueError(f"Invalid did:wba {segment_type} segment: {segment}") from exc
+    def _derive_did_wba_document_url(did: str) -> str:
+        return _derive_did_wba_document_url(did)
 
     @staticmethod
     def _now_ms() -> float:
