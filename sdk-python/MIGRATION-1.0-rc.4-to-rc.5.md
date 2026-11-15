@@ -277,6 +277,12 @@ client.use_production_resolver_from_http(ProductionHttpResolverProfileConfig(
 - Python 3.13 and 3.14 are tested and listed in the classifiers.
 
 
+## 26. did:wba host grammar
+
+- The domain segment of a did:wba DID must decode to a DNS name with an optional port (`did:wba:agents.example%3A8443`). IP literals (`did:wba:127.0.0.1`), a numeric last label, and any character other than ASCII letters, digits, hyphens and dots are rejected before any request. Use a host name; for local tests, `localhost%3A<port>` still works.
+- Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`. The host is lowercased and port 443 is dropped from the URL.
+
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

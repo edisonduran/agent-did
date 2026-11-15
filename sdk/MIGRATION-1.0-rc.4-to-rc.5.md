@@ -246,6 +246,12 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - `@agentdid/sdk` no longer installs `multiformats`; import it yourself if you used it through the SDK's dependency tree.
 
 
+## 26. did:wba host grammar
+
+- The domain segment of a did:wba DID must decode to a DNS name with an optional port (`did:wba:agents.example%3A8443`). IP literals (`did:wba:127.0.0.1`), a numeric last label, and any character other than ASCII letters, digits, hyphens and dots are rejected before any request. Use a host name; for local tests, `localhost%3A<port>` still works.
+- Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`, so `!`, `'`, `(`, `)` and `*` are now sent percent-encoded (TypeScript sent them as they were). The host is lowercased and port 443 is dropped from the URL.
+
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
