@@ -4,10 +4,12 @@ import {
   AgentDocumentHistoryAction,
   AgentDocumentHistoryEntry,
   AgentDIDDocument,
+  AgentMetadata,
   CreateAgentParams,
   CreateAgentResult,
   DidWebvhControllerKeys,
   DidWebvhLifecycleOptions,
+  MetadataCommitmentSalts,
   RotateControllerKeyOptions,
   RotateVerificationMethodOptions,
   RotateVerificationMethodResult,
@@ -67,6 +69,25 @@ import { assertAgentDidDocument } from './document-guard';
 
 /** Attaches the external agent-key signer to a result without making it enumerable: it is not copied by a spread
  * and never reaches `JSON.stringify`. */
+/**
+ * Salted commitment to an optional metadata value (RFC-001 §4.3), or `undefined` when no value is given.
+ * A salt without its value is a caller mistake and throws.
+ */
+function metadataCommitment(
+  field: 'coreModel' | 'systemPrompt',
+  value: string | undefined,
+  salt: string | undefined
+): { commitment: string; salt: string } | undefined {
+  if (value === undefined || value === null) {
+    if (salt !== undefined && salt !== null) {
+      throw new Error(`${field}Salt was given without ${field}`);
+    }
+    return undefined;
+  }
+  const usedSalt = salt ?? generateCommitmentSalt();
+  return { commitment: createMetadataCommitment(value, usedSalt), salt: usedSalt };
+}
+
 function withSigner<T extends object>(result: T, signer: AgentSigner | undefined): T & { signer?: AgentSigner } {
   if (signer) {
     Object.defineProperty(result, 'signer', { value: signer, enumerable: false, writable: false, configurable: false });
@@ -202,20 +223,26 @@ export class AgentDidClient {
     // The creator is identified by its Ed25519 key, never by an EVM address
     const controllerKeyDid = didKeyFromPublicKey(await controllerSigner.getPublicKey());
 
-    // Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary
-    const metadataCommitmentSalts = {
-      coreModel: params.coreModelSalt ?? generateCommitmentSalt(),
-      systemPrompt: params.systemPromptSalt ?? generateCommitmentSalt()
-    };
-    const agentMetadata = {
+    // Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary. Both
+    // commitments are optional controller assertions (RFC-001 §4.3): no value, no commitment and no salt.
+    const coreModel = metadataCommitment('coreModel', params.coreModel, params.coreModelSalt);
+    const systemPrompt = metadataCommitment('systemPrompt', params.systemPrompt, params.systemPromptSalt);
+    const metadataCommitmentSalts: MetadataCommitmentSalts = {};
+    const agentMetadata: AgentMetadata = {
       name: params.name,
       description: params.description,
       version: params.version || '1.0.0',
-      coreModelHash: createMetadataCommitment(params.coreModel, metadataCommitmentSalts.coreModel),
-      systemPromptHash: createMetadataCommitment(params.systemPrompt, metadataCommitmentSalts.systemPrompt),
       capabilities: params.capabilities || [],
       memberOf: params.memberOf
     };
+    if (coreModel) {
+      agentMetadata.coreModelHash = coreModel.commitment;
+      metadataCommitmentSalts.coreModel = coreModel.salt;
+    }
+    if (systemPrompt) {
+      agentMetadata.systemPromptHash = systemPrompt.commitment;
+      metadataCommitmentSalts.systemPrompt = systemPrompt.salt;
+    }
 
     // The agent's own Ed25519 key (RFC-001 assertion/authentication key)
     let privateKeyHex = '';

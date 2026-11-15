@@ -171,9 +171,10 @@ export function createMetadataCommitment(value: string, saltHex: string): string
  * - `hash://hmac-sha256/...` requires the salt used at commitment time.
  * - `hash://sha256/...` (unsalted, produced by `1.0.0-rc.2` and earlier) ignores the salt.
  *
- * Returns `false` for a mismatch, an unknown scheme, or a missing or malformed salt.
+ * Returns `false` for a mismatch, an unknown scheme, a missing or malformed salt, or a missing commitment (the
+ * fields are optional, RFC-001 §4.3).
  */
-export function verifyMetadataCommitment(commitmentUri: string, value: string, saltHex?: string): boolean {
+export function verifyMetadataCommitment(commitmentUri: string | undefined, value: string, saltHex?: string): boolean {
   if (!value || typeof commitmentUri !== 'string') {
     return false;
   }

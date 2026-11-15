@@ -324,6 +324,17 @@ ResolutionLimits(max_concurrent_fetches_per_host=16, max_queued_fetches=256, fet
 - A2A: remove `resolve_remote_did`, `document_history` and `rotate_keys` from `expose`, and `default_request_timeout_seconds` from `AgentDidA2AConfig` (they had no effect and are now rejected). `expose.sign_requests=False`, `verify_requests=False` and `enrich_agent_card=False` now make the matching methods raise `PermissionError`. Set `AgentDidA2AConfig(allow_private_network_targets=True)` to sign for private targets, or pass `http_security` to `sign_a2a_request`.
 
 
+## 33. Model and prompt commitments are optional
+
+RFC-001 §4.3 now makes `coreModelHash` and `systemPromptHash` optional assertions by the controller.
+
+- `CreateAgentParams.core_model` and `system_prompt` are optional. Omitted, the document has no `coreModelHash` / `systemPromptHash` and the matching field of `metadata_commitment_salts` is `None`. Existing calls that pass both produce the same documents as before.
+- A `core_model_salt` / `system_prompt_salt` without its value now raises `ValueError`.
+- Type changes: `AgentMetadata.core_model_hash` / `system_prompt_hash` and both fields of `MetadataCommitmentSalts` are `str | None`. `verify_metadata_commitment` accepts `None` and returns `False`.
+- The local bootstrap controller document no longer carries placeholder commitments.
+- Verifiers: do not reject a document without commitments, and do not read a matching commitment as proof of what the agent runs.
+
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -353,3 +364,4 @@ ResolutionLimits(max_concurrent_fetches_per_host=16, max_queued_fetches=256, fet
 - [ ] Every URL passed to `sign_http_request` is percent-encoded and normalized (`request_url_form_problem` returns nothing for it).
 - [ ] Every HTTP verifier either passes `allowed_dids` / `allowed_controllers` or checks `result.did` before trusting the request.
 - [ ] Agents that use the `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `ResolutionLimits.allowed_hosts`.
+- [ ] Code that reads `core_model_hash`, `system_prompt_hash` or `metadata_commitment_salts` handles `None`, and no verifier policy requires the commitments.

@@ -133,3 +133,45 @@ class TestAgentMetadataCommitments:
         )
         assert verify_metadata_commitment(updated.agent_metadata.system_prompt_hash, "new prompt", salt)
         assert updated.agent_metadata.core_model_hash == created.document.agent_metadata.core_model_hash
+
+
+class TestOptionalCommitments:
+    """RFC-001 §4.3: both commitments are optional controller assertions."""
+
+    async def test_omits_both_commitments_and_salts_without_values(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(name="NoClaimsBot"))
+        metadata = result.document.model_dump_jsonld()["agentMetadata"]
+        assert "coreModelHash" not in metadata
+        assert "systemPromptHash" not in metadata
+        assert result.metadata_commitment_salts is not None
+        assert result.metadata_commitment_salts.core_model is None
+        assert result.metadata_commitment_salts.system_prompt is None
+        assert not verify_metadata_commitment(
+            result.document.agent_metadata.core_model_hash, _MODEL, generate_commitment_salt()
+        )
+        resolved = await AgentIdentity.resolve(result.document.id)
+        assert "coreModelHash" not in resolved.model_dump_jsonld()["agentMetadata"]
+
+    async def test_commits_only_to_the_value_given(self, identity: AgentIdentity) -> None:
+        result = await identity.create(CreateAgentParams(name="PromptOnlyBot", system_prompt="Be brief."))
+        assert result.document.agent_metadata.core_model_hash is None
+        assert _COMMITMENT_RE.match(result.document.agent_metadata.system_prompt_hash or "")
+        assert result.metadata_commitment_salts is not None
+        assert result.metadata_commitment_salts.core_model is None
+        assert result.metadata_commitment_salts.system_prompt is not None
+
+    async def test_rejects_salt_without_value(self, identity: AgentIdentity) -> None:
+        with pytest.raises(ValueError, match="core_model_salt was given without core_model"):
+            await identity.create(CreateAgentParams(name="SaltOnlyBot", core_model_salt=generate_commitment_salt()))
+
+    async def test_update_keeps_absence_and_can_add_a_commitment(self, identity: AgentIdentity) -> None:
+        created = await identity.create(CreateAgentParams(name="LateClaimBot"))
+        did = created.document.id
+        described = await AgentIdentity.update_did_document(did, UpdateAgentDocumentParams(description="now described"))
+        assert "coreModelHash" not in described.model_dump_jsonld()["agentMetadata"]
+        salt = generate_commitment_salt()
+        committed = await AgentIdentity.update_did_document(
+            did, UpdateAgentDocumentParams(core_model="gpt-4.1", core_model_salt=salt)
+        )
+        assert verify_metadata_commitment(committed.agent_metadata.core_model_hash, "gpt-4.1", salt)
+        assert "systemPromptHash" not in committed.model_dump_jsonld()["agentMetadata"]

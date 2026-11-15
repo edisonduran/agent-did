@@ -18,7 +18,7 @@ from ..core.types import (
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
 )
-from ..crypto.hash import generate_agent_metadata_hash, generate_canonical_document_hash
+from ..crypto.hash import generate_canonical_document_hash
 from ..crypto.multibase import encode_public_key_multibase
 from .adapter import DID_WEBVH_PLACEHOLDER
 
@@ -106,8 +106,6 @@ def build_bootstrap_controller_template(
             "name": f"controller-{normalize_did_path_segment(key_id)}",
             "description": "Local bootstrap controller root for canonical did:webvh flows.",
             "version": "1.0.0",
-            "coreModelHash": generate_agent_metadata_hash(f"controller:{creator_key_did}"),
-            "systemPromptHash": generate_agent_metadata_hash("controller-bootstrap-root"),
         },
         "verificationMethod": [
             {

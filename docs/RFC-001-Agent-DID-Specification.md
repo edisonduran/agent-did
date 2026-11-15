@@ -131,8 +131,8 @@ The context is defined by [`contexts/v1.jsonld`](../contexts/v1.jsonld) (decisio
 | `id` | **REQUIRED** | Unique agent DID. `did:webvh:...` is the recommended/default identifier form; other DID methods MAY be used if they preserve the composition and verification semantics in this RFC. |
 | `controller` | **REQUIRED** | DID of the human, organizational, or higher-level agent controller. A resolvable `did:webvh` controller is RECOMMENDED for the canonical pattern. A `did:webvh` agent whose `controller` is another DID is bound to it only as §6.6 item 7 states. |
 | `created` / `updated` | **REQUIRED** | ISO-8601 timestamps of the document. |
-| `agentMetadata.coreModelHash` | **REQUIRED** | Commitment to the base model identifier (see §4.3) or another immutable URI such as `ipfs://`. |
-| `agentMetadata.systemPromptHash` | **REQUIRED** | Commitment to the base prompt (see §4.3) or another immutable URI such as `ipfs://`. |
+| `agentMetadata.coreModelHash` | OPTIONAL | Commitment to the base model identifier (see §4.3) or another immutable URI such as `ipfs://`. An assertion by the controller (§4.3). |
+| `agentMetadata.systemPromptHash` | OPTIONAL | Commitment to the base prompt (see §4.3) or another immutable URI such as `ipfs://`. An assertion by the controller (§4.3). |
 | `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
 | `verificationMethod[].deactivated` | OPTIONAL | ISO-8601 timestamp marking when a key was deactivated via rotation. Deactivated keys remain in the document; a signature by a deactivated key is checked against the key at the time the artifact states (Section 6.2.2), never accepted on the key's presence alone. A key that carries `deactivated` MUST NOT be listed in any verification relationship (`authentication`, `assertionMethod`, `capabilityDelegation`, `capabilityInvocation`) of the document that deactivates it or of any later one. |
 | `assertionMethod` | **REQUIRED** for signing flows | References to keys authorized for payload and HTTP signature verification by default. |
@@ -146,6 +146,8 @@ The context is defined by [`contexts/v1.jsonld`](../contexts/v1.jsonld) (decisio
 ### 4.3 Metadata Commitments
 
 `coreModelHash` and `systemPromptHash` let a verifier who is shown the value confirm it, without publishing the value itself. An unsalted digest does not achieve this for short or predictable values: anyone can hash candidate prompts or model names and compare.
+
+Both fields are OPTIONAL, and both are **assertions by the controller**. A commitment that matches a disclosed value shows that the controller committed to that value when it signed the log entry that carries it. It does not show that the agent runs that model or prompt, now or at any other time: nothing in this specification observes the agent's runtime. A verifier MUST NOT treat a missing commitment as a verification failure, and MUST NOT treat a present or matching commitment as evidence of runtime behaviour. Policies that need such evidence must obtain it elsewhere (for example an attestation from the runtime operator).
 
 Implementations SHOULD produce salted commitments:
 

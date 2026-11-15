@@ -92,6 +92,19 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
 
+def _metadata_commitment(field: str, value: str | None, salt: str | None) -> tuple[str, str] | None:
+    """Salted commitment and salt for an optional metadata value (RFC-001 §4.3), or ``None`` without a value.
+
+    A salt without its value is a caller mistake and raises ``ValueError``.
+    """
+    if value is None:
+        if salt is not None:
+            raise ValueError(f"{field}_salt was given without {field}")
+        return None
+    used_salt = salt if salt is not None else generate_commitment_salt()
+    return create_metadata_commitment(value, used_salt), used_salt
+
+
 def _one_operation_per_did(
     method: Callable[Concatenate[AgentDidClient, str, _P], Awaitable[_R]],
 ) -> Callable[Concatenate[AgentDidClient, str, _P], Awaitable[_R]]:
@@ -204,22 +217,25 @@ class AgentDidClient:
         # The creator is identified by its Ed25519 key, never by an EVM address
         controller_key_did = did_key_from_public_key(await controller_signer.get_public_key())
 
-        # Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary
+        # Commit to the sensitive metadata with salted HMACs so it cannot be guessed by dictionary. Both
+        # commitments are optional controller assertions (RFC-001 §4.3): no value, no commitment and no salt.
+        core_model = _metadata_commitment("core_model", params.core_model, params.core_model_salt)
+        system_prompt = _metadata_commitment("system_prompt", params.system_prompt, params.system_prompt_salt)
         metadata_commitment_salts = MetadataCommitmentSalts(
-            core_model=params.core_model_salt or generate_commitment_salt(),
-            system_prompt=params.system_prompt_salt or generate_commitment_salt(),
+            core_model=core_model[1] if core_model else None,
+            system_prompt=system_prompt[1] if system_prompt else None,
         )
         agent_metadata: dict[str, Any] = {
             "name": params.name,
             "description": params.description,
             "version": params.version or "1.0.0",
-            "coreModelHash": create_metadata_commitment(params.core_model, metadata_commitment_salts.core_model),
-            "systemPromptHash": create_metadata_commitment(
-                params.system_prompt, metadata_commitment_salts.system_prompt
-            ),
             "capabilities": params.capabilities or [],
             "memberOf": params.member_of,
         }
+        if core_model:
+            agent_metadata["coreModelHash"] = core_model[0]
+        if system_prompt:
+            agent_metadata["systemPromptHash"] = system_prompt[0]
 
         # The agent's own Ed25519 key (RFC-001 assertion/authentication key)
         private_key_hex = ""

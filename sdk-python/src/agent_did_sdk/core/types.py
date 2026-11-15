@@ -17,8 +17,10 @@ class AgentMetadata(BaseModel):
     name: str
     description: str | None = None
     version: str
-    core_model_hash: str = Field(alias="coreModelHash")
-    system_prompt_hash: str = Field(alias="systemPromptHash")
+    core_model_hash: str | None = Field(default=None, alias="coreModelHash")
+    """Optional commitment to the base model (RFC-001 §4.3): an assertion by the controller."""
+    system_prompt_hash: str | None = Field(default=None, alias="systemPromptHash")
+    """Optional commitment to the system prompt (RFC-001 §4.3): an assertion by the controller."""
     capabilities: list[str] | None = None
     member_of: str | None = Field(default=None, alias="memberOf")
 
@@ -118,12 +120,14 @@ class CreateAgentParams(BaseModel):
     name: str
     description: str | None = None
     version: str | None = None
-    core_model: str
-    system_prompt: str
+    core_model: str | None = None
+    """The raw model name, committed to as ``coreModelHash``. Optional: omitted, no coreModelHash."""
+    system_prompt: str | None = None
+    """The raw system prompt, committed to as ``systemPromptHash``. Optional, like ``core_model``."""
     core_model_salt: str | None = None
-    """32-byte hex salt for the ``coreModelHash`` commitment. Generated randomly when omitted."""
+    """32-byte hex salt for the ``coreModelHash`` commitment. Generated when omitted; only valid with ``core_model``."""
     system_prompt_salt: str | None = None
-    """32-byte hex salt for the ``systemPromptHash`` commitment. Generated randomly when omitted."""
+    """32-byte hex salt for the ``systemPromptHash`` commitment. Only valid with ``system_prompt``."""
     capabilities: list[str] | None = None
     member_of: str | None = None
     signer: Any | None = None  # AgentSigner — optional external signer for production mode
@@ -143,8 +147,8 @@ class MetadataCommitmentSalts(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    core_model: str = Field(alias="coreModel")
-    system_prompt: str = Field(alias="systemPrompt")
+    core_model: str | None = Field(default=None, alias="coreModel")
+    system_prompt: str | None = Field(default=None, alias="systemPrompt")
 
 
 class CreateAgentResult(BaseModel):
@@ -164,7 +168,8 @@ class CreateAgentResult(BaseModel):
     metadata_commitment_salts: MetadataCommitmentSalts | None = Field(default=None, alias="metadataCommitmentSalts")
     """Salts of the ``coreModelHash`` and ``systemPromptHash`` commitments (``hash://hmac-sha256/``).
 
-    Always set by ``AgentIdentity.create()``; ``None`` only when a result is built by hand.
+    Set by ``AgentIdentity.create()``; each salt is present only for the value (``core_model``,
+    ``system_prompt``) that was given.
 
     Keep them private; reveal a salt together with its value only to a party that should be able to
     verify it (see ``verify_metadata_commitment``). They are not stored anywhere else.

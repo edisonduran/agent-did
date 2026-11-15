@@ -284,6 +284,17 @@ client.useProductionResolverFromHttp({
 - The signing tools of the integrations validate the target URL with the SDK policy: the error messages are now `Unsupported protocol: …` and `Blocked request to private/reserved address: …`, and every non-global address range is refused, not only loopback and private ones.
 
 
+## 31. Model and prompt commitments are optional
+
+RFC-001 §4.3 now makes `coreModelHash` and `systemPromptHash` optional assertions by the controller.
+
+- `CreateAgentParams.coreModel` and `systemPrompt` are optional. Omitted, the document has no `coreModelHash` / `systemPromptHash` and `metadataCommitmentSalts` has no salt for it. Existing calls that pass both produce the same documents as before.
+- A `coreModelSalt` / `systemPromptSalt` without its value now throws.
+- Type changes: `AgentMetadata.coreModelHash` / `systemPromptHash` and both members of `MetadataCommitmentSalts` are `string | undefined`. Code that reads them under `strict` needs a check; `verifyMetadataCommitment` accepts `undefined` and returns `false`.
+- The local bootstrap controller document no longer carries placeholder commitments.
+- Verifiers: do not reject a document without commitments, and do not read a matching commitment as proof of what the agent runs.
+
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -308,6 +319,7 @@ client.useProductionResolverFromHttp({
 - [ ] DIDs rotated in rc.4 were republished once (`updateDidDocument`) so retired keys leave the relationships.
 - [ ] Every `BearerTokenHttpDIDDocumentSource` lists its `allowedOrigins`.
 - [ ] Code that treated a `null` from `JsonRpcDIDDocumentSource` with a blocked endpoint as "not found" handles the error.
+- [ ] Code that reads `coreModelHash`, `systemPromptHash` or `metadataCommitmentSalts` handles a missing value, and no verifier policy requires the commitments.
 - [ ] `FilesystemDIDDocumentSource` has a `rootDirectory` or a mapping; `create` no longer passes `didMethod` or `network`.
 - [ ] ES module projects import from the package root only (no deep imports).
 - [ ] Every URL passed to `signHttpRequest` is percent-encoded and normalized (`requestUrlFormProblem` returns nothing for it).
