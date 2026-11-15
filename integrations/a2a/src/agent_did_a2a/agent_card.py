@@ -8,12 +8,19 @@ DID-based HTTP Signature authentication scheme.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+from agent_did_sdk import AGENT_DID_A2A_EXTENSION_URI, AgentSigner, LocalKeySigner, sign_agent_card
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import AgentDidA2AConfig
-from .snapshot import AgentDidIdentitySnapshot
+from .snapshot import (
+    AgentDidIdentitySnapshot,
+    RuntimeIdentity,
+    get_active_signing_key_id,
+    runtime_signing_key,
+)
 
 
 class A2ASkill(BaseModel):
@@ -106,3 +113,43 @@ def build_agent_card(
 def agent_card_to_json(card: A2AAgentCard) -> dict[str, Any]:
     """Serialize an AgentCard to a JSON-compatible dict for ``/.well-known/agent.json``."""
     return card.model_dump(exclude_none=True)
+
+
+def published_key_ids(runtime_identity: RuntimeIdentity) -> list[str]:
+    """The keys a card of this agent publishes: the signing key first, then the other active ``assertionMethod`` keys
+    of its DID document (a planned overlap lists both the old and the new key)."""
+    document = runtime_identity.document
+    retired = {method.id for method in document.verification_method if method.deactivated}
+    signing = get_active_signing_key_id(runtime_identity)
+    active = [key_id for key_id in document.assertion_method or [] if key_id not in retired]
+    return list(dict.fromkeys([*([signing] if signing else []), *active]))
+
+
+async def sign_agent_card_json(card_json: dict[str, Any], runtime_identity: RuntimeIdentity) -> dict[str, Any]:
+    """Return *card_json* with the Agent-DID extension in ``capabilities.extensions`` (the agent DID and
+    :func:`published_key_ids`) and a ``signatures`` entry by the agent's active signing key: the signed card of the
+    composition contract (A2A 1.0 §8.4 JWS over the JCS form of the card without ``signatures``). Any existing
+    Agent-DID extension and signatures are replaced."""
+    key_id = get_active_signing_key_id(runtime_identity)
+    if key_id is None:
+        raise ValueError("The runtime identity has no active assertionMethod key to sign with")
+    key = runtime_signing_key(runtime_identity)
+    signer: AgentSigner = LocalKeySigner(key) if isinstance(key, str) else key
+    card = copy.deepcopy(card_json)
+    card.pop("signatures", None)
+    capabilities = card.setdefault("capabilities", {})
+    if not isinstance(capabilities, dict):
+        raise TypeError("capabilities must be an object")
+    others = [
+        extension
+        for extension in capabilities.get("extensions", [])
+        if not (isinstance(extension, dict) and extension.get("uri") == AGENT_DID_A2A_EXTENSION_URI)
+    ]
+    capabilities["extensions"] = [
+        *others,
+        {
+            "uri": AGENT_DID_A2A_EXTENSION_URI,
+            "params": {"did": runtime_identity.document.id, "keyIds": published_key_ids(runtime_identity)},
+        },
+    ]
+    return await sign_agent_card(card, signer, key_id)

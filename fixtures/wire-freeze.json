@@ -11,6 +11,7 @@
     "fixtures/webvh-log-vectors.json": "6371dbfb113b972e111a00dfd9bf78405a20bbcfb9c26964ebd6d42d0c8aba31",
     "fixtures/ed25519-verification-vectors.json": "f30b0c637f0246d00adbda38c850da51ead2c74caee2e002b23181e127e2f5ff",
     "fixtures/key-at-time-vectors.json": "8bf88e0c29d5c62f9de9879a2c82dfa7885985b49182a6226175f372c5f4133b",
-    "fixtures/agent-metadata-credential-vectors.json": "28d464763a1e23e5815400eb389fae2aa3f79201d6dc895b7d853ef6b624fd4e"
+    "fixtures/agent-metadata-credential-vectors.json": "28d464763a1e23e5815400eb389fae2aa3f79201d6dc895b7d853ef6b624fd4e",
+    "fixtures/composition-contract-vectors.json": "a9b22272f07cc8b7c80780c1ffa13ae8d7541760ef811a045204c597aa8847fc"
   }
 }

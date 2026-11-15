@@ -3,6 +3,12 @@
 ## ADDITIONAL_VERIFICATION_RELATIONSHIPS
 value ADDITIONAL_VERIFICATION_RELATIONSHIPS = ('capabilityDelegation', 'capabilityInvocation')
 
+## AGENT_CARD_SIGNATURE_ALG
+value AGENT_CARD_SIGNATURE_ALG = 'EdDSA'
+
+## AGENT_DID_A2A_EXTENSION_URI
+value AGENT_DID_A2A_EXTENSION_URI = 'https://agent-did.org/a2a/identity/v1'
+
 ## AGENT_DID_HTTP_HEADER
 value AGENT_DID_HTTP_HEADER = 'Agent-DID'
 
@@ -29,15 +35,21 @@ class AddVerificationMethodResult(*, document: agent_did_sdk.core.types.AgentDID
 ## AdditionalVerificationRelationship
 value AdditionalVerificationRelationship = typing.Literal['capabilityDelegation', 'capabilityInvocation']
 
+## AgentCardSignatureEntry
+class AgentCardSignatureEntry(key_id: 'str', signing_input: 'str', signature: 'bytes') -> None
+  attr key_id: str
+  attr signature: bytes
+  attr signing_input: str
+
 ## AgentDIDDocument
-class AgentDIDDocument(*, context: list[str], id: str, controller: str, created: str, updated: str, agentMetadata: agent_did_sdk.core.types.AgentMetadata, complianceCertifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None, verificationMethod: list[agent_did_sdk.core.types.VerificationMethod], authentication: list[str], assertionMethod: list[str] | None = None, capabilityDelegation: list[str] | None = None, capabilityInvocation: list[str] | None = None, keyAgreement: list[str] | None = None) -> None
+class AgentDIDDocument(*, context: list[str | dict[str, typing.Any]], id: str, controller: str, created: str, updated: str, agentMetadata: agent_did_sdk.core.types.AgentMetadata, complianceCertifications: list[agent_did_sdk.core.types.VerifiableCredentialLink] | None = None, verificationMethod: list[agent_did_sdk.core.types.VerificationMethod], authentication: list[str], assertionMethod: list[str] | None = None, capabilityDelegation: list[str] | None = None, capabilityInvocation: list[str] | None = None, keyAgreement: list[str] | None = None) -> None
   attr agent_metadata: AgentMetadata
   attr assertion_method: list[str] | None
   attr authentication: list[str]
   attr capability_delegation: list[str] | None
   attr capability_invocation: list[str] | None
   attr compliance_certifications: list[VerifiableCredentialLink] | None
-  attr context: list[str]
+  attr context: list[str | dict[str, Any]]
   attr controller: str
   attr created: str
   attr id: str
@@ -63,9 +75,10 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def resolve_controller_chain(self, did: 'str', max_depth: 'int' = 8) -> 'list[AgentDIDDocument]'
   def resolve_did_webvh_state(self, did: 'str') -> 'DidWebvhState | None'
   def restore_did_webvh_history_from_source(self, document_ref: 'str', source: 'DIDDocumentSource') -> 'AgentDIDDocument'
+  def retire_verification_method(self, did: 'str', key_id: 'str', *, controller_signer: 'AgentSigner | None' = None, emergency: 'bool' = False) -> 'AgentDIDDocument'
   def revoke_did(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None) -> 'None'
   def rotate_controller_key(self, did: 'str', new_controller_signer: 'AgentSigner', *, next_update_keys: 'list[str] | None' = None, controller_signer: 'AgentSigner | None' = None) -> 'DidWebvhControllerKeys'
-  def rotate_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None, signer: 'AgentSigner | None' = None) -> 'RotateVerificationMethodResult'
+  def rotate_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None, signer: 'AgentSigner | None' = None, emergency: 'bool' = False) -> 'RotateVerificationMethodResult'
   def save_did_webvh_history_to_file(self, did: 'str', file_path: 'str | Path') -> 'Path'
   def set_registry(self, registry: 'AgentRegistry') -> 'None'
   def set_resolver(self, resolver: 'DIDResolver') -> 'None'
@@ -73,9 +86,11 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def use_production_resolver(self, config: 'ProductionResolverProfileConfig') -> 'None'
   def use_production_resolver_from_http(self, config: 'ProductionHttpResolverProfileConfig') -> 'None'
   def use_production_resolver_from_json_rpc(self, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
+  def verify_agent_card(self, card: 'object') -> 'VerifyAgentCardResult'
   def verify_agent_metadata_credential(self, credential: 'object', *, expected_agent_did: 'str | None' = None) -> 'VerifyAgentMetadataCredentialResult'
   def verify_http_request_signature(self, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
   def verify_http_request_signature_detailed(self, params: 'VerifyHttpRequestSignatureParams') -> 'VerifyHttpRequestSignatureResult'
+  def verify_identity_composition(self, params: 'VerifyIdentityCompositionParams') -> 'VerifyIdentityCompositionResult'
   def verify_signature(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str | None' = None, required_purpose: 'VerificationRelationship' = 'assertionMethod') -> 'bool'
   def verify_signature_at_time(self, did: 'str', payload: 'str', signature: 'str', key_id: 'str', *, stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', trusted_time_not_after: 'str | None' = None) -> 'VerifySignatureAtTimeResult'
 
@@ -382,6 +397,9 @@ class IdentityCompositionError(reason: 'IdentityCompositionErrorReason', *, key_
 ## IdentityCompositionErrorReason
 value IdentityCompositionErrorReason = typing.Literal['key_purpose_violation', 'rotation_window_closed', 'emergency_revoked', 'tampered']
 
+## IdentityCompositionRejection
+value IdentityCompositionRejection = typing.Literal['key_purpose_violation', 'rotation_window_closed', 'emergency_revoked', 'tampered', 'card_keyid_mismatch', 'format_drift', 'did_document_unresolvable', 'request_rejected']
+
 ## InMemoryAgentRegistry
 class InMemoryAgentRegistry() -> 'None'
   def get_record(self, did: 'str') -> 'AgentRegistryRecord | None'
@@ -429,7 +447,7 @@ class JsonRpcDIDDocumentSourceConfig(endpoint: 'str | None' = None, endpoints: '
   attr method: str
 
 ## KeyAtTimeRejection
-value KeyAtTimeRejection = typing.Literal['invalid_stated_time', 'did_not_yet_created', 'did_deactivated', 'key_not_found', 'key_deactivated', 'key_purpose_violation']
+value KeyAtTimeRejection = typing.Literal['invalid_stated_time', 'did_not_yet_created', 'did_deactivated', 'key_not_found', 'key_deactivated', 'key_purpose_violation', 'key_revoked']
 
 ## KeyAtTimeResult
 class KeyAtTimeResult(status: 'KeyAtTimeStatus', key_id: 'str', reason: 'KeyAtTimeRejection | KeyAtTimeUncertainty | None' = None, public_key_multibase: 'str | None' = None, version_id: 'str | None' = None, basis: "Literal['no_later_change', 'time_evidence'] | None" = None, found_in: 'tuple[VerificationRelationship, ...]' = (), boundary_version_id: 'str | None' = None, boundary_time: 'str | None' = None) -> None
@@ -457,6 +475,9 @@ class LocalKeySigner(private_key_hex: 'str') -> 'None'
   def get_public_key(self) -> 'bytes'
   def sign(self, payload: 'bytes') -> 'str'
 
+## MAX_AGENT_CARD_SIGNATURES
+value MAX_AGENT_CARD_SIGNATURES = 16
+
 ## MetadataCommitmentSalts
 class MetadataCommitmentSalts(*, coreModel: str | None = None, systemPrompt: str | None = None) -> None
   attr core_model: str | None
@@ -466,6 +487,12 @@ class MetadataCommitmentSalts(*, coreModel: str | None = None, systemPrompt: str
 ## NonceStore
 class NonceStore(*args, **kwargs)
   def check_and_store(self, key: 'str', expires_at: 'int') -> 'bool'
+
+## ParsedAgentCard
+class ParsedAgentCard(did: 'str', signatures: 'tuple[AgentCardSignatureEntry, ...]', published_key_ids: 'tuple[str, ...]') -> None
+  attr did: str
+  attr published_key_ids: tuple[str, ...]
+  attr signatures: tuple[AgentCardSignatureEntry, ...]
 
 ## PresignedHttpDIDDocumentSource
 class PresignedHttpDIDDocumentSource(config: 'PresignedHttpDIDDocumentSourceConfig | None' = None) -> 'None'
@@ -531,6 +558,9 @@ class ProductionResolverProfileConfig(registry: 'AgentRegistry', document_source
 
 ## REQUIRED_RELATIONSHIP_BY_ARTIFACT
 value REQUIRED_RELATIONSHIP_BY_ARTIFACT = mappingproxy({'assertion': 'assertionMethod', 'http_request': 'assertionMethod', 'delegation': 'capabilityDelegation', 'invocation': 'capabilityInvocation', 'authentication': 'authentication'})
+
+## REVOKED_CONTEXT_TERM
+value REVOKED_CONTEXT_TERM = {'revoked': {'@id': 'https://w3id.org/security#revoked', '@type': 'http://www.w3.org/2001/XMLSchema#dateTime'}}
 
 ## ResolutionLimits
 class ResolutionLimits(negative_cache_ttl_ms: 'int' = 5000, max_concurrent_fetches: 'int' = 16, allowed_hosts: 'list[str] | None' = None, max_concurrent_fetches_per_host: 'int' = 4, max_queued_fetches: 'int' = 64, fetch_deadline_ms: 'int' = 15000) -> None
@@ -676,17 +706,26 @@ class VerifiableCredentialLink(*, type: str, issuer: str, credentialSubject: str
   member model_config = {'populate_by_name': True}
 
 ## VerificationMethod
-class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultibase: str | None = None, blockchainAccountId: str | None = None, deactivated: str | None = None) -> None
+class VerificationMethod(*, id: str, type: str, controller: str, publicKeyMultibase: str | None = None, blockchainAccountId: str | None = None, deactivated: str | None = None, revoked: str | None = None) -> None
   attr blockchain_account_id: str | None
   attr controller: str
   attr deactivated: str | None
   attr id: str
   attr public_key_multibase: str | None
+  attr revoked: str | None
   attr type: str
   member model_config = {'populate_by_name': True}
 
 ## VerificationRelationship
 value VerificationRelationship = typing.Literal['authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation', 'keyAgreement']
+
+## VerifyAgentCardResult
+class VerifyAgentCardResult(ok: 'bool', reason: 'IdentityCompositionRejection | None' = None, did: 'str | None' = None, published_key_ids: 'tuple[str, ...]' = (), key_id: 'str | None' = None) -> None
+  attr did: str | None
+  attr key_id: str | None
+  attr ok: bool
+  attr published_key_ids: tuple[str, ...]
+  attr reason: IdentityCompositionRejection | None
 
 ## VerifyAgentMetadataCredentialResult
 class VerifyAgentMetadataCredentialResult(ok: 'bool', reason: 'AgentMetadataCredentialRejection | None' = None, agent_did: 'str | None' = None, issuer: 'str | None' = None, verification_method: 'str | None' = None, agent_metadata: 'dict[str, Any] | None' = None, controllers: 'list[str]' = <factory>) -> None
@@ -718,6 +757,22 @@ class VerifyHttpRequestSignatureResult(ok: 'bool', reason: 'HttpSignatureRejecti
   attr key_id: str | None
   attr ok: bool
   attr reason: HttpSignatureRejection | None
+
+## VerifyIdentityCompositionParams
+class VerifyIdentityCompositionParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None, allowed_dids: list[str] | None = None, allowed_controllers: list[str] | None = None, agent_card: Any) -> None
+  attr agent_card: Any
+  member model_config = {'arbitrary_types_allowed': True}
+
+## VerifyIdentityCompositionResult
+class VerifyIdentityCompositionResult(ok: 'bool', reason: 'IdentityCompositionRejection | None' = None, stage: "Literal['agent_card', 'request'] | None" = None, http_reason: 'HttpSignatureRejection | None' = None, did: 'str | None' = None, key_id: 'str | None' = None, controllers: 'tuple[str, ...]' = (), published_key_ids: 'tuple[str, ...]' = ()) -> None
+  attr controllers: tuple[str, ...]
+  attr did: str | None
+  attr http_reason: HttpSignatureRejection | None
+  attr key_id: str | None
+  attr ok: bool
+  attr published_key_ids: tuple[str, ...]
+  attr reason: IdentityCompositionRejection | None
+  attr stage: Literal['agent_card', 'request'] | None
 
 ## VerifySignatureAtTimeRejection
 value VerifySignatureAtTimeRejection = typing.Literal['did_resolution_failed', 'key_not_authorized', 'controller_not_bound', 'signature_invalid']
@@ -819,6 +874,9 @@ def parse_signature_header(value: 'str') -> 'dict[str, bytes]'
 ## parse_signature_input_header
 def parse_signature_input_header(value: 'str') -> 'dict[str, SignatureInput]'
 
+## parse_signed_agent_card
+def parse_signed_agent_card(card: 'object') -> 'ParsedAgentCard | None'
+
 ## redact_value
 def redact_value(value: 'Any') -> 'dict[str, Any]'
 
@@ -839,6 +897,9 @@ def sanitize_url(url: 'str') -> 'str'
 
 ## serialize_signature_input
 def serialize_signature_input(signature_input: 'SignatureInput') -> 'str'
+
+## sign_agent_card
+def sign_agent_card(card: 'dict[str, Any]', signer: 'AgentSigner', key_id: 'str') -> 'dict[str, Any]'
 
 ## unix_string_to_iso
 def unix_string_to_iso(value: 'str') -> 'str'

@@ -81,7 +81,9 @@ Since `1.0.0-rc.3`, `did:webvh` DIDs are did:webvh v1.0 DIDs: the `did.jsonl` lo
 | Resolve DID → document | `AgentIdentity.resolve(did)` | ✅ |
 | Revoke DID | `AgentIdentity.revokeDid(did)` | ✅ |
 | Update document | `AgentIdentity.updateDidDocument(did, patch)` | ✅ |
-| Rotate verification keys | `AgentIdentity.rotateVerificationMethod(did)` | ✅ |
+| Rotate verification keys | `AgentIdentity.rotateVerificationMethod(did)` (`{ emergency: true }` also revokes the old keys) | ✅ |
+| Retire or revoke one key | `client.retireVerificationMethod(did, keyId, { emergency })` | ✅ |
+| Signed A2A Agent Cards (composition contract) | `signAgentCard(card, signer, keyId)`, `client.verifyAgentCard(card)`, `client.verifyIdentityComposition({ ...request, agentCard })` | ✅ |
 | Document history/audit | `AgentIdentity.getDocumentHistory(did)` + `AgentIdentity.exportDidWebvhHistory(did)` + `AgentIdentity.importDidWebvhHistory(log)` + `AgentIdentity.saveDidWebvhHistoryToFile(did, path)` + `AgentIdentity.loadDidWebvhHistoryFromFile(path)` + `AgentIdentity.persistDidWebvhHistoryToSource(did, ref, source)` + `AgentIdentity.restoreDidWebvhHistoryFromSource(ref, source)` | ✅ |
 | Filesystem storage adapter | `FilesystemDIDDocumentSource` | ✅ |
 | Remote HTTP storage adapter | `HttpDIDDocumentSource` (`storeByReference`, `getDidLogByReference`, `storeDidLogByReference`) | ✅ |

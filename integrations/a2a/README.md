@@ -20,6 +20,7 @@ The A2A protocol is **auth-agnostic** — it defines how agents communicate (JSO
 - **DID-Enriched AgentCards** — generate A2A-compliant AgentCards with embedded DID, controller, and `http-signature-did` authentication scheme
 - **Request Signing** — sign outgoing `tasks/send`, `tasks/get` requests using Agent-DID HTTP Signatures
 - **Request Verification** — verify incoming signed requests using the sender's DID
+- **Signed AgentCards** — sign the card for the identity composition contract (A2A 1.0 §8.4 JWS) and check incoming requests against the sender's signed card
 - **JSON-RPC Helpers** — Pydantic models for A2A JSON-RPC 2.0 messages
 - **Observability** — structured, sanitized event emission for signing, verification, and card generation
 - **Secure Defaults** — sensitive fields redacted, private network targets blocked, extra config fields rejected
@@ -35,7 +36,12 @@ The contract defines how two identity surfaces compose:
 
 An A2A verifier must treat those surfaces as a single trust boundary: the per-request signing key must compose with the AgentCard and DID document key material, and the signing key must be authorized for the operation context described in §6.3 of the contract.
 
-Current integration behavior publishes DID-enriched AgentCards and signs/verifies A2A requests with Agent-DID HTTP signatures. The stricter SDK-level enforcement of §6.3 verification-relationship binding is tracked in [issue #34](https://github.com/edisonduran/agent-did/issues/34); the umbrella closure work for the composition contract remains tracked in [issue #30](https://github.com/edisonduran/agent-did/issues/30).
+The integration implements the contract with the SDK:
+
+- `signed_agent_card_json(agent_url=...)` returns the card with an Agent-DID extension in `capabilities.extensions` (the agent DID and the keys it publishes: the signing key and the other active `assertionMethod` keys) and a `signatures` entry by the signing key. The signature follows A2A 1.0 §8.4 (JWS, `EdDSA`, over the JCS form of the card without `signatures`); it is aligned with A2A 1.0, not verified against an independent A2A implementation.
+- `verify_request_against_card(..., agent_card=card)` verifies the card's signatures, the request's HTTP signature, and that the request's `keyid` is a key the card publishes. A rejection carries the contract `reason` (`rotation_window_closed`, `emergency_revoked`, `key_purpose_violation`, `tampered`, `card_keyid_mismatch`, `format_drift`, `did_document_unresolvable`, `request_rejected`) and the `stage` that failed.
+
+The card does not change when the agent's keys do: sign and serve it again after adding, retiring or rotating a key.
 
 ## Installation
 
@@ -102,6 +108,14 @@ result = await verify_a2a_request_detailed(
 )
 if result.ok:
     print(result.did, result.key_id, result.controllers)
+
+# Identity composition: serve a signed card, and check requests against the sender's card
+signed_card = await integration.signed_agent_card_json(agent_url="https://agents.example.com/my-agent")
+composition = await integration.verify_request_against_card(
+    method="POST", url=url, headers=incoming_headers, body=incoming_body, agent_card=sender_card
+)
+if not composition.ok:
+    print(composition.stage, composition.reason)
 ```
 
 ## Examples

@@ -16,10 +16,11 @@ from nacl.signing import SigningKey
 from ..crypto.data_integrity import create_eddsa_jcs_2022_proof, verify_eddsa_jcs_2022_proof
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
 from ..crypto.multibase import decode_public_key_multibase, did_key_from_public_key
-from ..http_signatures.verify_request import SignatureCheck, verify_agent_did_http_request
+from ..http_signatures.verify_request import SignatureCheck, SignatureCheckOutcome, verify_agent_did_http_request
 from ..lifecycle.documents import (
     assert_update_patch,
     build_added_key_document,
+    build_retired_key_document,
     build_rotated_document,
     build_updated_document,
     next_document_timestamp,
@@ -62,6 +63,7 @@ from ..webvh.documents import (
     history_from_did_webvh_log,
     normalize_did_path_segment,
 )
+from .agent_card import parse_signed_agent_card
 from .agent_metadata_credential import (
     agent_metadata_problem,
     build_unsigned_agent_metadata_credential,
@@ -72,6 +74,7 @@ from .http_security import HttpTargetValidationOptions
 from .identity_composition import (
     REQUIRED_RELATIONSHIP_BY_ARTIFACT,
     IdentityCompositionError,
+    composition_reason_for_key,
     get_relationship_key_ids,
 )
 from .message_signing import message_signing_input
@@ -87,6 +90,7 @@ from .types import (
     CreateAgentResult,
     CreateDidWebvhOptions,
     DidWebvhControllerKeys,
+    IdentityCompositionRejection,
     IssueAgentMetadataCredentialParams,
     KeyAtTimeResult,
     MetadataCommitmentSalts,
@@ -94,9 +98,12 @@ from .types import (
     SigningVerificationPurpose,
     UpdateAgentDocumentParams,
     VerificationRelationship,
+    VerifyAgentCardResult,
     VerifyAgentMetadataCredentialResult,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
+    VerifyIdentityCompositionParams,
+    VerifyIdentityCompositionResult,
     VerifySignatureAtTimeResult,
 )
 from .verification_method import is_ed25519_verification_method_type
@@ -579,6 +586,99 @@ class AgentDidClient:
             now=self._clock(),
         )
 
+    async def verify_agent_card(self, card: object) -> VerifyAgentCardResult:
+        """Verify a signed A2A Agent Card (composition contract §1.1, §3.1; A2A 1.0 §8.4): its format
+        (``parse_signed_agent_card``), then every signature against an active ``assertionMethod`` key of the card's
+        agent DID, resolved as for any other signature. A card without signatures is ``format_drift``: the contract
+        needs a signed card."""
+        parsed = parse_signed_agent_card(card)
+        if parsed is None:
+            return VerifyAgentCardResult(ok=False, reason="format_drift")
+        for entry in parsed.signatures:
+            check = await self._check_signature(
+                parsed.did,
+                entry.signing_input,
+                entry.signature.hex(),
+                entry.key_id,
+                REQUIRED_RELATIONSHIP_BY_ARTIFACT["assertion"],
+            )
+            if check.outcome != "valid":
+                reason = await self._composition_reason(parsed.did, entry.key_id, check.outcome)
+                return VerifyAgentCardResult(ok=False, reason=reason, key_id=entry.key_id)
+        return VerifyAgentCardResult(ok=True, did=parsed.did, published_key_ids=parsed.published_key_ids)
+
+    async def verify_identity_composition(
+        self, params: VerifyIdentityCompositionParams
+    ) -> VerifyIdentityCompositionResult:
+        """The identity composition check (composition contract §2, §3): the Agent Card must verify
+        (:meth:`verify_agent_card`), the request must verify as :meth:`verify_http_request_signature_detailed` checks
+        it, the request's agent DID must be the card's, and its ``keyid`` must be a key the card publishes. The card
+        is checked first, so a request against a bad card does not consume its nonce. Contract reasons are derived
+        from the current DID document: a retired key is ``rotation_window_closed``, a revoked one
+        ``emergency_revoked``."""
+        card = await self.verify_agent_card(params.agent_card)
+        if not card.ok:
+            return VerifyIdentityCompositionResult(ok=False, stage="agent_card", reason=card.reason, key_id=card.key_id)
+        request = VerifyHttpRequestSignatureParams.model_validate(
+            {name: getattr(params, name) for name in VerifyHttpRequestSignatureParams.model_fields}
+        )
+        # The HTTP verifier reports a reason; the contract reason needs the key and the outcome of its signature check.
+        last_check: list[tuple[str, str, SignatureCheckOutcome]] = []
+
+        async def check_and_record(
+            did: str, payload: str, signature: str, key_id: str, purpose: VerificationRelationship
+        ) -> SignatureCheck:
+            check = await self._check_signature(did, payload, signature, key_id, purpose)
+            last_check.append((did, key_id, check.outcome))
+            return check
+
+        result = await verify_agent_did_http_request(
+            request, verify_signature=check_and_record, nonce_store=self._nonce_store, now=self._clock()
+        )
+        if not result.ok:
+            checked = (
+                last_check[-1]
+                if last_check
+                and last_check[-1][2] != "valid"
+                and result.reason
+                in ("did_resolution_failed", "controller_not_bound", "keyid_not_authorized", "signature_invalid")
+                else None
+            )
+            if checked is None:
+                return VerifyIdentityCompositionResult(
+                    ok=False, stage="request", reason="request_rejected", http_reason=result.reason
+                )
+            return VerifyIdentityCompositionResult(
+                ok=False,
+                stage="request",
+                reason=await self._composition_reason(*checked),
+                http_reason=result.reason,
+                key_id=checked[1],
+            )
+        if result.did != card.did or result.key_id not in card.published_key_ids:
+            return VerifyIdentityCompositionResult(
+                ok=False, stage="request", reason="card_keyid_mismatch", key_id=result.key_id
+            )
+        return VerifyIdentityCompositionResult(
+            ok=True,
+            did=result.did,
+            key_id=result.key_id,
+            controllers=tuple(result.controllers),
+            published_key_ids=card.published_key_ids,
+        )
+
+    async def _composition_reason(
+        self, did: str, key_id: str, outcome: SignatureCheckOutcome
+    ) -> IdentityCompositionRejection:
+        """Contract reason for a signature check that failed, from the current document of *did*."""
+        if outcome in ("did_resolution_failed", "controller_not_bound"):
+            return "did_document_unresolvable"
+        try:
+            document = await self.resolve(did)
+        except Exception:
+            return "did_document_unresolvable"
+        return composition_reason_for_key(document, key_id)
+
     async def _check_signature(
         self,
         did: str,
@@ -911,6 +1011,36 @@ class AgentDidClient:
         return updated
 
     @_one_operation_per_did
+    async def retire_verification_method(
+        self,
+        did: str,
+        key_id: str,
+        *,
+        controller_signer: AgentSigner | None = None,
+        emergency: bool = False,
+    ) -> AgentDIDDocument:
+        """Retire one key of *did* and leave the others as they are (RFC-001 §6.6): the key gets a ``deactivated``
+        time and leaves every verification relationship. A planned retirement ends the overlap of a rotation started
+        with :meth:`add_verification_method`; signatures under the key are then rejected (``rotation_window_closed`` in
+        the composition contract). With *emergency* the key also gets ``revoked`` and is never accepted again,
+        whatever time a signature states (``emergency_revoked``); an already retired key can still be revoked this way.
+
+        Refuses an unknown key, a key already retired (without *emergency*) or revoked, and the last
+        ``authentication`` or ``assertionMethod`` key: use :meth:`rotate_verification_method` or :meth:`revoke_did`.
+        """
+        existing = await self.resolve(did)
+        was_active = any(vm.id == key_id and not vm.deactivated for vm in existing.verification_method)
+        updated = build_retired_key_document(existing, key_id, self._next_timestamp(existing.updated), emergency)
+
+        if did.startswith("did:webvh:"):
+            updated = await self._append_did_webvh_entry(did, updated, controller_signer)
+
+        self._resolver.register_document(updated)
+        await self._registry.set_document_reference(did, compute_document_reference(updated))
+        self._append_history(updated, "rotated-key" if was_active else "updated")
+        return updated
+
+    @_one_operation_per_did
     async def add_verification_method(
         self,
         did: str,
@@ -945,16 +1075,24 @@ class AgentDidClient:
 
     @_one_operation_per_did
     async def rotate_verification_method(
-        self, did: str, *, controller_signer: AgentSigner | None = None, signer: AgentSigner | None = None
+        self,
+        did: str,
+        *,
+        controller_signer: AgentSigner | None = None,
+        signer: AgentSigner | None = None,
+        emergency: bool = False,
     ) -> RotateVerificationMethodResult:
         """Rotate the agent key. With *signer* (for example a KMS or HSM key) its public key becomes the new
-        verification method and ``agent_private_key`` in the result is empty; otherwise a local key is generated."""
+        verification method and ``agent_private_key`` in the result is empty; otherwise a local key is generated.
+        With *emergency* (the old keys may be compromised) every retired key also gets ``revoked``, so no signature
+        under it is accepted again, whatever time it states."""
         existing = await self.resolve(did)
         updated, vm_id, private_key_hex = build_rotated_document(
             did,
             existing,
             self._next_timestamp(existing.updated),
             await signer.get_public_key() if signer is not None else None,
+            emergency,
         )
 
         if did.startswith("did:webvh:"):

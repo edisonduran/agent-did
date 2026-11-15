@@ -31,7 +31,23 @@ export interface VerificationMethod {
   publicKeyMultibase?: string;
   blockchainAccountId?: string; // For EVM/Smart Account compatibility (ERC-4337)
   deactivated?: string; // ISO 8601 timestamp when the key was rotated out
+  /**
+   * ISO 8601 timestamp of an emergency revocation (`https://w3id.org/security#revoked`). A revoked key also has
+   * `deactivated` and is never authorized, whatever time a signature states (composition contract scenario 3d).
+   */
+  revoked?: string;
 }
+
+/**
+ * Inline JSON-LD context term a document adds after its context URLs when one of its keys carries `revoked`:
+ * the published `https://agent-did.org/v1` context is immutable and does not define it.
+ */
+export interface RevokedContextTerm {
+  revoked: { '@id': 'https://w3id.org/security#revoked'; '@type': 'http://www.w3.org/2001/XMLSchema#dateTime' };
+}
+
+/** An entry of a document's `@context`: a context URL, or the inline `revoked` term. */
+export type AgentDidContextEntry = string | RevokedContextTerm;
 
 export interface CreateDidWebvhOptions {
   /** Lowercase ASCII fully qualified host name, optionally with `:port`. */
@@ -120,6 +136,20 @@ export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOption
    * empty string. Without it the SDK generates a local key and returns it.
    */
   signer?: import('./signer').AgentSigner;
+  /**
+   * Emergency rotation (the old keys may be compromised): every retired key also gets `revoked`, so no signature
+   * under it is accepted again, whatever time it states. Default `false`: a planned rotation.
+   */
+  emergency?: boolean;
+}
+
+export interface RetireVerificationMethodOptions extends DidWebvhLifecycleOptions {
+  /**
+   * Emergency revocation (the key may be compromised): the key also gets `revoked` and no signature under it is
+   * accepted again, whatever time it states. An already retired key can still be revoked this way. Default
+   * `false`: a planned retirement.
+   */
+  emergency?: boolean;
 }
 
 export type VerificationRelationship =
@@ -151,8 +181,68 @@ export type IdentityCompositionErrorReason =
   | 'emergency_revoked'
   | 'tampered';
 
+/**
+ * Why a signed Agent Card or a request checked against one was rejected (composition contract §5). The first four
+ * are the cross-stack floor (§5.1); the others are verifier-side reasons (§5.2) plus `request_rejected`:
+ * - `rotation_window_closed`: the key was retired by its controller (planned retirement); the overlap is over.
+ * - `emergency_revoked`: the key carries `revoked`.
+ * - `key_purpose_violation`: the key is a key of the DID, active, but not an `assertionMethod` key.
+ * - `tampered`: the signature does not verify under the key, or the key is not a key of the DID.
+ * - `card_keyid_mismatch`: the request was signed by a DID or key the card does not publish.
+ * - `format_drift`: the card is not a JSON object with Agent-DID JWS signatures (see `parseSignedAgentCard`).
+ * - `did_document_unresolvable`: the agent DID has no active verification chain (unknown, deactivated, unbound
+ *   controller or the resolver failed).
+ * - `request_rejected`: the HTTP signature failed a check the contract does not name; `httpReason` says which.
+ */
+export type IdentityCompositionRejection =
+  | IdentityCompositionErrorReason
+  | 'card_keyid_mismatch'
+  | 'format_drift'
+  | 'did_document_unresolvable'
+  | 'request_rejected';
+
+/** Result of `verifyAgentCard`. Test `result.ok`. */
+export type VerifyAgentCardResult =
+  | {
+      ok: true;
+      /** The agent DID of the card. */
+      did: string;
+      /** Keys the card publishes: signature `kid`s, then the Agent-DID extension `keyIds`. */
+      publishedKeyIds: string[];
+    }
+  | {
+      ok: false;
+      reason: IdentityCompositionRejection;
+      /** The signature `kid` that failed, when one did. */
+      keyId?: string;
+    };
+
+export interface VerifyIdentityCompositionParams extends VerifyHttpRequestSignatureParams {
+  /** The Agent Card of the agent that signed the request, as fetched (a parsed JSON value). */
+  agentCard: unknown;
+}
+
+/** Result of `verifyIdentityComposition`. Test `result.ok`. */
+export type VerifyIdentityCompositionResult =
+  | {
+      ok: true;
+      did: string;
+      keyId: string;
+      controllers: string[];
+      publishedKeyIds: string[];
+    }
+  | {
+      ok: false;
+      reason: IdentityCompositionRejection;
+      /** Which check failed: the card's own signatures, or the request against the card. */
+      stage: 'agent_card' | 'request';
+      /** The HTTP verifier's reason, when the request failed there. */
+      httpReason?: HttpSignatureRejection;
+      keyId?: string;
+    };
+
 export interface AgentDIDDocument {
-  "@context": string[];
+  "@context": AgentDidContextEntry[];
   id: string; // The Agent's unique DID
   controller: string; // The Creator's DID or Wallet Address
   created: string; // ISO 8601 timestamp
@@ -421,6 +511,8 @@ export type VerifyHttpRequestSignatureResult =
  * - `key_not_found`: the DID document at the stated time has no such key (or it has no public key).
  * - `key_deactivated`: the key was already deactivated at the stated time.
  * - `key_purpose_violation`: the key was not listed under the required relationship at the stated time.
+ * - `key_revoked`: some entry of the log marks the key `revoked` (emergency revocation): it is not authorized at
+ *   any stated time, even with trusted time evidence.
  */
 export type KeyAtTimeRejection =
   | 'invalid_stated_time'
@@ -428,7 +520,8 @@ export type KeyAtTimeRejection =
   | 'did_deactivated'
   | 'key_not_found'
   | 'key_deactivated'
-  | 'key_purpose_violation';
+  | 'key_purpose_violation'
+  | 'key_revoked';
 
 /**
  * Why a key check at a stated time could not be decided (RFC-001 §6.2.2). The stated time is asserted by the

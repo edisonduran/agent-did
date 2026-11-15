@@ -16,7 +16,7 @@ from nacl.signing import SigningKey
 from ..core.identity_composition import ADDITIONAL_VERIFICATION_RELATIONSHIPS
 from ..core.time_utils import normalize_timestamp_to_iso
 from ..core.types import AgentDIDDocument, SigningVerificationPurpose, UpdateAgentDocumentParams, VerificationMethod
-from ..core.verification_method import VERIFICATION_METHOD_TYPE
+from ..core.verification_method import VERIFICATION_METHOD_TYPE, context_for_methods
 from ..crypto.hash import create_metadata_commitment
 from ..crypto.multibase import encode_public_key_multibase
 
@@ -222,7 +222,11 @@ def build_added_key_document(
 
 
 def build_rotated_document(
-    did: str, existing: AgentDIDDocument, updated: str, new_public_key: bytes | None = None
+    did: str,
+    existing: AgentDIDDocument,
+    updated: str,
+    new_public_key: bytes | None = None,
+    emergency: bool = False,
 ) -> tuple[AgentDIDDocument, str, str]:
     """Deactivate every current key and add an Ed25519 key as the active one.
 
@@ -260,12 +264,14 @@ def build_rotated_document(
         d = vm.model_dump(by_alias=True, exclude_none=True)
         if "deactivated" not in d:
             d["deactivated"] = updated
+        if emergency and "revoked" not in d:
+            d["revoked"] = updated
         all_vms.append(d)
     all_vms.append(new_vm.model_dump(by_alias=True, exclude_none=True))
 
     document = AgentDIDDocument(
         **{
-            "@context": existing.context,
+            "@context": context_for_methods(existing.context, ("revoked" in vm for vm in all_vms)),
             "id": existing.id,
             "controller": existing.controller,
             "created": existing.created,
@@ -280,3 +286,51 @@ def build_rotated_document(
         }
     )
     return document, vm_id, private_key_hex
+
+
+def build_retired_key_document(
+    existing: AgentDIDDocument, key_id: str, updated: str, emergency: bool = False
+) -> AgentDIDDocument:
+    """Retire one key: it gets a ``deactivated`` time (and ``revoked`` too when *emergency*) and leaves every
+    verification relationship; every other key stays as it is.
+
+    An already retired key can only be revoked (*emergency*), which keeps its ``deactivated`` time. Raises
+    ``ValueError`` when the key is not a verification method of the document, when it is already retired and
+    *emergency* is false (or already revoked), and when it is the last ``authentication`` or ``assertionMethod`` key:
+    rotate the key or revoke the DID instead.
+    """
+    method = next((vm for vm in existing.verification_method if vm.id == key_id), None)
+    if method is None:
+        raise ValueError(f"{key_id} is not a verification method of {existing.id}")
+    if method.revoked is not None:
+        raise ValueError(f"{key_id} is already revoked")
+    if method.deactivated and not emergency:
+        raise ValueError(f"{key_id} is already retired (pass emergency to revoke it)")
+    if not method.deactivated:
+        for relationship, key_ids in (
+            ("authentication", existing.authentication),
+            ("assertionMethod", existing.assertion_method or []),
+        ):
+            if key_id in key_ids and all(other == key_id for other in key_ids):
+                raise ValueError(
+                    f"{key_id} is the last {relationship} key of {existing.id}: rotate it "
+                    "(rotate_verification_method) or revoke the DID"
+                )
+    methods = []
+    for vm in existing.verification_method:
+        if vm.id == key_id:
+            vm = vm.model_copy(
+                update={"deactivated": vm.deactivated or updated, **({"revoked": updated} if emergency else {})}
+            )
+        methods.append(vm)
+    document = existing.model_copy(
+        update={
+            "context": context_for_methods(existing.context, (vm.revoked is not None for vm in methods)),
+            "updated": updated,
+            "verification_method": methods,
+        }
+    )
+    # model_copy does not validate; round-trip so the result is checked like any other document.
+    return _without_retired_keys_in_relationships(
+        AgentDIDDocument.model_validate(document.model_dump(by_alias=True, exclude_none=True))
+    )

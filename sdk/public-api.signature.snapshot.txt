@@ -1,5 +1,54 @@
 # Public API signature snapshot for @agentdid/sdk
 
+## core/agent-card.d.ts
+import { AgentSigner } from './signer';
+/** `uri` of the A2A extension through which a card names its agent DID and the keys it publishes. */
+export declare const AGENT_DID_A2A_EXTENSION_URI = "https://agent-did.org/a2a/identity/v1";
+/** The JWS `alg` of an Agent-DID card signature (RFC 8037). */
+export declare const AGENT_CARD_SIGNATURE_ALG = "EdDSA";
+/** Upper bound on `signatures` entries a verifier reads. */
+export declare const MAX_AGENT_CARD_SIGNATURES = 16;
+/** An entry of an Agent Card's `signatures` (A2A 1.0 `AgentCardSignature`). */
+export interface AgentCardSignature {
+    /** Base64url of the JWS protected header (a JSON object). */
+    protected: string;
+    /** Base64url of the signature over `protected + "." + base64url(JCS(card without signatures))`. */
+    signature: string;
+    /** Unprotected JWS header members. Not covered by the signature; the SDK does not read them. */
+    header?: Record<string, unknown>;
+}
+/** An A2A Agent Card: any JSON object, optionally with `signatures`. */
+export type AgentCard = Record<string, unknown> & {
+    signatures?: AgentCardSignature[];
+};
+/** The parts of a card a verifier checks, once its format is right. */
+export interface ParsedAgentCard {
+    /** The agent DID every signature `kid` and the extension name. */
+    did: string;
+    /** One entry per signature, in order. */
+    signatures: Array<{
+        keyId: string;
+        signingInput: string;
+        signature: Uint8Array;
+    }>;
+    /** Keys the card publishes: signature `kid`s, then extension `keyIds`, without repeats. */
+    publishedKeyIds: string[];
+}
+/** The DID of a DID URL with a non-empty fragment and nothing else (`did:method:id#fragment`), else `undefined`. */
+export declare function didOfKeyId(keyId: unknown): string | undefined;
+/**
+ * Returns a copy of `card` with one more `signatures` entry, signed by `signer` as `keyId` (a DID URL of an
+ * `assertionMethod` key of the agent). Signatures already on the card are kept and are not covered.
+ */
+export declare function signAgentCard(card: AgentCard, signer: AgentSigner, keyId: string): Promise<AgentCard>;
+/**
+ * Checks the format of a signed card without resolving anything: every `signatures` entry is an Agent-DID JWS
+ * (protected header with `alg` `EdDSA`, a DID URL `kid`, `typ` `JOSE` when present, no `crit`; a 64-byte
+ * signature), every `kid` and the extension name one DID. Returns `undefined` when the card does not have that
+ * format (`format_drift`).
+ */
+export declare function parseSignedAgentCard(card: unknown): ParsedAgentCard | undefined;
+
 ## core/agent-metadata-credential.d.ts
 import { AgentMetadata, AgentMetadataCredential, AgentMetadataCredentialRejection } from './types';
 export declare const VC_V2_CONTEXT = "https://www.w3.org/ns/credentials/v2";
@@ -43,7 +92,7 @@ export declare function checkAgentMetadataCredentialForm(credential: unknown, no
 };
 
 ## core/AgentDidClient.d.ts
-import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
+import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, CreateAgentParams, CreateAgentResult, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -217,6 +266,22 @@ export declare class AgentDidClient {
      * (see `HttpSignatureRejection`). Test `result.ok`: the result object is truthy for a rejection too.
      */
     verifyHttpRequestSignatureDetailed(params: VerifyHttpRequestSignatureParams): Promise<VerifyHttpRequestSignatureResult>;
+    /**
+     * Verifies a signed A2A Agent Card (composition contract §1.1, §3.1; A2A 1.0 §8.4): its format
+     * (`parseSignedAgentCard`), then every signature against an active `assertionMethod` key of the card's agent DID,
+     * resolved as for any other signature. A card without signatures is `format_drift`: the contract needs a signed card.
+     */
+    verifyAgentCard(card: unknown): Promise<VerifyAgentCardResult>;
+    /**
+     * The identity composition check (composition contract §2, §3): the Agent Card must verify (`verifyAgentCard`),
+     * the request must verify as `verifyHttpRequestSignatureDetailed` checks it, the request's agent DID must be the
+     * card's, and its `keyid` must be a key the card publishes. The card is checked first, so a request against a bad
+     * card does not consume its nonce. Contract reasons are derived from the current DID document: a retired key is
+     * `rotation_window_closed`, a revoked one `emergency_revoked`.
+     */
+    verifyIdentityComposition(params: VerifyIdentityCompositionParams): Promise<VerifyIdentityCompositionResult>;
+    /** Contract reason for a signature check that failed, from the current document of `did`. */
+    private compositionReason;
     /** `verifySignature` that tells apart the ways a verification can fail, with the controller chain. */
     private checkSignature;
     /**
@@ -289,6 +354,18 @@ export declare class AgentDidClient {
     private updateDidDocumentLocked;
     rotateVerificationMethod(did: string, options?: RotateVerificationMethodOptions): Promise<RotateVerificationMethodResult>;
     private rotateVerificationMethodLocked;
+    /**
+     * Retires one key of `did` and leaves the others as they are (RFC-001 §6.6): the key gets a `deactivated` time and
+     * leaves every verification relationship. A planned retirement ends the overlap of a rotation started with
+     * `addVerificationMethod`; signatures under the key are then rejected (`rotation_window_closed` in the composition
+     * contract). With `emergency` the key also gets `revoked` and is never accepted again, whatever time a signature
+     * states (`emergency_revoked`); an already retired key can still be revoked this way.
+     *
+     * Refuses an unknown key, a key already retired (without `emergency`) or revoked, and the last `authentication` or
+     * `assertionMethod` key: use `rotateVerificationMethod` or `revokeDid` for those.
+     */
+    retireVerificationMethod(did: string, keyId: string, options?: RetireVerificationMethodOptions): Promise<AgentDIDDocument>;
+    private retireVerificationMethodLocked;
     /**
      * Adds a key to the document of `did` without retiring any other key, listed under `options.relationships`
      * (default: `capabilityInvocation`). It is the first step of rotating the key that endorses the agents a DID
@@ -589,7 +666,7 @@ export declare function requestUrlFormProblem(url: string): string | undefined;
 export declare function buildSignatureBase(request: HttpRequestLike, input: SignatureInput): string;
 
 ## core/identity-composition.d.ts
-import { AdditionalVerificationRelationship, AgentDIDDocument, IdentityCompositionErrorReason, SignedArtifactKind, SigningVerificationPurpose, VerificationRelationship } from './types';
+import { AdditionalVerificationRelationship, AgentDIDDocument, IdentityCompositionErrorReason, IdentityCompositionRejection, SignedArtifactKind, SigningVerificationPurpose, VerificationRelationship } from './types';
 export interface IdentityCompositionErrorDetails {
     did?: string;
     keyId: string;
@@ -625,6 +702,13 @@ export declare function getRelationshipKeyIds(didDoc: AgentDIDDocument, relation
 export declare function getKeyRelationships(keyId: string, didDoc: AgentDIDDocument): VerificationRelationship[];
 export declare function assertKeyPurpose(keyId: string, didDoc: AgentDIDDocument, requiredPurpose: VerificationRelationship): void;
 export declare function assertSigningPurpose(requiredPurpose: VerificationRelationship, didDoc: AgentDIDDocument, keyId?: string): asserts requiredPurpose is SigningVerificationPurpose;
+/**
+ * Composition contract reason for a signature by `keyId` that did not verify as an `assertionMethod` signature,
+ * read from the current DID document (contract §4.1, §5.1): `emergency_revoked` for a key that carries `revoked`,
+ * `rotation_window_closed` for another retired key, `key_purpose_violation` for an active key outside
+ * `assertionMethod`, and `tampered` otherwise (the key is not a key of the document, or the signature is wrong).
+ */
+export declare function compositionReasonForKey(didDoc: AgentDIDDocument, keyId: string): IdentityCompositionRejection;
 
 ## core/message-signing.d.ts
 /**
@@ -834,7 +918,24 @@ export interface VerificationMethod {
     publicKeyMultibase?: string;
     blockchainAccountId?: string;
     deactivated?: string;
+    /**
+     * ISO 8601 timestamp of an emergency revocation (`https://w3id.org/security#revoked`). A revoked key also has
+     * `deactivated` and is never authorized, whatever time a signature states (composition contract scenario 3d).
+     */
+    revoked?: string;
 }
+/**
+ * Inline JSON-LD context term a document adds after its context URLs when one of its keys carries `revoked`:
+ * the published `https://agent-did.org/v1` context is immutable and does not define it.
+ */
+export interface RevokedContextTerm {
+    revoked: {
+        '@id': 'https://w3id.org/security#revoked';
+        '@type': 'http://www.w3.org/2001/XMLSchema#dateTime';
+    };
+}
+/** An entry of a document's `@context`: a context URL, or the inline `revoked` term. */
+export type AgentDidContextEntry = string | RevokedContextTerm;
 export interface CreateDidWebvhOptions {
     /** Lowercase ASCII fully qualified host name, optionally with `:port`. */
     domain: string;
@@ -915,6 +1016,19 @@ export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOption
      * empty string. Without it the SDK generates a local key and returns it.
      */
     signer?: import('./signer').AgentSigner;
+    /**
+     * Emergency rotation (the old keys may be compromised): every retired key also gets `revoked`, so no signature
+     * under it is accepted again, whatever time it states. Default `false`: a planned rotation.
+     */
+    emergency?: boolean;
+}
+export interface RetireVerificationMethodOptions extends DidWebvhLifecycleOptions {
+    /**
+     * Emergency revocation (the key may be compromised): the key also gets `revoked` and no signature under it is
+     * accepted again, whatever time it states. An already retired key can still be revoked this way. Default
+     * `false`: a planned retirement.
+     */
+    emergency?: boolean;
 }
 export type VerificationRelationship = 'authentication' | 'assertionMethod' | 'capabilityDelegation' | 'capabilityInvocation' | 'keyAgreement';
 export type SigningVerificationPurpose = Exclude<VerificationRelationship, 'keyAgreement'>;
@@ -931,8 +1045,55 @@ export type AdditionalVerificationRelationship = 'capabilityDelegation' | 'capab
  */
 export type SignedArtifactKind = 'assertion' | 'http_request' | 'delegation' | 'invocation' | 'authentication';
 export type IdentityCompositionErrorReason = 'key_purpose_violation' | 'rotation_window_closed' | 'emergency_revoked' | 'tampered';
+/**
+ * Why a signed Agent Card or a request checked against one was rejected (composition contract §5). The first four
+ * are the cross-stack floor (§5.1); the others are verifier-side reasons (§5.2) plus `request_rejected`:
+ * - `rotation_window_closed`: the key was retired by its controller (planned retirement); the overlap is over.
+ * - `emergency_revoked`: the key carries `revoked`.
+ * - `key_purpose_violation`: the key is a key of the DID, active, but not an `assertionMethod` key.
+ * - `tampered`: the signature does not verify under the key, or the key is not a key of the DID.
+ * - `card_keyid_mismatch`: the request was signed by a DID or key the card does not publish.
+ * - `format_drift`: the card is not a JSON object with Agent-DID JWS signatures (see `parseSignedAgentCard`).
+ * - `did_document_unresolvable`: the agent DID has no active verification chain (unknown, deactivated, unbound
+ *   controller or the resolver failed).
+ * - `request_rejected`: the HTTP signature failed a check the contract does not name; `httpReason` says which.
+ */
+export type IdentityCompositionRejection = IdentityCompositionErrorReason | 'card_keyid_mismatch' | 'format_drift' | 'did_document_unresolvable' | 'request_rejected';
+/** Result of `verifyAgentCard`. Test `result.ok`. */
+export type VerifyAgentCardResult = {
+    ok: true;
+    /** The agent DID of the card. */
+    did: string;
+    /** Keys the card publishes: signature `kid`s, then the Agent-DID extension `keyIds`. */
+    publishedKeyIds: string[];
+} | {
+    ok: false;
+    reason: IdentityCompositionRejection;
+    /** The signature `kid` that failed, when one did. */
+    keyId?: string;
+};
+export interface VerifyIdentityCompositionParams extends VerifyHttpRequestSignatureParams {
+    /** The Agent Card of the agent that signed the request, as fetched (a parsed JSON value). */
+    agentCard: unknown;
+}
+/** Result of `verifyIdentityComposition`. Test `result.ok`. */
+export type VerifyIdentityCompositionResult = {
+    ok: true;
+    did: string;
+    keyId: string;
+    controllers: string[];
+    publishedKeyIds: string[];
+} | {
+    ok: false;
+    reason: IdentityCompositionRejection;
+    /** Which check failed: the card's own signatures, or the request against the card. */
+    stage: 'agent_card' | 'request';
+    /** The HTTP verifier's reason, when the request failed there. */
+    httpReason?: HttpSignatureRejection;
+    keyId?: string;
+};
 export interface AgentDIDDocument {
-    "@context": string[];
+    "@context": AgentDidContextEntry[];
     id: string;
     controller: string;
     created: string;
@@ -1168,8 +1329,10 @@ export type VerifyHttpRequestSignatureResult = {
  * - `key_not_found`: the DID document at the stated time has no such key (or it has no public key).
  * - `key_deactivated`: the key was already deactivated at the stated time.
  * - `key_purpose_violation`: the key was not listed under the required relationship at the stated time.
+ * - `key_revoked`: some entry of the log marks the key `revoked` (emergency revocation): it is not authorized at
+ *   any stated time, even with trusted time evidence.
  */
-export type KeyAtTimeRejection = 'invalid_stated_time' | 'did_not_yet_created' | 'did_deactivated' | 'key_not_found' | 'key_deactivated' | 'key_purpose_violation';
+export type KeyAtTimeRejection = 'invalid_stated_time' | 'did_not_yet_created' | 'did_deactivated' | 'key_not_found' | 'key_deactivated' | 'key_purpose_violation' | 'key_revoked';
 /**
  * Why a key check at a stated time could not be decided (RFC-001 §6.2.2). The stated time is asserted by the
  * signer, so it cannot place a signature on either side of a later change:
@@ -1332,6 +1495,7 @@ export type VerifyAgentMetadataCredentialResult = {
 };
 
 ## core/verification-method.d.ts
+import type { AgentDidContextEntry, RevokedContextTerm, VerificationMethod } from './types';
 /**
  * Verification method types for Ed25519 keys (ADR-006 D-8b). Documents are written with `Multikey`; documents and
  * did:webvh logs written before rc.5 use `Ed25519VerificationKey2020` with the same `publicKeyMultibase` encoding
@@ -1340,6 +1504,17 @@ export type VerifyAgentMetadataCredentialResult = {
 export declare const VERIFICATION_METHOD_TYPE = "Multikey";
 /** Whether `type` names an Ed25519 verification method this SDK reads. */
 export declare function isEd25519VerificationMethodType(type: unknown): boolean;
+/** The inline `@context` term for `revoked` (see `RevokedContextTerm`). */
+export declare const REVOKED_CONTEXT_TERM: RevokedContextTerm;
+/** Whether `entry` is the inline `revoked` context term, member for member. */
+export declare function isRevokedContextTerm(entry: unknown): entry is RevokedContextTerm;
+/** Whether `method` carries `revoked` (an emergency revocation). */
+export declare function isRevokedMethod(method: Pick<VerificationMethod, 'revoked'>): boolean;
+/**
+ * `context` with the inline `revoked` term last when `methods` has a revoked key, and without it otherwise. The
+ * context URLs keep their order.
+ */
+export declare function contextForMethods(context: readonly AgentDidContextEntry[], methods: readonly VerificationMethod[]): AgentDidContextEntry[];
 
 ## crypto/base64.d.ts
 /**
@@ -1347,6 +1522,13 @@ export declare function isEd25519VerificationMethodType(type: unknown): boolean;
  * (`btoa` is available in Node.js 16+ and in browsers and workers).
  */
 export declare function bytesToBase64(bytes: Uint8Array): string;
+/** Base64url without padding (RFC 4648 §5), as JWS uses it (RFC 7515 §2). */
+export declare function bytesToBase64Url(bytes: Uint8Array): string;
+/**
+ * Decodes unpadded base64url. Returns `undefined` for anything that is not the canonical encoding of some bytes
+ * (other characters, padding, a length that no encoding has, or non-zero trailing bits).
+ */
+export declare function base64UrlToBytes(value: string): Uint8Array | undefined;
 
 ## crypto/data-integrity.d.ts
 export declare const DATA_INTEGRITY_PROOF_TYPE = "DataIntegrityProof";
@@ -1513,8 +1695,11 @@ export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSigna
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
 export type { DataIntegrityProof } from './crypto/data-integrity';
+export { AGENT_DID_A2A_EXTENSION_URI, AGENT_CARD_SIGNATURE_ALG, MAX_AGENT_CARD_SIGNATURES, signAgentCard, parseSignedAgentCard } from './core/agent-card';
+export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
+export { REVOKED_CONTEXT_TERM } from './core/verification-method';
 export { AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE } from './core/agent-metadata-credential';
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, SIGNED_ARTIFACT_KINDS, ADDITIONAL_VERIFICATION_RELATIONSHIPS, REQUIRED_RELATIONSHIP_BY_ARTIFACT, requiredRelationshipFor, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
@@ -1566,11 +1751,19 @@ export declare function buildAddedKeyDocument(did: string, existing: AgentDIDDoc
  * Deactivates every current key and adds an Ed25519 key as the active one: `newPublicKey` when the caller holds
  * the key elsewhere (`agentPrivateKey` is then empty), otherwise a freshly generated local key.
  */
-export declare function buildRotatedDocument(did: string, existing: AgentDIDDocument, updated: string, newPublicKey?: Uint8Array): {
+export declare function buildRotatedDocument(did: string, existing: AgentDIDDocument, updated: string, newPublicKey?: Uint8Array, emergency?: boolean): {
     document: AgentDIDDocument;
     verificationMethodId: string;
     agentPrivateKey: string;
 };
+/**
+ * Retires one key: it gets a `deactivated` time (and `revoked` too when `emergency`) and leaves every verification
+ * relationship; every other key stays as it is. An already retired key can only be revoked (`emergency`), which
+ * keeps its `deactivated` time. Throws when the key is not a verification method of the document, when it is
+ * already retired and `emergency` is false (or already revoked), and when it is the last `authentication` or
+ * `assertionMethod` key: rotate the key or revoke the DID instead.
+ */
+export declare function buildRetiredKeyDocument(existing: AgentDIDDocument, keyId: string, updated: string, emergency?: boolean): AgentDIDDocument;
 
 ## registry/InMemoryAgentRegistry.d.ts
 import { AgentRegistry, AgentRegistryRecord } from './types';

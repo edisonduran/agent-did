@@ -19,7 +19,11 @@ from agent_did_sdk import (
     VerifyHttpRequestSignatureParams,
     validate_http_target,
 )
-from agent_did_sdk.core.types import VerifyHttpRequestSignatureResult
+from agent_did_sdk.core.types import (
+    VerifyHttpRequestSignatureResult,
+    VerifyIdentityCompositionParams,
+    VerifyIdentityCompositionResult,
+)
 from pydantic import BaseModel, ConfigDict, Field
 
 from .snapshot import RuntimeIdentity, get_active_signing_key_id, runtime_signing_params
@@ -176,6 +180,38 @@ async def verify_a2a_request_detailed(
         )
     except Exception:
         return VerifyHttpRequestSignatureResult(ok=False, reason="malformed_headers")
+
+
+async def verify_a2a_request_composition(
+    *,
+    agent_identity: AgentIdentity,
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    agent_card: object,
+    body: str | None = None,
+    allowed_dids: list[str] | None = None,
+    allowed_controllers: list[str] | None = None,
+) -> VerifyIdentityCompositionResult:
+    """Verify an incoming A2A request against the sender's signed Agent Card (composition contract §2): the card's
+    signatures, the request's HTTP Signature, and that the request's ``keyid`` is a key the card publishes. A rejection
+    carries the contract ``reason`` (``rotation_window_closed``, ``emergency_revoked``, ``key_purpose_violation``,
+    ``tampered``, ``card_keyid_mismatch``, ``format_drift``...) and ``stage``."""
+
+    try:
+        return await agent_identity.client.verify_identity_composition(
+            VerifyIdentityCompositionParams(
+                method=method,
+                url=url,
+                headers=headers,
+                body=body,
+                allowed_dids=allowed_dids,
+                allowed_controllers=allowed_controllers,
+                agent_card=agent_card,
+            )
+        )
+    except Exception:
+        return VerifyIdentityCompositionResult(ok=False, stage="request", reason="request_rejected")
 
 
 async def verify_a2a_request(

@@ -10,16 +10,21 @@ import {
   CreateAgentResult,
   DidWebvhControllerKeys,
   DidWebvhLifecycleOptions,
+  IdentityCompositionRejection,
   IssueAgentMetadataCredentialParams,
   MetadataCommitmentSalts,
   RotateControllerKeyOptions,
+  RetireVerificationMethodOptions,
   RotateVerificationMethodOptions,
   RotateVerificationMethodResult,
   UpdateAgentDocumentParams,
   VerifyAgentMetadataCredentialOptions,
+  VerifyAgentCardResult,
   VerifyAgentMetadataCredentialResult,
   VerifyHttpRequestSignatureParams,
   VerifyHttpRequestSignatureResult,
+  VerifyIdentityCompositionParams,
+  VerifyIdentityCompositionResult,
   VerifySignatureAtTimeOptions,
   VerifySignatureAtTimeResult,
   VerificationRelationship
@@ -57,6 +62,7 @@ import {
 import {
   assertUpdatePatch,
   buildAddedKeyDocument,
+  buildRetiredKeyDocument,
   buildRotatedDocument,
   buildUpdatedDocument,
   nextDocumentTimestamp
@@ -64,7 +70,12 @@ import {
 import { verifyWithActiveKeys } from '../verification/signature';
 import { checkDidWebvhKeyAtTime, parseRfc3339Millis, signatureResultForKey } from '../verification/key-at-time';
 import { SignatureCheck, SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
-import { getRelationshipKeyIds, IdentityCompositionError, REQUIRED_RELATIONSHIP_BY_ARTIFACT } from './identity-composition';
+import {
+  compositionReasonForKey,
+  getRelationshipKeyIds,
+  IdentityCompositionError,
+  REQUIRED_RELATIONSHIP_BY_ARTIFACT
+} from './identity-composition';
 import { InMemoryAgentRegistry } from '../registry/InMemoryAgentRegistry';
 import { normalizeTimestampToIso } from './time';
 import { messageSigningInput } from './message-signing';
@@ -73,6 +84,7 @@ import { assertAgentDidDocument } from './document-guard';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { createEddsaJcs2022Proof, verifyEddsaJcs2022Proof } from '../crypto/data-integrity';
 import { isEd25519VerificationMethodType } from './verification-method';
+import { parseSignedAgentCard } from './agent-card';
 import {
   agentMetadataProblem,
   buildUnsignedAgentMetadataCredential,
@@ -583,6 +595,102 @@ export class AgentDidClient {
     });
   }
 
+  /**
+   * Verifies a signed A2A Agent Card (composition contract §1.1, §3.1; A2A 1.0 §8.4): its format
+   * (`parseSignedAgentCard`), then every signature against an active `assertionMethod` key of the card's agent DID,
+   * resolved as for any other signature. A card without signatures is `format_drift`: the contract needs a signed card.
+   */
+  public async verifyAgentCard(card: unknown): Promise<VerifyAgentCardResult> {
+    const parsed = parseSignedAgentCard(card);
+    if (!parsed) {
+      return { ok: false, reason: 'format_drift' };
+    }
+    for (const entry of parsed.signatures) {
+      const check = await this.checkSignature(
+        parsed.did,
+        entry.signingInput,
+        bytesToHex(entry.signature),
+        entry.keyId,
+        REQUIRED_RELATIONSHIP_BY_ARTIFACT.assertion
+      );
+      if (check.outcome !== 'valid') {
+        return { ok: false, reason: await this.compositionReason(parsed.did, entry.keyId, check.outcome), keyId: entry.keyId };
+      }
+    }
+    return { ok: true, did: parsed.did, publishedKeyIds: parsed.publishedKeyIds };
+  }
+
+  /**
+   * The identity composition check (composition contract §2, §3): the Agent Card must verify (`verifyAgentCard`),
+   * the request must verify as `verifyHttpRequestSignatureDetailed` checks it, the request's agent DID must be the
+   * card's, and its `keyid` must be a key the card publishes. The card is checked first, so a request against a bad
+   * card does not consume its nonce. Contract reasons are derived from the current DID document: a retired key is
+   * `rotation_window_closed`, a revoked one `emergency_revoked`.
+   */
+  public async verifyIdentityComposition(
+    params: VerifyIdentityCompositionParams
+  ): Promise<VerifyIdentityCompositionResult> {
+    const { agentCard, ...request } = params;
+    const card = await this.verifyAgentCard(agentCard);
+    if (!card.ok) {
+      return { ok: false, stage: 'agent_card', reason: card.reason, ...(card.keyId ? { keyId: card.keyId } : {}) };
+    }
+    // The HTTP verifier reports a reason; the contract reason needs the key and the outcome of its signature check.
+    let lastCheck: { did: string; keyId: string; outcome: SignatureCheckOutcome } | undefined;
+    const result = await verifyAgentDidHttpRequest(request, {
+      verifySignature: async (did, payload, signature, keyId, purpose) => {
+        const check = await this.checkSignature(did, payload, signature, keyId, purpose);
+        lastCheck = { did, keyId, outcome: check.outcome };
+        return check;
+      },
+      nonceStore: this.nonceStore,
+      now: this.clock()
+    });
+    if (!result.ok) {
+      const checked =
+        lastCheck !== undefined &&
+        lastCheck.outcome !== 'valid' &&
+        ['did_resolution_failed', 'controller_not_bound', 'keyid_not_authorized', 'signature_invalid'].includes(result.reason)
+          ? lastCheck
+          : undefined;
+      return {
+        ok: false,
+        stage: 'request',
+        reason: checked ? await this.compositionReason(checked.did, checked.keyId, checked.outcome) : 'request_rejected',
+        httpReason: result.reason,
+        ...(checked ? { keyId: checked.keyId } : {})
+      };
+    }
+    if (result.did !== card.did || !card.publishedKeyIds.includes(result.keyId)) {
+      return { ok: false, stage: 'request', reason: 'card_keyid_mismatch', keyId: result.keyId };
+    }
+    return {
+      ok: true,
+      did: result.did,
+      keyId: result.keyId,
+      controllers: result.controllers,
+      publishedKeyIds: card.publishedKeyIds
+    };
+  }
+
+  /** Contract reason for a signature check that failed, from the current document of `did`. */
+  private async compositionReason(
+    did: string,
+    keyId: string,
+    outcome: SignatureCheckOutcome
+  ): Promise<IdentityCompositionRejection> {
+    if (outcome === 'did_resolution_failed' || outcome === 'controller_not_bound') {
+      return 'did_document_unresolvable';
+    }
+    let document: AgentDIDDocument;
+    try {
+      document = await this.resolve(did);
+    } catch {
+      return 'did_document_unresolvable';
+    }
+    return compositionReasonForKey(document, keyId);
+  }
+
   /** `verifySignature` that tells apart the ways a verification can fail, with the controller chain. */
   private async checkSignature(
     did: string,
@@ -996,7 +1104,8 @@ export class AgentDidClient {
       did,
       existing,
       this.nextTimestamp(existing.updated),
-      options.signer ? await options.signer.getPublicKey() : undefined
+      options.signer ? await options.signer.getPublicKey() : undefined,
+      options.emergency === true
     );
     let updatedDocument = rotated.document;
 
@@ -1013,6 +1122,48 @@ export class AgentDidClient {
       verificationMethodId: rotated.verificationMethodId,
       agentPrivateKey: rotated.agentPrivateKey
     }, options.signer);
+  }
+
+  /**
+   * Retires one key of `did` and leaves the others as they are (RFC-001 §6.6): the key gets a `deactivated` time and
+   * leaves every verification relationship. A planned retirement ends the overlap of a rotation started with
+   * `addVerificationMethod`; signatures under the key are then rejected (`rotation_window_closed` in the composition
+   * contract). With `emergency` the key also gets `revoked` and is never accepted again, whatever time a signature
+   * states (`emergency_revoked`); an already retired key can still be revoked this way.
+   *
+   * Refuses an unknown key, a key already retired (without `emergency`) or revoked, and the last `authentication` or
+   * `assertionMethod` key: use `rotateVerificationMethod` or `revokeDid` for those.
+   */
+  public async retireVerificationMethod(
+    did: string,
+    keyId: string,
+    options: RetireVerificationMethodOptions = {}
+  ): Promise<AgentDIDDocument> {
+    return this.withDidLock(did, () => this.retireVerificationMethodLocked(did, keyId, options));
+  }
+
+  private async retireVerificationMethodLocked(
+    did: string,
+    keyId: string,
+    options: RetireVerificationMethodOptions
+  ): Promise<AgentDIDDocument> {
+    const existing = await this.resolve(did);
+    const wasActive = existing.verificationMethod.some((method) => method.id === keyId && !method.deactivated);
+    let updatedDocument = buildRetiredKeyDocument(
+      existing,
+      keyId,
+      this.nextTimestamp(existing.updated),
+      options.emergency === true
+    );
+
+    if (did.startsWith('did:webvh:')) {
+      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
+    }
+
+    this.resolver.registerDocument(updatedDocument);
+    await this.registry.setDocumentReference(did, computeDocumentReference(updatedDocument));
+    this.appendHistory(updatedDocument, wasActive ? 'rotated-key' : 'updated');
+    return updatedDocument;
   }
 
   /**

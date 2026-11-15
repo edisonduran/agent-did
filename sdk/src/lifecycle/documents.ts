@@ -14,7 +14,7 @@ import {
 } from '../core/types';
 import { createMetadataCommitment } from '../crypto/hash';
 import { encodePublicKeyMultibase } from '../crypto/multibase';
-import { VERIFICATION_METHOD_TYPE } from '../core/verification-method';
+import { VERIFICATION_METHOD_TYPE, contextForMethods, isRevokedMethod } from '../core/verification-method';
 import { normalizeTimestampToIso } from '../core/time';
 
 /** Timestamp strictly after `previousTimestamp`, using `now` unless it is not later. */
@@ -173,7 +173,8 @@ export function buildRotatedDocument(
   did: string,
   existing: AgentDIDDocument,
   updated: string,
-  newPublicKey?: Uint8Array
+  newPublicKey?: Uint8Array,
+  emergency = false
 ): { document: AgentDIDDocument; verificationMethodId: string; agentPrivateKey: string } {
   const keyIndexes = existing.verificationMethod.map((method) => {
     const match = method.id.match(/#key-(\d+)$/);
@@ -194,16 +195,19 @@ export function buildRotatedDocument(
   };
   const deactivatedMethods = existing.verificationMethod.map((method) => ({
     ...method,
-    deactivated: method.deactivated || updated
+    deactivated: method.deactivated || updated,
+    ...(emergency || isRevokedMethod(method) ? { revoked: method.revoked || updated } : {})
   }));
+  const verificationMethod = [...deactivatedMethods, newVerificationMethod];
 
   // Every key of the previous document is retired: none of them stays in a verification relationship
   const { capabilityDelegation: _delegation, capabilityInvocation: _invocation, ...withoutCapabilities } = existing;
   return {
     document: {
       ...withoutCapabilities,
+      '@context': contextForMethods(existing['@context'], verificationMethod),
       updated,
-      verificationMethod: [...deactivatedMethods, newVerificationMethod],
+      verificationMethod,
       authentication: [verificationMethodId],
       assertionMethod: [verificationMethodId],
       ...carriedCapabilityRelationships(existing, verificationMethodId)
@@ -211,4 +215,50 @@ export function buildRotatedDocument(
     verificationMethodId,
     agentPrivateKey: privateKeyBytes ? bytesToHex(privateKeyBytes) : ''
   };
+}
+
+/**
+ * Retires one key: it gets a `deactivated` time (and `revoked` too when `emergency`) and leaves every verification
+ * relationship; every other key stays as it is. An already retired key can only be revoked (`emergency`), which
+ * keeps its `deactivated` time. Throws when the key is not a verification method of the document, when it is
+ * already retired and `emergency` is false (or already revoked), and when it is the last `authentication` or
+ * `assertionMethod` key: rotate the key or revoke the DID instead.
+ */
+export function buildRetiredKeyDocument(
+  existing: AgentDIDDocument,
+  keyId: string,
+  updated: string,
+  emergency = false
+): AgentDIDDocument {
+  const method = existing.verificationMethod.find((candidate) => candidate.id === keyId);
+  if (!method) {
+    throw new Error(`${keyId} is not a verification method of ${existing.id}`);
+  }
+  if (isRevokedMethod(method)) {
+    throw new Error(`${keyId} is already revoked`);
+  }
+  if (method.deactivated && !emergency) {
+    throw new Error(`${keyId} is already retired (pass emergency to revoke it)`);
+  }
+  if (!method.deactivated) {
+    for (const relationship of ['authentication', 'assertionMethod'] as const) {
+      const keyIds = existing[relationship] ?? [];
+      if (keyIds.includes(keyId) && keyIds.every((other) => other === keyId)) {
+        throw new Error(
+          `${keyId} is the last ${relationship} key of ${existing.id}: rotate it (rotateVerificationMethod) or revoke the DID`
+        );
+      }
+    }
+  }
+  const verificationMethod = existing.verificationMethod.map((candidate) =>
+    candidate.id === keyId
+      ? { ...candidate, deactivated: candidate.deactivated || updated, ...(emergency ? { revoked: updated } : {}) }
+      : candidate
+  );
+  return withoutRetiredKeysInRelationships({
+    ...existing,
+    '@context': contextForMethods(existing['@context'], verificationMethod),
+    updated,
+    verificationMethod
+  });
 }

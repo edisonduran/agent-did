@@ -6,9 +6,9 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from agent_did_sdk import AgentIdentity, HttpTargetValidationOptions
+from agent_did_sdk import AgentIdentity, HttpTargetValidationOptions, VerifyIdentityCompositionResult
 
-from .agent_card import A2AAgentCard, A2ASkill, agent_card_to_json, build_agent_card
+from .agent_card import A2AAgentCard, A2ASkill, agent_card_to_json, build_agent_card, sign_agent_card_json
 from .config import AgentDidA2AConfig, AgentDidA2AExposureConfig
 from .context import build_agent_did_a2a_context
 from .jsonrpc import (
@@ -18,6 +18,7 @@ from .jsonrpc import (
     build_task_send_request,
     sign_a2a_request,
     verify_a2a_request,
+    verify_a2a_request_composition,
 )
 from .observability import AgentDidA2AEventHandler, AgentDidObserver, create_json_logger_event_handler
 from .snapshot import (
@@ -108,6 +109,64 @@ class AgentDidA2AIntegration:
             verification_endpoint=verification_endpoint,
         )
         return agent_card_to_json(card)
+
+    async def signed_agent_card_json(
+        self,
+        *,
+        agent_url: str,
+        skills: list[A2ASkill] | None = None,
+        capabilities: dict[str, bool] | None = None,
+        verification_endpoint: str | None = None,
+    ) -> dict[str, Any]:
+        """Build the AgentCard JSON and sign it for the composition contract: the Agent-DID extension names the DID
+        and the published keys, and ``signatures`` carries a JWS by the active signing key (A2A 1.0 §8.4). Serve this
+        at ``/.well-known/agent.json`` so peers can call :meth:`verify_request_against_card`."""
+        card = self.agent_card_json(
+            agent_url=agent_url,
+            skills=skills,
+            capabilities=capabilities,
+            verification_endpoint=verification_endpoint,
+        )
+        signed = await sign_agent_card_json(card, self.runtime_identity)
+        self.observer.emit(
+            "agent_did.a2a.agent_card.signed",
+            attributes={"did": self.runtime_identity.document.id, "url": agent_url},
+        )
+        return signed
+
+    async def verify_request_against_card(
+        self,
+        *,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        agent_card: object,
+        body: str | None = None,
+        allowed_dids: list[str] | None = None,
+        allowed_controllers: list[str] | None = None,
+    ) -> VerifyIdentityCompositionResult:
+        """Verify an incoming A2A request against the sender's signed Agent Card (composition contract §2). Test
+        ``result.ok``; a rejection carries the contract ``reason`` and ``stage``."""
+        self._require("verify_requests", "verify_request_against_card")
+        self.observer.emit(
+            "agent_did.a2a.request.verifying",
+            attributes={"url": url, "http_method": method, "composition": True},
+        )
+        result = await verify_a2a_request_composition(
+            agent_identity=self.agent_identity,
+            method=method,
+            url=url,
+            headers=headers,
+            agent_card=agent_card,
+            body=body,
+            allowed_dids=allowed_dids,
+            allowed_controllers=allowed_controllers,
+        )
+        self.observer.emit(
+            "agent_did.a2a.request.verified",
+            attributes={"url": url, "is_valid": result.ok, "reason": result.reason},
+        )
+        return result
 
     async def sign_request(
         self,

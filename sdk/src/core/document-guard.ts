@@ -4,7 +4,7 @@
  * `AgentDIDDocument` model does, so both SDKs fail the same way on a malformed document.
  */
 import { AgentDIDDocument } from './types';
-import { isEd25519VerificationMethodType } from './verification-method';
+import { isEd25519VerificationMethodType, isRevokedContextTerm } from './verification-method';
 
 type Check = (value: unknown, path: string) => string | undefined;
 
@@ -59,8 +59,18 @@ const verificationMethod: Check = (value, path) =>
     controller: string,
     publicKeyMultibase: optionalString,
     blockchainAccountId: optionalString,
-    deactivated: optionalString
-  }) ?? ed25519KeyType(value as Record<string, unknown>, path);
+    deactivated: optionalString,
+    revoked: optionalString
+  }) ??
+  revokedIsRetired(value as Record<string, unknown>, path) ??
+  ed25519KeyType(value as Record<string, unknown>, path);
+
+const absent = (value: unknown): boolean => value === undefined || value === null;
+
+/** A revoked key is a retired key: `revoked` without `deactivated` is malformed. */
+function revokedIsRetired(method: Record<string, unknown>, path: string): string | undefined {
+  return !absent(method.revoked) && absent(method.deactivated) ? `${path}.revoked requires deactivated` : undefined;
+}
 
 /** A `publicKeyMultibase` key is an Ed25519 key here, so its method must have one of the Ed25519 types. */
 function ed25519KeyType(method: Record<string, unknown>, path: string): string | undefined {
@@ -86,10 +96,39 @@ const agentMetadata: Check = (value, path) =>
     memberOf: optionalString
   });
 
+/**
+ * `@context`: context URLs, then the inline `revoked` term as the last entry when a key carries `revoked` (and only
+ * then).
+ */
+function contextProblem(document: Record<string, unknown>): string | undefined {
+  const context = document['@context'];
+  if (!Array.isArray(context)) {
+    return 'document.@context must be a list';
+  }
+  const bad = context.findIndex(
+    (entry, index) => typeof entry !== 'string' && (!isRevokedContextTerm(entry) || index !== context.length - 1)
+  );
+  if (bad !== -1) {
+    return `document.@context[${bad}] must be a string (or the inline revoked term, last)`;
+  }
+  const hasTerm = context.length > 0 && typeof context[context.length - 1] !== 'string';
+  const methods = Array.isArray(document.verificationMethod) ? (document.verificationMethod as unknown[]) : [];
+  const hasRevoked = methods.some(
+    (method) => typeof method === 'object' && method !== null && !absent((method as Record<string, unknown>).revoked)
+  );
+  if (hasRevoked && !hasTerm) {
+    return 'document.@context must end with the inline revoked term when a key is revoked';
+  }
+  if (!hasRevoked && hasTerm) {
+    return 'document.@context has the inline revoked term but no key is revoked';
+  }
+  return undefined;
+}
+
 /** Why `value` is not an Agent-DID document, or `undefined` when it is one. */
 export function agentDidDocumentProblem(value: unknown): string | undefined {
   return fields(value, 'document', {
-    '@context': stringList,
+    '@context': (item, path) => (Array.isArray(item) ? undefined : `${path} must be a list`),
     id: string,
     controller: string,
     created: string,
@@ -102,7 +141,7 @@ export function agentDidDocumentProblem(value: unknown): string | undefined {
     capabilityDelegation: optionalStringList,
     capabilityInvocation: optionalStringList,
     keyAgreement: optionalStringList
-  });
+  }) ?? contextProblem(value as Record<string, unknown>);
 }
 
 /** Throws unless `value` is an Agent-DID document; `source` says where it came from in the message. */

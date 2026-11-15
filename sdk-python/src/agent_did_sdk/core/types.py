@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .verification_method import is_ed25519_verification_method_type
+from .verification_method import is_ed25519_verification_method_type, is_revoked_context_term
 
 # ---------------------------------------------------------------------------
 # Agent metadata
@@ -45,6 +45,16 @@ class VerificationMethod(BaseModel):
     public_key_multibase: str | None = Field(default=None, alias="publicKeyMultibase")
     blockchain_account_id: str | None = Field(default=None, alias="blockchainAccountId")
     deactivated: str | None = None
+    revoked: str | None = None
+    """ISO 8601 time of an emergency revocation (``https://w3id.org/security#revoked``). A revoked key also has
+    ``deactivated`` and is never authorized, whatever time a signature states (composition contract scenario 3d)."""
+
+    @model_validator(mode="after")
+    def _revoked_is_retired(self) -> VerificationMethod:
+        # A revoked key is a retired key: revoked without deactivated is malformed.
+        if self.revoked is not None and self.deactivated is None:
+            raise ValueError("revoked requires deactivated")
+        return self
 
     @model_validator(mode="after")
     def _ed25519_key_type(self) -> VerificationMethod:
@@ -93,7 +103,9 @@ class DidWebvhControllerKeys:
 class AgentDIDDocument(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    context: list[str] = Field(alias="@context")
+    context: list[str | dict[str, Any]] = Field(alias="@context")
+    """Context URLs, then the inline ``revoked`` term (``REVOKED_CONTEXT_TERM``) as the last entry when a key
+    carries ``revoked``, and only then."""
     id: str
     controller: str
     created: str
@@ -108,6 +120,19 @@ class AgentDIDDocument(BaseModel):
     capability_delegation: list[str] | None = Field(default=None, alias="capabilityDelegation")
     capability_invocation: list[str] | None = Field(default=None, alias="capabilityInvocation")
     key_agreement: list[str] | None = Field(default=None, alias="keyAgreement")
+
+    @model_validator(mode="after")
+    def _context_entries(self) -> AgentDIDDocument:
+        for index, entry in enumerate(self.context):
+            if not isinstance(entry, str) and (not is_revoked_context_term(entry) or index != len(self.context) - 1):
+                raise ValueError(f"@context[{index}] must be a string (or the inline revoked term, last)")
+        has_term = bool(self.context) and not isinstance(self.context[-1], str)
+        has_revoked = any(method.revoked is not None for method in self.verification_method)
+        if has_revoked and not has_term:
+            raise ValueError("@context must end with the inline revoked term when a key is revoked")
+        if has_term and not has_revoked:
+            raise ValueError("@context has the inline revoked term but no key is revoked")
+        return self
 
     def model_dump_jsonld(self) -> dict[str, object]:
         """Serialize using JSON-LD aliases, dropping ``None`` values."""
@@ -351,6 +376,7 @@ KeyAtTimeRejection = Literal[
     "key_not_found",
     "key_deactivated",
     "key_purpose_violation",
+    "key_revoked",
 ]
 """Why a key was not authorized at the stated time (RFC-001 §6.2.2).
 
@@ -360,6 +386,8 @@ KeyAtTimeRejection = Literal[
 * ``key_not_found``: the DID document at the stated time has no such key (or it has no public key).
 * ``key_deactivated``: the key was already deactivated at the stated time.
 * ``key_purpose_violation``: the key was not listed under the required relationship at the stated time.
+* ``key_revoked``: some entry of the log marks the key ``revoked`` (emergency revocation): it is not authorized at
+  any stated time, even with trusted time evidence.
 """
 KeyAtTimeUncertainty = Literal[
     "key_retired_after_stated_time",
@@ -538,6 +566,64 @@ IdentityCompositionErrorReason = Literal[
     "emergency_revoked",
     "tampered",
 ]
+IdentityCompositionRejection = Literal[
+    "key_purpose_violation",
+    "rotation_window_closed",
+    "emergency_revoked",
+    "tampered",
+    "card_keyid_mismatch",
+    "format_drift",
+    "did_document_unresolvable",
+    "request_rejected",
+]
+"""Why a signed Agent Card or a request checked against one was rejected (composition contract §5). The first four
+are the cross-stack floor (§5.1); the others are verifier-side reasons (§5.2) plus ``request_rejected``:
+
+* ``rotation_window_closed``: the key was retired by its controller (planned retirement); the overlap is over.
+* ``emergency_revoked``: the key carries ``revoked``.
+* ``key_purpose_violation``: the key is a key of the DID, active, but not an ``assertionMethod`` key.
+* ``tampered``: the signature does not verify under the key, or the key is not a key of the DID.
+* ``card_keyid_mismatch``: the request was signed by a DID or key the card does not publish.
+* ``format_drift``: the card is not a JSON object with Agent-DID JWS signatures (see ``parse_signed_agent_card``).
+* ``did_document_unresolvable``: the agent DID has no active verification chain (unknown, deactivated, unbound
+  controller or the resolver failed).
+* ``request_rejected``: the HTTP signature failed a check the contract does not name; ``http_reason`` says which.
+"""
+
+
+@dataclass(frozen=True)
+class VerifyAgentCardResult:
+    """Result of ``verify_agent_card``. Test ``result.ok``."""
+
+    ok: bool
+    reason: IdentityCompositionRejection | None = None
+    did: str | None = None
+    """For an accepted card, its agent DID."""
+    published_key_ids: tuple[str, ...] = ()
+    """For an accepted card, the keys it publishes: signature ``kid`` values, then the extension ``keyIds``."""
+    key_id: str | None = None
+    """For a rejected card, the signature ``kid`` that failed, when one did."""
+
+
+class VerifyIdentityCompositionParams(VerifyHttpRequestSignatureParams):
+    agent_card: Any
+    """The Agent Card of the agent that signed the request, as fetched (a parsed JSON value)."""
+
+
+@dataclass(frozen=True)
+class VerifyIdentityCompositionResult:
+    """Result of ``verify_identity_composition``. Test ``result.ok``."""
+
+    ok: bool
+    reason: IdentityCompositionRejection | None = None
+    stage: Literal["agent_card", "request"] | None = None
+    """For a rejection, which check failed: the card's own signatures, or the request against the card."""
+    http_reason: HttpSignatureRejection | None = None
+    """For a rejection in the HTTP verifier, its reason."""
+    did: str | None = None
+    key_id: str | None = None
+    controllers: tuple[str, ...] = ()
+    published_key_ids: tuple[str, ...] = ()
 
 
 class AgentDocumentHistoryEntry(BaseModel):

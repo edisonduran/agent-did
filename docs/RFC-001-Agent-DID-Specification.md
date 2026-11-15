@@ -126,6 +126,14 @@ The context is defined by [`contexts/v1.jsonld`](../contexts/v1.jsonld) (decisio
 - Until `https://agent-did.org/v1` is served with the pinned bytes, the repository copy is the only normative source.
 - `agentMetadata` is a property of the DID document. Representing it as a controller-issued Verifiable Credential is not part of 1.0.
 
+The published context is immutable, and it does not define `revoked` (§4.2). A document in which a verification method carries `revoked` MUST end its `@context` with this inline term, and a document without a revoked key MUST NOT carry it:
+
+```json
+{ "revoked": { "@id": "https://w3id.org/security#revoked", "@type": "http://www.w3.org/2001/XMLSchema#dateTime" } }
+```
+
+It maps `revoked` to the IRI that W3C Controlled Identifiers v1.0 and the Multikey context use. The Multikey context itself cannot be added: it scopes `revoked` inside its protected `Multikey` term, which conflicts with the `Multikey` term of `https://agent-did.org/v1`.
+
 ### 4.2 Normative Field Definitions
 
 | Field | Requirement | Description |
@@ -138,6 +146,7 @@ The context is defined by [`contexts/v1.jsonld`](../contexts/v1.jsonld) (decisio
 | `verificationMethod` | **REQUIRED** | Valid public keys for signature verification. |
 | `verificationMethod[].type` | **REQUIRED** | `Multikey` ([Controlled Identifiers v1.0](https://www.w3.org/TR/cid-1.0/#Multikey)) for every Ed25519 key, with `publicKeyMultibase` = `z` + base58btc(`0xed01` ‖ 32-byte public key). Implementations MUST write `Multikey`. Verifiers MUST also accept `Ed25519VerificationKey2020` with the same `publicKeyMultibase` encoding, which documents and did:webvh logs written before `1.0-rc.5` use. A document in which a method that carries `publicKeyMultibase` has any other type is not an Agent-DID document, and a verifier MUST NOT take a verification key from such a method. ([ADR-006](ADR-006-Wire-Alignment-rc5.md) D-8b) |
 | `verificationMethod[].deactivated` | OPTIONAL | ISO-8601 timestamp marking when a key was deactivated via rotation. Deactivated keys remain in the document; a signature by a deactivated key is checked against the key at the time the artifact states (Section 6.2.2), never accepted on the key's presence alone. A key that carries `deactivated` MUST NOT be listed in any verification relationship (`authentication`, `assertionMethod`, `capabilityDelegation`, `capabilityInvocation`) of the document that deactivates it or of any later one. |
+| `verificationMethod[].revoked` | OPTIONAL | ISO-8601 timestamp of an emergency revocation (`https://w3id.org/security#revoked`): the controller states that the key may be compromised. A key that carries `revoked` MUST also carry `deactivated`, and a document that has one MUST end its `@context` with the inline term of §4.1.1. A revoked key is never authorized, whatever time a signature states and whatever time evidence a verifier holds (§6.2.2). Once set, `revoked` stays in every later document. |
 | `assertionMethod` | **REQUIRED** for signing flows | References to keys authorized for payload and HTTP signature verification by default. |
 | `authentication` | **REQUIRED** | References to valid authentication methods. |
 | `complianceCertifications` | OPTIONAL | VC evidence and audits. |
@@ -268,6 +277,8 @@ To enable cross-implementation interop and programmatic verifiers, conforming SD
 
 These fields MUST be exposed as direct properties of the error object using the language-idiomatic naming above. Implementations MAY additionally mirror the same fields under a `context` namespace (for example `error.context.keyId`) to interoperate with verifiers that expect a nested error envelope, provided the direct properties remain authoritative. Mirrored values MUST be byte-equal to the direct properties.
 
+A verifier that checks a request against the signer's Agent Card ([A2A Identity Composition Contract](RFC-001-A2A-Identity-Composition-Contract.md) §2) derives the reason of a signature that does not verify from the current DID document: `emergency_revoked` when the key carries `revoked`, `rotation_window_closed` when it carries only `deactivated`, `key_purpose_violation` when it is active but not under the required relationship, and `tampered` otherwise. The contract defines the signed card and the verifier-side reasons.
+
 The `assertKeyPurpose` helper is a membership-only predicate over the requested verification relationship and MUST NOT short-circuit on `keyAgreement`. The signing-purpose policy that rejects `keyAgreement` for signing flows lives in `assertSigningPurpose` (or the equivalent entry point) and is invoked by the SDK before `assertKeyPurpose` during signature verification.
 
 #### 6.2.1.2 Scope Boundary: Identity vs Decision Provenance
@@ -299,6 +310,8 @@ Documents created by the reference SDKs list the agent key under `authentication
 #### 6.2.2 Key Validity at a Stated Time
 
 A signed artifact can state when it was signed (for example `issued_at` in a delegation). That time is asserted by the signer: whoever holds a key, including a key that was later retired or compromised, can state any earlier time. A verifier that checks a signature against the DID state at a stated time MUST therefore evaluate it as follows, using a verified did:webvh log (§8.1 item 2):
+
+First, if any entry of the log gives the key a `revoked` time (§4.2), the key is **not authorized** (`key_revoked`) at every stated time, with or without time evidence: whoever holds a compromised key can sign anything, and evidence of when a signature existed does not tell the holder from a thief. Otherwise:
 
 1. The state at the stated time is the last log entry whose `versionTime` is not after it. If there is none, the key is **not authorized** (`did_not_yet_created`). If that entry deactivates the DID, the key is **not authorized** (`did_deactivated`).
 2. In that state the key MUST exist with a public key (`key_not_found`), MUST NOT carry a `deactivated` time (`key_deactivated`), and MUST be listed under the relationship §6.2.1.3 requires (`key_purpose_violation`). Otherwise it is **not authorized**. The log entry that gives a key a `deactivated` time retires it from that entry's `versionTime`. The `deactivated` time itself is not compared with the stated time: it is a document value, and it can be later than the `versionTime` of the entry that carries it. A stated time that is not an RFC 3339 date-time is **not authorized** (`invalid_stated_time`).
@@ -341,7 +354,7 @@ Update, key rotation and revocation (deactivation) change the identity that othe
 
 1. **`did:webvh`.** Every lifecycle operation MUST be a new log entry carrying a data-integrity proof made by a key that is in the `updateKeys` parameter in force **before** that entry. An implementation MUST NOT append, and a verifier MUST reject, an entry whose proof is missing, invalid, or made by any other key. Changing `updateKeys` is itself such an operation.
 2. **Signer supplied by the caller.** The implementation MUST obtain the signature from the controller's signer (an in-process key, KMS or HSM behind the signer abstraction). It MUST NOT sign lifecycle entries with a key derived from public data (the DID string, domain or SCID), and it MUST NOT accept a lifecycle request on the basis of the DID alone. Identities loaded from exported history carry no signer and MUST require one to be supplied per operation.
-3. **Rotation.** Entries are verified against the keys in force at their position in the log. Keys removed from `updateKeys` MUST NOT authorize later entries. A verification method deactivated by rotation remains in the document (§4.2), but MUST NOT be accepted for new signatures; a signature by it is checked at the time the artifact states (§6.2.2). It is removed from every verification relationship of the document that deactivates it, and a verifier MUST reject a key that carries a `deactivated` time even when a document still lists it.
+3. **Rotation.** Entries are verified against the keys in force at their position in the log. Keys removed from `updateKeys` MUST NOT authorize later entries. A verification method deactivated by rotation remains in the document (§4.2), but MUST NOT be accepted for new signatures; a signature by it is checked at the time the artifact states (§6.2.2). It is removed from every verification relationship of the document that deactivates it, and a verifier MUST reject a key that carries a `deactivated` time even when a document still lists it. A controller MAY retire one key and keep the others (a planned rotation adds the new key first, so both are listed for an overlap, then retires the old one); an implementation MUST NOT retire the last `authentication` or `assertionMethod` key that way, since rotation or revocation of the DID covers that case. An **emergency** retirement also sets `revoked` (§4.2) on the key, and MAY be applied to a key that is already retired; a rotation MAY be an emergency one, which revokes every key it retires.
 4. **Revocation is final.** After a `deactivated: true` entry the DID MUST resolve as deactivated, no further entries are valid, and all subsequent verifications that depend on it MUST fail (§6.4). The log is authoritative: a registry or cache entry MUST NOT be used to reinstate a DID whose log is deactivated. A client that holds a `did:webvh` log for a DID MUST NOT replace it with a log that is not an extension of it (an older prefix or a different history), and MUST NOT resolve the DID from an older prefix of it; a fetched log that is a prefix of the held one never rolls the DID back, and one that diverges is an integrity failure. A resolver MUST NOT answer for a `did:webvh` DID from another source when its log cannot be fetched.
 5. **Other DID methods.** Compatibility profiles MUST provide an equivalent: a lifecycle change is accepted only with proof of control by a key that the method designates as authorized for that change.
 6. **Callers.** Whether a particular party may *ask* an implementation to perform a lifecycle operation is a deployment decision. The SDK enforces the cryptographic rule above; it does not replace access control around the signer.
@@ -404,7 +417,9 @@ Conventions the shared vectors rely on, stated here so that an independent imple
 | Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime })`, `checkDidWebvhKeyAtTime(log, ...)`. `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted a retired key without any time check |
 | Agent Metadata Credential (4.4) | `AgentDidClient.issueAgentMetadataCredential(params)` / `verifyAgentMetadataCredential(credential)`; Python `issue_agent_metadata_credential` / `verify_agent_metadata_credential` |
 | Document Evolution (6.3) | `updateDidDocument(did, patch)` |
-| Key Rotation (8.2) | `rotateVerificationMethod(did)` — marks old keys as `deactivated` |
+| Key Rotation (8.2) | `rotateVerificationMethod(did, { emergency })` — marks old keys as `deactivated` (and `revoked` with `emergency`) |
+| Single-Key Retirement (6.6 item 3) | `AgentDidClient.retireVerificationMethod(did, keyId, { emergency })` / Python `retire_verification_method` |
+| Identity Composition (6.2.1.1) | `signAgentCard(card, signer, keyId)`, `AgentDidClient.verifyAgentCard(card)` / `verifyIdentityComposition({ ...request, agentCard })`; Python `sign_agent_card`, `verify_agent_card`, `verify_identity_composition` |
 | Revocation (6.4) | `revokeDid(did)` |
 | Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
 | Optional EVM Integration (5.3) | `@agentdid/evm` / `agent-did-evm` (`EvmAgentRegistry`), in `edisonduran/agent-did-evm` |

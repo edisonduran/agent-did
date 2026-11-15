@@ -87,6 +87,27 @@ async function main() {
       console.error(`document #${index} (${doc.id}): ${error.message}${error.details ? ' ' + JSON.stringify(error.details) : ''}`);
     }
   }
+  // Documents with a revoked key (composition contract): the inline `revoked` term must expand to the security
+  // vocabulary. Only the documents the guard accepts are checked.
+  const composition = JSON.parse(fs.readFileSync(path.join(root, 'fixtures', 'composition-contract-vectors.json'), 'utf8'));
+  const compositionDocuments = [
+    ...composition.documents.filter((vector) => vector.valid).map((vector) => vector.document),
+    ...composition.reasons.map((vector) => vector.document)
+  ];
+  for (const doc of compositionDocuments) {
+    try {
+      const expanded = await jsonld.expand(doc, { documentLoader, safe: true });
+      const methods = expanded[0]['https://w3id.org/security#verificationMethod'] || [];
+      const revoked = doc.verificationMethod.filter((method) => method.revoked !== undefined).length;
+      const expandedRevoked = methods.filter((method) => method['https://w3id.org/security#revoked']).length;
+      if (expandedRevoked !== revoked) {
+        throw new Error(`${revoked} revoked keys, ${expandedRevoked} expanded with https://w3id.org/security#revoked`);
+      }
+    } catch (error) {
+      failures += 1;
+      console.error(`composition document (${doc.id}): ${error.message}${error.details ? ' ' + JSON.stringify(error.details) : ''}`);
+    }
+  }
   // AgentMetadataCredential (RFC-001 §4.4): VC 2.0 context + this context + the inline credential type term.
   const credentials = [
     JSON.parse(fs.readFileSync(path.join(root, 'fixtures', 'agent-metadata-credential-vectors.json'), 'utf8')).credential
