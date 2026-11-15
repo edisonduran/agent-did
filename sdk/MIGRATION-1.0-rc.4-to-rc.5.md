@@ -257,6 +257,20 @@ client.useProductionResolverFromHttp({ registry, resolutionLimits: { allowedHost
 - Path segments equal to `.` or `..` after decoding are rejected. Other path segments are re-encoded keeping only `A-Z a-z 0-9 - . _ ~`, so `!`, `'`, `(`, `)` and `*` are now sent percent-encoded (TypeScript sent them as they were). The host is lowercased and port 443 is dropped from the URL.
 
 
+## 28. Bounded fetch queue in the universal resolver
+
+- At most 64 did:webvh / did:wba fetches wait for a slot (`maxQueuedFetches`); a resolution that would wait beyond that fails at once with "too many DID fetches are waiting". Such a refusal is not remembered, so a retry fetches.
+- At most 4 fetches run at once for one host name (`maxConcurrentFetchesPerHost`). A service that resolves many uncached DIDs on one host at the same time (a burst of new agents of one provider) sees the others wait; raise the limit for hosts you trust.
+- The wait and the fetch together must finish within 15 s (`fetchDeadlineMs`). Keep it above the document source timeout (`httpSecurity.timeoutMs`, default 10 s), or a slow but healthy host fails at the deadline.
+
+```ts
+client.useProductionResolverFromHttp({
+  registry,
+  resolutionLimits: { maxConcurrentFetchesPerHost: 16, maxQueuedFetches: 256, fetchDeadlineMs: 30_000 }
+});
+```
+
+
 ## 30. Integrations share the SDK's sanitizer and target policy
 
 - Integration events are sanitized by the SDK's `sanitizeObservabilityAttributes`. A redacted value is always `{"redacted": true, "length": n}`, also for sensitive headers (they were the string `"<redacted>"` in some integrations). Log parsers or alerts that matched `"<redacted>"` must match the marker.
