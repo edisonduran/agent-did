@@ -37,6 +37,11 @@ export interface ParsedAgentCard {
 /** The DID of a DID URL with a non-empty fragment and nothing else (`did:method:id#fragment`), else `undefined`. */
 export declare function didOfKeyId(keyId: unknown): string | undefined;
 /**
+ * The JWS payload of a card signature: base64url of the RFC 8785 form of the card without `signatures` and without
+ * the A2A 1.0 default values (§8.4.1).
+ */
+export declare function agentCardSigningPayload(card: Record<string, unknown>): string;
+/**
  * Returns a copy of `card` with one more `signatures` entry, signed by `signer` as `keyId` (a DID URL of an
  * `assertionMethod` key of the agent). Signatures already on the card are kept and are not covered.
  */

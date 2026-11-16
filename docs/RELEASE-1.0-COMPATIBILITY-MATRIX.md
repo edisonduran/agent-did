@@ -22,6 +22,7 @@ The compatibility story is intentionally limited to the co-versioned web-native 
 - `agent-did-semantic-kernel`
 - `agent-did-microsoft-agent-framework`
 - `agent-did-a2a`
+- `agent-did-mcp` (new in `1.0.0-rc.5`, Python 3.11+)
 
 EVM/on-chain/contracts material is **not** part of the core `v1.0.0` compatibility surface.
 
@@ -39,16 +40,17 @@ The release train uses three compatibility relationships:
 
 ## 3. Package x Package View
 
-| Package | TS SDK | Python SDK | JS LangChain | Py LangChain | CrewAI | Semantic Kernel | Microsoft Agent Framework | A2A |
-|---|---|---|---|---|---|---|---|---|
-| `@agentdid/sdk` | self | I | D | I | I | I | I | I |
-| `agent-did-sdk` | I | self | I | D | D | D | D | D |
-| `@agentdid/langchain` | D | I | self | C | C | C | C | C |
-| `agent-did-langchain` | I | D | C | self | C | C | C | C |
-| `agent-did-crewai` | I | D | C | C | self | C | C | C |
-| `agent-did-semantic-kernel` | I | D | C | C | C | self | C | C |
-| `agent-did-microsoft-agent-framework` | I | D | C | C | C | C | self | C |
-| `agent-did-a2a` | I | D | C | C | C | C | C | self |
+| Package | TS SDK | Python SDK | JS LangChain | Py LangChain | CrewAI | Semantic Kernel | Microsoft Agent Framework | A2A | MCP |
+|---|---|---|---|---|---|---|---|---|---|
+| `@agentdid/sdk` | self | I | D | I | I | I | I | I | I |
+| `agent-did-sdk` | I | self | I | D | D | D | D | D | D |
+| `@agentdid/langchain` | D | I | self | C | C | C | C | C | C |
+| `agent-did-langchain` | I | D | C | self | C | C | C | C | C |
+| `agent-did-crewai` | I | D | C | C | self | C | C | C | C |
+| `agent-did-semantic-kernel` | I | D | C | C | C | self | C | C | C |
+| `agent-did-microsoft-agent-framework` | I | D | C | C | C | C | self | C | C |
+| `agent-did-a2a` | I | D | C | C | C | C | C | self | C |
+| `agent-did-mcp` | I | D | C | C | C | C | C | C | self |
 
 ---
 
@@ -81,6 +83,7 @@ Reading the table:
 | `agent-did-semantic-kernel` | PyPI / Python integration | Builds directly on `agent-did-sdk` | [integrations/semantic-kernel/pyproject.toml](../integrations/semantic-kernel/pyproject.toml), `.github/workflows/ci-semantic-kernel.yml` |
 | `agent-did-microsoft-agent-framework` | PyPI / Python integration | Builds directly on `agent-did-sdk` | [integrations/microsoft-agent-framework/pyproject.toml](../integrations/microsoft-agent-framework/pyproject.toml), `.github/workflows/ci-microsoft-agent-framework.yml` |
 | `agent-did-a2a` | PyPI / Python integration | Builds directly on `agent-did-sdk` | [integrations/a2a/pyproject.toml](../integrations/a2a/pyproject.toml), `.github/workflows/ci-a2a.yml` |
+| `agent-did-mcp` | PyPI / Python integration (3.11+) | Builds directly on `agent-did-sdk` and the `mcp` 2.x SDK | [integrations/mcp/pyproject.toml](../integrations/mcp/pyproject.toml), `.github/workflows/ci-mcp.yml` |
 
 ---
 

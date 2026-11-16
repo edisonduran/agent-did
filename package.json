@@ -37,6 +37,7 @@
     "python:install-dev": "cd sdk-python && python -m pip install -e \".[dev]\"",
     "python:test": "cd sdk-python && python -m pytest tests/ -v --tb=short",
     "python:conformance": "cd sdk-python && python scripts/conformance_rfc001.py",
+    "test:mcp": "python -c \"import sys, pytest; sys.path[:0]=['sdk-python/src','integrations/mcp/src']; raise SystemExit(pytest.main(['integrations/mcp/tests','-q']))\"",
     "test:a2a": "python -c \"import sys, pytest; sys.path[:0]=['sdk-python/src','integrations/a2a/src']; raise SystemExit(pytest.main(['integrations/a2a/tests','-q']))\"",
     "test:crewai": "python -c \"import sys, pytest; sys.path[:0]=['sdk-python/src','integrations/crewai/src']; raise SystemExit(pytest.main(['integrations/crewai/tests','-q']))\"",
     "test:crewai-runtime": "python -c \"import sys, pytest; sys.path[:0]=['sdk-python/src','integrations/crewai/src']; raise SystemExit(pytest.main(['integrations/crewai/tests/test_runtime_smoke.py','-q']))\"",

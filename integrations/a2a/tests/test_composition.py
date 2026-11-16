@@ -15,11 +15,12 @@ from agent_did_sdk import (
     parse_signed_agent_card,
 )
 
-from agent_did_a2a import create_agent_did_a2a_integration
+from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration, text_message
 from agent_did_a2a.integration import AgentDidA2AIntegration
 
 AGENT_URL = "https://agents.example.com/cardbot"
 TARGET = "https://remote-agent.example.com/a2a"
+SKILLS = [A2ASkill(id="cards", name="Cards", description="Answers questions about cards", tags=["cards"])]
 
 
 async def _integration() -> tuple[AgentIdentity, AgentDidA2AIntegration]:
@@ -32,16 +33,14 @@ async def _integration() -> tuple[AgentIdentity, AgentDidA2AIntegration]:
 
 
 async def _signed_task(integration: AgentDidA2AIntegration) -> dict[str, Any]:
-    signed = await integration.send_task(
-        target_url=TARGET, request_id=1, task_id="t-1", message={"role": "user", "parts": []}
-    )
+    signed = await integration.send_message(target_url=TARGET, request_id=1, message=text_message("hi"))
     return {"method": signed.method, "url": signed.url, "headers": signed.headers, "body": signed.body}
 
 
 @pytest.mark.asyncio
 async def test_signed_card_publishes_the_did_and_the_signing_key() -> None:
     _, integration = await _integration()
-    card = await integration.signed_agent_card_json(agent_url=AGENT_URL)
+    card = await integration.signed_agent_card_json(agent_url=AGENT_URL, skills=SKILLS)
     did = integration.runtime_identity.document.id
     parsed = parse_signed_agent_card(card)
     assert parsed is not None and parsed.did == did
@@ -54,7 +53,7 @@ async def test_signed_card_publishes_the_did_and_the_signing_key() -> None:
 @pytest.mark.asyncio
 async def test_a_request_verifies_against_the_senders_card() -> None:
     _, integration = await _integration()
-    card = await integration.signed_agent_card_json(agent_url=AGENT_URL)
+    card = await integration.signed_agent_card_json(agent_url=AGENT_URL, skills=SKILLS)
     result = await integration.verify_request_against_card(**await _signed_task(integration), agent_card=card)
     assert result.ok and result.did == integration.runtime_identity.document.id
 
@@ -62,7 +61,7 @@ async def test_a_request_verifies_against_the_senders_card() -> None:
 @pytest.mark.asyncio
 async def test_a_changed_card_is_tampered_and_a_retired_key_is_rotation_window_closed() -> None:
     identity, integration = await _integration()
-    card = await integration.signed_agent_card_json(agent_url=AGENT_URL)
+    card = await integration.signed_agent_card_json(agent_url=AGENT_URL, skills=SKILLS)
     tampered = await integration.verify_request_against_card(
         **await _signed_task(integration), agent_card={**card, "name": "Impostor"}
     )

@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from agent_did_sdk.core.agent_card import parse_signed_agent_card, sign_agent_card
+from agent_did_sdk.core.agent_card import agent_card_signing_payload, parse_signed_agent_card, sign_agent_card
 from agent_did_sdk.core.identity_composition import composition_reason_for_key
 from agent_did_sdk.core.signer import LocalKeySigner
 from agent_did_sdk.core.types import AgentDIDDocument
@@ -62,6 +62,11 @@ async def test_signs_the_card_byte_for_byte() -> None:
 def test_card(vector: dict[str, Any]) -> None:
     expected = {name: value for name, value in vector.items() if name not in ("name", "card")}
     assert _card_outcome(vector["card"]) == expected
+
+
+@pytest.mark.parametrize("vector", _VECTORS["payloads"], ids=lambda v: v["name"])
+def test_payload(vector: dict[str, Any]) -> None:
+    assert agent_card_signing_payload(vector["card"]) == vector["payload"]
 
 
 @pytest.mark.parametrize("vector", _VECTORS["documents"], ids=lambda v: v["name"])

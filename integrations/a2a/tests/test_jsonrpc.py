@@ -6,48 +6,78 @@ import json
 
 import pytest
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
+from pydantic import ValidationError
 
 from agent_did_a2a.jsonrpc import (
+    A2AMessage,
+    A2APart,
+    A2ATask,
     JsonRpcRequest,
     JsonRpcResponse,
-    build_task_get_request,
-    build_task_send_request,
+    build_get_task_request,
+    build_send_message_request,
     parse_jsonrpc_response,
+    parse_send_message_result,
     sign_a2a_request,
+    text_message,
 )
 
 
-def test_build_task_send_request() -> None:
-    request = build_task_send_request(
-        request_id=1,
-        task_id="task-001",
-        message={"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
-        session_id="session-abc",
+def test_build_send_message_request() -> None:
+    message = text_message("Hello", message_id="m-1", context_id="ctx-1")
+    request = build_send_message_request(
+        request_id=1, message=message, configuration={"historyLength": 2}, tenant="t1"
     )
 
     assert request.jsonrpc == "2.0"
     assert request.id == 1
-    assert request.method == "tasks/send"
-    assert request.params["id"] == "task-001"
-    assert request.params["sessionId"] == "session-abc"
-    assert request.params["message"]["role"] == "user"
+    assert request.method == "SendMessage"
+    assert request.params == {
+        "message": {"messageId": "m-1", "contextId": "ctx-1", "role": "ROLE_USER", "parts": [{"text": "Hello"}]},
+        "tenant": "t1",
+        "configuration": {"historyLength": 2},
+    }
 
 
-def test_build_task_send_request_without_session() -> None:
-    request = build_task_send_request(
-        request_id="req-2",
-        task_id="task-002",
-        message={"role": "user", "parts": [{"type": "text", "text": "Hi"}]},
+def test_build_send_message_request_minimal() -> None:
+    request = build_send_message_request(request_id="req-2", message=text_message("Hi"))
+
+    assert set(request.params) == {"message"}
+    assert request.params["message"]["messageId"]
+
+
+def test_build_get_task_request() -> None:
+    request = build_get_task_request(request_id=3, task_id="task-003", history_length=10)
+
+    assert request.method == "GetTask"
+    assert request.params == {"id": "task-003", "historyLength": 10}
+
+
+def test_a_part_has_exactly_one_content() -> None:
+    with pytest.raises(ValidationError):
+        A2APart()
+    with pytest.raises(ValidationError):
+        A2APart(text="a", url="https://example.com/x")
+    assert A2APart(data={"k": 1}, media_type="application/json").to_json() == {
+        "data": {"k": 1},
+        "mediaType": "application/json",
+    }
+
+
+def test_parse_send_message_result() -> None:
+    task = parse_send_message_result(
+        {"task": {"id": "t", "contextId": "c", "status": {"state": "TASK_STATE_COMPLETED"}, "newField": 1}}
     )
-
-    assert "sessionId" not in request.params
-
-
-def test_build_task_get_request() -> None:
-    request = build_task_get_request(request_id=3, task_id="task-003")
-
-    assert request.method == "tasks/get"
-    assert request.params["id"] == "task-003"
+    assert isinstance(task, A2ATask)
+    assert task.status.state == "TASK_STATE_COMPLETED"
+    assert task.context_id == "c"
+    message = parse_send_message_result(
+        {"message": {"messageId": "m", "role": "ROLE_AGENT", "parts": [{"text": "done"}]}}
+    )
+    assert isinstance(message, A2AMessage)
+    assert message.parts[0].text == "done"
+    with pytest.raises(ValueError):
+        parse_send_message_result({})
 
 
 def test_parse_jsonrpc_response_from_dict() -> None:
@@ -72,12 +102,12 @@ def test_parse_jsonrpc_response_from_string() -> None:
 
 
 def test_jsonrpc_request_serialization() -> None:
-    request = JsonRpcRequest(id=42, method="tasks/send", params={"id": "t1"})
+    request = JsonRpcRequest(id=42, method="SendMessage", params={"message": {}})
     data = json.loads(request.model_dump_json())
 
     assert data["jsonrpc"] == "2.0"
     assert data["id"] == 42
-    assert data["method"] == "tasks/send"
+    assert data["method"] == "SendMessage"
 
 
 @pytest.mark.asyncio
@@ -88,11 +118,7 @@ async def test_sign_a2a_request_produces_signed_headers() -> None:
         CreateAgentParams(name="SignBot", core_model="gpt-4.1-mini", system_prompt="sign test")
     )
 
-    request = build_task_send_request(
-        request_id=1,
-        task_id="task-sign-001",
-        message={"role": "user", "parts": [{"type": "text", "text": "Test"}]},
-    )
+    request = build_send_message_request(request_id=1, message=text_message("Test"))
 
     signed = await sign_a2a_request(
         agent_identity=identity,
@@ -110,10 +136,12 @@ async def test_sign_a2a_request_produces_signed_headers() -> None:
     header_keys_lower = {k.lower() for k in signed.headers}
     assert "signature" in header_keys_lower
     assert "signature-input" in header_keys_lower
+    assert signed.headers["a2a-version"] == "1.0"
+    assert signed.headers["a2a-extensions"] == "https://agent-did.org/a2a/identity/v1"
 
     # Body should be valid JSON-RPC
     body_data = json.loads(signed.body)
-    assert body_data["method"] == "tasks/send"
+    assert body_data["method"] == "SendMessage"
 
 
 @pytest.mark.asyncio
@@ -151,9 +179,7 @@ async def test_verify_a2a_request_detailed_says_who_signed_and_applies_the_allow
     runtime_identity = await identity.create(
         CreateAgentParams(name="A2ASender", core_model="gpt-4.1-mini", system_prompt="verify test")
     )
-    request = build_task_send_request(
-        request_id=1, task_id="task-verify-001", message={"role": "user", "parts": [{"type": "text", "text": "Hi"}]}
-    )
+    request = build_send_message_request(request_id=1, message=text_message("Hi"))
     signed = await sign_a2a_request(
         agent_identity=identity,
         runtime_identity=runtime_identity,

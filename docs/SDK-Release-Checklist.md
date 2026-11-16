@@ -12,7 +12,7 @@ Release-train publication prerequisites:
 
 - npm Trusted Publishing for `@agentdid/sdk` and `@agentdid/langchain` points at `publish-release-train.yml`; the workflow runs on Node 24 and upgrades npm to `>=11.5.1`, which OIDC trusted publishing requires.
 - Each npm package declares `repository` metadata matching this GitHub repository, otherwise npm provenance is rejected.
-- Each PyPI package has its own GitHub environment (`pypi-agent-did-sdk`, `pypi-agent-did-langchain`, `pypi-agent-did-crewai`, `pypi-agent-did-semantic-kernel`, `pypi-agent-did-microsoft-agent-framework`, `pypi-agent-did-a2a`) and a matching PyPI trusted publisher. PyPI rejects a pending publisher whose owner/repo/workflow/environment is already registered for another project.
+- Each PyPI package has its own GitHub environment (`pypi-agent-did-sdk`, `pypi-agent-did-langchain`, `pypi-agent-did-crewai`, `pypi-agent-did-semantic-kernel`, `pypi-agent-did-microsoft-agent-framework`, `pypi-agent-did-a2a`, `pypi-agent-did-mcp`) and a matching PyPI trusted publisher. A new package (`agent-did-mcp` in rc.5) needs its environment and a pending publisher on PyPI before its first release. PyPI rejects a pending publisher whose owner/repo/workflow/environment is already registered for another project.
 
 This checklist is intended for:
 

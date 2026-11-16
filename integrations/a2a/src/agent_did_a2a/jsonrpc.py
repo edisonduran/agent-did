@@ -1,18 +1,22 @@
-"""JSON-RPC 2.0 message types and DID-based signing for A2A protocol messages.
+"""A2A 1.0 JSON-RPC binding (§9) and DID-based signing of A2A requests.
 
-A2A uses JSON-RPC 2.0 over HTTPS for task-oriented communication.
 This module provides:
-  - Pydantic models for JSON-RPC requests and responses
-  - Signing of outgoing requests using Agent-DID HTTP Signatures
+  - Pydantic models for JSON-RPC 2.0 envelopes and the A2A 1.0 objects a client sends and reads (``Message``,
+    ``Part``, ``Task``), with the A2A JSON names (lowerCamelCase, ``ROLE_USER``, ``TASK_STATE_COMPLETED``)
+  - Builders for ``SendMessage`` and ``GetTask``
+  - Signing of outgoing requests with Agent-DID HTTP Message Signatures, with the ``A2A-Version`` and
+    ``A2A-Extensions`` service parameters (§9.2)
   - Verification of incoming signed requests
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any
+import uuid
+from typing import Any, Literal
 
 from agent_did_sdk import (
+    AGENT_DID_A2A_EXTENSION_URI,
     AgentIdentity,
     HttpTargetValidationOptions,
     SignHttpRequestParams,
@@ -24,8 +28,10 @@ from agent_did_sdk.core.types import (
     VerifyIdentityCompositionParams,
     VerifyIdentityCompositionResult,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
 
+from .agent_card import A2A_PROTOCOL_VERSION
 from .snapshot import RuntimeIdentity, get_active_signing_key_id, runtime_signing_params
 
 # --- JSON-RPC 2.0 Models ---
@@ -48,7 +54,7 @@ class JsonRpcResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jsonrpc: str = "2.0"
-    id: str | int
+    id: str | int | None
     result: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
 
@@ -63,29 +69,84 @@ class JsonRpcError(BaseModel):
     data: Any | None = None
 
 
-# --- A2A Task Models ---
+# --- A2A 1.0 objects ---
 
 
-class A2ATaskSendParams(BaseModel):
-    """Parameters for tasks/send method."""
+class _A2AObject(BaseModel):
+    """A2A 1.0 JSON: lowerCamelCase names; members a newer A2A version adds are kept (§5.7: ignore unrecognized)."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
+
+    def to_json(self) -> dict[str, Any]:
+        return self.model_dump(by_alias=True, exclude_none=True)
+
+
+class A2APart(_A2AObject):
+    """A ``Part``: exactly one of ``text``, ``raw`` (base64), ``url`` or ``data``."""
+
+    text: str | None = None
+    raw: str | None = None
+    url: str | None = None
+    data: Any | None = None
+    metadata: dict[str, Any] | None = None
+    filename: str | None = None
+    media_type: str | None = None
+
+    @model_validator(mode="after")
+    def _one_content(self) -> A2APart:
+        if sum(value is not None for value in (self.text, self.raw, self.url, self.data)) != 1:
+            raise ValueError("A Part has exactly one of text, raw, url or data")
+        return self
+
+
+class A2AMessage(_A2AObject):
+    """A ``Message``."""
+
+    message_id: str
+    context_id: str | None = None
+    task_id: str | None = None
+    role: Literal["ROLE_USER", "ROLE_AGENT"]
+    parts: list[A2APart] = Field(min_length=1)
+    metadata: dict[str, Any] | None = None
+    extensions: list[str] | None = None
+    reference_task_ids: list[str] | None = None
+
+
+class A2ATaskStatus(_A2AObject):
+    """A ``TaskStatus``: ``state`` is a ``TaskState`` name such as ``TASK_STATE_COMPLETED``."""
+
+    state: str
+    message: A2AMessage | None = None
+    timestamp: str | None = None
+
+
+class A2ATask(_A2AObject):
+    """A ``Task``."""
 
     id: str
-    message: dict[str, Any]
-    session_id: str | None = None
-    history_length: int | None = None
-
-
-class A2ATaskStatus(BaseModel):
-    """A2A task status returned by the remote agent."""
-
-    model_config = ConfigDict(extra="allow")
-
-    id: str
-    status: str
-    message: dict[str, Any] | None = None
+    context_id: str | None = None
+    status: A2ATaskStatus
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    history: list[A2AMessage] = Field(default_factory=list)
+    metadata: dict[str, Any] | None = None
+
+
+def text_message(
+    text: str,
+    *,
+    role: Literal["ROLE_USER", "ROLE_AGENT"] = "ROLE_USER",
+    message_id: str | None = None,
+    context_id: str | None = None,
+    task_id: str | None = None,
+) -> A2AMessage:
+    """A one-part text ``Message`` (a random ``messageId`` unless given)."""
+    return A2AMessage(
+        message_id=message_id or str(uuid.uuid4()),
+        role=role,
+        parts=[A2APart(text=text)],
+        context_id=context_id,
+        task_id=task_id,
+    )
 
 
 # --- Signing / Verification ---
@@ -109,11 +170,13 @@ async def sign_a2a_request(
     target_url: str,
     jsonrpc_request: JsonRpcRequest,
     http_security: HttpTargetValidationOptions | None = None,
+    extensions: list[str] | None = None,
 ) -> SignedA2ARequest:
     """Sign an outgoing A2A JSON-RPC request using Agent-DID HTTP Signatures.
 
     Returns a ``SignedA2ARequest`` containing the target URL, HTTP method,
-    signed headers (including ``Signature`` and ``Signature-Input``), and
+    signed headers (including ``Signature``, ``Signature-Input`` and ``Agent-DID``), the A2A service parameters
+    ``A2A-Version: 1.0`` and ``A2A-Extensions`` (the Agent-DID extension, then *extensions*), and
     the serialized JSON body. The target must pass the SDK's HTTP target policy;
     ``http_security=HttpTargetValidationOptions(allow_private_targets=True)`` allows
     non-global targets (development only).
@@ -139,8 +202,13 @@ async def sign_a2a_request(
         )
     )
 
-    # Merge the base content-type header with the signature headers
-    merged_headers = {"content-type": "application/json", **signed_headers}
+    activated = list(dict.fromkeys([AGENT_DID_A2A_EXTENSION_URI, *(extensions or [])]))
+    merged_headers = {
+        "content-type": "application/json",
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "a2a-extensions": ",".join(activated),
+        **signed_headers,
+    }
 
     return SignedA2ARequest(
         url=target_url,
@@ -243,37 +311,41 @@ async def verify_a2a_request(
     return result.ok
 
 
-def build_task_send_request(
+def build_send_message_request(
+    *,
+    request_id: str | int,
+    message: A2AMessage,
+    configuration: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+    tenant: str | None = None,
+) -> JsonRpcRequest:
+    """Build a ``SendMessage`` request (A2A 1.0 §9.4.1); *configuration* is a ``SendMessageConfiguration`` as JSON."""
+
+    params: dict[str, Any] = {"message": message.to_json()}
+    if tenant:
+        params["tenant"] = tenant
+    if configuration is not None:
+        params["configuration"] = configuration
+    if metadata is not None:
+        params["metadata"] = metadata
+    return JsonRpcRequest(id=request_id, method="SendMessage", params=params)
+
+
+def build_get_task_request(
     *,
     request_id: str | int,
     task_id: str,
-    message: dict[str, Any],
-    session_id: str | None = None,
+    history_length: int | None = None,
+    tenant: str | None = None,
 ) -> JsonRpcRequest:
-    """Build a ``tasks/send`` JSON-RPC request."""
+    """Build a ``GetTask`` request (A2A 1.0 §9.4.3)."""
 
-    params: dict[str, Any] = {
-        "id": task_id,
-        "message": message,
-    }
-    if session_id is not None:
-        params["sessionId"] = session_id
-
-    return JsonRpcRequest(
-        id=request_id,
-        method="tasks/send",
-        params=params,
-    )
-
-
-def build_task_get_request(*, request_id: str | int, task_id: str) -> JsonRpcRequest:
-    """Build a ``tasks/get`` JSON-RPC request."""
-
-    return JsonRpcRequest(
-        id=request_id,
-        method="tasks/get",
-        params={"id": task_id},
-    )
+    params: dict[str, Any] = {"id": task_id}
+    if tenant:
+        params["tenant"] = tenant
+    if history_length is not None:
+        params["historyLength"] = history_length
+    return JsonRpcRequest(id=request_id, method="GetTask", params=params)
 
 
 def parse_jsonrpc_response(raw: str | bytes | dict[str, Any]) -> JsonRpcResponse:
@@ -285,3 +357,13 @@ def parse_jsonrpc_response(raw: str | bytes | dict[str, Any]) -> JsonRpcResponse
         data = raw
 
     return JsonRpcResponse(**data)
+
+
+def parse_send_message_result(result: dict[str, Any]) -> A2ATask | A2AMessage:
+    """The ``SendMessageResponse`` of a ``SendMessage`` result: a ``Task`` or a ``Message``."""
+
+    if "task" in result and "message" not in result:
+        return A2ATask.model_validate(result["task"])
+    if "message" in result and "task" not in result:
+        return A2AMessage.model_validate(result["message"])
+    raise ValueError("A SendMessage result has exactly one of task or message")

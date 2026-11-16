@@ -15,6 +15,7 @@
 [![CI — Semantic Kernel](https://github.com/edisonduran/agent-did/actions/workflows/ci-semantic-kernel.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-semantic-kernel.yml)
 [![CI — Microsoft Agent Framework](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-microsoft-agent-framework.yml)
 [![CI — Google A2A](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-a2a.yml)
+[![CI — MCP](https://github.com/edisonduran/agent-did/actions/workflows/ci-mcp.yml/badge.svg)](https://github.com/edisonduran/agent-did/actions/workflows/ci-mcp.yml)
 [![Release Candidate](https://img.shields.io/badge/status-1.0.0--rc.5-yellow)](docs/RELEASE-1.0-CRITERIA.md)
 [![External conformance](https://img.shields.io/badge/external%20conformance-see%20matrix-informational)](docs/External-Conformance-Matrix.md)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -40,7 +41,7 @@ Built on W3C DID and Verifiable Credentials, Agent-DID provides:
 
 - **A language-agnostic specification** ([RFC-001](docs/RFC-001-Agent-DID-Specification.md)) — checked against external vectors and independent implementations, see the [External Conformance Matrix](docs/External-Conformance-Matrix.md)
 - **TypeScript and Python SDKs** backed by dedicated CI, interoperability fixtures, and conformance checks
-- **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, Microsoft Agent Framework, and Google A2A
+- **Native integrations** for LangChain (JS + Python), CrewAI, Semantic Kernel, Microsoft Agent Framework, A2A 1.0, and MCP (Python)
 - **A web-native deployment model** — `did:webvh` for canonical agent/controller identity, verifiable history, and recursive controller validation
 
 ---
@@ -189,7 +190,8 @@ The deferred EVM/on-chain profile is not part of the core `1.0.0` release. Its `
 - Semantic Kernel: functional Python integration with tools, session-context helpers, middleware-style identity injection and sanitized observability in [integrations/semantic-kernel/README.md](integrations/semantic-kernel/README.md), roadmap item F2-04
 - CrewAI: functional Python integration with callbacks, guardrails, structured outputs and runtime smoke coverage in [integrations/crewai/README.md](integrations/crewai/README.md), roadmap item F2-05
 - Microsoft Agent Framework: functional Python integration with native `Agent`/`tool(...)` wiring, `WorkflowBuilder` helpers, advanced orchestration coverage and sanitized observability in [integrations/microsoft-agent-framework/README.md](integrations/microsoft-agent-framework/README.md), roadmap item F2-09
-- Google A2A: functional Python proof-of-concept with DID-enriched AgentCards, JSON-RPC request signing, mutual DID-based authentication and sanitized observability in [integrations/a2a/README.md](integrations/a2a/README.md), roadmap item F2-02
+- A2A 1.0: functional Python integration with signed A2A 1.0 Agent Cards (Agent-DID extension; card signatures cross-checked with the official `a2a-sdk`), `SendMessage` / `GetTask` request signing, verification against the sender's card and sanitized observability in [integrations/a2a/README.md](integrations/a2a/README.md), roadmap item F2-02
+- MCP: functional Python integration (3.11+, `mcp` 2.x) with OAuth client credentials using DID client assertions, signed MCP requests and a verifying ASGI middleware in [integrations/mcp/README.md](integrations/mcp/README.md), [ADR-008](docs/ADR-008-Delegation-OAuth-and-MCP.md)
 - Azure AI Agent Service: planned roadmap item F2-08
 
 Integrated `did:wba` demos are now available in both LangChain packages:
@@ -320,7 +322,8 @@ Current CI split in GitHub Actions:
 - `CI — CrewAI Integration`: dedicated validation for `integrations/crewai/`.
 - `CI — Semantic Kernel Integration`: dedicated validation for `integrations/semantic-kernel/`.
 - `CI — Microsoft Agent Framework Integration`: dedicated validation for `integrations/microsoft-agent-framework/`.
-- `CI — Google A2A Integration`: dedicated validation for `integrations/a2a/` with DID-enriched AgentCards, JSON-RPC signing, and mutual authentication tests.
+- `CI — Google A2A Integration`: dedicated validation for `integrations/a2a/` with A2A 1.0 Agent Cards, JSON-RPC signing, verification against signed cards and the `a2a-sdk` cross-check.
+- `CI — MCP Integration`: dedicated validation for `integrations/mcp/` with the official `mcp` client and server over Streamable HTTP.
 - `CI — Integration Governance`: validates the required parity/checklist artifacts that must stay aligned with supported integrations.
 - `CI — CycloneDX SBOM`: generates per-package SBOM artifacts for the core SDKs and shipped integrations, uploaded on each run as `sbom-*` workflow artifacts.
 

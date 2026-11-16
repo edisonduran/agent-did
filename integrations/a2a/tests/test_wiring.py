@@ -7,8 +7,10 @@ from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams,
 
 from agent_did_a2a import (
     PACKAGE_STATUS,
+    A2AAgentCapabilities,
     A2ASkill,
     create_agent_did_a2a_integration,
+    text_message,
 )
 from agent_did_a2a.config import AgentDidA2AConfig
 
@@ -56,19 +58,20 @@ async def test_build_agent_card_contains_did_identity() -> None:
     card = integration.build_agent_card(
         agent_url="https://agents.example.com/cardbot",
         skills=[
-            A2ASkill(id="gen-text", name="Generate Text", description="Generate text from a prompt"),
+            A2ASkill(id="gen-text", name="Generate Text", description="Generate text from a prompt", tags=["text"]),
         ],
-        capabilities={"streaming": True, "pushNotifications": False},
+        capabilities=A2AAgentCapabilities(streaming=True, push_notifications=False),
     )
 
-    assert card.did == runtime_identity.document.id
-    assert card.controller == runtime_identity.document.controller
-    assert card.url == "https://agents.example.com/cardbot"
+    extension = card.agent_did_extension()
+    assert extension is not None and extension.params is not None
+    assert extension.params["did"] == runtime_identity.document.id
+    assert extension.params["keyIds"] == runtime_identity.document.assertion_method
+    assert card.supported_interfaces[0].url == "https://agents.example.com/cardbot"
     assert card.name == "CardBot"
     assert len(card.skills) == 1
     assert card.skills[0].id == "gen-text"
-    assert "http-signature-did" in card.authentication.schemes
-    assert card.capabilities["streaming"] is True
+    assert card.capabilities.streaming is True
 
 
 @pytest.mark.asyncio
@@ -88,13 +91,16 @@ async def test_agent_card_json_serialization() -> None:
         runtime_identity=runtime_identity,
     )
 
-    card_json = integration.agent_card_json(agent_url="https://agents.example.com/jsonbot")
+    card_json = integration.agent_card_json(
+        agent_url="https://agents.example.com/jsonbot",
+        skills=[A2ASkill(id="json", name="JSON", description="Answers in JSON", tags=["json"])],
+    )
 
     assert isinstance(card_json, dict)
-    assert card_json["did"] == runtime_identity.document.id
     assert card_json["name"] == "JsonBot"
-    assert "authentication" in card_json
-    assert "http-signature-did" in card_json["authentication"]["schemes"]
+    assert card_json["capabilities"]["extensions"][0]["params"]["did"] == runtime_identity.document.id
+    assert card_json["supportedInterfaces"][0]["protocolVersion"] == "1.0"
+    assert "did" not in card_json and "authentication" not in card_json
 
 
 @pytest.mark.asyncio
@@ -140,13 +146,13 @@ async def test_disabled_operations_raise() -> None:
     )
 
     with pytest.raises(PermissionError, match="sign_requests"):
-        await integration.send_task(
-            target_url="https://remote-agent.example.com/a2a", request_id=1, task_id="t", message={}
+        await integration.send_message(
+            target_url="https://remote-agent.example.com/a2a", request_id=1, message=text_message("hi")
         )
     with pytest.raises(PermissionError, match="verify_requests"):
         await integration.verify_request(method="POST", url="https://me.example.com/a2a", headers={})
     with pytest.raises(PermissionError, match="enrich_agent_card"):
-        integration.build_agent_card(agent_url="https://me.example.com")
+        integration.build_agent_card(agent_url="https://me.example.com", skills=[])
 
 
 @pytest.mark.asyncio
@@ -156,14 +162,16 @@ async def test_private_targets_are_refused_unless_allowed() -> None:
         agent_identity=identity, runtime_identity=runtime_identity  # type: ignore[arg-type]
     )
     with pytest.raises(ValueError, match="Blocked request to private/reserved address"):
-        await default.send_task(target_url="http://127.0.0.1:8080/a2a", request_id=1, task_id="t", message={})
+        await default.send_message(target_url="http://127.0.0.1:8080/a2a", request_id=1, message=text_message("hi"))
 
     allowed = create_agent_did_a2a_integration(
         agent_identity=identity,
         runtime_identity=runtime_identity,  # type: ignore[arg-type]
         config=AgentDidA2AConfig(allow_private_network_targets=True),
     )
-    signed = await allowed.send_task(target_url="http://127.0.0.1:8080/a2a", request_id=1, task_id="t", message={})
+    signed = await allowed.send_message(
+        target_url="http://127.0.0.1:8080/a2a", request_id=1, message=text_message("hi")
+    )
     assert "Signature" in signed.headers
 
 

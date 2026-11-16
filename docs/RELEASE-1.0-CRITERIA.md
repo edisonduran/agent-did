@@ -26,6 +26,7 @@ The old path assumed `did:agent` might need to become a new DID method. That is 
 | `agent-did-semantic-kernel` | — | 1.0.0rc4 | 1.0.0 | PyPI |
 | `agent-did-microsoft-agent-framework` | — | 1.0.0rc4 | 1.0.0 | PyPI |
 | `agent-did-a2a` | — | 1.0.0rc4 | 1.0.0 | PyPI |
+| `agent-did-mcp` | — | — (new in rc.5) | 1.0.0 | PyPI |
 
 `@agentdid/evm` (`1.0.0-rc.4`) was also published from this repository, as an optional package outside the core `1.0.0` set. From `1.0.0-rc.5` it is released from [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) together with the Python adapter `agent-did-evm` (see section 2.4).
 

@@ -1,0 +1,76 @@
+name: CI — MCP Integration
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "integrations/mcp/**"
+      - "sdk-python/**"
+      - "package.json"
+      - ".github/workflows/ci-mcp.yml"
+  pull_request:
+    paths:
+      - "integrations/mcp/**"
+      - "sdk-python/**"
+      - "package.json"
+      - ".github/workflows/ci-mcp.yml"
+  workflow_dispatch:
+  # Daily run on main keeps the C-QA-8 green window evidence-based.
+  schedule:
+    - cron: '17 6 * * *'
+
+concurrency:
+  group: ci-mcp-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mcp:
+    name: MCP Python ${{ matrix.python-version }} - Validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install SDK Python in dev mode
+        working-directory: sdk-python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install MCP integration in dev mode
+        working-directory: integrations/mcp
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/mcp
+        run: python -m ruff check src/ tests/ examples/
+
+      - name: Type-check integration package
+        if: matrix.python-version == '3.12'
+        working-directory: integrations/mcp
+        run: python -m mypy src/
+
+      - name: Run integration tests (real mcp client and server, in process)
+        working-directory: integrations/mcp
+        run: python -m pytest tests/ -q
+
+      - name: Verify MCP public entrypoints
+        if: matrix.python-version == '3.12'
+        run: python -c "from agent_did_mcp import AgentDidMcpAuth, AgentDidSignatureMiddleware; print(AgentDidMcpAuth.__name__, AgentDidSignatureMiddleware.__name__)"

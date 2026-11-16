@@ -65,7 +65,7 @@ def test_sanitize_output_handles_lists() -> None:
 
 def test_jsonrpc_request_forbids_extra() -> None:
     with pytest.raises(ValidationError):
-        JsonRpcRequest(id=1, method="tasks/send", extra_field="bad")  # type: ignore[call-arg]
+        JsonRpcRequest(id=1, method="SendMessage", extra_field="bad")  # type: ignore[call-arg]
 
 
 def test_allow_private_network_defaults_false() -> None:

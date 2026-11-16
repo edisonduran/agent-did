@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-did-mcp"
+version = "1.0.0rc5"
+description = "Model Context Protocol (MCP) integration for Agent-DID: OAuth client assertions signed by the agent's DID key, HTTP Message Signatures on MCP requests and a verifying ASGI middleware."
+readme = "README.md"
+# mcp 2.x depends on httpx2, which requires Python 3.11
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [
+  { name = "Edison Munoz", email = "edison.munoz@agent-did.org" }
+]
+dependencies = [
+  "agent-did-sdk==1.0.0rc5",
+  "mcp>=2.3,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "pytest>=8.0,<10.0",
+  "pytest-asyncio>=0.23,<2.0",
+  "ruff>=0.4",
+  "mypy>=1.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+
+[tool.agent-did]
+status = "functional"
+roadmap = "ADR-008"
+implementation = "functional"

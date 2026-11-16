@@ -34,6 +34,7 @@ const PYTHON_PACKAGES = [
   'integrations/a2a/pyproject.toml',
   'integrations/crewai/pyproject.toml',
   'integrations/langchain-python/pyproject.toml',
+  'integrations/mcp/pyproject.toml',
   'integrations/microsoft-agent-framework/pyproject.toml',
   'integrations/semantic-kernel/pyproject.toml'
 ];
@@ -96,6 +97,7 @@ const LIVE_DOCS = [
   'sdk/README.md', 'sdk-python/README.md',
   'integrations/langchain/README.md', 'integrations/langchain-python/README.md', 'integrations/crewai/README.md',
   'integrations/semantic-kernel/README.md', 'integrations/microsoft-agent-framework/README.md', 'integrations/a2a/README.md',
+  'integrations/mcp/README.md',
   'docs/RELEASE-1.0-CRITERIA.md', 'docs/INDEX.md'
 ].filter((file) => fs.existsSync(path.join(root, file)));
 

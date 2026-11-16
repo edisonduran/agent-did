@@ -11,7 +11,7 @@ Maintainers may keep session-specific context in `CLAUDE.local.md`, which is git
 | `sdk/` | TypeScript SDK `@agentdid/sdk` (core: `src/core/AgentIdentity.ts`) |
 | `sdk-python/` | Python SDK `agent-did-sdk` (core: `src/agent_did_sdk/core/identity.py`) |
 | `integrations/langchain/` | LangChain **JS** (plain `.js`, not TS) |
-| `integrations/{langchain-python,crewai,semantic-kernel,microsoft-agent-framework,a2a}/` | Python integrations |
+| `integrations/{langchain-python,crewai,semantic-kernel,microsoft-agent-framework,a2a,mcp}/` | Python integrations (`mcp` needs Python 3.11+) |
 | `fixtures/interop-vectors.json` | Cross-SDK contract; both SDKs must verify it |
 | `scripts/` | Conformance (`conformance-rfc001.js`), smokes, governance checks |
 | `docs/` | RFC-001 (spec), release criteria, governance, F1-/F2- design docs |
@@ -40,7 +40,7 @@ npm run check:integration-governance
 
 # Integrations
 npm run test:langchain                     # builds sdk first
-npm run test:crewai | test:semantic-kernel | test:microsoft-agent-framework | test:a2a | test:langchain-python
+npm run test:crewai | test:semantic-kernel | test:microsoft-agent-framework | test:a2a | test:mcp | test:langchain-python
 ```
 
 Run a single test with `npm --prefix sdk test -- AgentIdentity.test.ts -t "name"` or `python -m pytest sdk-python/tests/test_identity.py -k name -q`.

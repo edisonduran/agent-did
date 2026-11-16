@@ -4,7 +4,12 @@ A card is signed as A2A 1.0 §8.4 describes: each entry of ``signatures`` is a J
 RFC 8785 (JCS) form of the card without ``signatures``. Agent-DID fixes the profile: protected header
 ``{"alg":"EdDSA","kid":"<DID URL>","typ":"JOSE"}``, an Ed25519 ``assertionMethod`` key of the agent DID as ``kid``.
 The keys a card publishes are the ``kid`` values of its signatures and the ``keyIds`` of the Agent-DID extension in
-``capabilities.extensions``. This is aligned with A2A 1.0, not verified against an independent implementation.
+``capabilities.extensions``.
+
+Before JCS, the payload drops the default values of the A2A 1.0 ``AgentCard`` fields (§8.4.1, Protocol Buffer field
+presence of ``specification/a2a.proto`` v1.0.1): a field that is neither ``REQUIRED`` nor ``optional`` is omitted when
+it holds its implicit default (``""``, ``false``, ``0``, an empty list or map). Members A2A 1.0 does not define, and the
+contents of ``params`` / ``header`` objects, are covered as they are.
 
 TypeScript parity: ``sdk/src/core/agent-card.ts``.
 """
@@ -79,9 +84,159 @@ def did_of_key_id(key_id: object) -> str | None:
     return match.group(1) if match else None
 
 
-def _card_payload(card: dict[str, Any]) -> str:
+# A2A 1.0 field presence (specification/a2a.proto v1.0.1), by JSON member name. Kinds: "required" (kept), "optional"
+# (``optional`` keyword: kept when present), "implicit" (scalar without presence: dropped when it is the default),
+# "repeated" (list or map: dropped when empty), "message" (singular message or oneof member: kept when present).
+_A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
+    "AgentCard": {
+        "name": ("required", None),
+        "description": ("required", None),
+        "supportedInterfaces": ("required", "AgentInterface"),
+        "provider": ("message", "AgentProvider"),
+        "version": ("required", None),
+        "documentationUrl": ("optional", None),
+        "capabilities": ("required", "AgentCapabilities"),
+        "securitySchemes": ("repeated", "map:SecurityScheme"),
+        "securityRequirements": ("repeated", "SecurityRequirement"),
+        "defaultInputModes": ("required", None),
+        "defaultOutputModes": ("required", None),
+        "skills": ("required", "AgentSkill"),
+        "iconUrl": ("optional", None),
+    },
+    "AgentInterface": {
+        "url": ("required", None),
+        "protocolBinding": ("required", None),
+        "tenant": ("implicit", None),
+        "protocolVersion": ("required", None),
+    },
+    "AgentProvider": {"url": ("required", None), "organization": ("required", None)},
+    "AgentCapabilities": {
+        "streaming": ("optional", None),
+        "pushNotifications": ("optional", None),
+        "extensions": ("repeated", "AgentExtension"),
+        "extendedAgentCard": ("optional", None),
+    },
+    "AgentExtension": {
+        "uri": ("implicit", None),
+        "description": ("implicit", None),
+        "required": ("implicit", None),
+        "params": ("message", None),
+    },
+    "AgentSkill": {
+        "id": ("required", None),
+        "name": ("required", None),
+        "description": ("required", None),
+        "tags": ("required", None),
+        "examples": ("repeated", None),
+        "inputModes": ("repeated", None),
+        "outputModes": ("repeated", None),
+        "securityRequirements": ("repeated", "SecurityRequirement"),
+    },
+    "SecurityRequirement": {"schemes": ("repeated", "map:StringList")},
+    "StringList": {"list": ("repeated", None)},
+    "SecurityScheme": {
+        "apiKeySecurityScheme": ("message", "APIKeySecurityScheme"),
+        "httpAuthSecurityScheme": ("message", "HTTPAuthSecurityScheme"),
+        "oauth2SecurityScheme": ("message", "OAuth2SecurityScheme"),
+        "openIdConnectSecurityScheme": ("message", "OpenIdConnectSecurityScheme"),
+        "mtlsSecurityScheme": ("message", "MutualTlsSecurityScheme"),
+    },
+    "APIKeySecurityScheme": {
+        "description": ("implicit", None),
+        "location": ("required", None),
+        "name": ("required", None),
+    },
+    "HTTPAuthSecurityScheme": {
+        "description": ("implicit", None),
+        "scheme": ("required", None),
+        "bearerFormat": ("implicit", None),
+    },
+    "OAuth2SecurityScheme": {
+        "description": ("implicit", None),
+        "flows": ("required", "OAuthFlows"),
+        "oauth2MetadataUrl": ("implicit", None),
+    },
+    "OpenIdConnectSecurityScheme": {"description": ("implicit", None), "openIdConnectUrl": ("required", None)},
+    "MutualTlsSecurityScheme": {"description": ("implicit", None)},
+    "OAuthFlows": {
+        "authorizationCode": ("message", "AuthorizationCodeOAuthFlow"),
+        "clientCredentials": ("message", "ClientCredentialsOAuthFlow"),
+        "implicit": ("message", "ImplicitOAuthFlow"),
+        "password": ("message", "PasswordOAuthFlow"),
+        "deviceCode": ("message", "DeviceCodeOAuthFlow"),
+    },
+    "AuthorizationCodeOAuthFlow": {
+        "authorizationUrl": ("required", None),
+        "tokenUrl": ("required", None),
+        "refreshUrl": ("implicit", None),
+        "scopes": ("required", None),
+        "pkceRequired": ("implicit", None),
+    },
+    "ClientCredentialsOAuthFlow": {
+        "tokenUrl": ("required", None),
+        "refreshUrl": ("implicit", None),
+        "scopes": ("required", None),
+    },
+    "ImplicitOAuthFlow": {
+        "authorizationUrl": ("implicit", None),
+        "refreshUrl": ("implicit", None),
+        "scopes": ("repeated", None),
+    },
+    "PasswordOAuthFlow": {
+        "tokenUrl": ("implicit", None),
+        "refreshUrl": ("implicit", None),
+        "scopes": ("repeated", None),
+    },
+    "DeviceCodeOAuthFlow": {
+        "deviceAuthorizationUrl": ("required", None),
+        "tokenUrl": ("required", None),
+        "refreshUrl": ("implicit", None),
+        "scopes": ("required", None),
+    },
+}
+
+
+def _is_implicit_default(value: object) -> bool:
+    if isinstance(value, bool):
+        return value is False
+    if isinstance(value, (int, float)):
+        return value == 0
+    return value == ""
+
+
+def _without_defaults(value: object, message: str | None) -> object:
+    """*value* with the A2A 1.0 default values removed, when it has the JSON type *message* describes."""
+    if message is None:
+        return value
+    if message.startswith("map:"):
+        if not isinstance(value, dict):
+            return value
+        return {key: _without_defaults(item, message[4:]) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_without_defaults(item, message) for item in value]
+    if not isinstance(value, dict):
+        return value
+    fields = _A2A_SCHEMA[message]
+    result: dict[str, Any] = {}
+    for name, item in value.items():
+        if name not in fields:
+            result[name] = item
+            continue
+        kind, child = fields[name]
+        if kind == "implicit" and _is_implicit_default(item):
+            continue
+        if kind == "repeated" and isinstance(item, (list, dict)) and not item:
+            continue
+        result[name] = _without_defaults(item, child)
+    return result
+
+
+def agent_card_signing_payload(card: dict[str, Any]) -> str:
+    """The JWS payload of a card signature: base64url of the RFC 8785 form of *card* without ``signatures`` and
+    without the A2A 1.0 default values (§8.4.1)."""
     unsigned = {name: value for name, value in card.items() if name != "signatures"}
-    return bytes_to_base64url(canonicalize_json(unsigned).encode("utf-8"))
+    payload = _without_defaults(unsigned, "AgentCard")
+    return bytes_to_base64url(canonicalize_json(payload).encode("utf-8"))
 
 
 async def sign_agent_card(card: dict[str, Any], signer: AgentSigner, key_id: str) -> dict[str, Any]:
@@ -97,7 +252,7 @@ async def sign_agent_card(card: dict[str, Any], signer: AgentSigner, key_id: str
     protected = bytes_to_base64url(
         canonicalize_json({"alg": AGENT_CARD_SIGNATURE_ALG, "kid": key_id, "typ": "JOSE"}).encode("utf-8")
     )
-    signing_input = f"{protected}.{_card_payload(card)}"
+    signing_input = f"{protected}.{agent_card_signing_payload(card)}"
     signature = bytes.fromhex(await signer.sign(signing_input.encode("utf-8")))
     signed = copy.deepcopy(card)
     entry = {"protected": protected, "signature": bytes_to_base64url(signature)}
@@ -150,7 +305,7 @@ def parse_signed_agent_card(card: object) -> ParsedAgentCard | None:
     if not isinstance(entries, list) or not entries or len(entries) > MAX_AGENT_CARD_SIGNATURES:
         return None
     try:
-        payload = _card_payload(card)
+        payload = agent_card_signing_payload(card)
     except (TypeError, ValueError, OverflowError):
         return None
     signatures: list[AgentCardSignatureEntry] = []
