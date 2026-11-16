@@ -1,4 +1,9 @@
-"""agent-did-sdk — Python SDK for the Agent-DID Specification (RFC-001)."""
+"""agent-did-sdk — Python SDK for the Agent-DID Specification (RFC-001).
+
+The public API is the set of names in ``__all__`` below. The submodules (``agent_did_sdk.core``,
+``agent_did_sdk.crypto``...) are internal and may change in any release: import from ``agent_did_sdk``.
+See ``docs/DEPRECATION-POLICY.md`` ("Public API Contract").
+"""
 
 from __future__ import annotations
 

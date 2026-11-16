@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 import secrets
 import time
 from collections.abc import Callable, Sequence
@@ -63,13 +64,16 @@ from agent_did_sdk import (
     VerifySignatureAtTimeResult,
     canonicalize_json,
 )
-from agent_did_sdk.core.nonce_store import NONCE_PATTERN
 from agent_framework import FunctionExecutor, WorkflowContext
 
 from .observability import AgentDidObserver
 from .snapshot import RuntimeIdentity, get_active_signing_key_id, runtime_signing_key
 
 _LOGGER = logging.getLogger(__name__)
+
+NONCE_PATTERN = re.compile(r"[A-Za-z0-9._~+/=-]{1,256}")
+"""Agent-DID nonce grammar (RFC-001 §6.5 item 3), for ``fullmatch``. Kept here because the SDK does not export it;
+``tests/test_verified_handoff.py`` checks that it matches the SDK's own pattern."""
 
 ActionClass = Literal["irreversible", "compensable", "reversible"]
 

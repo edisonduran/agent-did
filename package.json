@@ -65,6 +65,7 @@
     "check:version-consistency": "node scripts/check-version-consistency.js",
     "check:wire-freeze": "node scripts/check-wire-freeze.js",
     "check:integration-governance": "node scripts/check-integration-governance.js",
+    "check:public-api-imports": "node scripts/check-public-api-imports.js",
     "test:python": "npm run python:test"
   },
   "devDependencies": {

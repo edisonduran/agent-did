@@ -114,6 +114,23 @@ In those cases, maintainers will still document:
 
 Recent example: SDK signature verification now enforces DID verification-relationship binding by default. Agent payload and HTTP signatures require `assertionMethod`, and a key listed only under another relationship such as `keyAgreement` fails with `key_purpose_violation`. Documents that previously placed signing keys only in `authentication` should add the appropriate signing relationship.
 
+## Public API Contract
+
+The public contract that SemVer protects after `1.0.0` is exactly what follows. Everything else is internal and may change in any release, patch releases included.
+
+**TypeScript (`@agentdid/sdk`)**
+
+- Public: the names exported from the package entry point `@agentdid/sdk` (`sdk/src/index.ts`), listed in `sdk/public-api.snapshot.txt`, with the signatures in `sdk/public-api.signature.snapshot.txt`, including the non-`private` members of exported classes.
+- Internal: every other module of the package. `package.json` `exports` exposes only `.` and `./package.json`, so Node.js and bundlers refuse deep imports such as `@agentdid/sdk/dist/core/...` (`ERR_PACKAGE_PATH_NOT_EXPORTED`); `sdk/tests/PublicSurface.test.ts` keeps it that way. Names exported by a module but not by the entry point, and class members declared `private`, are internal too.
+- A symbol that the entry point has to export for technical reasons without making it part of the contract is marked `@internal` in its TSDoc. `1.0.0` has none.
+
+**Python (`agent-did-sdk`)**
+
+- Public: the names in `agent_did_sdk.__all__` (`sdk-python/src/agent_did_sdk/__init__.py`), listed in `sdk-python/public-api.snapshot.txt`, with the signatures in `sdk-python/public-api.signature.snapshot.txt`, including the attributes and methods of those classes whose names do not start with `_`.
+- Internal: the submodules (`agent_did_sdk.core`, `agent_did_sdk.crypto`, `agent_did_sdk.resolver` and so on), even though Python can import them, and every name that starts with `_`. Import public names from `agent_did_sdk`, not from the submodule that defines them.
+
+**Integrations and examples** in this repository use only these entry points. `scripts/check-public-api-imports.js` (workflow `CI — Public API Imports`) fails when code outside the tests imports an SDK submodule or a deep package path. Tests are exempt, because they check internals on purpose.
+
 ## What Counts as a Breaking Change
 
 The following should be treated as breaking unless explicitly documented otherwise:

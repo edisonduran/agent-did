@@ -21,12 +21,10 @@ from agent_did_sdk import (
     HttpTargetValidationOptions,
     SignHttpRequestParams,
     VerifyHttpRequestSignatureParams,
-    validate_http_target,
-)
-from agent_did_sdk.core.types import (
     VerifyHttpRequestSignatureResult,
     VerifyIdentityCompositionParams,
     VerifyIdentityCompositionResult,
+    validate_http_target,
 )
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
