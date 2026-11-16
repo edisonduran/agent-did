@@ -15,6 +15,6 @@ module.exports = {
     },
   },
   transformIgnorePatterns: [
-    "node_modules/(?!@noble/curves|@noble/hashes)"
+    "node_modules/(?!@noble/curves|@noble/hashes|jose)"
   ]
 };

@@ -51,6 +51,12 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # pkijs 4 / asn1js 4 are ESM-only: `require("@agentdid/sdk")` would load ES modules, which breaks
+      # consumers that run the SDK under Jest on Node < 24.9. Revisit with a lazy import of the RFC 3161 module.
+      - dependency-name: "pkijs"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "asn1js"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/integrations/langchain"
     schedule:
