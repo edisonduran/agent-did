@@ -1,4 +1,5 @@
-"""Shared composition contract vectors (fixtures/composition-contract-vectors.json, contract §7).
+"""Shared composition contract vectors (fixtures/composition-contract-vectors.json, contract §7) and the cards recorded
+from an independent implementation (fixtures/aps-agent-card-vectors.json, APS).
 
 TypeScript parity: sdk/tests/CompositionContractVectors.test.ts.
 """
@@ -25,14 +26,21 @@ _VECTORS: dict[str, Any] = json.loads(
     )
 )
 
+# Recorded from Agent Passport System, not regenerated: public keys only (see its ``provenance``).
+_APS_VECTORS: dict[str, Any] = json.loads(
+    (pathlib.Path(__file__).resolve().parents[2] / "fixtures" / "aps-agent-card-vectors.json").read_text(
+        encoding="utf-8"
+    )
+)
 
-def _card_outcome(card: object) -> dict[str, Any]:
+
+def _card_outcome(card: object, keys: dict[str, Any] | None = None) -> dict[str, Any]:
     """Format check, then every signature against the key of its kid: what a resolver-backed verifier does."""
     parsed = parse_signed_agent_card(card)
     if parsed is None:
         return {"expected": "format_drift"}
     for entry in parsed.signatures:
-        key = _VECTORS["keys"].get(entry.key_id)
+        key = (_VECTORS["keys"] if keys is None else keys).get(entry.key_id)
         if key is None or not verify_ed25519(
             entry.signature, entry.signing_input.encode("utf-8"), decode_public_key_multibase(key["publicKeyMultibase"])
         ):
@@ -62,6 +70,12 @@ async def test_signs_the_card_byte_for_byte() -> None:
 def test_card(vector: dict[str, Any]) -> None:
     expected = {name: value for name, value in vector.items() if name not in ("name", "card")}
     assert _card_outcome(vector["card"]) == expected
+
+
+@pytest.mark.parametrize("vector", _APS_VECTORS["cards"], ids=lambda v: v["name"])
+def test_aps_card(vector: dict[str, Any]) -> None:
+    expected = {name: value for name, value in vector.items() if name not in ("name", "card")}
+    assert _card_outcome(vector["card"], _APS_VECTORS["keys"]) == expected
 
 
 @pytest.mark.parametrize("vector", _VECTORS["payloads"], ids=lambda v: v["name"])
