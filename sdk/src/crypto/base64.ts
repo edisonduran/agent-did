@@ -29,6 +29,7 @@ export function base64UrlToBytes(value: string): Uint8Array | undefined {
   try {
     binary = atob(padded);
   } catch {
+    /* istanbul ignore next -- the alphabet and length checks above leave nothing atob rejects */
     return undefined;
   }
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));

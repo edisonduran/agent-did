@@ -37,6 +37,7 @@ export function verifyEd25519(signature: Uint8Array, message: Uint8Array, public
   try {
     return ed25519.verify(signature, message, publicKey, { zip215: false });
   } catch {
+    /* istanbul ignore next -- the length and point checks above reject what noble would throw on */
     return false;
   }
 }

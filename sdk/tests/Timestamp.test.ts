@@ -177,3 +177,58 @@ describe('verifySignatureAtTime with an RFC 3161 timestamp token', () => {
     ).rejects.toThrow(TypeError);
   });
 });
+
+describe('verifyTimestampToken on malformed token structures', () => {
+  const anchors = { trustAnchors: anchorsOf(['test-root']) };
+  const reject = { status: 'invalid', reason: 'token_malformed' };
+  const der = (hex: string) => new Uint8Array(Buffer.from(hex, 'hex'));
+
+  // Re-encodes the bare test token after `mutate` changes its SignedData
+  function mutatedToken(mutate: (signedData: pkijs.SignedData) => void): Uint8Array {
+    const contentInfo = new pkijs.ContentInfo({ schema: asn1js.fromBER(tokenOf(byName('test-tsa-bare-token'))).result });
+    const signedData = new pkijs.SignedData({ schema: contentInfo.content });
+    mutate(signedData);
+    const out = new pkijs.ContentInfo({ contentType: contentInfo.contentType, content: signedData.toSchema(true) });
+    return new Uint8Array(out.toSchema().toBER(false));
+  }
+
+  it('rejects DER that is not a SEQUENCE, a granted response without a token, and a broken ContentInfo', async () => {
+    expect(await verifyTimestampToken(der('020100'), MESSAGE, anchors)).toEqual(reject); // INTEGER 0
+    expect(await verifyTimestampToken(der('30053003020100'), MESSAGE, anchors)).toEqual(reject); // granted, no token
+    expect(await verifyTimestampToken(der('3003060100'), MESSAGE, anchors)).toEqual(reject); // OID, no content
+  });
+
+  it('rejects a ContentInfo that is not SignedData', async () => {
+    // ContentInfo { id-data, [0] OCTET STRING '' }
+    expect(await verifyTimestampToken(der('300f06092a864886f70d010701a0020400'), MESSAGE, anchors)).toEqual(reject);
+  });
+
+  it('rejects SignedData that does not encapsulate a TSTInfo or has other than one signer', async () => {
+    const otherContent = mutatedToken((signedData) => {
+      signedData.encapContentInfo.eContentType = '1.2.840.113549.1.7.1';
+    });
+    const noSigner = mutatedToken((signedData) => {
+      signedData.signerInfos = [];
+    });
+    expect(await verifyTimestampToken(otherContent, MESSAGE, anchors)).toEqual(reject);
+    expect(await verifyTimestampToken(noSigner, MESSAGE, anchors)).toEqual(reject);
+  });
+
+  it('rejects a signer identified by key id or without its certificate in the token', async () => {
+    const byKeyId = mutatedToken((signedData) => {
+      signedData.signerInfos[0].sid = new asn1js.Constructed({
+        idBlock: { tagClass: 3, tagNumber: 0 },
+        value: [new asn1js.OctetString({ valueHex: new Uint8Array(20).buffer })]
+      });
+    });
+    const withoutCertificate = mutatedToken((signedData) => {
+      signedData.certificates = [];
+    });
+    expect(await verifyTimestampToken(byKeyId, MESSAGE, anchors)).toEqual(reject);
+    expect(await verifyTimestampToken(withoutCertificate, MESSAGE, anchors)).toEqual(reject);
+  });
+
+  it('builds requests only from bytes', () => {
+    expect(() => createTimestampRequest('not bytes' as unknown as Uint8Array)).toThrow(TypeError);
+  });
+});

@@ -48,6 +48,7 @@ export function verifyWithActiveKeys(
 
   for (const verificationMethod of candidateMethods) {
     const keyValue = verificationMethod.publicKeyMultibase;
+    /* istanbul ignore next -- candidateMethods keeps only methods with a publicKeyMultibase */
     if (!keyValue) continue;
     try {
       if (verifyEd25519(signatureBytes, messageBytes, decodePublicKeyMultibase(keyValue))) {

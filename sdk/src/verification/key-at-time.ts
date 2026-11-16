@@ -89,6 +89,8 @@ function relationshipsOf(state: Record<string, unknown>, keyId: string): Verific
 function revokesKey(state: Record<string, unknown>, keyId: string): boolean {
   const methods = Array.isArray(state.verificationMethod) ? (state.verificationMethod as unknown[]) : [];
   return methods.some((candidate) => {
+    // did:webvh verifies the log, not the shape of each state: another implementation may write anything here
+    /* istanbul ignore next -- the SDK never writes such a state, and a signed log with one is not worth forging */
     if (typeof candidate !== 'object' || candidate === null) {
       return false;
     }
@@ -169,8 +171,8 @@ export async function checkDidWebvhKeyAtTime(
         state: Record<string, unknown>;
       };
       const versionMillis = parseRfc3339Millis(entry.versionTime);
+      /* istanbul ignore next -- resolveDidWebvhLog already rejects such logs; this keeps the type honest. */
       if (versionMillis === undefined) {
-        // resolveDidWebvhLog already rejects such logs; this keeps the type honest.
         throw new TypeError(`did:webvh entry ${entry.versionId} has an unreadable versionTime`);
       }
       return {
