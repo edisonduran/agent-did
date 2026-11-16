@@ -55,7 +55,7 @@ dev = [
   "http-message-signatures==3.0.0",
   "requests>=2.31",
   # Independent JOSE implementation, used only to cross-check OAuth client assertions (RFC-001 §6.8) in tests.
-  "PyJWT[crypto]==2.12.1",
+  "PyJWT[crypto]==2.15.1",
   # Reads pyproject.toml in tests/test_declared_dependencies.py; tomllib is in the standard library from 3.11.
   "tomli>=2.0; python_version < '3.11'",
 ]
