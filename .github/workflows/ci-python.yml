@@ -71,7 +71,12 @@ jobs:
 
       - name: Run tests with coverage
         working-directory: sdk-python
-        run: pytest --cov=agent_did_sdk --cov-fail-under=85 -q
+        run: pytest --cov=agent_did_sdk --cov-report=term --cov-report=json:coverage.json --cov-fail-under=85 -q
+
+      # C-QA-2: every line of crypto, signing, verification and resolver (parity: sdk/jest.config.js thresholds)
+      - name: Check critical module coverage
+        working-directory: sdk-python
+        run: python scripts/check_critical_coverage.py coverage.json
 
       - name: Build package
         if: matrix.python-version == '3.12'

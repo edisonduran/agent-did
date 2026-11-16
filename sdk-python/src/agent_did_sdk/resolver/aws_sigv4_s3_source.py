@@ -73,7 +73,8 @@ class _AwsSigV4AsyncClient:
             if should_close:
                 await client.aclose()
 
-    async def aclose(self) -> None:
+    # Part of the client interface the inner source expects; it never closes a client it was given
+    async def aclose(self) -> None:  # pragma: no cover
         return None
 
     def _acquire_client(self) -> tuple[httpx.AsyncClient, bool]:
