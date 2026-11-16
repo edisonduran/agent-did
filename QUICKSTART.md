@@ -21,7 +21,7 @@ Install (requires Node.js 22.12+):
 npm install @agentdid/sdk@next
 ```
 
-`@next` selects the newest release candidate (currently `1.0.0-rc.4`). Pin the version in production: the `0.x` releases do not interoperate with the release candidates.
+`@next` selects the newest release candidate (currently `1.0.0-rc.5`). Pin the version in production: the `0.x` releases do not interoperate with the release candidates.
 
 Save this as `quickstart.js` and run `node quickstart.js`:
 
@@ -77,7 +77,7 @@ Install:
 pip install agent-did-sdk==1.0.0rc5
 ```
 
-Pinning `1.0.0rc4` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc4`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [Platform support](sdk-python/README.md#platform-support)).
+Pinning `1.0.0rc5` selects the release candidate; without it pip installs the pre-RC `0.1.0`, whose DIDs and HTTP signatures do not interoperate with `1.0.0rc5`. The SDK needs a glibc Linux, macOS or Windows x86_64 environment (no Alpine or Windows ARM64; see [Platform support](sdk-python/README.md#platform-support)).
 
 Save this as `quickstart.py` and run `python quickstart.py`:
 

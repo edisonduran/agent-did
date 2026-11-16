@@ -18,15 +18,15 @@ The old path assumed `did:agent` might need to become a new DID method. That is 
 
 | Package | Latest stable | Published RC | Target 1.0 | Registry |
 |---|---|---|---|---|
-| `@agentdid/sdk` (TypeScript) | 0.2.0 | 1.0.0-rc.4 (`next`, `latest`) | 1.0.0 | npm |
-| `agent-did-sdk` (Python) | 0.1.0 | 1.0.0rc4 | 1.0.0 | PyPI |
-| `@agentdid/langchain` (LangChain JS) | 0.1.0 | 1.0.0-rc.4 (`next`, `latest`) | 1.0.0 | npm |
-| `agent-did-langchain` (LangChain Python) | — | 1.0.0rc4 | 1.0.0 | PyPI |
-| `agent-did-crewai` | — | 1.0.0rc4 | 1.0.0 | PyPI |
-| `agent-did-semantic-kernel` | — | 1.0.0rc4 | 1.0.0 | PyPI |
-| `agent-did-microsoft-agent-framework` | — | 1.0.0rc4 | 1.0.0 | PyPI |
-| `agent-did-a2a` | — | 1.0.0rc4 | 1.0.0 | PyPI |
-| `agent-did-mcp` | — | — (new in rc.5) | 1.0.0 | PyPI |
+| `@agentdid/sdk` (TypeScript) | 0.2.0 | 1.0.0-rc.5 (`next`, `latest`) | 1.0.0 | npm |
+| `agent-did-sdk` (Python) | 0.1.0 | 1.0.0rc5 | 1.0.0 | PyPI |
+| `@agentdid/langchain` (LangChain JS) | 0.1.0 | 1.0.0-rc.5 (`next`, `latest`) | 1.0.0 | npm |
+| `agent-did-langchain` (LangChain Python) | — | 1.0.0rc5 | 1.0.0 | PyPI |
+| `agent-did-crewai` | — | 1.0.0rc5 | 1.0.0 | PyPI |
+| `agent-did-semantic-kernel` | — | 1.0.0rc5 | 1.0.0 | PyPI |
+| `agent-did-microsoft-agent-framework` | — | 1.0.0rc5 | 1.0.0 | PyPI |
+| `agent-did-a2a` | — | 1.0.0rc5 | 1.0.0 | PyPI |
+| `agent-did-mcp` | — | 1.0.0rc5 (new in rc.5) | 1.0.0 | PyPI |
 
 `@agentdid/evm` (`1.0.0-rc.4`) was also published from this repository, as an optional package outside the core `1.0.0` set. From `1.0.0-rc.5` it is released from [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm) together with the Python adapter `agent-did-evm` (see section 2.4).
 
@@ -186,6 +186,8 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 > Release candidate (2026-11-04): tag `v1.0.0-rc.4` (`a4fbe778`) publishes `1.0.0-rc.4` / `1.0.0rc4` for the eight core packages. It changes the SDK API (Ed25519 `AgentSigner` controller, `AgentDidClient`, EVM adapter moved to the optional `@agentdid/evm`) but not the wire format, so rc.3 and rc.4 interoperate; see the rc.3 → rc.4 migration guides. `registry-install-smoke.yml` is green against `1.0.0-rc.4` / `1.0.0rc4` on every npm and PyPI combination ([run 41775433323](https://github.com/edisonduran/agent-did/actions/runs/41775433323)), so `C-QA-9` stays closed. The first run (41775231212) failed because the workflow's inline quickstart still used the removed `ethers` signer API; the workflow was fixed, not the SDK.
 
+> Release candidate (2026-11-16): tag `v1.0.0-rc.5` (`76b4f736`) publishes `1.0.0-rc.5` / `1.0.0rc5` for the eight core packages and the new `agent-did-mcp` ([publish run 43951258789](https://github.com/edisonduran/agent-did/actions/runs/43951258789)). It is a breaking RC (payload signature prefix, controller binding, Multikey documents, the `Agent-DID` request header, A2A 1.0 cards; see the rc.4 → rc.5 migration guides) and freezes the wire until `v1.0.0` ([DEPRECATION-POLICY.md](DEPRECATION-POLICY.md)). It fixes [GHSA-jrfh-2gph-x8hf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-jrfh-2gph-x8hf), [GHSA-mw8q-f77r-qhrr](https://github.com/edisonduran/agent-did/security/advisories/GHSA-mw8q-f77r-qhrr) and [GHSA-54mg-ghhc-7r3j](https://github.com/edisonduran/agent-did/security/advisories/GHSA-54mg-ghhc-7r3j); earlier npm releases are deprecated. `registry-install-smoke.yml` is green against `1.0.0-rc.5` / `1.0.0rc5` on every npm and PyPI combination, `agent-did-mcp` included ([run 43952980346](https://github.com/edisonduran/agent-did/actions/runs/43952980346)), so `C-QA-9` stays closed. The first run (43952571853) failed because the workflow's inline quickstarts did not pass the `verificationMethodId` that rc.5 requires; the workflow was fixed, not the packages.
+
 > Gate audit (2026-11-01): section 2 checkboxes reconciled against repository and GitHub Actions evidence. `C-QA-8` restarted: `CI — Python SDK & RFC-001 Conformance`, `CI — LangChain Python Integration` and `CI - Microsoft Agent Framework Integration` failed on `main` at `2026-11-01T14:42:04Z` (`f99d35b6`) and are green since `2026-11-01T15:41:59Z` (`d86b54d0`); every other CI workflow is green on its latest `main` run. If `main` stays green, `C-QA-8` closes no earlier than `2026-12-01T15:41:59Z`. Because the CI workflows run only on push/PR, there were no `main` runs between 2026-05-16 and 2026-11-01. Still open for stable: `C-SPEC-3`, `C-API-3`, `C-QA-2`, `C-QA-8`, `C-OPS-2`, `C-SUPPLY-1`, `C-DOC-1`, `C-DOC-4`, `C-DOC-6`, `C-DEMO-*` and `C-REL-2`..`C-REL-4`.
 
 ### Sprint 0 — Scope Freeze and Release Foundation
@@ -240,7 +242,7 @@ Goal: cut the appropriate prerelease (`beta` only if contract-shaping feedback i
 
 #### RC Tag Plan
 
-Every coordinated `1.0.0-rc.N` cut uses a single monorepo release tag with ecosystem-native prerelease normalization (shown for the current `rc.4`; `rc.1` to `rc.3` followed the same pattern):
+Every coordinated `1.0.0-rc.N` cut uses a single monorepo release tag with ecosystem-native prerelease normalization (shown for the current `rc.5`; `rc.1` to `rc.4` followed the same pattern):
 
 1. npm packages declare `1.0.0-rc.5`.
 2. Python packages declare `1.0.0rc5`.
