@@ -65,9 +65,10 @@ function publicKeyMultibase(keyId) {
   return `z${out}`;
 }
 
-/** RFC 8785 for objects, arrays, strings and booleans (UTF-16 code unit key order, JSON string escaping). */
+/** RFC 8785 for objects, arrays, strings, booleans and integers (UTF-16 code unit key order, JSON string escaping). */
 function jcs(value) {
   if (typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
+  if (Number.isSafeInteger(value)) return String(value);
   if (Array.isArray(value)) return `[${value.map(jcs).join(',')}]`;
   if (value && typeof value === 'object') {
     const keys = Object.keys(value).sort();
@@ -77,32 +78,53 @@ function jcs(value) {
 }
 
 /**
- * A2A 1.0 field presence (specification/a2a.proto v1.0.1) of the members these cards use: `implicit` scalars are
- * dropped when `""`, `false` or `0`, `repeated` members when empty; other members are kept. Nested messages by name.
+ * A2A 1.0 field presence (specification/a2a.proto v1.0.1) of the members these cards use: an `implicit` scalar is
+ * dropped only when it is the default of its own type (`""` for `string`, `false` for `bool`), a `list` only when it
+ * is `[]`, a `map` only when it is `{}`; a value of another JSON type stays. Other members are kept. Nested messages
+ * by name.
  */
 const A2A_DEFAULTS = {
-  AgentCard: { supportedInterfaces: ['keep', 'AgentInterface'], capabilities: ['keep', 'AgentCapabilities'], skills: ['keep', 'AgentSkill'], securitySchemes: ['repeated'], securityRequirements: ['repeated'] },
-  AgentInterface: { tenant: ['implicit'] },
-  AgentCapabilities: { extensions: ['repeated', 'AgentExtension'] },
-  AgentExtension: { uri: ['implicit'], description: ['implicit'], required: ['implicit'] },
-  AgentSkill: { examples: ['repeated'], inputModes: ['repeated'], outputModes: ['repeated'], securityRequirements: ['repeated'] }
+  AgentCard: { supportedInterfaces: ['keep', 'AgentInterface'], capabilities: ['keep', 'AgentCapabilities'], skills: ['keep', 'AgentSkill'], securitySchemes: ['map'], securityRequirements: ['list'] },
+  AgentInterface: { tenant: ['implicit', null, 'string'] },
+  AgentCapabilities: { extensions: ['list', 'AgentExtension'] },
+  AgentExtension: { uri: ['implicit', null, 'string'], description: ['implicit', null, 'string'], required: ['implicit', null, 'bool'] },
+  AgentSkill: { examples: ['list'], inputModes: ['list'], outputModes: ['list'], securityRequirements: ['list'] }
 };
+
+function isDefault(kind, type, item) {
+  if (kind === 'implicit') return type === 'bool' ? item === false : item === '';
+  if (kind === 'list') return Array.isArray(item) && item.length === 0;
+  if (kind === 'map') return item !== null && typeof item === 'object' && !Array.isArray(item) && Object.keys(item).length === 0;
+  return false;
+}
 
 function withoutDefaults(value, message) {
   if (Array.isArray(value)) return value.map((item) => withoutDefaults(item, message));
   if (!value || typeof value !== 'object') return value;
   const fields = A2A_DEFAULTS[message] ?? {};
-  const result = {};
+  const entries = [];
   for (const [name, item] of Object.entries(value)) {
-    const [kind, child] = fields[name] ?? ['keep'];
-    if (kind === 'implicit' && (item === '' || item === false || item === 0)) continue;
-    if (kind === 'repeated' && (Array.isArray(item) ? item.length === 0 : item && typeof item === 'object' && Object.keys(item).length === 0)) continue;
-    result[name] = child ? withoutDefaults(item, child) : item;
+    const [kind, child, type] = Object.prototype.hasOwnProperty.call(fields, name) ? fields[name] : ['keep'];
+    if (isDefault(kind, type, item)) continue;
+    entries.push([name, child ? withoutDefaults(item, child) : item]);
   }
-  return result;
+  // Object.fromEntries keeps a member named `__proto__` an own member.
+  return Object.fromEntries(entries);
 }
 
 const b64url = (bytes) => Buffer.from(bytes).toString('base64url');
+
+/** A copy of `value` with an own member `name` (also `__proto__`, which an object literal or assignment would not make own). */
+function withOwnMember(value, name, member) {
+  return Object.fromEntries([...Object.entries(JSON.parse(JSON.stringify(value))), [name, member]]);
+}
+
+/** A copy of a signed card whose Agent-DID extension gains `required`. */
+function withExtensionRequired(value, required) {
+  const copy = JSON.parse(JSON.stringify(value));
+  copy.capabilities.extensions[0].required = required;
+  return copy;
+}
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function card(keyIds = [KEY1, KEY2]) {
@@ -174,6 +196,8 @@ function cardCases() {
     ok('A2A default values added after signing (not covered)', addDefault, [KEY1, KEY2]),
     tampered('optional member set to its default after signing (covered)', setOptional),
     tampered('member A2A does not define, empty, added after signing (covered)', { ...base, note: '' }),
+    tampered('value of the wrong JSON type at an implicit default position (required: 0) added after signing (covered)', withExtensionRequired(base, 0)),
+    tampered('member A2A does not define, named __proto__, changed after signing (covered)', withOwnMember(signed(withOwnMember(card(), '__proto__', { marker: 'signed' })), '__proto__', { marker: 'changed' })),
     tampered('a member changed after signing', { ...base, name: 'Other' }),
     tampered('a member added after signing', { ...base, iconUrl: 'https://agents.example/icon.png' }),
     tampered('kid key-1, signed by key-2', signed(card(), KEY1, header(KEY1), KEY2)),
@@ -261,6 +285,20 @@ function payloadCases() {
         },
         securityRequirements: [{ schemes: { oauth: {} } }, {}]
       }
+    },
+    {
+      // JSON.parse: an own member named `__proto__`, as a card received over the wire has it
+      name: 'values of the wrong JSON type are not defaults, and a member named __proto__ is covered',
+      card: JSON.parse(
+        '{"name":"A","__proto__":{"marker":"x"},"supportedInterfaces":[{"url":"https://agents.example/a2a","protocolBinding":"JSONRPC","protocolVersion":"1.0","tenant":false}],' +
+          '"capabilities":{"extensions":[{"uri":"' + EXTENSION_URI + '","required":0,"params":{"did":"' + DID + '"}}]},' +
+          '"skills":[{"id":"s","name":"S","description":"s","tags":["t"],"examples":{},"__proto__":{"marker":"y"}}],"securitySchemes":[]}'
+      ),
+      covered: JSON.parse(
+        '{"name":"A","__proto__":{"marker":"x"},"supportedInterfaces":[{"url":"https://agents.example/a2a","protocolBinding":"JSONRPC","protocolVersion":"1.0","tenant":false}],' +
+          '"capabilities":{"extensions":[{"uri":"' + EXTENSION_URI + '","required":0,"params":{"did":"' + DID + '"}}]},' +
+          '"skills":[{"id":"s","name":"S","description":"s","tags":["t"],"examples":{},"__proto__":{"marker":"y"}}],"securitySchemes":[]}'
+      )
     }
   ].map(({ name, card: value, covered }) => ({ name, card: value, covered, payload: b64url(Buffer.from(jcs(covered), 'utf8')) }));
 }

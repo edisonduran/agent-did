@@ -163,8 +163,13 @@ def test_a2a_sdk_verifies_the_ok_card_vectors(vector: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize(
     "vector",
-    # a2a-sdk drops members A2A does not define before it verifies; Agent-DID covers them (fixture comment)
-    [v for v in VECTORS["cards"] if v["expected"] == "tampered" and "does not define" not in v["name"]],
+    # a2a-sdk drops members A2A does not define before it verifies, and its parser refuses a value of the wrong JSON
+    # type; Agent-DID covers both (fixture comment)
+    [
+        v
+        for v in VECTORS["cards"]
+        if v["expected"] == "tampered" and "does not define" not in v["name"] and "wrong JSON type" not in v["name"]
+    ],
     ids=lambda v: v["name"],
 )
 def test_a2a_sdk_rejects_the_tampered_card_vectors(vector: dict[str, Any]) -> None:

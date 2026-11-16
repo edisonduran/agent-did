@@ -159,18 +159,19 @@ function sanitize(value: unknown, depth: number, seen: Set<object>): unknown {
   } else {
     return `<${value.constructor?.name ?? 'Object'}>`;
   }
-  const sanitized: Record<string, unknown> = {};
-  for (const [name, item] of entries) {
+  const sanitizeMember = (name: string, item: unknown): unknown => {
     const lowered = name.toLowerCase();
     if (isSensitiveFieldName(name)) {
-      sanitized[name] = isRedactedMarker(item) ? item : redactValue(item);
-    } else if (lowered === 'url' && typeof item === 'string') {
-      sanitized[name] = sanitizeUrl(item);
-    } else if (lowered === 'headers' && typeof item === 'object' && item !== null && !Array.isArray(item)) {
-      sanitized[name] = sanitizeHeaders(item as Record<string, unknown>);
-    } else {
-      sanitized[name] = sanitize(item, depth + 1, nextSeen);
+      return isRedactedMarker(item) ? item : redactValue(item);
     }
-  }
-  return sanitized;
+    if (lowered === 'url' && typeof item === 'string') {
+      return sanitizeUrl(item);
+    }
+    if (lowered === 'headers' && typeof item === 'object' && item !== null && !Array.isArray(item)) {
+      return sanitizeHeaders(item as Record<string, unknown>);
+    }
+    return sanitize(item, depth + 1, nextSeen);
+  };
+  // Object.fromEntries keeps every member an own member (an assignment to `__proto__` would not).
+  return Object.fromEntries(entries.map(([name, item]) => [name, sanitizeMember(name, item)]));
 }

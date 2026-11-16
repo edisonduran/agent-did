@@ -85,8 +85,11 @@ def did_of_key_id(key_id: object) -> str | None:
 
 
 # A2A 1.0 field presence (specification/a2a.proto v1.0.1), by JSON member name. Kinds: "required" (kept), "optional"
-# (``optional`` keyword: kept when present), "implicit" (scalar without presence: dropped when it is the default),
-# "repeated" (list or map: dropped when empty), "message" (singular message or oneof member: kept when present).
+# (``optional`` keyword: kept when present), "implicit" (scalar without presence, second item its type "string" or
+# "bool": dropped only when it is the default of that type, "" or false), "list" (repeated field: dropped only when it
+# is an empty array), "map" (map field, second item the message of its values: dropped only when it is an empty
+# object), "message" (singular message or oneof member: kept when present). A value of another JSON type is never a
+# default: it stays in the payload. TypeScript parity: ``A2A_SCHEMA`` in ``sdk/src/core/agent-card.ts``.
 _A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
     "AgentCard": {
         "name": ("required", None),
@@ -96,8 +99,8 @@ _A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
         "version": ("required", None),
         "documentationUrl": ("optional", None),
         "capabilities": ("required", "AgentCapabilities"),
-        "securitySchemes": ("repeated", "map:SecurityScheme"),
-        "securityRequirements": ("repeated", "SecurityRequirement"),
+        "securitySchemes": ("map", "SecurityScheme"),
+        "securityRequirements": ("list", "SecurityRequirement"),
         "defaultInputModes": ("required", None),
         "defaultOutputModes": ("required", None),
         "skills": ("required", "AgentSkill"),
@@ -106,20 +109,20 @@ _A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
     "AgentInterface": {
         "url": ("required", None),
         "protocolBinding": ("required", None),
-        "tenant": ("implicit", None),
+        "tenant": ("implicit", "string"),
         "protocolVersion": ("required", None),
     },
     "AgentProvider": {"url": ("required", None), "organization": ("required", None)},
     "AgentCapabilities": {
         "streaming": ("optional", None),
         "pushNotifications": ("optional", None),
-        "extensions": ("repeated", "AgentExtension"),
+        "extensions": ("list", "AgentExtension"),
         "extendedAgentCard": ("optional", None),
     },
     "AgentExtension": {
-        "uri": ("implicit", None),
-        "description": ("implicit", None),
-        "required": ("implicit", None),
+        "uri": ("implicit", "string"),
+        "description": ("implicit", "string"),
+        "required": ("implicit", "bool"),
         "params": ("message", None),
     },
     "AgentSkill": {
@@ -127,13 +130,13 @@ _A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
         "name": ("required", None),
         "description": ("required", None),
         "tags": ("required", None),
-        "examples": ("repeated", None),
-        "inputModes": ("repeated", None),
-        "outputModes": ("repeated", None),
-        "securityRequirements": ("repeated", "SecurityRequirement"),
+        "examples": ("list", None),
+        "inputModes": ("list", None),
+        "outputModes": ("list", None),
+        "securityRequirements": ("list", "SecurityRequirement"),
     },
-    "SecurityRequirement": {"schemes": ("repeated", "map:StringList")},
-    "StringList": {"list": ("repeated", None)},
+    "SecurityRequirement": {"schemes": ("map", "StringList")},
+    "StringList": {"list": ("list", None)},
     "SecurityScheme": {
         "apiKeySecurityScheme": ("message", "APIKeySecurityScheme"),
         "httpAuthSecurityScheme": ("message", "HTTPAuthSecurityScheme"),
@@ -142,22 +145,22 @@ _A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
         "mtlsSecurityScheme": ("message", "MutualTlsSecurityScheme"),
     },
     "APIKeySecurityScheme": {
-        "description": ("implicit", None),
+        "description": ("implicit", "string"),
         "location": ("required", None),
         "name": ("required", None),
     },
     "HTTPAuthSecurityScheme": {
-        "description": ("implicit", None),
+        "description": ("implicit", "string"),
         "scheme": ("required", None),
-        "bearerFormat": ("implicit", None),
+        "bearerFormat": ("implicit", "string"),
     },
     "OAuth2SecurityScheme": {
-        "description": ("implicit", None),
+        "description": ("implicit", "string"),
         "flows": ("required", "OAuthFlows"),
-        "oauth2MetadataUrl": ("implicit", None),
+        "oauth2MetadataUrl": ("implicit", "string"),
     },
-    "OpenIdConnectSecurityScheme": {"description": ("implicit", None), "openIdConnectUrl": ("required", None)},
-    "MutualTlsSecurityScheme": {"description": ("implicit", None)},
+    "OpenIdConnectSecurityScheme": {"description": ("implicit", "string"), "openIdConnectUrl": ("required", None)},
+    "MutualTlsSecurityScheme": {"description": ("implicit", "string")},
     "OAuthFlows": {
         "authorizationCode": ("message", "AuthorizationCodeOAuthFlow"),
         "clientCredentials": ("message", "ClientCredentialsOAuthFlow"),
@@ -168,50 +171,50 @@ _A2A_SCHEMA: dict[str, dict[str, tuple[str, str | None]]] = {
     "AuthorizationCodeOAuthFlow": {
         "authorizationUrl": ("required", None),
         "tokenUrl": ("required", None),
-        "refreshUrl": ("implicit", None),
+        "refreshUrl": ("implicit", "string"),
         "scopes": ("required", None),
-        "pkceRequired": ("implicit", None),
+        "pkceRequired": ("implicit", "bool"),
     },
     "ClientCredentialsOAuthFlow": {
         "tokenUrl": ("required", None),
-        "refreshUrl": ("implicit", None),
+        "refreshUrl": ("implicit", "string"),
         "scopes": ("required", None),
     },
     "ImplicitOAuthFlow": {
-        "authorizationUrl": ("implicit", None),
-        "refreshUrl": ("implicit", None),
-        "scopes": ("repeated", None),
+        "authorizationUrl": ("implicit", "string"),
+        "refreshUrl": ("implicit", "string"),
+        "scopes": ("map", None),
     },
     "PasswordOAuthFlow": {
-        "tokenUrl": ("implicit", None),
-        "refreshUrl": ("implicit", None),
-        "scopes": ("repeated", None),
+        "tokenUrl": ("implicit", "string"),
+        "refreshUrl": ("implicit", "string"),
+        "scopes": ("map", None),
     },
     "DeviceCodeOAuthFlow": {
         "deviceAuthorizationUrl": ("required", None),
         "tokenUrl": ("required", None),
-        "refreshUrl": ("implicit", None),
+        "refreshUrl": ("implicit", "string"),
         "scopes": ("required", None),
     },
 }
 
 
-def _is_implicit_default(value: object) -> bool:
-    if isinstance(value, bool):
-        return value is False
-    if isinstance(value, (int, float)):
-        return value == 0
-    return value == ""
+def _is_default_value(kind: str, type_: str | None, value: object) -> bool:
+    """Whether *value* is the A2A 1.0 default of a field of *kind* (and scalar *type_*): only a value of the field's
+    own type (``0`` is not the default of a ``bool`` field, nor ``{}`` of a list)."""
+    if kind == "implicit":
+        return value is False if type_ == "bool" else (isinstance(value, str) and value == "")
+    if kind == "list":
+        return isinstance(value, list) and not value
+    if kind == "map":
+        return isinstance(value, dict) and not value
+    return False
 
 
 def _without_defaults(value: object, message: str | None) -> object:
     """*value* with the A2A 1.0 default values removed, when it has the JSON type *message* describes."""
     if message is None:
         return value
-    if message.startswith("map:"):
-        if not isinstance(value, dict):
-            return value
-        return {key: _without_defaults(item, message[4:]) for key, item in value.items()}
     if isinstance(value, list):
         return [_without_defaults(item, message) for item in value]
     if not isinstance(value, dict):
@@ -223,11 +226,18 @@ def _without_defaults(value: object, message: str | None) -> object:
             result[name] = item
             continue
         kind, child = fields[name]
-        if kind == "implicit" and _is_implicit_default(item):
+        if _is_default_value(kind, child, item):
             continue
-        if kind == "repeated" and isinstance(item, (list, dict)) and not item:
-            continue
-        result[name] = _without_defaults(item, child)
+        if kind == "implicit":
+            result[name] = item
+        elif kind == "map":
+            result[name] = (
+                {key: _without_defaults(entry, child) for key, entry in item.items()}
+                if isinstance(item, dict) and child is not None
+                else item
+            )
+        else:
+            result[name] = _without_defaults(item, child)
     return result
 
 

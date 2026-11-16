@@ -12,7 +12,7 @@
     "fixtures/ed25519-verification-vectors.json": "f30b0c637f0246d00adbda38c850da51ead2c74caee2e002b23181e127e2f5ff",
     "fixtures/key-at-time-vectors.json": "8bf88e0c29d5c62f9de9879a2c82dfa7885985b49182a6226175f372c5f4133b",
     "fixtures/agent-metadata-credential-vectors.json": "28d464763a1e23e5815400eb389fae2aa3f79201d6dc895b7d853ef6b624fd4e",
-    "fixtures/composition-contract-vectors.json": "c99d0c319d5578ac74dae75a0c09948fe9dfdad20a22de8eef5ff465257cbca8",
+    "fixtures/composition-contract-vectors.json": "865d56298cde944a0ca701a3b03c822a07143e164382d4d836edced738479875",
     "fixtures/delegation-vectors.json": "7507a3f5b6c0d08ae9f0477516d7496a8f76fd4f039492e18a9dca58e9fc2758"
   }
 }

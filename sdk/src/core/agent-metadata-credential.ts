@@ -67,12 +67,12 @@ export function agentMetadataProblem(metadata: unknown): string | undefined {
 
 /** A copy of `metadata` without `undefined` members (JSON has no `undefined`). */
 export function cleanAgentMetadata(metadata: Partial<AgentMetadata>): Partial<AgentMetadata> {
-  const out: JsonObject = {};
-  for (const [member, value] of Object.entries(metadata)) {
-    if (value !== undefined) {
-      out[member] = Array.isArray(value) ? [...value] : value;
-    }
-  }
+  // Object.fromEntries keeps every member an own member (an assignment to `__proto__` would not).
+  const out: JsonObject = Object.fromEntries(
+    Object.entries(metadata)
+      .filter(([, value]) => value !== undefined)
+      .map(([member, value]) => [member, Array.isArray(value) ? [...value] : value])
+  );
   return out as Partial<AgentMetadata>;
 }
 
