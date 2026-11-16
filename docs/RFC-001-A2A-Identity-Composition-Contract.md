@@ -122,7 +122,7 @@ Rotation modes:
 
 In Agent-DID (RFC-001 §4.2, §6.6 item 3) the planned overlap is written in the DID document: the controller adds the new key, both keys are listed under `assertionMethod` while the overlap lasts, and the controller then retires the prior key, which gains a `deactivated` time and leaves every relationship (`retireVerificationMethod`). An emergency retirement or rotation also sets `revoked` on the key. A verifier reads the state from the current document: a retired key is `rotation_window_closed`, a revoked key is `emergency_revoked`, and a revoked key is also refused at every stated time (RFC-001 §6.2.2).
 
-This classification reads Agent-DID documents. APS marks both planned and emergency retirement with `retiredAt` and records the mode in its signed rotation log, so a verifier MUST NOT apply the `deactivated` / `revoked` classification to APS documents without an explicit mapping from that log. This contract does not define the mapping yet.
+This classification reads Agent-DID documents. APS marks both planned and emergency retirement with `retiredAt` and records the mode in its signed rotation log, so a verifier MUST NOT apply the `deactivated` / `revoked` classification to APS documents without an explicit mapping from that log. §4.5 defines the mapping.
 
 ### 4.1 Conformance scenarios (4 required)
 
@@ -162,6 +162,37 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - Verifiers **MUST** honor the `revoked` status of a verification method present in the resolved DID document at evaluation time.
 - The spec defines a constant **`max_emergency_propagation_window`** with a **proposed value of 1 hour**. Verifier resolver caches **MUST** be bounded such that the worst-case propagation delay between an emergency revocation publication and a verifier rejecting a signature under the revoked key does not exceed this window.
 - This constant is the SLA that emergency rotation can promise across implementations. Anything longer would make scenario 3d untestable in practice.
+
+### 4.5 APS rotation entries `[rc.5, #257, draft awaiting APS review]`
+
+APS records a rotation as a `DIDRotationEntry`: `previousKey` and `newKey` (hex Ed25519 public keys), `mode` (`planned` or `emergency`), `announcedAt`, `activationTime`, `state`, `rotationSignature`, and optionally `completedAt` and `revokedDelegations`. The previous key signs the canonical form of `{previousKey, newKey, mode, activationTime}` only. A planned rotation stays in the document's `pendingRotation` until it is activated and only then is appended to `rotationLog`; an emergency rotation is recorded at once, with `announcedAt`, `activationTime` and `completedAt` the same instant. A verifier that classifies a signature by an APS key under §4.1 reads that key's state from the entries in `rotationLog` **and** `pendingRotation`, as follows.
+
+**Which entries count.** An entry is used only when all of these hold; otherwise the verifier MUST NOT classify from it, and rejects the key as it would any key whose state it cannot establish (`did_document_unresolvable` in the Agent-DID reference verifier):
+
+1. The entry comes from a document or history the verifier trusts for that DID (its resolution of the agent, not the request or the card).
+2. `rotationSignature` verifies with `previousKey` over the canonical bound object. This applies to the `pendingRotation` entry as well.
+3. In that trusted history, `previousKey` held authority for the DID when the entry was made.
+
+APS's `verifyRotationChain` (8.1.1) checks condition 2 for the `rotationLog` entries only: it does not check `pendingRotation`, and it does not establish conditions 1 and 3. A verifier establishes those separately. Condition 1 matters because the signature alone proves only that the holder of the previous key signed it: whoever holds a compromised key can sign a `planned` entry with a late `activationTime`.
+
+**Bound and unbound members.** `mode` and `activationTime` are covered by the signature and decide the classification. `announcedAt`, `completedAt`, `state` and `retiredAt` are not covered: a verifier MAY report them, and MUST NOT use them to accept a key that the bound members reject.
+
+**Classification of a signature by `previousKey`** at evaluation time `now`:
+
+| Entry | Condition | Reason |
+|---|---|---|
+| `mode: emergency` | always | `emergency_revoked` (scenario 3d) |
+| `mode: planned` | `now` < `activationTime` | in the overlap: accept if the key is listed under the relationship §6.3 requires (scenario 3b), else `key_purpose_violation` |
+| `mode: planned` | `now` ≥ `activationTime` | `rotation_window_closed` (scenario 3c), whether or not the key is still listed and whether or not `retiredAt` has been written |
+
+- The planned deadline is the bound `activationTime`, not `retiredAt`. `activateKeyRotation` writes `retiredAt` with the time of that call, which is at or after the deadline and is not signed; the deadline already applies before it runs, as APS's `isKeyActive` does.
+- **A check at a stated time** (RFC-001 §6.2.2) follows APS: once a rotation of the key has an `activationTime` at or before `now`, the key is rejected at every stated time, including times before the announcement and inside a former overlap (`isKeyActive`). Before that, a stated time is treated as `now` in the table. This differs from Agent-DID documents, where a key retired by a planned rotation stays authorized for times before its `deactivated` time.
+- **Several usable entries for one `previousKey`.** APS allows only one pending rotation at a time, but completed history can reuse a key (A to B, back to A, then to C). The contract rule, not current SDK behavior: if any usable entry for the key has `mode: emergency`, the key is `emergency_revoked`; otherwise the earliest `activationTime` applies, so a key reinstalled after an earlier rotation stays closed. This gives the same outcome as `isKeyActive`, which reports a reinstalled key as inactive.
+- A key that leaves the document with no usable entry is not a rotation under this section; the verifier reports what it reports for a key outside the document.
+- `newKey` is classified like any other key, from the relationships it is listed under.
+- Scope: this section maps APS documents for the identity-composition checks of this contract. Other APS verification paths keep their own rules (for example, APS payment receipts can accept a receipt whose signed `issued_at` precedes `retiredAt`).
+
+**Compared with Agent-DID documents (§4).** At evaluation time the outcomes agree: a planned retirement closes the window (`rotation_window_closed`) and an emergency one revokes the key at every time (`emergency_revoked`). They differ in two places: APS publishes the planned deadline in advance (`activationTime`, enforced while the key is still listed, §4.3), where Agent-DID records it when the controller retires the key (`deactivated`); and at a stated time, APS rejects a planned-retired key for every time once the rotation has activated, where Agent-DID accepts it for times before `deactivated`.
 
 ## 5. Error shape — RESOLVED `[APS-confirmed via aeoess thread reply 2026-05-01]`
 
