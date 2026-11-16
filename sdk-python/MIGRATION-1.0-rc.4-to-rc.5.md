@@ -401,6 +401,23 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - **OAuth:** `await create_client_assertion(client_id=..., issuer=..., verification_method_id=..., signer=...)` gives the `client_assertion` of a token request (`client_assertion_type` = `CLIENT_ASSERTION_TYPE_JWT_BEARER`); `issuer` is the authorization server's issuer identifier, not its token endpoint. Publish `build_client_metadata_document(client_id=..., client_name=..., did_document=...)` at `client_id` (or register `build_client_jwks(document)`), and republish it after a key rotation. A server that knows Agent-DID checks assertions with `await client.verify_client_assertion(assertion, issuer=..., client_id=..., did=...)`.
 - **Changed (types):** `SignHttpRequestParams` gains `capability` (keyword, last). New exports are listed in `public-api.snapshot.txt`.
 
+## 41. Agent Card signatures drop A2A 1.0 default values (wire change), A2A 1.0 integration, MCP integration
+
+A2A 1.0 §8.4.1. `sign_agent_card` and the card checks (`verify_agent_card`, `verify_identity_composition`) now sign and verify the card without the members that hold their default value (`""`, `False`, `0`, `[]`, `{}`) where A2A 1.0 marks a field neither `REQUIRED` nor `optional`, for example `"required": false` in `capabilities.extensions` or `"tenant": ""` in `supportedInterfaces`. Members A2A 1.0 does not define are covered as they are.
+
+- A card signed by rc.4 still verifies unless it contains such a member; re-sign the cards you serve after upgrading.
+- Do not put members A2A 1.0 does not define in a card you sign: A2A verifiers that rebuild the card from its Protocol Buffer form drop them and the signature no longer matches.
+- `agent_card_signing_payload(card)` (module `agent_did_sdk.core.agent_card`) returns the JWS payload, for debugging.
+
+**`agent-did-a2a` follows A2A 1.0 (breaking):**
+
+- `build_agent_card` / `agent_card_json` / `signed_agent_card_json` require `skills` (each with `tags`) and return the A2A 1.0 shape: read the DID from `card["capabilities"]["extensions"]` (`uri` `AGENT_DID_A2A_EXTENSION_URI`, `params.did`, `params.keyIds`) instead of `card["did"]`; the agent URL is in `supportedInterfaces[0].url`. `capabilities` is an `A2AAgentCapabilities`, not a `dict`. `verification_endpoint` is gone.
+- Serve the card at `/.well-known/agent-card.json` (`AgentDidA2AConfig.agent_card_url`, `AGENT_CARD_WELL_KNOWN_PATH`).
+- Replace `send_task(task_id=..., message={...})` with `send_message(message=text_message("..."))`, `build_task_send_request` with `build_send_message_request`, `build_task_get_request` with `build_get_task_request`. Read results with `parse_send_message_result`.
+- Replace `additional_auth_schemes=[AgentDidA2AAuthScheme(...)]` with `additional_security_schemes={...}` (A2A 1.0 `SecurityScheme` JSON) and `additional_security_requirements`; `oauth_client_credentials=AgentDidA2AOAuthClientCredentials(token_url=..., scopes={...})` declares a client credentials scheme.
+
+**New `agent-did-mcp`** (Python 3.11+): see `integrations/mcp/README.md`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -437,3 +454,4 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - [ ] HTTP signers and verifiers are upgraded together, and proxies or gateways forward `Agent-DID` (rc4 HTTP signatures do not verify in rc5).
 - [ ] Code that used `AGENT_DID_HTTP_SIGNATURE_COMPONENTS` calls `agent_did_http_signature_components(label)` and handles `KeyedComponent` entries.
 - [ ] Code that reads `resolve_controller_chain` results or `DidWebvhState.document` as `AgentDIDDocument` checks `isinstance` (controllers may be plain DID Core documents).
+- [ ] Agent Cards you serve are re-signed after the upgrade and contain only A2A 1.0 members; A2A integration callers use `send_message` and read the DID from the Agent-DID extension.

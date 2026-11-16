@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from agent_did_sdk import AgentDidClient, AgentIdentity, AgentIdentityConfig, CreateAgentParams, LocalKeySigner
 
-from agent_did_a2a.jsonrpc import build_task_send_request, sign_a2a_request, verify_a2a_request
+from agent_did_a2a.jsonrpc import build_send_message_request, sign_a2a_request, text_message, verify_a2a_request
 
 
 class _ExternalSigner:
@@ -36,7 +36,7 @@ async def test_signs_a2a_requests_through_an_external_signer() -> None:
         agent_identity=identity,
         runtime_identity=runtime_identity,
         target_url="https://remote-agent.example.com/a2a",
-        jsonrpc_request=build_task_send_request(request_id=1, task_id="t-1", message={"role": "user", "parts": []}),
+        jsonrpc_request=build_send_message_request(request_id=1, message=text_message("hi")),
     )
 
     assert await verify_a2a_request(

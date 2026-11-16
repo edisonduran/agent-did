@@ -92,6 +92,17 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "pip"
+    directory: "/integrations/mcp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      python-deps:
+        patterns:
+          - "*"
+  - package-ecosystem: "pip"
     directory: "/integrations/crewai"
     schedule:
       interval: "weekly"

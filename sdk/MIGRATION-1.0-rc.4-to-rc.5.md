@@ -361,6 +361,14 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - **OAuth:** `createClientAssertion({ clientId, issuer, verificationMethodId, signer })` gives the `client_assertion` of a token request (`client_assertion_type` = `CLIENT_ASSERTION_TYPE_JWT_BEARER`); `issuer` is the authorization server's issuer identifier, not its token endpoint. Publish `buildClientMetadataDocument({ clientId, clientName, didDocument })` at `clientId` (or register `buildClientJwks(document)`), and republish it after a key rotation. A server that knows Agent-DID checks assertions with `client.verifyClientAssertion({ assertion, issuer, clientId, did })`.
 - **Changed (internal types):** `SignHttpRequestParams` gains `capability`. New exports are listed in `public-api.snapshot.txt`.
 
+## 39. Agent Card signatures drop A2A 1.0 default values (wire change)
+
+A2A 1.0 §8.4.1. `signAgentCard` and the card checks (`verifyAgentCard`, `verifyIdentityComposition`) now sign and verify the card without the members that hold their default value (`""`, `false`, `0`, `[]`, `{}`) where A2A 1.0 marks a field neither `REQUIRED` nor `optional`, for example `"required": false` in `capabilities.extensions` or `"tenant": ""` in `supportedInterfaces`. Members A2A 1.0 does not define are covered as they are.
+
+- A card signed by rc.4 still verifies unless it contains such a member; re-sign the cards you serve after upgrading.
+- Do not put members A2A 1.0 does not define in a card you sign: A2A verifiers that rebuild the card from its Protocol Buffer form drop them and the signature no longer matches.
+- `agentCardSigningPayload(card)` (module `src/core/agent-card.ts`, not exported from the package root) returns the JWS payload; the shared vectors use it.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.
@@ -397,3 +405,4 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - [ ] Agents that use the LangChain `resolve_did` / `verify_signature` tools enable them in `expose`; verifiers that know their peers set `resolutionLimits.allowedHosts`.
 - [ ] HTTP signers and verifiers are upgraded together, and proxies or gateways forward `Agent-DID` (rc.4 HTTP signatures do not verify in rc.5).
 - [ ] Code that used `AGENT_DID_HTTP_SIGNATURE_COMPONENTS` calls `agentDidHttpSignatureComponents(label)` and handles `KeyedComponent` entries.
+- [ ] Agent Cards you serve are re-signed after the upgrade and contain only A2A 1.0 members.

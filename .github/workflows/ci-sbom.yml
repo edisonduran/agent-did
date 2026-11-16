@@ -98,6 +98,8 @@ jobs:
             artifact-name: agent-did-microsoft-agent-framework
           - package-path: integrations/a2a
             artifact-name: agent-did-a2a
+          - package-path: integrations/mcp
+            artifact-name: agent-did-mcp
 
     steps:
       - name: Checkout repository

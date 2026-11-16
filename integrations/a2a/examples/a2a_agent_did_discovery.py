@@ -1,7 +1,7 @@
-"""Example: A2A Agent Discovery with DID-enriched AgentCard.
+"""Example: A2A 1.0 Agent Discovery with a signed Agent Card carrying the Agent-DID extension.
 
-This example shows how an agent publishes a DID-enriched AgentCard
-and how a client agent would discover and verify its identity.
+This example shows how an agent publishes a signed A2A 1.0 Agent Card
+and how a client agent checks it against the agent's DID document.
 
 Usage:
     python -m examples.a2a_agent_did_discovery
@@ -14,7 +14,7 @@ import json
 
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
-from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
+from agent_did_a2a import A2AAgentCapabilities, A2ASkill, create_agent_did_a2a_integration
 
 
 async def main() -> None:
@@ -35,9 +35,9 @@ async def main() -> None:
         runtime_identity=runtime,
     )
 
-    # Build the A2A AgentCard (would be served at /.well-known/agent.json)
-    card_json = integration.agent_card_json(
-        agent_url="https://research-agent.example.com",
+    # Build and sign the A2A 1.0 Agent Card (served at /.well-known/agent-card.json)
+    card_json = await integration.signed_agent_card_json(
+        agent_url="https://research-agent.example.com/a2a",
         skills=[
             A2ASkill(
                 id="literature-review",
@@ -56,21 +56,21 @@ async def main() -> None:
                 tags=["verification", "academic"],
             ),
         ],
-        capabilities={"streaming": True, "pushNotifications": False},
-        verification_endpoint="https://research-agent.example.com/.well-known/did.json",
+        capabilities=A2AAgentCapabilities(streaming=True, push_notifications=False),
     )
 
-    print("=== A2A AgentCard (DID-enriched) ===")
+    print("=== A2A 1.0 Agent Card (signed, Agent-DID extension) ===")
     print(json.dumps(card_json, indent=2))
     print()
 
     # --- Client agent: discovers and verifies ---
     print("=== Discovery verification ===")
-    print(f"Agent DID: {card_json['did']}")
-    print(f"Controller: {card_json['controller']}")
-    print(f"Auth schemes: {card_json['authentication']['schemes']}")
+    extension = card_json["capabilities"]["extensions"][-1]
+    print(f"Agent DID: {extension['params']['did']}")
+    print(f"Published keys: {extension['params']['keyIds']}")
     print(f"Skills: {[s['name'] for s in card_json['skills']]}")
-    print(f"Verification endpoint: {card_json.get('verification_endpoint', 'none')}")
+    result = await identity.client.verify_agent_card(card_json)
+    print(f"Card signature verified against the DID document: {result.ok}")
     print()
 
     # Show the A2A context that can be injected into LLM prompts

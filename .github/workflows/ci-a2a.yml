@@ -67,8 +67,10 @@ jobs:
         working-directory: integrations/a2a
         run: python -m mypy src/
 
-      - name: Run integration tests
+      - name: Run integration tests (incl. the a2a-sdk cross-check)
         working-directory: integrations/a2a
+        env:
+          AGENT_DID_REQUIRE_A2A_SDK: "1"
         run: python -m pytest tests/ -q
 
       - name: Verify A2A public factory entrypoint

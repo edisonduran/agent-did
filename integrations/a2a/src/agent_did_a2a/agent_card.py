@@ -1,9 +1,11 @@
-"""A2A AgentCard builder enriched with Agent-DID identity.
+"""A2A 1.0 Agent Card builder with Agent-DID identity.
 
-An AgentCard is the discovery document that A2A agents expose at
-``/.well-known/agent.json``.  This module generates spec-compliant
-AgentCards that embed the agent's DID, verification methods, and
-DID-based HTTP Signature authentication scheme.
+An Agent Card is the discovery document an A2A agent serves at ``/.well-known/agent-card.json`` (A2A 1.0 §8.2). This
+module builds cards with the A2A 1.0 shape (``specification/a2a.proto`` v1.0.1, JSON names in lowerCamelCase) and
+names the agent's identity through the Agent-DID extension in ``capabilities.extensions``: ``params.did`` is the agent
+DID and ``params.keyIds`` the keys the card publishes. The card does not declare request signatures as a
+``securitySchemes`` entry (none of the A2A scheme types describes HTTP Message Signatures); the extension does, and
+``required`` says whether the agent expects them. A client activates it by sending ``A2A-Extensions: <uri>``.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from typing import Any
 
 from agent_did_sdk import AGENT_DID_A2A_EXTENSION_URI, AgentSigner, LocalKeySigner, sign_agent_card
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from .config import AgentDidA2AConfig
 from .snapshot import (
@@ -22,97 +25,169 @@ from .snapshot import (
     runtime_signing_key,
 )
 
+A2A_PROTOCOL_VERSION = "1.0"
+"""The A2A protocol version the integration speaks (``A2A-Version``, ``AgentInterface.protocolVersion``)."""
 
-class A2ASkill(BaseModel):
-    """An A2A skill declaration."""
+AGENT_CARD_WELL_KNOWN_PATH = "/.well-known/agent-card.json"
+"""The well-known path of an A2A 1.0 Agent Card (§8.2)."""
 
-    model_config = ConfigDict(extra="allow")
-
-    id: str
-    name: str
-    description: str
-    input_modes: list[str] = Field(default_factory=lambda: ["text/plain"])
-    output_modes: list[str] = Field(default_factory=lambda: ["text/plain"])
-    tags: list[str] = Field(default_factory=list)
+AGENT_DID_EXTENSION_DESCRIPTION = (
+    "Agent-DID identity: requests are signed with HTTP Message Signatures (RFC 9421) by a key of params.did"
+)
 
 
-class A2AAuthenticationInfo(BaseModel):
-    """A2A authentication info block with Agent-DID extension."""
+class _A2AModel(BaseModel):
+    """A2A 1.0 JSON objects: lowerCamelCase names, members A2A does not define are rejected (they would be signed
+    but dropped by A2A verifiers that rebuild the card from its Protocol Buffer form)."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
 
-    schemes: list[str] = Field(default_factory=list)
-    credentials: str | None = None
+    def to_json(self) -> dict[str, Any]:
+        return self.model_dump(by_alias=True, exclude_none=True)
 
 
-class A2AAgentCard(BaseModel):
-    """A2A-compliant AgentCard enriched with Agent-DID identity.
+class A2AAgentInterface(_A2AModel):
+    """An ``AgentInterface``: where and how the agent is reached."""
 
-    Standard A2A fields:
-      name, description, url, skills, capabilities, authentication
-
-    Agent-DID extensions:
-      did, controller, authentication_key_id, verification_endpoint
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    # --- Standard A2A fields ---
-    name: str
-    description: str | None = None
     url: str
-    version: str = "0.1.0"
-    skills: list[A2ASkill] = Field(default_factory=list)
-    capabilities: dict[str, bool] = Field(default_factory=dict)
-    authentication: A2AAuthenticationInfo = Field(default_factory=A2AAuthenticationInfo)
+    protocol_binding: str = "JSONRPC"
+    protocol_version: str = A2A_PROTOCOL_VERSION
+    tenant: str | None = None
 
-    # --- Agent-DID identity extensions ---
-    did: str
-    controller: str
-    authentication_key_id: str | None = None
-    verification_endpoint: str | None = None
+
+class A2AAgentProvider(_A2AModel):
+    """An ``AgentProvider``."""
+
+    url: str
+    organization: str
+
+
+class A2AAgentExtension(_A2AModel):
+    """An ``AgentExtension`` of ``capabilities.extensions``."""
+
+    uri: str
+    description: str | None = None
+    required: bool = False
+    params: dict[str, Any] | None = None
+
+
+class A2AAgentCapabilities(_A2AModel):
+    """``AgentCapabilities``. The Agent-DID extension is added by the builder."""
+
+    streaming: bool | None = None
+    push_notifications: bool | None = None
+    extended_agent_card: bool | None = None
+    extensions: list[A2AAgentExtension] = Field(default_factory=list)
+
+
+class A2ASkill(_A2AModel):
+    """An ``AgentSkill``. A2A 1.0 requires a non-empty ``description`` and at least one tag."""
+
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    tags: list[str] = Field(min_length=1)
+    examples: list[str] | None = None
+    input_modes: list[str] | None = None
+    output_modes: list[str] | None = None
+    security_requirements: list[dict[str, Any]] | None = None
+
+
+class A2AAgentCard(_A2AModel):
+    """An A2A 1.0 ``AgentCard`` (without ``signatures``: see :func:`sign_agent_card_json`)."""
+
+    name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    supported_interfaces: list[A2AAgentInterface] = Field(min_length=1)
+    provider: A2AAgentProvider | None = None
+    version: str = Field(min_length=1)
+    documentation_url: str | None = None
+    capabilities: A2AAgentCapabilities = Field(default_factory=A2AAgentCapabilities)
+    security_schemes: dict[str, dict[str, Any]] | None = None
+    security_requirements: list[dict[str, Any]] | None = None
+    default_input_modes: list[str] = Field(default_factory=lambda: ["text/plain"], min_length=1)
+    default_output_modes: list[str] = Field(default_factory=lambda: ["text/plain"], min_length=1)
+    skills: list[A2ASkill] = Field(min_length=1)
+    icon_url: str | None = None
+
+    def agent_did_extension(self) -> A2AAgentExtension | None:
+        """The Agent-DID extension of the card, if any."""
+        return next((e for e in self.capabilities.extensions if e.uri == AGENT_DID_A2A_EXTENSION_URI), None)
+
+
+def _security(config: AgentDidA2AConfig) -> tuple[dict[str, dict[str, Any]] | None, list[dict[str, Any]] | None]:
+    schemes: dict[str, dict[str, Any]] = dict(config.additional_security_schemes)
+    requirements: list[dict[str, Any]] = list(config.additional_security_requirements)
+    oauth = config.oauth_client_credentials
+    if oauth is not None:
+        schemes[oauth.scheme_name] = {
+            "oauth2SecurityScheme": {
+                "description": oauth.description,
+                "flows": {"clientCredentials": {"tokenUrl": oauth.token_url, "scopes": dict(oauth.scopes)}},
+            }
+        }
+        if oauth.required:
+            requirements.append({"schemes": {oauth.scheme_name: {"list": list(oauth.scopes)}}})
+    return schemes or None, requirements or None
 
 
 def build_agent_card(
     *,
     identity_snapshot: AgentDidIdentitySnapshot,
     agent_url: str,
-    skills: list[A2ASkill] | None = None,
-    capabilities: dict[str, bool] | None = None,
+    skills: list[A2ASkill],
+    key_ids: list[str] | None = None,
+    capabilities: A2AAgentCapabilities | None = None,
     config: AgentDidA2AConfig | None = None,
-    verification_endpoint: str | None = None,
+    provider: A2AAgentProvider | None = None,
+    documentation_url: str | None = None,
+    icon_url: str | None = None,
+    default_input_modes: list[str] | None = None,
+    default_output_modes: list[str] | None = None,
 ) -> A2AAgentCard:
-    """Build an A2A AgentCard enriched with Agent-DID identity.
+    """Build an A2A 1.0 Agent Card for the agent of *identity_snapshot*, reached over JSON-RPC at *agent_url*.
 
-    The card declares ``http-signature-did`` as an authentication scheme
-    so that consuming agents know they can verify the agent's identity
-    via DID-based HTTP Message Signatures.
+    The card carries the Agent-DID extension (``params.did``, and ``params.keyIds`` when *key_ids* is given;
+    :func:`sign_agent_card_json` fills in the published keys) and, when configured, the OAuth client credentials
+    scheme of ``config.oauth_client_credentials``.
     """
-
     effective_config = config or AgentDidA2AConfig()
-
-    schemes = ["http-signature-did"]
-    for extra in effective_config.additional_auth_schemes:
-        schemes.append(extra.scheme)
-
+    effective_capabilities = (capabilities or A2AAgentCapabilities()).model_copy(deep=True)
+    effective_capabilities.extensions = [
+        extension for extension in effective_capabilities.extensions if extension.uri != AGENT_DID_A2A_EXTENSION_URI
+    ]
+    params: dict[str, Any] = {"did": identity_snapshot.did}
+    if key_ids:
+        params["keyIds"] = list(key_ids)
+    effective_capabilities.extensions.append(
+        A2AAgentExtension(
+            uri=AGENT_DID_A2A_EXTENSION_URI,
+            description=AGENT_DID_EXTENSION_DESCRIPTION,
+            required=effective_config.require_signed_requests,
+            params=params,
+        )
+    )
+    security_schemes, security_requirements = _security(effective_config)
     return A2AAgentCard(
         name=identity_snapshot.name,
-        description=identity_snapshot.description,
-        url=agent_url,
+        description=identity_snapshot.description or identity_snapshot.name,
+        supported_interfaces=[A2AAgentInterface(url=agent_url)],
+        provider=provider,
         version=identity_snapshot.version,
-        skills=skills or [],
-        capabilities=capabilities or {"streaming": False, "pushNotifications": False},
-        authentication=A2AAuthenticationInfo(schemes=schemes),
-        did=identity_snapshot.did,
-        controller=identity_snapshot.controller,
-        authentication_key_id=identity_snapshot.authentication_key_id,
-        verification_endpoint=verification_endpoint,
+        documentation_url=documentation_url,
+        capabilities=effective_capabilities,
+        security_schemes=security_schemes,
+        security_requirements=security_requirements,
+        default_input_modes=default_input_modes or ["text/plain"],
+        default_output_modes=default_output_modes or ["text/plain"],
+        skills=skills,
+        icon_url=icon_url,
     )
 
 
 def agent_card_to_json(card: A2AAgentCard) -> dict[str, Any]:
-    """Serialize an AgentCard to a JSON-compatible dict for ``/.well-known/agent.json``."""
-    return card.model_dump(exclude_none=True)
+    """Serialize an Agent Card to its A2A 1.0 JSON form (lowerCamelCase, unset members omitted)."""
+    return card.to_json()
 
 
 def published_key_ids(runtime_identity: RuntimeIdentity) -> list[str]:
@@ -128,8 +203,9 @@ def published_key_ids(runtime_identity: RuntimeIdentity) -> list[str]:
 async def sign_agent_card_json(card_json: dict[str, Any], runtime_identity: RuntimeIdentity) -> dict[str, Any]:
     """Return *card_json* with the Agent-DID extension in ``capabilities.extensions`` (the agent DID and
     :func:`published_key_ids`) and a ``signatures`` entry by the agent's active signing key: the signed card of the
-    composition contract (A2A 1.0 §8.4 JWS over the JCS form of the card without ``signatures``). Any existing
-    Agent-DID extension and signatures are replaced."""
+    composition contract (A2A 1.0 §8.4 JWS over the RFC 8785 form of the card without ``signatures`` and without
+    default values). Existing signatures are replaced; the ``description`` and ``required`` of an existing Agent-DID
+    extension are kept."""
     key_id = get_active_signing_key_id(runtime_identity)
     if key_id is None:
         raise ValueError("The runtime identity has no active assertionMethod key to sign with")
@@ -140,16 +216,14 @@ async def sign_agent_card_json(card_json: dict[str, Any], runtime_identity: Runt
     capabilities = card.setdefault("capabilities", {})
     if not isinstance(capabilities, dict):
         raise TypeError("capabilities must be an object")
-    others = [
-        extension
-        for extension in capabilities.get("extensions", [])
-        if not (isinstance(extension, dict) and extension.get("uri") == AGENT_DID_A2A_EXTENSION_URI)
-    ]
-    capabilities["extensions"] = [
-        *others,
-        {
-            "uri": AGENT_DID_A2A_EXTENSION_URI,
-            "params": {"did": runtime_identity.document.id, "keyIds": published_key_ids(runtime_identity)},
-        },
-    ]
+    extensions = capabilities.get("extensions", [])
+    if not isinstance(extensions, list):
+        raise TypeError("capabilities.extensions must be a list")
+    ours = [e for e in extensions if isinstance(e, dict) and e.get("uri") == AGENT_DID_A2A_EXTENSION_URI]
+    others = [e for e in extensions if not (isinstance(e, dict) and e.get("uri") == AGENT_DID_A2A_EXTENSION_URI)]
+    extension: dict[str, Any] = {"uri": AGENT_DID_A2A_EXTENSION_URI}
+    if ours:
+        extension.update({name: ours[0][name] for name in ("description", "required") if name in ours[0]})
+    extension["params"] = {"did": runtime_identity.document.id, "keyIds": published_key_ids(runtime_identity)}
+    capabilities["extensions"] = [*others, extension]
     return await sign_agent_card(card, signer, key_id)

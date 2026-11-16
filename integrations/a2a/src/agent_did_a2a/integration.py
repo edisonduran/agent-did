@@ -8,14 +8,24 @@ from typing import Any
 
 from agent_did_sdk import AgentIdentity, HttpTargetValidationOptions, VerifyIdentityCompositionResult
 
-from .agent_card import A2AAgentCard, A2ASkill, agent_card_to_json, build_agent_card, sign_agent_card_json
+from .agent_card import (
+    A2AAgentCapabilities,
+    A2AAgentCard,
+    A2AAgentProvider,
+    A2ASkill,
+    agent_card_to_json,
+    build_agent_card,
+    published_key_ids,
+    sign_agent_card_json,
+)
 from .config import AgentDidA2AConfig, AgentDidA2AExposureConfig
 from .context import build_agent_did_a2a_context
 from .jsonrpc import (
+    A2AMessage,
     JsonRpcRequest,
     SignedA2ARequest,
-    build_task_get_request,
-    build_task_send_request,
+    build_get_task_request,
+    build_send_message_request,
     sign_a2a_request,
     verify_a2a_request,
     verify_a2a_request_composition,
@@ -72,11 +82,16 @@ class AgentDidA2AIntegration:
         self,
         *,
         agent_url: str,
-        skills: list[A2ASkill] | None = None,
-        capabilities: dict[str, bool] | None = None,
-        verification_endpoint: str | None = None,
+        skills: list[A2ASkill],
+        capabilities: A2AAgentCapabilities | None = None,
+        provider: A2AAgentProvider | None = None,
+        documentation_url: str | None = None,
+        icon_url: str | None = None,
+        default_input_modes: list[str] | None = None,
+        default_output_modes: list[str] | None = None,
     ) -> A2AAgentCard:
-        """Build an A2A AgentCard enriched with this agent's DID identity."""
+        """Build the A2A 1.0 Agent Card of this agent (JSON-RPC interface at *agent_url*), with the Agent-DID
+        extension naming its DID and published keys."""
         self._require("enrich_agent_card", "build_agent_card")
 
         snapshot = self._capture_identity_snapshot("build_agent_card")
@@ -88,45 +103,26 @@ class AgentDidA2AIntegration:
             identity_snapshot=snapshot,
             agent_url=agent_url,
             skills=skills,
+            key_ids=published_key_ids(self.runtime_identity),
             capabilities=capabilities,
             config=self.config,
-            verification_endpoint=verification_endpoint,
+            provider=provider,
+            documentation_url=documentation_url,
+            icon_url=icon_url,
+            default_input_modes=default_input_modes,
+            default_output_modes=default_output_modes,
         )
 
-    def agent_card_json(
-        self,
-        *,
-        agent_url: str,
-        skills: list[A2ASkill] | None = None,
-        capabilities: dict[str, bool] | None = None,
-        verification_endpoint: str | None = None,
-    ) -> dict[str, Any]:
-        """Build and serialize an AgentCard to JSON-compatible dict."""
-        card = self.build_agent_card(
-            agent_url=agent_url,
-            skills=skills,
-            capabilities=capabilities,
-            verification_endpoint=verification_endpoint,
-        )
-        return agent_card_to_json(card)
+    def agent_card_json(self, *, agent_url: str, skills: list[A2ASkill], **options: Any) -> dict[str, Any]:
+        """:meth:`build_agent_card` as A2A 1.0 JSON (unsigned)."""
+        return agent_card_to_json(self.build_agent_card(agent_url=agent_url, skills=skills, **options))
 
-    async def signed_agent_card_json(
-        self,
-        *,
-        agent_url: str,
-        skills: list[A2ASkill] | None = None,
-        capabilities: dict[str, bool] | None = None,
-        verification_endpoint: str | None = None,
-    ) -> dict[str, Any]:
-        """Build the AgentCard JSON and sign it for the composition contract: the Agent-DID extension names the DID
+    async def signed_agent_card_json(self, *, agent_url: str, skills: list[A2ASkill], **options: Any) -> dict[str, Any]:
+        """Build the Agent Card JSON and sign it for the composition contract: the Agent-DID extension names the DID
         and the published keys, and ``signatures`` carries a JWS by the active signing key (A2A 1.0 §8.4). Serve this
-        at ``/.well-known/agent.json`` so peers can call :meth:`verify_request_against_card`."""
-        card = self.agent_card_json(
-            agent_url=agent_url,
-            skills=skills,
-            capabilities=capabilities,
-            verification_endpoint=verification_endpoint,
-        )
+        at ``config.agent_card_url`` (``/.well-known/agent-card.json``) so peers can call
+        :meth:`verify_request_against_card`."""
+        card = self.agent_card_json(agent_url=agent_url, skills=skills, **options)
         signed = await sign_agent_card_json(card, self.runtime_identity)
         self.observer.emit(
             "agent_did.a2a.agent_card.signed",
@@ -173,8 +169,10 @@ class AgentDidA2AIntegration:
         *,
         target_url: str,
         jsonrpc_request: JsonRpcRequest,
+        extensions: list[str] | None = None,
     ) -> SignedA2ARequest:
-        """Sign an outgoing A2A JSON-RPC request with HTTP Signatures."""
+        """Sign an outgoing A2A JSON-RPC request with HTTP Signatures; ``A2A-Extensions`` activates the Agent-DID
+        extension and *extensions*."""
         self._require("sign_requests", "sign_request")
 
         self.observer.emit(
@@ -194,6 +192,7 @@ class AgentDidA2AIntegration:
             http_security=HttpTargetValidationOptions(
                 allow_private_targets=self.config.allow_private_network_targets
             ),
+            extensions=extensions,
         )
 
         self.observer.emit(
@@ -245,24 +244,27 @@ class AgentDidA2AIntegration:
 
         return is_valid
 
-    async def send_task(
+    async def send_message(
         self,
         *,
         target_url: str,
         request_id: str | int,
-        task_id: str,
-        message: dict[str, Any],
-        session_id: str | None = None,
+        message: A2AMessage,
+        configuration: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        tenant: str | None = None,
+        extensions: list[str] | None = None,
     ) -> SignedA2ARequest:
-        """Build and sign a ``tasks/send`` request."""
+        """Build and sign a ``SendMessage`` request (A2A 1.0)."""
 
-        request = build_task_send_request(
+        request = build_send_message_request(
             request_id=request_id,
-            task_id=task_id,
             message=message,
-            session_id=session_id,
+            configuration=configuration,
+            metadata=metadata,
+            tenant=tenant,
         )
-        return await self.sign_request(target_url=target_url, jsonrpc_request=request)
+        return await self.sign_request(target_url=target_url, jsonrpc_request=request, extensions=extensions)
 
     async def get_task(
         self,
@@ -270,10 +272,14 @@ class AgentDidA2AIntegration:
         target_url: str,
         request_id: str | int,
         task_id: str,
+        history_length: int | None = None,
+        tenant: str | None = None,
     ) -> SignedA2ARequest:
-        """Build and sign a ``tasks/get`` request."""
+        """Build and sign a ``GetTask`` request (A2A 1.0)."""
 
-        request = build_task_get_request(request_id=request_id, task_id=task_id)
+        request = build_get_task_request(
+            request_id=request_id, task_id=task_id, history_length=history_length, tenant=tenant
+        )
         return await self.sign_request(target_url=target_url, jsonrpc_request=request)
 
     def get_a2a_context(self) -> str:

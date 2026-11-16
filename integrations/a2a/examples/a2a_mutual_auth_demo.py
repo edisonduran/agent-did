@@ -2,9 +2,9 @@
 
 This example demonstrates:
   1. Two agents create their own DID identities
-  2. Each publishes a DID-enriched AgentCard
-  3. Agent A sends a signed tasks/send request to Agent B
-  4. Agent B verifies the incoming request's HTTP Signature
+  2. Each publishes a signed A2A 1.0 Agent Card with the Agent-DID extension
+  3. Agent A sends a signed SendMessage request to Agent B
+  4. Agent B verifies the incoming request against Agent A's card
 
 Usage:
     python -m examples.a2a_mutual_auth_demo
@@ -17,7 +17,7 @@ import json
 
 from agent_did_sdk import AgentIdentity, AgentIdentityConfig, CreateAgentParams, InMemoryAgentRegistry, LocalKeySigner
 
-from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration
+from agent_did_a2a import A2ASkill, create_agent_did_a2a_integration, text_message
 
 
 async def main() -> None:
@@ -55,14 +55,18 @@ async def main() -> None:
     )
 
     # --- Step 1: Both agents publish AgentCards ---
-    card_a = integration_a.agent_card_json(agent_url="https://orchestrator.example.com")
-    card_b = integration_b.agent_card_json(
-        agent_url="https://data-analyst.example.com",
+    card_a = await integration_a.signed_agent_card_json(
+        agent_url="https://orchestrator.example.com/a2a",
+        skills=[A2ASkill(id="orchestrate", name="Orchestrate", description="Runs workflows.", tags=["workflow"])],
+    )
+    card_b = await integration_b.signed_agent_card_json(
+        agent_url="https://data-analyst.example.com/a2a",
         skills=[
             A2ASkill(
                 id="analyze-csv",
                 name="Analyze CSV",
                 description="Analyze a CSV dataset and produce summary statistics.",
+                tags=["data"],
             ),
         ],
     )
@@ -75,15 +79,11 @@ async def main() -> None:
     print()
 
     # --- Step 2: Agent A sends a signed task to Agent B ---
-    print("=== Agent A sends signed tasks/send to Agent B ===")
-    signed_request = await integration_a.send_task(
+    print("=== Agent A sends a signed SendMessage to Agent B ===")
+    signed_request = await integration_a.send_message(
         target_url="https://data-analyst.example.com/a2a",
         request_id=1,
-        task_id="task-mutual-001",
-        message={
-            "role": "user",
-            "parts": [{"type": "text", "text": "Analyze Q4 revenue data and produce a summary."}],
-        },
+        message=text_message("Analyze Q4 revenue data and produce a summary."),
     )
 
     print(f"Signed request URL: {signed_request.url}")
@@ -93,20 +93,22 @@ async def main() -> None:
     print()
 
     # --- Step 3: Agent B verifies the incoming request ---
-    print("=== Agent B verifies incoming request ===")
-    is_valid = await integration_b.verify_request(
+    print("=== Agent B verifies the incoming request against Agent A's card ===")
+    result = await integration_b.verify_request_against_card(
         method=signed_request.method,
         url=signed_request.url,
         headers=signed_request.headers,
         body=signed_request.body,
+        agent_card=card_a,
     )
+    is_valid = result.ok
     print(f"Signature valid: {is_valid}")
     print()
 
     # --- Summary ---
     print("=== Mutual Authentication Summary ===")
-    print(f"Agent A DID: {card_a['did']}")
-    print(f"Agent B DID: {card_b['did']}")
+    print(f"Agent A DID: {card_a['capabilities']['extensions'][-1]['params']['did']}")
+    print(f"Agent B DID: {card_b['capabilities']['extensions'][-1]['params']['did']}")
     print("Request signed by Agent A: ✓")
     print(f"Signature verified by Agent B: {'✓' if is_valid else '✗'}")
 

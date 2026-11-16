@@ -5,7 +5,12 @@
  * 8785 (JCS) form of the card without `signatures`. Agent-DID fixes the profile: protected header
  * `{"alg":"EdDSA","kid":"<DID URL>","typ":"JOSE"}`, an Ed25519 `assertionMethod` key of the agent DID as `kid`. The
  * keys a card publishes are the `kid`s of its signatures and the `keyIds` of the Agent-DID extension in
- * `capabilities.extensions`. This is aligned with A2A 1.0, not verified against an independent implementation.
+ * `capabilities.extensions`.
+ *
+ * Before JCS, the payload drops the default values of the A2A 1.0 `AgentCard` fields (§8.4.1, Protocol Buffer field
+ * presence of `specification/a2a.proto` v1.0.1): a field that is neither `REQUIRED` nor `optional` is omitted when it
+ * holds its implicit default (`""`, `false`, `0`, an empty list or map). Members A2A 1.0 does not define, and the
+ * contents of `params` / `header` objects, are covered as they are.
  *
  * Python parity: `sdk-python/src/agent_did_sdk/core/agent_card.py`.
  */
@@ -58,10 +63,162 @@ export function didOfKeyId(keyId: unknown): string | undefined {
   return match ? match[1] : undefined;
 }
 
-/** The JWS payload of a card: base64url of the JCS form of the card without `signatures`. */
-function cardPayload(card: Record<string, unknown>): string {
+type FieldKind = 'required' | 'optional' | 'implicit' | 'repeated' | 'message';
+type FieldSpec = readonly [FieldKind, string | null];
+
+/**
+ * A2A 1.0 field presence (`specification/a2a.proto` v1.0.1), by JSON member name. Kinds: `required` (kept),
+ * `optional` (`optional` keyword: kept when present), `implicit` (scalar without presence: dropped when it is the
+ * default), `repeated` (list or map: dropped when empty), `message` (singular message or oneof member: kept when
+ * present). Python parity: `_A2A_SCHEMA` in `agent_did_sdk/core/agent_card.py`.
+ */
+const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> = {
+  AgentCard: {
+    name: ['required', null],
+    description: ['required', null],
+    supportedInterfaces: ['required', 'AgentInterface'],
+    provider: ['message', 'AgentProvider'],
+    version: ['required', null],
+    documentationUrl: ['optional', null],
+    capabilities: ['required', 'AgentCapabilities'],
+    securitySchemes: ['repeated', 'map:SecurityScheme'],
+    securityRequirements: ['repeated', 'SecurityRequirement'],
+    defaultInputModes: ['required', null],
+    defaultOutputModes: ['required', null],
+    skills: ['required', 'AgentSkill'],
+    iconUrl: ['optional', null]
+  },
+  AgentInterface: {
+    url: ['required', null],
+    protocolBinding: ['required', null],
+    tenant: ['implicit', null],
+    protocolVersion: ['required', null]
+  },
+  AgentProvider: { url: ['required', null], organization: ['required', null] },
+  AgentCapabilities: {
+    streaming: ['optional', null],
+    pushNotifications: ['optional', null],
+    extensions: ['repeated', 'AgentExtension'],
+    extendedAgentCard: ['optional', null]
+  },
+  AgentExtension: {
+    uri: ['implicit', null],
+    description: ['implicit', null],
+    required: ['implicit', null],
+    params: ['message', null]
+  },
+  AgentSkill: {
+    id: ['required', null],
+    name: ['required', null],
+    description: ['required', null],
+    tags: ['required', null],
+    examples: ['repeated', null],
+    inputModes: ['repeated', null],
+    outputModes: ['repeated', null],
+    securityRequirements: ['repeated', 'SecurityRequirement']
+  },
+  SecurityRequirement: { schemes: ['repeated', 'map:StringList'] },
+  StringList: { list: ['repeated', null] },
+  SecurityScheme: {
+    apiKeySecurityScheme: ['message', 'APIKeySecurityScheme'],
+    httpAuthSecurityScheme: ['message', 'HTTPAuthSecurityScheme'],
+    oauth2SecurityScheme: ['message', 'OAuth2SecurityScheme'],
+    openIdConnectSecurityScheme: ['message', 'OpenIdConnectSecurityScheme'],
+    mtlsSecurityScheme: ['message', 'MutualTlsSecurityScheme']
+  },
+  APIKeySecurityScheme: { description: ['implicit', null], location: ['required', null], name: ['required', null] },
+  HTTPAuthSecurityScheme: {
+    description: ['implicit', null],
+    scheme: ['required', null],
+    bearerFormat: ['implicit', null]
+  },
+  OAuth2SecurityScheme: {
+    description: ['implicit', null],
+    flows: ['required', 'OAuthFlows'],
+    oauth2MetadataUrl: ['implicit', null]
+  },
+  OpenIdConnectSecurityScheme: { description: ['implicit', null], openIdConnectUrl: ['required', null] },
+  MutualTlsSecurityScheme: { description: ['implicit', null] },
+  OAuthFlows: {
+    authorizationCode: ['message', 'AuthorizationCodeOAuthFlow'],
+    clientCredentials: ['message', 'ClientCredentialsOAuthFlow'],
+    implicit: ['message', 'ImplicitOAuthFlow'],
+    password: ['message', 'PasswordOAuthFlow'],
+    deviceCode: ['message', 'DeviceCodeOAuthFlow']
+  },
+  AuthorizationCodeOAuthFlow: {
+    authorizationUrl: ['required', null],
+    tokenUrl: ['required', null],
+    refreshUrl: ['implicit', null],
+    scopes: ['required', null],
+    pkceRequired: ['implicit', null]
+  },
+  ClientCredentialsOAuthFlow: {
+    tokenUrl: ['required', null],
+    refreshUrl: ['implicit', null],
+    scopes: ['required', null]
+  },
+  ImplicitOAuthFlow: {
+    authorizationUrl: ['implicit', null],
+    refreshUrl: ['implicit', null],
+    scopes: ['repeated', null]
+  },
+  PasswordOAuthFlow: { tokenUrl: ['implicit', null], refreshUrl: ['implicit', null], scopes: ['repeated', null] },
+  DeviceCodeOAuthFlow: {
+    deviceAuthorizationUrl: ['required', null],
+    tokenUrl: ['required', null],
+    refreshUrl: ['implicit', null],
+    scopes: ['required', null]
+  }
+};
+
+const isImplicitDefault = (value: unknown): boolean => value === false || value === 0 || value === '';
+
+const isEmptyRepeated = (value: unknown): boolean =>
+  Array.isArray(value) ? value.length === 0 : isObject(value) && Object.keys(value).length === 0;
+
+/** `value` with the A2A 1.0 default values removed, when it has the JSON type `message` describes. */
+function withoutDefaults(value: unknown, message: string | null): unknown {
+  if (message === null) {
+    return value;
+  }
+  if (message.startsWith('map:')) {
+    if (!isObject(value)) {
+      return value;
+    }
+    const item = message.slice(4);
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, withoutDefaults(entry, item)]));
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => withoutDefaults(entry, message));
+  }
+  if (!isObject(value)) {
+    return value;
+  }
+  const fields = A2A_SCHEMA[message];
+  const result: Record<string, unknown> = {};
+  for (const [name, entry] of Object.entries(value)) {
+    const spec = Object.prototype.hasOwnProperty.call(fields, name) ? fields[name] : undefined;
+    if (spec === undefined) {
+      result[name] = entry;
+      continue;
+    }
+    const [kind, child] = spec;
+    if ((kind === 'implicit' && isImplicitDefault(entry)) || (kind === 'repeated' && isEmptyRepeated(entry))) {
+      continue;
+    }
+    result[name] = withoutDefaults(entry, child);
+  }
+  return result;
+}
+
+/**
+ * The JWS payload of a card signature: base64url of the RFC 8785 form of the card without `signatures` and without
+ * the A2A 1.0 default values (§8.4.1).
+ */
+export function agentCardSigningPayload(card: Record<string, unknown>): string {
   const { signatures: _signatures, ...unsigned } = card;
-  return bytesToBase64Url(new TextEncoder().encode(canonicalizeJson(unsigned)));
+  return bytesToBase64Url(new TextEncoder().encode(canonicalizeJson(withoutDefaults(unsigned, 'AgentCard'))));
 }
 
 /**
@@ -82,7 +239,7 @@ export async function signAgentCard(card: AgentCard, signer: AgentSigner, keyId:
   const protectedHeader = bytesToBase64Url(
     new TextEncoder().encode(canonicalizeJson({ alg: AGENT_CARD_SIGNATURE_ALG, kid: keyId, typ: 'JOSE' }))
   );
-  const signingInput = `${protectedHeader}.${cardPayload(card)}`;
+  const signingInput = `${protectedHeader}.${agentCardSigningPayload(card)}`;
   const signatureBytes = hexToBytes(await signer.sign(new TextEncoder().encode(signingInput)));
   return {
     ...JSON.parse(JSON.stringify(card)),
@@ -137,7 +294,7 @@ export function parseSignedAgentCard(card: unknown): ParsedAgentCard | undefined
   }
   let payload: string;
   try {
-    payload = cardPayload(card);
+    payload = agentCardSigningPayload(card);
   } catch {
     return undefined;
   }

@@ -8,6 +8,9 @@
  * - `cards`: cards and the outcome of the format check (`parseSignedAgentCard`) followed by the Ed25519 check of every
  *   signature with the key of its `kid` (`keys`): `ok` (with the agent DID and the published keys), `format_drift`
  *   or `tampered`.
+ * - `payloads`: cards and the hand-written JSON a signature covers (A2A 1.0 §8.4.1: no `signatures`, no default
+ *   values); both SDKs must produce the base64url of its RFC 8785 form (`agentCardSigningPayload` /
+ *   `agent_card_signing_payload`).
  * - `documents`: DID documents and whether the document guard accepts them (`revoked`, inline context term).
  * - `reasons`: a DID document, a key id whose signature did not verify, and the contract reason
  *   (`compositionReasonForKey` / `composition_reason_for_key`).
@@ -15,7 +18,8 @@
  *
  * The output is deterministic and built without the SDKs (node:crypto only). The seeds below are TEST-ONLY keys, public
  * on purpose so anyone can re-create the vectors; they sign nothing real. The canonicalization here handles only what
- * the cards contain (objects, arrays, strings, booleans): it is RFC 8785 for that subset.
+ * the cards contain (objects, arrays, strings, booleans): it is RFC 8785 for that subset. Before it, the A2A 1.0 default
+ * values (§8.4.1) of the members these cards use are dropped (`A2A_DEFAULTS`).
  *
  * Usage: node scripts/regenerate-composition-contract-vectors.js
  */
@@ -72,6 +76,32 @@ function jcs(value) {
   throw new TypeError(`unsupported value in a card: ${String(value)}`);
 }
 
+/**
+ * A2A 1.0 field presence (specification/a2a.proto v1.0.1) of the members these cards use: `implicit` scalars are
+ * dropped when `""`, `false` or `0`, `repeated` members when empty; other members are kept. Nested messages by name.
+ */
+const A2A_DEFAULTS = {
+  AgentCard: { supportedInterfaces: ['keep', 'AgentInterface'], capabilities: ['keep', 'AgentCapabilities'], skills: ['keep', 'AgentSkill'], securitySchemes: ['repeated'], securityRequirements: ['repeated'] },
+  AgentInterface: { tenant: ['implicit'] },
+  AgentCapabilities: { extensions: ['repeated', 'AgentExtension'] },
+  AgentExtension: { uri: ['implicit'], description: ['implicit'], required: ['implicit'] },
+  AgentSkill: { examples: ['repeated'], inputModes: ['repeated'], outputModes: ['repeated'], securityRequirements: ['repeated'] }
+};
+
+function withoutDefaults(value, message) {
+  if (Array.isArray(value)) return value.map((item) => withoutDefaults(item, message));
+  if (!value || typeof value !== 'object') return value;
+  const fields = A2A_DEFAULTS[message] ?? {};
+  const result = {};
+  for (const [name, item] of Object.entries(value)) {
+    const [kind, child] = fields[name] ?? ['keep'];
+    if (kind === 'implicit' && (item === '' || item === false || item === 0)) continue;
+    if (kind === 'repeated' && (Array.isArray(item) ? item.length === 0 : item && typeof item === 'object' && Object.keys(item).length === 0)) continue;
+    result[name] = child ? withoutDefaults(item, child) : item;
+  }
+  return result;
+}
+
 const b64url = (bytes) => Buffer.from(bytes).toString('base64url');
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -80,14 +110,14 @@ function card(keyIds = [KEY1, KEY2]) {
     name: 'CardBot',
     description: 'Answers questions about cards',
     version: '1.0.0',
-    supportedInterfaces: [{ url: 'https://agents.example/a2a', protocolBinding: 'JSONRPC' }],
+    supportedInterfaces: [{ url: 'https://agents.example/a2a', protocolBinding: 'JSONRPC', protocolVersion: '1.0' }],
     capabilities: {
       streaming: false,
       extensions: [{ uri: EXTENSION_URI, params: { did: DID, keyIds } }]
     },
     defaultInputModes: ['text/plain'],
     defaultOutputModes: ['text/plain'],
-    skills: []
+    skills: [{ id: 'cards', name: 'Cards', description: 'Answers questions about cards', tags: ['cards'] }]
   };
 }
 
@@ -95,7 +125,7 @@ function card(keyIds = [KEY1, KEY2]) {
 function signatureEntry(value, keyId, headerText, signingKeyId = keyId) {
   const { signatures: _ignored, ...unsigned } = value;
   const protectedB64 = b64url(Buffer.from(headerText, 'utf8'));
-  const signingInput = `${protectedB64}.${b64url(Buffer.from(jcs(unsigned), 'utf8'))}`;
+  const signingInput = `${protectedB64}.${b64url(Buffer.from(jcs(withoutDefaults(unsigned, 'AgentCard')), 'utf8'))}`;
   return { protected: protectedB64, signature: b64url(crypto.sign(null, Buffer.from(signingInput, 'ascii'), privateKey(signingKeyId))) };
 }
 
@@ -119,6 +149,17 @@ function cardCases() {
   const foreignKeyIds = card([KEY1, `${OTHER_DID}#key-1`]);
   const noExtension = card();
   delete noExtension.capabilities.extensions;
+  const withDefaults = card();
+  withDefaults.supportedInterfaces[0].tenant = '';
+  withDefaults.capabilities.extensions[0].required = false;
+  withDefaults.capabilities.extensions[0].description = '';
+  withDefaults.skills[0].examples = [];
+  withDefaults.securitySchemes = {};
+  const addDefault = clone(base);
+  addDefault.capabilities.extensions[0].required = false;
+  addDefault.skills[0].inputModes = [];
+  const setOptional = clone(base);
+  setOptional.capabilities.pushNotifications = false;
   const shortSignature = Buffer.from(base.signatures[0].signature, 'base64url').subarray(0, 63);
 
   return [
@@ -129,6 +170,10 @@ function cardCases() {
     ok('protected header with jku (ignored)', signed(card(), KEY1, header(KEY1, { jku: 'https://agents.example/jwks.json' })), [KEY1, KEY2]),
     ok('unprotected header (not covered, ignored)', withEntry({ header: { note: 'not covered' } }), [KEY1, KEY2]),
     ok('protected header that is not in JCS form', signed(card(), KEY1, `{"typ":"JOSE", "kid":"${KEY1}","alg":"EdDSA"}`), [KEY1, KEY2]),
+    ok('A2A default values present when signed (not covered)', signed(withDefaults), [KEY1, KEY2]),
+    ok('A2A default values added after signing (not covered)', addDefault, [KEY1, KEY2]),
+    tampered('optional member set to its default after signing (covered)', setOptional),
+    tampered('member A2A does not define, empty, added after signing (covered)', { ...base, note: '' }),
     tampered('a member changed after signing', { ...base, name: 'Other' }),
     tampered('a member added after signing', { ...base, iconUrl: 'https://agents.example/icon.png' }),
     tampered('kid key-1, signed by key-2', signed(card(), KEY1, header(KEY1), KEY2)),
@@ -155,6 +200,69 @@ function cardCases() {
     drift('two Agent-DID extensions', signed(twoExtensions)),
     drift('signatures by two DIDs', signed(signed(noExtension), `${OTHER_DID}#key-1`))
   ];
+}
+
+/** Hand-written expectations, independent of `withoutDefaults`. */
+function payloadCases() {
+  const extension = { uri: EXTENSION_URI, params: { did: DID, keyIds: [KEY1], empty: '', none: [] } };
+  return [
+    {
+      name: 'A2A 1.0 §8.4.1 example: optional members kept, empty repeated dropped, REQUIRED kept',
+      card: { name: 'Example Agent', description: '', capabilities: { streaming: false, pushNotifications: false, extensions: [] }, skills: [] },
+      covered: { name: 'Example Agent', description: '', capabilities: { streaming: false, pushNotifications: false }, skills: [] }
+    },
+    {
+      name: 'signatures and implicit defaults dropped; params and members A2A does not define kept as they are',
+      card: {
+        name: 'A',
+        note: '',
+        supportedInterfaces: [{ url: 'https://agents.example/a2a', protocolBinding: 'JSONRPC', protocolVersion: '1.0', tenant: '' }],
+        provider: { url: '', organization: '' },
+        capabilities: { extensions: [{ ...extension, description: '', required: false }], extendedAgentCard: false },
+        skills: [{ id: 's', name: 'S', description: '', tags: [], examples: [], inputModes: [], outputModes: ['text/plain'] }],
+        documentationUrl: '',
+        signatures: [{ protected: 'x', signature: 'y' }]
+      },
+      covered: {
+        name: 'A',
+        note: '',
+        supportedInterfaces: [{ url: 'https://agents.example/a2a', protocolBinding: 'JSONRPC', protocolVersion: '1.0' }],
+        provider: { url: '', organization: '' },
+        capabilities: { extensions: [extension], extendedAgentCard: false },
+        skills: [{ id: 's', name: 'S', description: '', tags: [], outputModes: ['text/plain'] }],
+        documentationUrl: ''
+      }
+    },
+    {
+      name: 'security schemes: oneof members kept even when empty, map values cleaned, REQUIRED maps kept',
+      card: {
+        name: 'A',
+        securitySchemes: {
+          oauth: {
+            oauth2SecurityScheme: {
+              description: '',
+              oauth2MetadataUrl: '',
+              flows: { clientCredentials: { tokenUrl: 'https://as.example/token', refreshUrl: '', scopes: {} } }
+            }
+          },
+          key: { apiKeySecurityScheme: { description: '', location: 'header', name: 'X-Key' } },
+          bearer: { httpAuthSecurityScheme: { scheme: 'Bearer', bearerFormat: '' } },
+          mtls: { mtlsSecurityScheme: { description: '' } }
+        },
+        securityRequirements: [{ schemes: { oauth: { list: [] } } }, { schemes: {} }]
+      },
+      covered: {
+        name: 'A',
+        securitySchemes: {
+          oauth: { oauth2SecurityScheme: { flows: { clientCredentials: { tokenUrl: 'https://as.example/token', scopes: {} } } } },
+          key: { apiKeySecurityScheme: { location: 'header', name: 'X-Key' } },
+          bearer: { httpAuthSecurityScheme: { scheme: 'Bearer' } },
+          mtls: { mtlsSecurityScheme: {} }
+        },
+        securityRequirements: [{ schemes: { oauth: {} } }, {}]
+      }
+    }
+  ].map(({ name, card: value, covered }) => ({ name, card: value, covered, payload: b64url(Buffer.from(jcs(covered), 'utf8')) }));
 }
 
 function method(keyId, extra = {}) {
@@ -232,12 +340,15 @@ const SCENARIOS = {
 
 function main() {
   const unsigned = card();
+  unsigned.capabilities.extensions[0].required = false;
   const vectors = {
     description:
       'Composition contract vectors (docs/RFC-001-A2A-Identity-Composition-Contract.md §7). `sign`: both SDKs must sign ' +
-      '`card` as `keyId` with the TEST-ONLY seed of that key and produce `signedCard` byte for byte. `cards`: run the ' +
+      '`card` as `keyId` with the TEST-ONLY seed of that key and produce `signedCard` byte for byte (the payload drops ' +
+      'the A2A 1.0 default values, §8.4.1). `cards`: run the ' +
       'format check, then the Ed25519 check of every signature with the key of its kid (`keys`); expect `ok` (with `did` ' +
-      'and `publishedKeyIds`), `format_drift` or `tampered`. `documents`: whether the document guard accepts each ' +
+      'and `publishedKeyIds`), `format_drift` or `tampered`. `payloads`: the signature payload of `card` must equal ' +
+      '`payload` (base64url of the RFC 8785 form of `covered`). `documents`: whether the document guard accepts each ' +
       'document. `reasons`: the contract reason for a key whose signature did not verify, read from `document`. ' +
       'Generated by scripts/regenerate-composition-contract-vectors.js.',
     keys: Object.fromEntries(
@@ -245,6 +356,7 @@ function main() {
     ),
     sign: { card: unsigned, keyId: KEY1, signedCard: signed(unsigned) },
     cards: cardCases(),
+    payloads: payloadCases(),
     documents: documentCases(),
     reasons: reasonCases(),
     scenarios: SCENARIOS

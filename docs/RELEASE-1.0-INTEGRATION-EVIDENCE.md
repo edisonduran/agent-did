@@ -33,6 +33,7 @@ The shipped integration surface for the core `v1.0.0` train is:
 - `integrations/semantic-kernel`
 - `integrations/microsoft-agent-framework`
 - `integrations/a2a`
+- `integrations/mcp`
 
 The root workspace now exposes convenience validation commands for all of them through `package.json`.
 
@@ -47,7 +48,8 @@ The root workspace now exposes convenience validation commands for all of them t
 | CrewAI | `.github/workflows/ci-crewai.yml` | `npm run test:crewai` and `npm run test:crewai-runtime` | [../integrations/crewai/tests/test_runtime_smoke.py](../integrations/crewai/tests/test_runtime_smoke.py), [../integrations/crewai/README.md](../integrations/crewai/README.md) | Runtime smoke requires the optional `.[runtime]` extra. |
 | Semantic Kernel | `.github/workflows/ci-semantic-kernel.yml` | `npm run test:semantic-kernel` and `npm run test:semantic-kernel-runtime` | [../integrations/semantic-kernel/tests/test_runtime_smoke.py](../integrations/semantic-kernel/tests/test_runtime_smoke.py), [../integrations/semantic-kernel/README.md](../integrations/semantic-kernel/README.md) | Runtime evidence covers real plugin registration plus multistep identity lifecycle behavior. |
 | Microsoft Agent Framework | `.github/workflows/ci-microsoft-agent-framework.yml` | `npm run test:microsoft-agent-framework` and `npm run test:microsoft-agent-framework-runtime` | [../integrations/microsoft-agent-framework/tests/test_runtime_smoke.py](../integrations/microsoft-agent-framework/tests/test_runtime_smoke.py), [../integrations/microsoft-agent-framework/README.md](../integrations/microsoft-agent-framework/README.md) | Runtime validation should prefer a clean virtualenv on Windows if the global Python environment is contaminated. |
-| A2A | `.github/workflows/ci-a2a.yml` | `npm run test:a2a` | [../integrations/a2a/README.md](../integrations/a2a/README.md), full `pytest` suite | No separate runtime smoke is required; the shipped surface is the protocol adapter and JSON-RPC signing flow itself. |
+| A2A | `.github/workflows/ci-a2a.yml` | `npm run test:a2a` | [../integrations/a2a/README.md](../integrations/a2a/README.md), full `pytest` suite, cross-check with the official `a2a-sdk` (`tests/test_a2a_sdk_interop.py`) | No separate runtime smoke is required; the shipped surface is the protocol adapter and JSON-RPC signing flow itself. |
+| MCP | `.github/workflows/ci-mcp.yml` | `npm run test:mcp` | [../integrations/mcp/README.md](../integrations/mcp/README.md), `tests/test_end_to_end.py` (official `mcp` client and `MCPServer` over Streamable HTTP, in process), `examples/mcp_signed_tool_call.py` | Python 3.11+ (the `mcp` 2.x SDK needs `httpx2`). The end-to-end tests are the runtime evidence; no separate smoke. |
 
 ---
 

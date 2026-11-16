@@ -222,6 +222,9 @@ jobs:
           - package_dir: integrations/a2a
             package_name: agent-did-a2a
             artifact_name: agent-did-a2a-dist
+          - package_dir: integrations/mcp
+            package_name: agent-did-mcp
+            artifact_name: agent-did-mcp-dist
     permissions:
       contents: read
 
@@ -301,6 +304,7 @@ jobs:
           - artifact_name: agent-did-semantic-kernel-dist
           - artifact_name: agent-did-microsoft-agent-framework-dist
           - artifact_name: agent-did-a2a-dist
+          - artifact_name: agent-did-mcp-dist
     permissions:
       contents: read
       id-token: write
@@ -341,6 +345,8 @@ jobs:
             environment: pypi-agent-did-microsoft-agent-framework
           - artifact_name: agent-did-a2a-dist
             environment: pypi-agent-did-a2a
+          - artifact_name: agent-did-mcp-dist
+            environment: pypi-agent-did-mcp
     permissions:
       contents: read
       id-token: write
