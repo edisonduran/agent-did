@@ -71,7 +71,7 @@
     "structured-headers": "^2.1.1"
   },
   "devDependencies": {
-    "@babel/core": "^8.1.0",
+    "@babel/core": "^8.1.2",
     "@babel/preset-env": "^8.0.7",
     "@types/jest": "^30.0.0",
     "babel-jest": "^30.2.0",
