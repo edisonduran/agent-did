@@ -1,5 +1,6 @@
 /**
- * Shared composition contract vectors (fixtures/composition-contract-vectors.json, contract §7). Python parity:
+ * Shared composition contract vectors (fixtures/composition-contract-vectors.json, contract §7) and the cards recorded
+ * from an independent implementation (fixtures/aps-agent-card-vectors.json, APS). Python parity:
  * sdk-python/tests/test_composition_contract_vectors.py.
  */
 import fs from 'fs';
@@ -22,14 +23,24 @@ const VECTORS = JSON.parse(
   reasons: Array<{ name: string; document: AgentDIDDocument; keyId: string; expected: string }>;
 };
 
+type CardVector = { name: string; card: unknown; expected: string; did?: string; publishedKeyIds?: string[] };
+
+/** Recorded from Agent Passport System, not regenerated: public keys only (see its `provenance`). */
+const APS_VECTORS = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'aps-agent-card-vectors.json'), 'utf8')
+) as { keys: Record<string, { publicKeyMultibase: string }>; cards: CardVector[] };
+
 /** Format check, then every signature against the key of its kid: what a resolver-backed verifier does. */
-function cardOutcome(card: unknown): { expected: string; did?: string; publishedKeyIds?: string[] } {
+function cardOutcome(
+  card: unknown,
+  keys: Record<string, { publicKeyMultibase: string }> = VECTORS.keys
+): { expected: string; did?: string; publishedKeyIds?: string[] } {
   const parsed = parseSignedAgentCard(card);
   if (!parsed) {
     return { expected: 'format_drift' };
   }
   for (const entry of parsed.signatures) {
-    const key = VECTORS.keys[entry.keyId];
+    const key = keys[entry.keyId];
     const valid =
       key !== undefined &&
       verifyEd25519(entry.signature, new TextEncoder().encode(entry.signingInput), decodePublicKeyMultibase(key.publicKeyMultibase));
@@ -50,6 +61,11 @@ describe('composition contract vectors', () => {
   it.each(VECTORS.cards.map((vector) => [vector.name, vector] as const))('card: %s', (_name, vector) => {
     const { name: _ignored, card, ...expected } = vector;
     expect(cardOutcome(card)).toEqual(expected);
+  });
+
+  it.each(APS_VECTORS.cards.map((vector) => [vector.name, vector] as const))('APS card: %s', (_name, vector) => {
+    const { name: _ignored, card, ...expected } = vector;
+    expect(cardOutcome(card, APS_VECTORS.keys)).toEqual(expected);
   });
 
   it.each(VECTORS.payloads.map((vector) => [vector.name, vector] as const))('payload: %s', (_name, vector) => {
