@@ -45,7 +45,7 @@ Two questions were open:
 
 ## Hosting
 
-The file lives in the repository. The maintainers must serve it, byte for byte, at `https://agent-did.org/v1` with `Content-Type: application/ld+json` (or `application/json`) and long-lived caching, and keep the `agentdid` vocabulary namespace `https://agent-did.org/vocab#` resolvable to human-readable documentation. Until the URL is live, the pinned copy in the repository is the only normative source, and RFC-001 §4.1 says so. **Publishing the URL is a release task, not a repository change.**
+The file lives in the repository. The maintainers must serve it, byte for byte, at `https://agent-did.org/v1` with `Content-Type: application/ld+json` (or `application/json`) and long-lived caching, and keep the `agentdid` vocabulary namespace `https://agent-did.org/vocab#` resolvable to human-readable documentation. Until the URL is live, the pinned copy in the repository is the only normative source, and RFC-001 §4.1 says so. **Publishing the URL is a release task, not a repository change.** How it is served and checked: [Site-Operations.md](Site-Operations.md).
 
 ## Known gaps
 

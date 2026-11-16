@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent-DID A2A Extension</title>
+<meta name="description" content="The Agent-DID identity extension for A2A Agent Cards, URI https://agent-did.org/a2a/identity/v1.">
+<style>
+:root{color-scheme:light dark;--fg:#1b1f24;--bg:#ffffff;--muted:#57606a;--line:#d0d7de;--link:#0b5cad}
+@media (prefers-color-scheme:dark){:root{--fg:#e6edf3;--bg:#0d1117;--muted:#9198a1;--line:#30363d;--link:#58a6ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:46rem;margin:0 auto;padding:2.5rem 16px 4rem}
+h1{font-size:1.6rem;margin:0 0 .25rem}h2{font-size:1.15rem;margin:2rem 0 .5rem}h3{font-size:1rem;margin:1.5rem 0 .25rem}
+p,li,dd{color:var(--fg)}.muted{color:var(--muted)}a{color:var(--link)}
+code{font:.9em ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+pre{overflow-x:auto;padding:.75rem;border:1px solid var(--line);border-radius:6px}
+dt{font-weight:600;margin-top:1rem}dd{margin:.25rem 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Agent-DID A2A Extension</h1>
+<p class="muted">Extension URI <code>https://agent-did.org/a2a/identity/v1</code>, for the <code>capabilities.extensions</code> of an A2A 1.0 Agent Card.</p>
+<p>An agent that lists this extension states its Agent-DID and the keys it signs with, and signs its HTTP requests with HTTP Message Signatures (RFC 9421) under the Agent-DID profile. A client that activates it sends the URI in the <code>A2A-Extensions</code> header.</p>
+<pre><code>{
+  "uri": "https://agent-did.org/a2a/identity/v1",
+  "required": false,
+  "params": {
+    "did": "did:webvh:{SCID}:example.com:agents:support",
+    "keyIds": ["did:webvh:{SCID}:example.com:agents:support#key-1"]
+  }
+}</code></pre>
+<p>The verification rules, the reasons a verifier reports and the Agent Card signature are defined by the <a href="https://github.com/edisonduran/agent-did/blob/main/docs/RFC-001-A2A-Identity-Composition-Contract.md">A2A Identity Composition Contract</a> and <a href="https://github.com/edisonduran/agent-did/blob/main/docs/RFC-001-Agent-DID-Specification.md">RFC-001</a>.</p>
+</main>
+</body>
+</html>

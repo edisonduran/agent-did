@@ -1,3 +1,6 @@
 contexts/* text eol=lf
 # Generated snapshots are compared byte for byte by the API checks: keep them LF on every platform
 *.snapshot.txt text eol=lf
+# Served byte for byte at agent-did.org (scripts/build-site.js): keep them LF on every platform
+site/** text eol=lf
+.github/security/security.txt text eol=lf

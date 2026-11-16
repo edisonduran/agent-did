@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent-DID Vocabulary</title>
+<meta name="description" content="Terms of the Agent-DID vocabulary, namespace https://agent-did.org/vocab#.">
+<style>
+:root{color-scheme:light dark;--fg:#1b1f24;--bg:#ffffff;--muted:#57606a;--line:#d0d7de;--link:#0b5cad}
+@media (prefers-color-scheme:dark){:root{--fg:#e6edf3;--bg:#0d1117;--muted:#9198a1;--line:#30363d;--link:#58a6ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:46rem;margin:0 auto;padding:2.5rem 16px 4rem}
+h1{font-size:1.6rem;margin:0 0 .25rem}h2{font-size:1.15rem;margin:2rem 0 .5rem}h3{font-size:1rem;margin:1.5rem 0 .25rem}
+p,li,dd{color:var(--fg)}.muted{color:var(--muted)}a{color:var(--link)}
+code{font:.9em ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+pre{overflow-x:auto;padding:.75rem;border:1px solid var(--line);border-radius:6px}
+dt{font-weight:600;margin-top:1rem}dd{margin:.25rem 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Agent-DID Vocabulary</h1>
+<p class="muted">Namespace <code>https://agent-did.org/vocab#</code>. The terms are defined for JSON-LD by the context <a href="/v1"><code>https://agent-did.org/v1</code></a>. The normative text is <a href="https://github.com/edisonduran/agent-did/blob/main/docs/RFC-001-Agent-DID-Specification.md">RFC-001</a>; this page is a human-readable index of the terms.</p>
+
+<h2>Classes</h2>
+<dl>
+<dt id="AgentMetadata"><code>AgentMetadata</code></dt>
+<dd>The type of the <code>agentMetadata</code> object of an agent's DID document.</dd>
+<dt id="AgentMetadataCredential"><code>AgentMetadataCredential</code></dt>
+<dd>A W3C Verifiable Credential (Data Model 2.0) in which the agent's controller states <code>agentMetadata</code> members about the agent, presented out of band instead of being published in the DID document (RFC-001 §4.4).</dd>
+</dl>
+
+<h2>Properties</h2>
+<dl>
+<dt id="agentMetadata"><code>agentMetadata</code></dt>
+<dd>Descriptive members of an agent, stated by its controller (RFC-001 §4.2): <code>name</code>, <code>description</code>, <code>version</code>, <code>coreModelHash</code>, <code>systemPromptHash</code>, <code>capabilities</code>, <code>memberOf</code>.</dd>
+<dt id="coreModelHash"><code>coreModelHash</code></dt>
+<dd>Optional commitment to the model the agent runs on. An assertion by the controller, not a verified fact (RFC-001 §4.3).</dd>
+<dt id="systemPromptHash"><code>systemPromptHash</code></dt>
+<dd>Optional commitment to the agent's base prompt. An assertion by the controller, not a verified fact (RFC-001 §4.3).</dd>
+<dt id="capabilities"><code>capabilities</code></dt>
+<dd>Set of capability labels the controller declares for the agent.</dd>
+<dt id="memberOf"><code>memberOf</code></dt>
+<dd>Identifier of the fleet or cohort the agent belongs to.</dd>
+<dt id="complianceCertifications"><code>complianceCertifications</code></dt>
+<dd>References to compliance credentials about the agent.</dd>
+<dt id="proofHash"><code>proofHash</code></dt>
+<dd>Content address of the evidence behind a compliance certification.</dd>
+<dt id="deactivated"><code>deactivated</code></dt>
+<dd>Time (<code>xsd:dateTime</code>) at which a verification method was retired by rotation. The method stays in the document so that signatures can be checked at the time they state (RFC-001 §6.2.2).</dd>
+<dt id="blockchainAccountId"><code>blockchainAccountId</code></dt>
+<dd>Account identifier of a verification method in the deferred EVM profile.</dd>
+</dl>
+</main>
+</body>
+</html>
