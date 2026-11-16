@@ -1,0 +1,48 @@
+name: CI — Public API Imports
+
+# Integrations and examples must use the SDKs only through their entry points
+# (docs/DEPRECATION-POLICY.md, "Public API Contract"). See scripts/check-public-api-imports.js.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ci-public-api-imports.yml'
+      - 'scripts/check-public-api-imports.js'
+      - 'integrations/**'
+      - 'sdk/examples/**'
+      - 'sdk-python/examples/**'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-public-api-imports.yml'
+      - 'scripts/check-public-api-imports.js'
+      - 'integrations/**'
+      - 'sdk/examples/**'
+      - 'sdk-python/examples/**'
+  workflow_dispatch:
+
+concurrency:
+  group: public-api-imports-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  imports:
+    name: Integrations import only SDK entry points
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Check public API imports
+        run: node scripts/check-public-api-imports.js

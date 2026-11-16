@@ -905,3 +905,12 @@ def test_a_fresh_verification_drops_the_cached_resolution_first(integration) -> 
     cached = _real_ctx(observer, evict_cached_resolution=evicted.append)
     _run_verifier(build_handoff_verifier_function(cached), _sign(integration, "approve"))
     assert evicted == []
+
+
+def test_nonce_pattern_matches_the_sdk_grammar() -> None:
+    # The SDK keeps its pattern internal; the integration's copy must not drift from it
+    from agent_did_sdk.core.nonce_store import NONCE_PATTERN as SDK_NONCE_PATTERN
+
+    from agent_did_microsoft_agent_framework.handoff import NONCE_PATTERN
+
+    assert NONCE_PATTERN.pattern == SDK_NONCE_PATTERN.pattern

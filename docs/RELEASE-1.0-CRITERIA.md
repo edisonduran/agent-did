@@ -99,7 +99,7 @@ Current recommendation for the normalized `v1.0.0` branch state:
   - Python: capture signatures and class members and diff the generated signature snapshot on every PR (`sdk-python/public-api.signature.snapshot.txt`, checked via `python sdk-python/scripts/public_api_signature_snapshot.py --check`).
   - Any change to this signature-level snapshot requires a major bump (post-1.0).
   - Tracking issue: see `RELEASE-1.0-CRITERIA` follow-up issue *Harden public API snapshot to signature-level gate*.
-- [ ] **C-API-3** — `@internal` / private symbols clearly marked; not part of the public contract. _Open (2026-11-01 audit): Python uses `__all__`; the TypeScript SDK has no `@internal` markers yet._
+- [x] **C-API-3** — `@internal` / private symbols clearly marked; not part of the public contract. _Evidence: [DEPRECATION-POLICY.md](DEPRECATION-POLICY.md) "Public API Contract" defines public and internal for both SDKs. TypeScript: only the entry point is reachable (`exports` map, checked by `sdk/tests/PublicSurface.test.ts`), internal class members are `private`, and `@internal` is reserved for an exported symbol outside the contract (none in `1.0.0`). Python: `__all__` of `agent_did_sdk`; submodules and `_` names are internal. Integrations and examples import only the entry points (`scripts/check-public-api-imports.js`, `ci-public-api-imports.yml`)._
 - [x] **C-API-4** — `MIGRATION-0.x-to-1.0.md` per SDK (TS and Python) with executable `before/after` examples.
 
 ### 2.3 Conformance and Interoperability

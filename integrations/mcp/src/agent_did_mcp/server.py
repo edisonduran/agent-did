@@ -19,8 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent_did_sdk import AgentIdentity, VerifyHttpRequestSignatureParams
-from agent_did_sdk.core.types import VerifyHttpCapabilityInvocationParams
+from agent_did_sdk import AgentIdentity, VerifyHttpCapabilityInvocationParams, VerifyHttpRequestSignatureParams
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 DEFAULT_MAX_BODY_BYTES = 1024 * 1024

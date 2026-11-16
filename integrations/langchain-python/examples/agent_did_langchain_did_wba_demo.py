@@ -16,8 +16,8 @@ from agent_did_sdk import (
     LocalKeySigner,
     ProductionHttpResolverProfileConfig,
     VerifyHttpRequestSignatureParams,
+    encode_public_key_multibase,
 )
-from agent_did_sdk.crypto.multibase import encode_public_key_multibase
 from langchain.agents import create_agent
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
