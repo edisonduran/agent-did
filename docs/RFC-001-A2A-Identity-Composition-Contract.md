@@ -7,7 +7,7 @@
 > **Co-author push access**: `@aeoess` invited as repo collaborator (Write) 2026-04-30, scoped operationally to `spec/a2a-composition-contract` (`develop` and `main` are protected, require PR + 1 review).
 > **Sync state with APS**: All five sections (§4.3, §4.4, §5, §6.3, §6.4) are **APS-confirmed**. §4.3, §4.4, §6.3, §6.4 confirmed by `@aeoess` via direct push (commits `3fc38384` and `da473ee3`, 2026-04-30 / 2026-05-01). §5 (Error shape) confirmed by `@aeoess` via [a2aproject/A2A#1742 comment 2026-05-01 23:52 UTC](https://github.com/a2aproject/A2A/issues/1742#issuecomment-4362194636) under the explicit superset-with-aliases contract documented inline; flip applied by `@edisonduran` via commit `0e6a5d4c` on aeoess's behalf with text reflecting his 2026-05-01 23:52 UTC posture verbatim. When aeoess pushes commits directly against the spec branch, those commits are authoritative over the working baseline.
 >
-> **Implemented in `1.0.0-rc.5` (`[RFC]` [#257](https://github.com/edisonduran/agent-did/issues/257))**: both reference SDKs sign and verify Agent Cards and check requests against them. The text below changed with it: §1.1 and §3.1 follow the A2A 1.0 card signature (JWS) instead of the pre-pass shape, §3 defines the keys a card publishes, §4 and §4.3 say how the planned overlap and emergency revocation are expressed in the DID document, §4.1 scenario 3e and §5.2 record that the reference SDKs fail closed for a DID they cannot resolve, and §7 points to the published vectors. These changes were sent to `@aeoess` on [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6897760300) on 2026-11-15; the §4.3 reading is awaiting APS confirmation.
+> **Implemented in `1.0.0-rc.5` (`[RFC]` [#257](https://github.com/edisonduran/agent-did/issues/257))**: both reference SDKs sign and verify Agent Cards and check requests against them. The text below changed with it: §1.1 and §3.1 follow the A2A 1.0 card signature (JWS) instead of the pre-pass shape, §3 defines the keys a card publishes, §4 and §4.3 say how the planned overlap and emergency revocation are expressed in the DID document, §4.1 scenario 3e and §5.2 record that the reference SDKs fail closed for a DID they cannot resolve, and §7 points to the published vectors. These changes were sent to `@aeoess` on [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6897760300) on 2026-11-15. `@aeoess` answered the same day ([agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS agrees with the A2A 1.0 card signature and with moving the overlap figures to controller guidance, and asked for the changes recorded in §3.1, §4, §4.3, §5.1, §5.4 and §6.1.
 >
 > **APS-aligned pre-pass (2026-04-30)**: §0 (threat model), §1.1 (canonicalization split), §4.1 scenario 3e (unknown DID method), §3.1 (wire shape reference), §8 (test vectors), §9 (vocabulary) below were added unilaterally by Agent-DID after analyzing publicly inspectable APS infrastructure (`agent-passport-system`, `aps-conformance-suite`, `a2a-compliance-harness`, `agent-governance-vocabulary`). Each carries `[APS-aligned pre-pass, open to revision in counter-draft]`. Counter-draft from `@aeoess` is authoritative over this pre-pass.
 
@@ -91,6 +91,7 @@ Agent Cards are signed as A2A 1.0 §8.4 specifies, with a fixed profile. Each en
 - **Verification.** A verifier MUST reject (`format_drift`) a card that is not a JSON object, has no `signatures` or an empty one, or has an entry that does not follow the two items above, and MUST verify every signature against the current DID document of the agent (reasons as in §5). A card without signatures is not a signed card: the contract needs one.
 - A signer SHOULD NOT put members A2A 1.0 does not define in a signed card: A2A verifiers that rebuild the card from its Protocol Buffer form drop them, and the signature then no longer matches.
 - Interoperability evidence: the reference SDKs' card signatures verify with the official A2A Python SDK (`a2a-sdk` 1.3), and cards it signs verify with the reference SDKs (`integrations/a2a/tests/test_a2a_sdk_interop.py`). `a2a-sdk` 1.3 also removes empty `REQUIRED` members and empty set messages before it verifies, which A2A 1.0 §8.4.1 does not ask for; cards that contain them do not verify there. The `[APS-aligned pre-pass]` shape of earlier drafts (`signature: {alg, kid, value}`) is retired.
+- **Recorded difference (APS).** APS's `a2a-compliance-harness` still signs cards with the pre-pass shape `signature: {alg, kid, value}` and removes that member before canonicalization. Such a card is not a signed card under this section, and the reference SDKs do not read the pre-pass shape: the difference is recorded, not bridged, as agreed with `@aeoess` ([agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)).
 
 ### 3.2 Canonical `did:webvh` controller-to-agent composition path
 
@@ -121,6 +122,8 @@ Rotation modes:
 
 In Agent-DID (RFC-001 §4.2, §6.6 item 3) the planned overlap is written in the DID document: the controller adds the new key, both keys are listed under `assertionMethod` while the overlap lasts, and the controller then retires the prior key, which gains a `deactivated` time and leaves every relationship (`retireVerificationMethod`). An emergency retirement or rotation also sets `revoked` on the key. A verifier reads the state from the current document: a retired key is `rotation_window_closed`, a revoked key is `emergency_revoked`, and a revoked key is also refused at every stated time (RFC-001 §6.2.2).
 
+This classification reads Agent-DID documents. APS marks both planned and emergency retirement with `retiredAt` and records the mode in its signed rotation log, so a verifier MUST NOT apply the `deactivated` / `revoked` classification to APS documents without an explicit mapping from that log. This contract does not define the mapping yet.
+
 ### 4.1 Conformance scenarios (4 required)
 
 | # | Scenario | Expected verifier behavior |
@@ -143,7 +146,14 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - A verifier **MAY** shorten the overlap below 24h via local configuration (private hardening; does not affect cross-implementation interop).
 - A verifier **MUST NOT** lengthen the overlap beyond a hard ceiling of **7 days**. Indefinite overlap defeats the rotation-state-machine semantics scenarios 3a–3d depend on.
 
-Agent-DID reading `[rc.5, #257, awaiting APS confirmation]`: the overlap is the time both keys are listed in the DID document (§4), so the verifier applies no time window of its own; the 24 h default and the 7 d ceiling are guidance for controllers on when to retire the prior key.
+Revised reading `[rc.5, #257, APS-confirmed 2026-11-15, [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)]`:
+
+- A verifier is not required to impose an overlap window of its own. The 24 h default and the 7 d ceiling are guidance for controllers on when to retire the prior key.
+- A verifier MAY enforce a deadline that the DID document publishes for the prior key, and then rejects that key (`rotation_window_closed`) once the deadline passes, even while the key is still listed.
+- **APS** publishes such a deadline: its DID documents record an `activationTime`, and APS rejects the previous key once that time has passed. APS imposes no separate 7-day limit.
+- **Agent-DID** documents publish no deadline: the overlap is the time both keys are listed (§4), and it ends when the controller retires the prior key. A controller that does not retire the key on time keeps the overlap open.
+
+The two approaches agree while documents are updated on time, and differ when they are not: after an APS deadline passes, an APS verifier rejects the prior key that an Agent-DID verifier still accepts while it is listed.
 
 ### 4.4 Maximum resolver cache TTL — `max_emergency_propagation_window` `[APS-confirmed via aeoess push 2026-04-30]`
 
@@ -172,6 +182,8 @@ These map 1:1 to the typed APS subtypes:
 - `emergency_revoked` ↔ `EmergencyRevokedKey`
 - `key_purpose_violation` ↔ `KeyPurposeViolation`
 - `tampered` ↔ `Tampered`
+
+Emission status (`@aeoess`, 2026-11-15, [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS defines all four reasons, but its checked composition path emits only `key_purpose_violation` (from `assertKeyPurpose`); the other three are defined and not emitted. The Agent-DID reference SDKs emit all four (`[rc.5, #257]`).
 
 Reference implementation: `IdentityCompositionError` in agent-passport-system v2.5.1-alpha (commit `f37f1cc` on `aeoess/agent-passport-system` `main`), `src/errors/identity-composition-error.ts`. Conformance: `tests/v2/identity-composition-error.test.ts` (9 tests).
 
@@ -218,7 +230,7 @@ IdentityCompositionError {
 }
 ```
 
-Standardizing the canonical floor across SDK implementations enables cross-stack debugging when a verifier and signer disagree, and matches what APS gateways emit on the receipt-rejection path. The verifier-side extension is documented for diagnostic transparency without expanding the cross-stack contract.
+Standardizing the canonical floor across SDK implementations enables cross-stack debugging when a verifier and signer disagree. The verifier-side extension is documented for diagnostic transparency without expanding the cross-stack contract.
 
 ## 6. Resolutions for the original open questions
 
@@ -226,7 +238,7 @@ The original four open questions are now resolved (working baseline) per `@aeoes
 
 ### 6.1 Default overlap window — RESOLVED
 
-24h spec default, verifier MAY shorten, MUST NOT extend beyond 7d ceiling. See **§4.3**.
+Revised in rc.5 (see **§4.3**): 24 h default and 7 d ceiling are guidance for controllers; a verifier imposes no window of its own, and MAY enforce a deadline the DID document publishes (APS `activationTime`). Agent-DID documents publish none.
 
 ### 6.2 Resolver cache TTL — RESOLVED
 
