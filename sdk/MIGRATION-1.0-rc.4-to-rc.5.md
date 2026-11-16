@@ -367,6 +367,7 @@ A2A 1.0 §8.4.1. `signAgentCard` and the card checks (`verifyAgentCard`, `verify
 
 - A card signed by rc.4 still verifies unless it contains such a member; re-sign the cards you serve after upgrading.
 - Do not put members A2A 1.0 does not define in a card you sign: A2A verifiers that rebuild the card from its Protocol Buffer form drop them and the signature no longer matches.
+- Cards that the official A2A Python SDK (`a2a-sdk` 1.3.0) must verify: leave out empty `REQUIRED` members (`"description": ""`, `"skills": []`) and empty security scheme declarations (`{"mtlsSecurityScheme": {}}` and its `securitySchemes` entry). They are valid A2A 1.0 and the reference SDKs sign and verify them, but `a2a-sdk` 1.3.0 removes them before it verifies, beyond what A2A 1.0 §8.4.1 asks, so the signature fails there (composition contract §3.1, recorded difference). The `agent-did-a2a` integration never emits them.
 - `agentCardSigningPayload(card)` (module `src/core/agent-card.ts`, not exported from the package root) returns the JWS payload; the shared vectors use it.
 
 ## Checklist
