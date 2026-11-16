@@ -4,8 +4,8 @@
 
 - **Status:** Release candidate (normative text for the `1.0.0` release contract)
 - **Version:** 1.0-rc.5
-- **Date:** 2026-11-04
-- **Scope:** This RFC is the canonical core specification for Agent-DID as an application pattern on top of `did:webvh`, including the data model, composition semantics, runtime authentication profile, and SDK implementation guidelines.
+- **Date:** 2026-11-15
+- **Scope:** This RFC is the canonical core specification for Agent-DID as an application pattern on top of `did:webvh`, including the data model, composition semantics, runtime authentication profile, verification algorithms, and the test vectors implementations are checked against. It defines no programming interface: the API of the reference SDKs is described in the non-normative [SDK API Guide](SDK-API-Guide.md).
 - **Feedback:** Use the RFC feedback issue template or GitHub Discussions for errata, clarifications, and post-`1.0` proposals. Report vulnerabilities privately through [SECURITY.md](../SECURITY.md).
 
 This revision (1.0-rc.5) supersedes `0.3-pivot-pattern-on-webvh`. It pins the external specifications Agent-DID builds on (§2.1), defines lifecycle authorization (§6.6), and requires that `did:webvh` logs be verifiable by any conforming resolver (§6.1). It is the text the `1.0.0` release will be held to; changes after `1.0.0` follow §11.2. The status does **not** imply W3C, DIF, IETF, or any other external standards-body approval of Agent-DID.
@@ -76,7 +76,7 @@ Informative: the IETF *web-bot-auth* drafts (HTTP signing for automated clients)
 3. **Strong cryptography by default:** Ed25519 recommended for frequent signing.
 4. **Composition over method invention:** Agent-DID adds application-layer semantics on top of existing DID methods rather than defining a new method.
 5. **Deployment-profile flexibility:** Web-native deployment is the default; optional profiles such as EVM MAY add stronger anchoring where justified.
-6. **Interoperability:** JSON-LD schema, method-aware resolution, and deterministic verification behavior across SDKs.
+6. **Interoperability:** JSON-LD schema, method-aware resolution, and deterministic verification behavior across implementations.
 
 ---
 
@@ -166,8 +166,6 @@ The fields above define the document of an **agent**. A controller does not have
 3. Follows the controller chain (§6.2, §6.6 item 7) through a controller document whose `controller` is a single DID. The chain ends at a document without `controller`, or one that names itself. A controller document whose `controller` is a list MUST cause the chain to be rejected: 1.0 does not evaluate a set of controllers, and skipping them would leave part of the chain unchecked.
 4. MUST reject a controller document whose members read by this section have the wrong type (for example a relationship entry that is neither a string nor an object with `id`, `type` and `controller` strings). For `did:webvh` this is an integrity failure of the resolved log state, with no fallback to another source (§6.6 item 4).
 
-The reference SDKs read DID Core controller documents for `did:webvh` DIDs (`resolveDocument` / `resolve_document`, §7.3); for other DID methods their document sources still return Agent-DID documents only.
-
 ---
 
 ### 4.3 Metadata Commitments
@@ -215,7 +213,7 @@ There is no `credentialStatus`. A credential stops verifying when the agent DID 
 
 Keys are evaluated as they are when the credential is verified, as for HTTP signatures (§6.5), not at the proof's `created` time. An accepted credential shows that the controller states this metadata; like the commitments of §4.3, it is not evidence of what the agent runs.
 
-**Presentation.** The credential is presented out of band: in an A2A Agent Card, an MCP exchange or a request body. A DID document MAY point to a hosted Verifiable Presentation that contains it with a `service` of type `LinkedVerifiablePresentation` (DIF Linked Verifiable Presentations; did:webvh's implicit `#whois` service is such a link). Verifiers MUST NOT fetch it as part of DID resolution, and the reference SDKs do not.
+**Presentation.** The credential is presented out of band: in an A2A Agent Card, an MCP exchange or a request body. A DID document MAY point to a hosted Verifiable Presentation that contains it with a `service` of type `LinkedVerifiablePresentation` (DIF Linked Verifiable Presentations; did:webvh's implicit `#whois` service is such a link). Verifiers MUST NOT fetch it as part of DID resolution.
 
 **Conformance scope.** The reference SDKs check their `eddsa-jcs-2022` implementation against the W3C `vc-di-eddsa` test vectors in CI (see [External-Conformance-Matrix.md](External-Conformance-Matrix.md)). The credential is aligned with [VC-DATA-MODEL-2.0]; no conformance with it is claimed, because no VC Data Model 2.0 test suite is run.
 
@@ -240,7 +238,7 @@ graph TD
 1. **Resolvable controller chain:** A verifier can resolve the agent DID and its controlling DID or equivalent authority chain.
 2. **Agent DID document:** Includes `agentMetadata`, verification methods, and the DID verification relationships required for signing.
 3. **Resolver path:** Universal resolver or method-native resolution that can obtain the current DID document and, where supported, verifiable history.
-4. **Client SDK:** creation, signing, verification, rotation, revocation/deactivation handling, and composition-aware lifecycle operations.
+4. **Signer and verifier:** an implementation of creation, signing, verification, rotation, deactivation and the lifecycle authorization of §6.6. The reference SDKs are one ([SDK API Guide](SDK-API-Guide.md), non-normative).
 
 ### 5.3 Deployment Profiles
 
@@ -280,23 +278,21 @@ Signature verification is not complete when the public key is merely present in 
 
 The default signing purpose for Agent-DID payloads and HTTP signatures is `assertionMethod`. Other signing flows require `authentication`, `capabilityDelegation`, or `capabilityInvocation` as fixed per artifact kind in §6.2.1.3. A key listed only under `keyAgreement` MUST NOT be accepted for signing or proof verification.
 
-When a key exists in the DID document but is not authorized for the requested purpose, SDKs MUST raise or surface a deterministic `key_purpose_violation` reason and, where practical, include the relationships where the key was found.
+When a key exists in the DID document but is not authorized for the requested purpose, a verifier MUST reject with the reason `key_purpose_violation` and report it as §6.2.1.1 defines, including the relationships where the key was found.
 
 #### 6.2.1.1 Identity Composition Error Shape
 
-To enable cross-implementation interop and programmatic verifiers, conforming SDKs MUST expose identity-composition errors with the following normative shape:
+So that implementations report the same failure in the same terms, a verifier that rejects for an identity-composition reason MUST report these members to its caller:
 
-- `reason` (REQUIRED): one of the deterministic identity-composition reasons: `key_purpose_violation`, `rotation_window_closed`, `emergency_revoked`, `tampered`.
-- `keyId` / `key_id` (REQUIRED): verification method identifier that triggered the failure (empty string when not applicable).
-- `requiredPurpose` / `required_purpose` (REQUIRED): DID verification relationship the action required.
-- `foundIn` / `found_in` (REQUIRED): verification relationships where the key was actually listed (MAY be empty).
-- `did` (OPTIONAL): subject DID, included when known.
+- **reason** (REQUIRED): one of the deterministic identity-composition reasons: `key_purpose_violation`, `rotation_window_closed`, `emergency_revoked`, `tampered`.
+- **key identifier** (REQUIRED): the verification method identifier that triggered the failure (empty when not applicable).
+- **required relationship** (REQUIRED): the DID verification relationship the action required.
+- **found in** (REQUIRED): the verification relationships where the key was actually listed (MAY be empty).
+- **DID** (OPTIONAL): the subject DID, when known.
 
-These fields MUST be exposed as direct properties of the error object using the language-idiomatic naming above. Implementations MAY additionally mirror the same fields under a `context` namespace (for example `error.context.keyId`) to interoperate with verifiers that expect a nested error envelope, provided the direct properties remain authoritative. Mirrored values MUST be byte-equal to the direct properties.
+How an implementation exposes them (error object, result type, member names) is not part of this specification; the reference SDKs' form is in the [SDK API Guide](SDK-API-Guide.md). When these members cross a process boundary in the composition contract, its wire shape governs ([A2A Identity Composition Contract](RFC-001-A2A-Identity-Composition-Contract.md) §5.4).
 
 A verifier that checks a request against the signer's Agent Card ([A2A Identity Composition Contract](RFC-001-A2A-Identity-Composition-Contract.md) §2) derives the reason of a signature that does not verify from the current DID document: `emergency_revoked` when the key carries `revoked`, `rotation_window_closed` when it carries only `deactivated`, `key_purpose_violation` when it is active but not under the required relationship, and `tampered` otherwise. The contract defines the signed card and the verifier-side reasons.
-
-The `assertKeyPurpose` helper is a membership-only predicate over the requested verification relationship and MUST NOT short-circuit on `keyAgreement`. The signing-purpose policy that rejects `keyAgreement` for signing flows lives in `assertSigningPurpose` (or the equivalent entry point) and is invoked by the SDK before `assertKeyPurpose` during signature verification.
 
 #### 6.2.1.2 Scope Boundary: Identity vs Decision Provenance
 
@@ -320,9 +316,9 @@ The verification relationship of §6.2.1 depends on what the signature is for, n
 
 A key listed under one relationship MUST NOT be accepted for an artifact kind that requires another, even when the signature itself is valid. In particular, a key listed only under `assertionMethod` MUST NOT be accepted for issuing a delegation, and a key listed only under `capabilityDelegation` MUST NOT be accepted for an assertion. The rejection reason is `key_purpose_violation` with `requiredPurpose` set to the relationship in the table (§6.2.1.1). `keyAgreement` never appears in the table and never signs.
 
-A protocol that defines a signed artifact not listed here MUST state which of these kinds it is before an Agent-DID verifier accepts it. Conforming SDKs MUST expose this table as one public constant (`REQUIRED_RELATIONSHIP_BY_ARTIFACT` with the lookup `requiredRelationshipFor` / `required_relationship_for`) and MUST use it wherever they choose a default relationship. The shared vectors are in `fixtures/verification-relationship-vectors.json`.
+A protocol that defines a signed artifact not listed here MUST state which of these kinds it is before an Agent-DID verifier accepts it. The shared vectors are in `fixtures/verification-relationship-vectors.json`.
 
-Documents created by the reference SDKs list the agent key under `authentication` and `assertionMethod`. A DID that issues delegations or invokes capabilities needs its key listed under `capabilityDelegation` or `capabilityInvocation`, otherwise verifiers following this section reject those artifacts. The SDKs add those relationships only on request (`additionalVerificationRelationships` / `additional_verification_relationships` at creation, accepting `capabilityDelegation` and `capabilityInvocation`); without it the document is the same as in earlier releases. When the agent key is rotated, the new key joins each of those relationships that listed a key the rotation deactivates.
+A DID that issues delegations or invokes capabilities needs its key listed under `capabilityDelegation` or `capabilityInvocation`, otherwise verifiers following this section reject those artifacts.
 
 #### 6.2.2 Key Validity at a Stated Time
 
@@ -339,7 +335,13 @@ First, if any entry of the log gives the key a `revoked` time (§4.2), the key i
 
 A verifier MUST NOT accept an indeterminate result as authorized, and MUST NOT treat the stated time, a log `versionTime` or a document `created`/`updated` value as trusted time evidence. When no verified log is available for the DID, the result is indeterminate (`history_unavailable`). Comparisons use millisecond precision; sub-millisecond digits are truncated.
 
-Other delegation formats draw the same line for the same reason (for example the `KEY_AMBIGUOUS` outcome of APS `AuthorityDelegationV1`, draft-pidlisnyi-aps §3.4); this section does not claim conformance with them. Conforming SDKs expose the check as `checkDidWebvhKeyAtTime` / `check_did_webvh_key_at_time` and `verifySignatureAtTime` / `verify_signature_at_time` (option `timestampToken` / `timestamp_token` with TSA trust anchors), and the token check as `verifyTimestampToken` / `verify_timestamp_token`. The shared vectors are in `fixtures/key-at-time-vectors.json` and `fixtures/timestamp-vectors.json`.
+Other delegation formats draw the same line for the same reason (for example the `KEY_AMBIGUOUS` outcome of APS `AuthorityDelegationV1`, draft-pidlisnyi-aps §3.4); this section does not claim conformance with them. The shared vectors are in `fixtures/key-at-time-vectors.json` and `fixtures/timestamp-vectors.json`.
+
+#### 6.2.3 Payload Signatures
+
+A payload signature is a signature by the DID subject over an application payload (artifact kind `assertion`, §6.2.1.3). It is an Ed25519 signature (RFC 8032) over the UTF-8 bytes of `agent-did/v1/message`, a line feed (`0x0A`), and then the UTF-8 bytes of the payload. It is carried as lowercase hexadecimal.
+
+A verifier MUST verify it against the same prefixed bytes, with a key that is active and listed under `assertionMethod` (§6.2.1) or, at a stated time, as §6.2.2 defines, under the Ed25519 rule of §7.2. The prefix never equals the start of an RFC 9421 signature base (which begins with `"@method"`) or of a did:webvh proof input (a JSON object), so a payload signature is never valid as one of those. An RFC 9421 signature base (§6.5) is signed as it is, without the prefix.
 
 ### 6.3 Evolution
 
@@ -376,7 +378,7 @@ Update, key rotation and revocation (deactivation) change the identity that othe
 3. **Rotation.** Entries are verified against the keys in force at their position in the log. Keys removed from `updateKeys` MUST NOT authorize later entries. A verification method deactivated by rotation remains in the document (§4.2), but MUST NOT be accepted for new signatures; a signature by it is checked at the time the artifact states (§6.2.2). It is removed from every verification relationship of the document that deactivates it, and a verifier MUST reject a key that carries a `deactivated` time even when a document still lists it. A controller MAY retire one key and keep the others (a planned rotation adds the new key first, so both are listed for an overlap, then retires the old one); an implementation MUST NOT retire the last `authentication` or `assertionMethod` key that way, since rotation or revocation of the DID covers that case. An **emergency** retirement also sets `revoked` (§4.2) on the key, and MAY be applied to a key that is already retired; a rotation MAY be an emergency one, which revokes every key it retires.
 4. **Revocation is final.** After a `deactivated: true` entry the DID MUST resolve as deactivated, no further entries are valid, and all subsequent verifications that depend on it MUST fail (§6.4). The log is authoritative: a registry or cache entry MUST NOT be used to reinstate a DID whose log is deactivated. A client that holds a `did:webvh` log for a DID MUST NOT replace it with a log that is not an extension of it (an older prefix or a different history), and MUST NOT resolve the DID from an older prefix of it; a fetched log that is a prefix of the held one never rolls the DID back, and one that diverges is an integrity failure. A resolver MUST NOT answer for a `did:webvh` DID from another source when its log cannot be fetched.
 5. **Other DID methods.** Compatibility profiles MUST provide an equivalent: a lifecycle change is accepted only with proof of control by a key that the method designates as authorized for that change.
-6. **Callers.** Whether a particular party may *ask* an implementation to perform a lifecycle operation is a deployment decision. The SDK enforces the cryptographic rule above; it does not replace access control around the signer.
+6. **Callers.** Whether a particular party may *ask* an implementation to perform a lifecycle operation is a deployment decision. An implementation enforces the cryptographic rule above; it does not replace access control around the signer.
 7. **Controller chain and binding.** An agent controlled by another DID (§4.2 `controller`) is operated through that controller's keys; the controller chain MUST be resolvable and active for the agent to verify (§6.2). A `did:webvh` agent is **bound** to its controller only if the data-integrity proof of the **last entry** of its log was made by a key that is active now under `capabilityInvocation` of the controller's document (read as §4.2.1 item 2; the controller's document need not be an Agent-DID document) (the last entry holds the full current document, so that proof is the controller's endorsement of it). Listing a controller key in `updateKeys` is not enough. A verifier MUST check the binding for every link of the chain against the controller's state as it is now (never at a stated time, §6.2.2) and MUST reject (`controller_not_bound`) when it fails, when the controller cannot be resolved, or when the agent's log is not available to check. Rotating the controller's key without unbinding its agents takes three steps: the controller adds the new key under `capabilityInvocation`, each agent gets an entry signed by the new key, and only then the controller retires the old key. With pre-rotation (item 8) the committed key that signs the agent's next entry MUST already be listed under the controller's `capabilityInvocation`.
 8. **Pre-rotation (optional).** A `did:webvh` DID MAY commit to the hashes of its next update keys (`nextKeyHashes`, did:webvh v1.0). While commitments are in force, an implementation MUST sign the next entry only with a key whose hash is committed and MUST set `updateKeys` in that entry to committed keys; a key that was active before can no longer authorize an entry, and verifiers MUST reject an entry that does not meet this. An implementation that offers pre-rotation MUST NOT accept a commitment to a key that is active in the same entry, and SHOULD advise keeping the private keys of committed keys apart from the active controller key (offline). Pre-rotation protects only if it is in force **before** a compromise: an attacker who holds the active key of a DID without commitments can start pre-rotation with their own keys.
 
@@ -444,25 +446,17 @@ Implementations SHOULD emit `alg` `EdDSA` until authorization servers support `E
 
 ---
 
-## 7. SDK Implementation Guidelines (Reference)
+## 7. Interoperability
 
-The reference SDK (TypeScript/Python) must expose at minimum:
-
-1. `create(params)`
-2. `signMessage(payload, privateKey)`
-3. `signHttpRequest(params)`
-4. `resolve(did)`
-5. `verifySignature(did, payload, signature)`
-6. `revokeDid(did)`
-7. `assertKeyPurpose(keyId, didDoc, requiredPurpose)` / `assert_key_purpose(...)`
+This section states what independent implementations are checked against. It defines no programming interface. The API of the reference SDKs, the mapping from the flows of this RFC to it, an onboarding flow and the errors the SDKs surface are described in the non-normative [SDK API Guide](SDK-API-Guide.md); an implementation conforms through the behavior §10 requires, not by reproducing those names.
 
 ### 7.1 Reference Contract/Registry (EVM)
 
-The optional EVM deployment profile is defined in `RFC-001-EVM-Profile.md` in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). It is not part of the minimum conformance floor for core RFC-001.
+The optional EVM deployment profile is defined in `RFC-001-EVM-Profile.md` in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm). It is not part of the minimum conformance floor of this RFC.
 
 ### 7.2 Interoperability Fixtures
 
-Fixtures that Agent-DID generates itself prove consistency between the SDKs. They do not prove conformance with the references in §2.1; for that, see [External-Conformance-Matrix.md](External-Conformance-Matrix.md).
+Fixtures that Agent-DID generates itself prove consistency between the reference SDKs. They do not prove conformance with the references in §2.1; for that, see [External-Conformance-Matrix.md](External-Conformance-Matrix.md).
 
 To validate verification compatibility between implementations, maintain versioned shared vectors (message and HTTP signatures) and run them in CI.
 
@@ -478,66 +472,17 @@ Current fixture reference:
 - `fixtures/webvh-log-vectors.json` (did:webvh logs both SDKs resolve or reject, including witnessed logs with their `did-witness.json`) and `fixtures/didwebvh-test-suite.json` (the pinned DIF `didwebvh-test-suite` revision; its witness scenarios resolve with their `did-witness.json`; external)
 - `fixtures/timestamp-vectors.json` (§6.2.2: RFC 3161 tokens recorded from two public TSAs and a test TSA, with the expected outcome and reason; the accepted ones and the signature, chain and imprint rejections are cross-checked with `openssl ts -verify`)
 - `fixtures/delegation-vectors.json` (§6.7 and §6.8: capabilities both SDKs sign byte for byte, chains with their outcome or reason, targets, `Agent-DID-Capability` values, a signed invocation with its signature base, and client assertions both SDKs sign byte for byte with accepted and rejected variants)
-- `sdk/tests/InteropVectors.test.ts`, `sdk/tests/HttpVerificationVectors.test.ts`, `sdk/tests/crypto.test.ts`, `sdk-python/tests/test_interop_vectors.py`, `sdk-python/tests/test_http_verification_vectors.py`
 
 Conventions the shared vectors rely on, stated here so that an independent implementation does not have to infer them:
 
 - A commitment salt carried as text is the lowercase hexadecimal encoding of its bytes (64 characters for the required 32 bytes); the HMAC key is the decoded bytes (§4.3).
-- `signMessage` signs the UTF-8 bytes of `agent-did/v1/message` followed by a line feed (`0x0A`) and then the payload, and signatures are carried as lowercase hexadecimal. The prefix never equals the start of an RFC 9421 signature base (which begins with `"@method"`) or of a did:webvh proof input (a JSON object), so a payload signature is never valid as one of those. An RFC 9421 signature base is signed as it is, without the prefix. `verifySignature` and `verifySignatureAtTime` verify against the prefixed bytes.
+- Payload signatures cover the prefixed bytes of §6.2.3 and are carried as lowercase hexadecimal.
 - The Ed25519 verification rule (RFC 8032) every verifier applies before the curve equation, so that implementations agree on edge cases (`fixtures/ed25519-verification-vectors.json`): the signature is 64 bytes and the public key 32 bytes; `S` is below the group order; and the public key `A` and the signature point `R` are canonical encodings of points of the prime-order subgroup (not of small order, with no torsion component). Retired keys and the empty `keyid` are not verified; a malformed signature is a failed verification, never an exception.
 - A verifier returns a rejection, never an exception, for a request whose `keyid` is not an `assertionMethod` key of the agent DID document (§6.5 item 3).
 
-### 7.3 Quick Mapping: RFC → SDK
+### 7.3 Reference SDKs (informative)
 
-| RFC Flow | Reference SDK API/Artifact |
-| :-- | :-- |
-| Identity Registration (6.1) | `AgentIdentity.create(params)` |
-| Payload Signing (6.2) | `signMessage(payload, privateKey)` |
-| HTTP Signing (6.5) | `signHttpRequest(params)` |
-| DID Resolution (6.2) | `AgentIdentity.resolve(did)` |
-| Controller Documents (4.2.1) | `AgentDidClient.resolveDocument(did)` / `resolveControllerChain(did)` (DID Core documents, `DidDocument`); Python `resolve_document` / `resolve_controller_chain` |
-| Signature Verification (6.2) | `AgentIdentity.verifySignature(...)` and `verifyHttpRequestSignature(...)` |
-| Verification Relationship Binding (6.2.1) | `assertKeyPurpose(...)` / `assert_key_purpose(...)`, default `assertionMethod` |
-| Key Validity at a Stated Time (6.2.2) | `AgentDidClient.verifySignatureAtTime(did, payload, signature, keyId, { statedTime, timestampToken?, tsaTrustAnchors? })`, `checkDidWebvhKeyAtTime(log, ...)`, `verifyTimestampToken(token, signatureBytes, { trustAnchors })`, `createTimestampRequest(signatureBytes)`; Python adds the `timestamps` extra. `verifyHistoricalSignature` was removed in `1.0.0-rc.5`: it accepted a retired key without any time check |
-| Agent Metadata Credential (4.4) | `AgentDidClient.issueAgentMetadataCredential(params)` / `verifyAgentMetadataCredential(credential)`; Python `issue_agent_metadata_credential` / `verify_agent_metadata_credential` |
-| Document Evolution (6.3) | `updateDidDocument(did, patch)` |
-| Key Rotation (8.2) | `rotateVerificationMethod(did, { emergency })` — marks old keys as `deactivated` (and `revoked` with `emergency`) |
-| Single-Key Retirement (6.6 item 3) | `AgentDidClient.retireVerificationMethod(did, keyId, { emergency })` / Python `retire_verification_method` |
-| Identity Composition (6.2.1.1) | `signAgentCard(card, signer, keyId)`, `AgentDidClient.verifyAgentCard(card)` / `verifyIdentityComposition({ ...request, agentCard })`; Python `sign_agent_card`, `verify_agent_card`, `verify_identity_composition` |
-| Revocation (6.4) | `revokeDid(did)` |
-| Capabilities (6.7) | `AgentDidClient.createCapability(params)`, `verifyCapabilityChain(capability, { rootControllers })`, `verifyHttpCapabilityInvocation({ ...request, rootControllers })`, option `capability` of `signHttpRequest`; Python `create_capability`, `verify_capability_chain`, `verify_http_capability_invocation`, `SignHttpRequestParams.capability` |
-| OAuth Client Authentication (6.8) | `createClientAssertion(params)`, `buildClientJwks(document)`, `buildClientMetadataDocument(params)`, `AgentDidClient.verifyClientAssertion(params)`; Python `create_client_assertion`, `build_client_jwks`, `build_client_metadata_document`, `verify_client_assertion` |
-| did:webvh Witnesses (6.1) | `webvh.witness` at creation, `AgentDidClient.setDidWebvhWitnesses(did, witness \| null)`, `exportDidWebvhWitnessFile(did)`, option `collectWitnessProofs`; a witness approves with `createDidWebvhWitnessProof(...)`. Python `set_did_webvh_witnesses`, `export_did_webvh_witness_file`, `collect_witness_proofs`, `create_did_webvh_witness_proof` |
-| Production Resolver (5.3) | `useProductionResolverFromHttp(...)`, `useProductionResolverFromJsonRpc(...)` |
-| Optional EVM Integration (5.3) | `@agentdid/evm` / `agent-did-evm` (`EvmAgentRegistry`), in `edisonduran/agent-did-evm` |
-
-### 7.4 Minimum End-to-End Flow (Onboarding)
-
-1. Create the agent identity with `create(params)`.
-2. Sign a payload with `signMessage`.
-3. Verify that payload with `verifySignature` using the issued DID.
-4. Resolve the DID with `resolve` and validate active state.
-5. Revoke with `revokeDid` and confirm that subsequent verification fails.
-
-Executable examples:
-
-- `sdk/examples/quickstart.js`
-- `scripts/e2e-smoke.js` and `sdk-python/scripts/e2e_smoke.py` (`npm run smoke:e2e`)
-
-The optional EVM profile examples are in `edisonduran/agent-did-evm`.
-
-Recommended full validation command:
-
-- `npm run conformance:rfc001`
-
-### 7.5 Expected Errors and Behavior
-
-- **DID not found:** resolution fails (`DID not found` or resolver equivalent).
-- **DID revoked:** `resolve`/`verifySignature` must fail or return invalid.
-- **Invalid signature/tampered payload:** verification returns `false`.
-- **Wrong key purpose:** verification raises or surfaces `key_purpose_violation` with the relationships where the key was found.
-- **Incompatible `Signature-Input`:** HTTP verification returns `false`.
-- **Unresolvable DID document or history entry:** resolver attempts failover; if all fail, error.
+The reference SDKs, `@agentdid/sdk` (TypeScript) and `agent-did-sdk` (Python), run every vector of §7.2 in CI. Their API, the mapping from each flow of this RFC to it (previously this section), the onboarding flow (previously §7.4) and the errors they surface (previously §7.5) are in the [SDK API Guide](SDK-API-Guide.md). That guide is not normative: where it and this RFC disagree, this RFC governs.
 
 ---
 
