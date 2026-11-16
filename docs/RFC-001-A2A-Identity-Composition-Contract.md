@@ -183,7 +183,7 @@ These map 1:1 to the typed APS subtypes:
 - `key_purpose_violation` ↔ `KeyPurposeViolation`
 - `tampered` ↔ `Tampered`
 
-Emission status (`@aeoess`, 2026-11-15, [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS defines all four reasons, but its checked composition path emits only `key_purpose_violation` (from `assertKeyPurpose`); the other three are defined and not emitted. The Agent-DID reference SDKs emit all four (`[rc.5, #257]`).
+Emission status (`@aeoess`, 2026-11-15, [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS defines all four reasons and exports `assertKeyPurpose`, a helper that throws `key_purpose_violation`; no integrated APS composition path calls it, so none of the four is emitted by APS itself (SDK source at `1284887`, [clarified 2026-11-16](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6907812960)). The Agent-DID reference SDKs emit all four (`[rc.5, #257]`).
 
 Reference implementation: `IdentityCompositionError` in agent-passport-system v2.5.1-alpha (commit `f37f1cc` on `aeoess/agent-passport-system` `main`), `src/errors/identity-composition-error.ts`. Conformance: `tests/v2/identity-composition-error.test.ts` (9 tests).
 
