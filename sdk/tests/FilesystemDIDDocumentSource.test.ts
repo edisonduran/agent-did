@@ -85,4 +85,25 @@ describe('FilesystemDIDDocumentSource', () => {
 
     expect(loaded?.id).toEqual(sampleDocument.id);
   });
+
+  it('reports unreadable files instead of treating them as missing', async () => {
+    const broken = path.join(tempDir, 'broken.json');
+    await fs.writeFile(broken, '{ not json', 'utf8');
+    const source = new FilesystemDIDDocumentSource({ referenceToPaths: () => [path.join(tempDir, 'missing.json'), broken] });
+
+    await expect(source.getByReference('ref')).rejects.toThrow('Failed to read DID document from filesystem paths');
+    // A directory exists but cannot be read as a log file
+    const directory = new FilesystemDIDDocumentSource({ referenceToPaths: () => [tempDir] });
+    await expect(directory.getDidLogByReference('ref')).rejects.toThrow('Failed to read did:webvh DID log');
+  });
+
+  it('returns null for a log that no candidate path has', async () => {
+    const source = new FilesystemDIDDocumentSource({ referenceToPaths: () => [path.join(tempDir, 'missing.jsonl')] });
+    await expect(source.getDidLogByReference('ref')).resolves.toBeNull();
+  });
+
+  it('refuses to store when the mapping gives no path', async () => {
+    const source = new FilesystemDIDDocumentSource({ referenceToPaths: () => [] });
+    await expect(source.storeDidLogByReference('ref', 'log')).rejects.toThrow('No filesystem path candidates');
+  });
 });

@@ -62,6 +62,7 @@ export class AwsSigV4S3DIDDocumentSource implements DIDDocumentSource {
 
   private createSignedFetchFn(config: AwsSigV4S3DIDDocumentSourceConfig): FetchLike {
     const baseFetch = config.fetchFn || (createSafeFetch(config.httpSecurity) as unknown as FetchLike);
+    /* istanbul ignore next -- createSafeFetch always returns a function */
     if (!baseFetch) {
       throw new Error('No fetch implementation available for AwsSigV4S3DIDDocumentSource');
     }

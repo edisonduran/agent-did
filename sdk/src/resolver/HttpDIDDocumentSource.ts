@@ -49,6 +49,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
   }
 
   public async getByReference(documentRef: string): Promise<AgentDIDDocument | null> {
+    /* istanbul ignore next -- the constructor always sets fetchFn (the SSRF-safe fetch by default) */
     if (!this.fetchFn) {
       throw new Error('No fetch implementation available for HttpDIDDocumentSource');
     }
@@ -101,6 +102,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
   }
 
   public async getDidLogByReference(documentRef: string): Promise<string | null> {
+    /* istanbul ignore next -- the constructor always sets fetchFn (the SSRF-safe fetch by default) */
     if (!this.fetchFn) {
       throw new Error('No fetch implementation available for HttpDIDDocumentSource');
     }
@@ -181,6 +183,7 @@ export class HttpDIDDocumentSource implements DIDDocumentSource {
     method: string,
     contentType: string
   ): Promise<void> {
+    /* istanbul ignore next -- the constructor always sets fetchFn (the SSRF-safe fetch by default) */
     if (!this.fetchFn) {
       throw new Error('No fetch implementation available for HttpDIDDocumentSource');
     }

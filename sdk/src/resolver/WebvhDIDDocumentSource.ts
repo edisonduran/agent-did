@@ -86,6 +86,7 @@ export class WebvhDIDDocumentSource implements DIDDocumentSource {
   }
 
   private async fetchText(documentRef: string, what: string): Promise<string | null> {
+    /* istanbul ignore next -- the constructor always sets fetchFn (the SSRF-safe fetch by default) */
     if (!this.fetchFn) {
       throw new Error('No fetch implementation available for WebvhDIDDocumentSource');
     }
