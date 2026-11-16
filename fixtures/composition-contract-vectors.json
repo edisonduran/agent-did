@@ -752,6 +752,116 @@
       "expected": "tampered"
     },
     {
+      "name": "value of the wrong JSON type at an implicit default position (required: 0) added after signing (covered)",
+      "card": {
+        "name": "CardBot",
+        "description": "Answers questions about cards",
+        "version": "1.0.0",
+        "supportedInterfaces": [
+          {
+            "url": "https://agents.example/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0"
+          }
+        ],
+        "capabilities": {
+          "streaming": false,
+          "extensions": [
+            {
+              "uri": "https://agent-did.org/a2a/identity/v1",
+              "params": {
+                "did": "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot",
+                "keyIds": [
+                  "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot#key-1",
+                  "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot#key-2"
+                ]
+              },
+              "required": 0
+            }
+          ]
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "skills": [
+          {
+            "id": "cards",
+            "name": "Cards",
+            "description": "Answers questions about cards",
+            "tags": [
+              "cards"
+            ]
+          }
+        ],
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWNvbXBvc2l0aW9uVmVjdG9yc0FnZW50OmFnZW50cy5leGFtcGxlOmFnZW50czpjYXJkLWJvdCNrZXktMSIsInR5cCI6IkpPU0UifQ",
+            "signature": "i8IXGjnkKrUosxD0mbc5GC9YmUvLwZ-h6PHfHzMqt4c70y6qx8eNMd514enYTd3mO6iNBTGrlUzhHIDW9l1JCA"
+          }
+        ]
+      },
+      "expected": "tampered"
+    },
+    {
+      "name": "member A2A does not define, named __proto__, changed after signing (covered)",
+      "card": {
+        "name": "CardBot",
+        "description": "Answers questions about cards",
+        "version": "1.0.0",
+        "supportedInterfaces": [
+          {
+            "url": "https://agents.example/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0"
+          }
+        ],
+        "capabilities": {
+          "streaming": false,
+          "extensions": [
+            {
+              "uri": "https://agent-did.org/a2a/identity/v1",
+              "params": {
+                "did": "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot",
+                "keyIds": [
+                  "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot#key-1",
+                  "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot#key-2"
+                ]
+              }
+            }
+          ]
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "skills": [
+          {
+            "id": "cards",
+            "name": "Cards",
+            "description": "Answers questions about cards",
+            "tags": [
+              "cards"
+            ]
+          }
+        ],
+        "__proto__": {
+          "marker": "changed"
+        },
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWNvbXBvc2l0aW9uVmVjdG9yc0FnZW50OmFnZW50cy5leGFtcGxlOmFnZW50czpjYXJkLWJvdCNrZXktMSIsInR5cCI6IkpPU0UifQ",
+            "signature": "K4Y0OrV09Y19m6UtJPw9lhtkXY1IO21wEonm9uH7J2DleV9_xzM_TwewtNH7cjnlBCmsXQJZLOpHl3YjOPv5CA"
+          }
+        ]
+      },
+      "expected": "tampered"
+    },
+    {
       "name": "a member changed after signing",
       "card": {
         "name": "Other",
@@ -2288,6 +2398,90 @@
         ]
       },
       "payload": "eyJuYW1lIjoiQSIsInNlY3VyaXR5UmVxdWlyZW1lbnRzIjpbeyJzY2hlbWVzIjp7Im9hdXRoIjp7fX19LHt9XSwic2VjdXJpdHlTY2hlbWVzIjp7ImJlYXJlciI6eyJodHRwQXV0aFNlY3VyaXR5U2NoZW1lIjp7InNjaGVtZSI6IkJlYXJlciJ9fSwia2V5Ijp7ImFwaUtleVNlY3VyaXR5U2NoZW1lIjp7ImxvY2F0aW9uIjoiaGVhZGVyIiwibmFtZSI6IlgtS2V5In19LCJtdGxzIjp7Im10bHNTZWN1cml0eVNjaGVtZSI6e319LCJvYXV0aCI6eyJvYXV0aDJTZWN1cml0eVNjaGVtZSI6eyJmbG93cyI6eyJjbGllbnRDcmVkZW50aWFscyI6eyJzY29wZXMiOnt9LCJ0b2tlblVybCI6Imh0dHBzOi8vYXMuZXhhbXBsZS90b2tlbiJ9fX19fX0"
+    },
+    {
+      "name": "values of the wrong JSON type are not defaults, and a member named __proto__ is covered",
+      "card": {
+        "name": "A",
+        "__proto__": {
+          "marker": "x"
+        },
+        "supportedInterfaces": [
+          {
+            "url": "https://agents.example/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": false
+          }
+        ],
+        "capabilities": {
+          "extensions": [
+            {
+              "uri": "https://agent-did.org/a2a/identity/v1",
+              "required": 0,
+              "params": {
+                "did": "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot"
+              }
+            }
+          ]
+        },
+        "skills": [
+          {
+            "id": "s",
+            "name": "S",
+            "description": "s",
+            "tags": [
+              "t"
+            ],
+            "examples": {},
+            "__proto__": {
+              "marker": "y"
+            }
+          }
+        ],
+        "securitySchemes": []
+      },
+      "covered": {
+        "name": "A",
+        "__proto__": {
+          "marker": "x"
+        },
+        "supportedInterfaces": [
+          {
+            "url": "https://agents.example/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": false
+          }
+        ],
+        "capabilities": {
+          "extensions": [
+            {
+              "uri": "https://agent-did.org/a2a/identity/v1",
+              "required": 0,
+              "params": {
+                "did": "did:webvh:QmcompositionVectorsAgent:agents.example:agents:card-bot"
+              }
+            }
+          ]
+        },
+        "skills": [
+          {
+            "id": "s",
+            "name": "S",
+            "description": "s",
+            "tags": [
+              "t"
+            ],
+            "examples": {},
+            "__proto__": {
+              "marker": "y"
+            }
+          }
+        ],
+        "securitySchemes": []
+      },
+      "payload": "eyJfX3Byb3RvX18iOnsibWFya2VyIjoieCJ9LCJjYXBhYmlsaXRpZXMiOnsiZXh0ZW5zaW9ucyI6W3sicGFyYW1zIjp7ImRpZCI6ImRpZDp3ZWJ2aDpRbWNvbXBvc2l0aW9uVmVjdG9yc0FnZW50OmFnZW50cy5leGFtcGxlOmFnZW50czpjYXJkLWJvdCJ9LCJyZXF1aXJlZCI6MCwidXJpIjoiaHR0cHM6Ly9hZ2VudC1kaWQub3JnL2EyYS9pZGVudGl0eS92MSJ9XX0sIm5hbWUiOiJBIiwic2VjdXJpdHlTY2hlbWVzIjpbXSwic2tpbGxzIjpbeyJfX3Byb3RvX18iOnsibWFya2VyIjoieSJ9LCJkZXNjcmlwdGlvbiI6InMiLCJleGFtcGxlcyI6e30sImlkIjoicyIsIm5hbWUiOiJTIiwidGFncyI6WyJ0Il19XSwic3VwcG9ydGVkSW50ZXJmYWNlcyI6W3sicHJvdG9jb2xCaW5kaW5nIjoiSlNPTlJQQyIsInByb3RvY29sVmVyc2lvbiI6IjEuMCIsInRlbmFudCI6ZmFsc2UsInVybCI6Imh0dHBzOi8vYWdlbnRzLmV4YW1wbGUvYTJhIn1dfQ"
     }
   ],
   "documents": [

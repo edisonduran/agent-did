@@ -63,14 +63,17 @@ export function didOfKeyId(keyId: unknown): string | undefined {
   return match ? match[1] : undefined;
 }
 
-type FieldKind = 'required' | 'optional' | 'implicit' | 'repeated' | 'message';
+type FieldKind = 'required' | 'optional' | 'implicit' | 'list' | 'map' | 'message';
 type FieldSpec = readonly [FieldKind, string | null];
 
 /**
  * A2A 1.0 field presence (`specification/a2a.proto` v1.0.1), by JSON member name. Kinds: `required` (kept),
- * `optional` (`optional` keyword: kept when present), `implicit` (scalar without presence: dropped when it is the
- * default), `repeated` (list or map: dropped when empty), `message` (singular message or oneof member: kept when
- * present). Python parity: `_A2A_SCHEMA` in `agent_did_sdk/core/agent_card.py`.
+ * `optional` (`optional` keyword: kept when present), `implicit` (scalar without presence, second item its type
+ * `string` or `bool`: dropped only when it is the default of that type, `""` or `false`), `list` (repeated field:
+ * dropped only when it is an empty array), `map` (map field, second item the message of its values: dropped only
+ * when it is an empty object), `message` (singular message or oneof member: kept when present). A value of another
+ * JSON type is never a default: it stays in the payload. Python parity: `_A2A_SCHEMA` in
+ * `agent_did_sdk/core/agent_card.py`.
  */
 const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> = {
   AgentCard: {
@@ -81,8 +84,8 @@ const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> 
     version: ['required', null],
     documentationUrl: ['optional', null],
     capabilities: ['required', 'AgentCapabilities'],
-    securitySchemes: ['repeated', 'map:SecurityScheme'],
-    securityRequirements: ['repeated', 'SecurityRequirement'],
+    securitySchemes: ['map', 'SecurityScheme'],
+    securityRequirements: ['list', 'SecurityRequirement'],
     defaultInputModes: ['required', null],
     defaultOutputModes: ['required', null],
     skills: ['required', 'AgentSkill'],
@@ -91,20 +94,20 @@ const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> 
   AgentInterface: {
     url: ['required', null],
     protocolBinding: ['required', null],
-    tenant: ['implicit', null],
+    tenant: ['implicit', 'string'],
     protocolVersion: ['required', null]
   },
   AgentProvider: { url: ['required', null], organization: ['required', null] },
   AgentCapabilities: {
     streaming: ['optional', null],
     pushNotifications: ['optional', null],
-    extensions: ['repeated', 'AgentExtension'],
+    extensions: ['list', 'AgentExtension'],
     extendedAgentCard: ['optional', null]
   },
   AgentExtension: {
-    uri: ['implicit', null],
-    description: ['implicit', null],
-    required: ['implicit', null],
+    uri: ['implicit', 'string'],
+    description: ['implicit', 'string'],
+    required: ['implicit', 'bool'],
     params: ['message', null]
   },
   AgentSkill: {
@@ -112,13 +115,13 @@ const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> 
     name: ['required', null],
     description: ['required', null],
     tags: ['required', null],
-    examples: ['repeated', null],
-    inputModes: ['repeated', null],
-    outputModes: ['repeated', null],
-    securityRequirements: ['repeated', 'SecurityRequirement']
+    examples: ['list', null],
+    inputModes: ['list', null],
+    outputModes: ['list', null],
+    securityRequirements: ['list', 'SecurityRequirement']
   },
-  SecurityRequirement: { schemes: ['repeated', 'map:StringList'] },
-  StringList: { list: ['repeated', null] },
+  SecurityRequirement: { schemes: ['map', 'StringList'] },
+  StringList: { list: ['list', null] },
   SecurityScheme: {
     apiKeySecurityScheme: ['message', 'APIKeySecurityScheme'],
     httpAuthSecurityScheme: ['message', 'HTTPAuthSecurityScheme'],
@@ -126,19 +129,19 @@ const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> 
     openIdConnectSecurityScheme: ['message', 'OpenIdConnectSecurityScheme'],
     mtlsSecurityScheme: ['message', 'MutualTlsSecurityScheme']
   },
-  APIKeySecurityScheme: { description: ['implicit', null], location: ['required', null], name: ['required', null] },
+  APIKeySecurityScheme: { description: ['implicit', 'string'], location: ['required', null], name: ['required', null] },
   HTTPAuthSecurityScheme: {
-    description: ['implicit', null],
+    description: ['implicit', 'string'],
     scheme: ['required', null],
-    bearerFormat: ['implicit', null]
+    bearerFormat: ['implicit', 'string']
   },
   OAuth2SecurityScheme: {
-    description: ['implicit', null],
+    description: ['implicit', 'string'],
     flows: ['required', 'OAuthFlows'],
-    oauth2MetadataUrl: ['implicit', null]
+    oauth2MetadataUrl: ['implicit', 'string']
   },
-  OpenIdConnectSecurityScheme: { description: ['implicit', null], openIdConnectUrl: ['required', null] },
-  MutualTlsSecurityScheme: { description: ['implicit', null] },
+  OpenIdConnectSecurityScheme: { description: ['implicit', 'string'], openIdConnectUrl: ['required', null] },
+  MutualTlsSecurityScheme: { description: ['implicit', 'string'] },
   OAuthFlows: {
     authorizationCode: ['message', 'AuthorizationCodeOAuthFlow'],
     clientCredentials: ['message', 'ClientCredentialsOAuthFlow'],
@@ -149,45 +152,52 @@ const A2A_SCHEMA: Readonly<Record<string, Readonly<Record<string, FieldSpec>>>> 
   AuthorizationCodeOAuthFlow: {
     authorizationUrl: ['required', null],
     tokenUrl: ['required', null],
-    refreshUrl: ['implicit', null],
+    refreshUrl: ['implicit', 'string'],
     scopes: ['required', null],
-    pkceRequired: ['implicit', null]
+    pkceRequired: ['implicit', 'bool']
   },
   ClientCredentialsOAuthFlow: {
     tokenUrl: ['required', null],
-    refreshUrl: ['implicit', null],
+    refreshUrl: ['implicit', 'string'],
     scopes: ['required', null]
   },
   ImplicitOAuthFlow: {
-    authorizationUrl: ['implicit', null],
-    refreshUrl: ['implicit', null],
-    scopes: ['repeated', null]
+    authorizationUrl: ['implicit', 'string'],
+    refreshUrl: ['implicit', 'string'],
+    scopes: ['map', null]
   },
-  PasswordOAuthFlow: { tokenUrl: ['implicit', null], refreshUrl: ['implicit', null], scopes: ['repeated', null] },
+  PasswordOAuthFlow: { tokenUrl: ['implicit', 'string'], refreshUrl: ['implicit', 'string'], scopes: ['map', null] },
   DeviceCodeOAuthFlow: {
     deviceAuthorizationUrl: ['required', null],
     tokenUrl: ['required', null],
-    refreshUrl: ['implicit', null],
+    refreshUrl: ['implicit', 'string'],
     scopes: ['required', null]
   }
 };
 
-const isImplicitDefault = (value: unknown): boolean => value === false || value === 0 || value === '';
+/** Whether `value` is the A2A 1.0 default of a field of `kind` (and scalar `type`): only a value of the field's own type. */
+function isDefaultValue(kind: FieldKind, type: string | null, value: unknown): boolean {
+  switch (kind) {
+    case 'implicit':
+      return type === 'bool' ? value === false : value === '';
+    case 'list':
+      return Array.isArray(value) && value.length === 0;
+    case 'map':
+      return isObject(value) && Object.keys(value).length === 0;
+    default:
+      return false;
+  }
+}
 
-const isEmptyRepeated = (value: unknown): boolean =>
-  Array.isArray(value) ? value.length === 0 : isObject(value) && Object.keys(value).length === 0;
+/** An object with these own members: unlike `result[name] = value`, a member named `__proto__` stays an own member. */
+function ownObject(entries: Array<[string, unknown]>): Record<string, unknown> {
+  return Object.fromEntries(entries);
+}
 
 /** `value` with the A2A 1.0 default values removed, when it has the JSON type `message` describes. */
 function withoutDefaults(value: unknown, message: string | null): unknown {
   if (message === null) {
     return value;
-  }
-  if (message.startsWith('map:')) {
-    if (!isObject(value)) {
-      return value;
-    }
-    const item = message.slice(4);
-    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, withoutDefaults(entry, item)]));
   }
   if (Array.isArray(value)) {
     return value.map((entry) => withoutDefaults(entry, message));
@@ -196,20 +206,31 @@ function withoutDefaults(value: unknown, message: string | null): unknown {
     return value;
   }
   const fields = A2A_SCHEMA[message];
-  const result: Record<string, unknown> = {};
+  const entries: Array<[string, unknown]> = [];
   for (const [name, entry] of Object.entries(value)) {
     const spec = Object.prototype.hasOwnProperty.call(fields, name) ? fields[name] : undefined;
     if (spec === undefined) {
-      result[name] = entry;
+      entries.push([name, entry]);
       continue;
     }
     const [kind, child] = spec;
-    if ((kind === 'implicit' && isImplicitDefault(entry)) || (kind === 'repeated' && isEmptyRepeated(entry))) {
+    if (isDefaultValue(kind, child, entry)) {
       continue;
     }
-    result[name] = withoutDefaults(entry, child);
+    if (kind === 'implicit') {
+      entries.push([name, entry]);
+    } else if (kind === 'map') {
+      entries.push([name, isObject(entry) && child !== null ? mapWithoutDefaults(entry, child) : entry]);
+    } else {
+      entries.push([name, withoutDefaults(entry, child)]);
+    }
   }
-  return result;
+  return ownObject(entries);
+}
+
+/** A map field's object with the defaults of each value (a `message`) removed; the keys are kept as they are. */
+function mapWithoutDefaults(value: Record<string, unknown>, message: string): Record<string, unknown> {
+  return ownObject(Object.entries(value).map(([key, entry]) => [key, withoutDefaults(entry, message)]));
 }
 
 /**
