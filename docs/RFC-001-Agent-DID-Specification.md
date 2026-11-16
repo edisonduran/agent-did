@@ -508,6 +508,28 @@ The full STRIDE analysis is in [Threat-Model.md](Threat-Model.md). Implementers 
 6. **Controller key custody.** Compromise of the controller key allows an attacker to rotate or deactivate the identity. The only in-protocol recovery is pre-rotation (§6.6 item 8), and only if the DID committed to successor keys before the compromise; without it there is none. Protect the active key with an HSM or KMS and keep the committed keys offline.
 7. **Commitment salts** are secrets of the controller; leaking one re-enables guessing of the committed value.
 
+### 8.2 Privacy Considerations
+
+Agent-DID identifies agents on purpose: a verifier can check who signed a request only because the request names the signer. This section states what the protocol reveals, to whom, and what deployments can do about it. Network-level traffic analysis, the confidentiality of payloads and the reasoning privacy of §8 item 7 are outside it.
+
+| Party | Learns | Through |
+| :-- | :-- | :-- |
+| A relying party | The agent DID and key of every request it receives, the controller chain, and the agent's public metadata with its full history | The `Agent-DID` member and `keyid` (§6.5), resolution (§6.2) |
+| Several relying parties together | That requests to each of them came from the same agent, and when | The same DID in every request |
+| The host of a did:webvh log | That some party is verifying the agent, from which network address, and how often | Fetches of `did.jsonl` and `did-witness.json` (§6.1) |
+| The operator of a shared resolver | Every DID a verifier resolves | Resolution requests |
+| The server a capability is invoked at | Every delegator in the chain and what each one granted | `capabilityChain` (§6.7) |
+| An OAuth authorization server | The agent DID behind a client | The client assertion and client metadata (§6.8) |
+| A time-stamping authority | When the agent asks for a timestamp, and a hash of the signature | The RFC 3161 request (§6.2.2) |
+| Anyone | Every published version of the DID document: metadata, keys, controller, and when each changed | The public did:webvh log (§6.1) |
+
+1. **Correlation across requests.** The DID in `Agent-DID` and the `keyid` are stable by design. Whoever sees an agent's requests can link them, and relying parties that compare records can link the agent's activity across services. Rotating keys does not prevent this, since the DID stays the same. An agent that must not be linkable across relying parties SHOULD use a separate DID for each relying party or context (pairwise DIDs). Pairwise DIDs that share a controller are still linked through the controller chain each of them must present (§6.6 item 7); a deployment that must also hide the shared controller needs separate controllers, and gives up the common root of trust.
+2. **Exposed metadata.** Everything in a DID document is public, and a did:webvh log keeps every earlier version: a published value can be superseded but never withdrawn. Controllers SHOULD publish only the `agentMetadata` members their verifiers need, and SHOULD NOT put personal data in any member, in the DID itself (its domain and path) or in a `service` endpoint. Commitments SHOULD be salted (§4.3). Members that only some parties need can be left out of the document and stated instead in an `AgentMetadataCredential` (§4.4) presented to those parties, holding only the members each one needs. `memberOf`, `capabilities` and the controller DID reveal organizational and fleet structure; `created`, `updated` and each log entry's `versionTime` reveal when the agent was deployed, changed and rotated. Agent Cards and `LinkedVerifiablePresentation` services are public in the same way.
+3. **Resolution reveals who verifies.** Fetching a did:webvh log tells its host that some party is checking the agent, and when; a shared resolver learns every DID a verifier resolves. Verifiers SHOULD cache resolution results within the freshness they accept (§8.1 item 3). A deployment that treats its counterparties as confidential SHOULD resolve through infrastructure it operates rather than a shared resolver. Resolvers SHOULD NOT send cookies, credentials or a `Referer` header with these fetches.
+4. **Verifier records.** A replay store needs only `(keyid, nonce)` pairs; it SHOULD discard each pair once its `expires` has passed (it MUST keep it until then, §6.5 item 6). Records that tie DIDs, keys, targets or capabilities to requests are a record of who called whom: verifiers SHOULD keep only what their policy needs, and SHOULD NOT log request bodies, signature fields or capability values in full.
+5. **Delegation and client authentication.** A capability chain shows the server every delegator and the scope each one granted, so a party that must stay unknown to that server cannot appear in the chain. A client assertion and a client metadata document name the agent DID to the authorization server, which can then link the agent's token requests.
+6. **Timestamps.** An RFC 3161 request carries only a hash of the signature, but it tells the time-stamping authority when the agent signs, and a token over a signature that is later published links the two. Signers SHOULD use a time-stamping authority they trust with that information.
+
 ---
 
 ## 9. Reference Use Cases

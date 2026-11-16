@@ -140,11 +140,12 @@ These are the residual risks that matter most, in priority order.
 
 1. **Controller key compromise is recoverable only for DIDs that committed to pre-rotation keys in advance** (§7). The SDKs expose pre-rotation (`nextUpdateKeys`, `rotateControllerKey` / `rotate_controller_key`), but it is opt-in: DIDs created without it have no in-protocol recovery and rely on an operator control (HSM/KMS). Committed keys held on the same host as the active key add nothing.
 2. **Rollback and withholding by a log host** (§4). Operator mitigation only: bounded TTL, mirrors.
-3. **Signer-asserted time** (§5, §7). No trusted timestamp, so post-compromise forgery of `created` cannot be excluded.
+3. **Signer-asserted time** (§5, §7). Without trusted time evidence (an RFC 3161 token, RFC-001 §6.2.2), post-compromise forgery of `created` cannot be excluded; such a signature by a later-retired key is indeterminate, not accepted.
 4. **Replay protection is per process by default** (§5). Shared `NonceStore` is mandatory for multi-instance verifiers.
 5. **Valid signature is not trust** (§5). Verifiers must authorize DIDs; the SDK only authenticates.
 6. **Resolver cost is bounded per fetch, not per verifier** (§4). Each fetch has a deadline and a size cap and the cache is bounded, but a sender can name unknown DIDs to force fetches; rate-limiting is the verifier's. Log verification cost within the size cap remains a candidate for M-16.
 7. **Salt custody** (§2). Lost salt blocks metadata updates; leaked salt re-enables guessing.
+8. **Correlation and disclosure** (§4, §5). The stable DID links an agent's requests across relying parties, the did:webvh log keeps every published metadata version, and resolution tells log hosts and shared resolvers who verifies which agent. These are properties of the design, not defects; the mitigations (pairwise DIDs, minimal metadata, local resolution) are in RFC-001 §8.2 Privacy Considerations.
 
 ## 9. Out of scope
 
