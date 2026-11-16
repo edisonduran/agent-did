@@ -1,0 +1,72 @@
+name: CI — agent-did.org site
+
+# The static site served at https://agent-did.org (docs/Site-Operations.md): the JSON-LD context
+# /v1 (byte for byte contexts/v1.jsonld, ADR-003), the vocabulary and A2A extension pages, and the
+# clearsigned /.well-known/security.txt. Pull requests check the sources; the scheduled run also
+# checks that the deployed site serves them and that security.txt is not about to expire.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ci-site.yml'
+      - '.github/security/**'
+      - 'contexts/**'
+      - 'site/**'
+      - 'scripts/build-site.js'
+      - 'scripts/check-site.js'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-site.yml'
+      - '.github/security/**'
+      - 'contexts/**'
+      - 'site/**'
+      - 'scripts/build-site.js'
+      - 'scripts/check-site.js'
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: site-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sources:
+    name: Site sources build and security.txt signature verifies
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Build and check
+        run: node scripts/check-site.js
+
+  live:
+    name: agent-did.org serves the repository files
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Check the deployed site
+        run: node scripts/check-site.js --live

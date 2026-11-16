@@ -1,0 +1,17 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+Contact: mailto:security@agent-did.org
+Contact: https://github.com/edisonduran/agent-did/security/advisories/new
+Expires: 2027-11-01T00:00:00Z
+Encryption: https://raw.githubusercontent.com/edisonduran/agent-did/main/.github/security/agent-did-security.asc
+Preferred-Languages: en, es
+Canonical: https://agent-did.org/.well-known/security.txt
+Policy: https://github.com/edisonduran/agent-did/blob/main/SECURITY.md
+-----BEGIN PGP SIGNATURE-----
+
+iHUEARYIAB0WIQScVqc5UfSet/T+/0MQN3+C6D06igUCavqI4AAKCRAQN3+C6D06
+ir5SAP9N0jInB3a2JNivHOa59qzKXEDg1tI3HSlhsDw7NMcOxQD/WTK66pm4/gnO
+7aFsZYCFyK1jVGq78m1T9VrRdV6niwE=
+=f87O
+-----END PGP SIGNATURE-----

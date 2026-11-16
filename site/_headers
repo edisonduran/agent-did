@@ -1,0 +1,17 @@
+# Cloudflare Pages response headers for agent-did.org (docs/Site-Operations.md).
+# /v1 is the JSON-LD context: served byte for byte from contexts/v1.jsonld, immutable (ADR-003).
+
+/v1
+  Content-Type: application/ld+json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=86400
+  X-Content-Type-Options: nosniff
+
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8
+  Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
