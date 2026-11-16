@@ -1,0 +1,155 @@
+{
+  "description": "Agent Cards signed by an external implementation, Agent Passport System (APS), over the A2A 1.0 section 8.4.1 signing input (contract section 3.1). Recorded, not regenerated. Public keys only.",
+  "provenance": {
+    "tool": "agent-passport-system",
+    "version": "8.1.1",
+    "source": "https://github.com/agent-passport-system/agent-passport-system/tree/v8.1.1",
+    "recorded": "2026-11-16",
+    "signedBy": "harness.ts, a local interop harness run with tsx: it generates the Ed25519 key in memory through the Agent-DID TS SDK (agent-did 80a6be4), builds the card, calls attachApsIdentityExtensionV1 and then signA2AAgentCardV1 from agent-passport-system@8.1.1 (npm), and writes the signed card with its public key.",
+    "packagedBy": "node record.mjs, which copies that signed card into this file, adds the public key in hex and multibase, and adds the tampered copy (name changed after signing). It signs nothing.",
+    "checkedWith": "agent-did 91574a1, the cardOutcome logic of sdk/tests/CompositionContractVectors.test.ts in TypeScript and the same logic in Python, and verifyApsA2AAgentCardV1 from agent-passport-system@8.1.1 at the fixed evaluation time 2026-11-17T00:00:00Z.",
+    "keys": "Public keys only. No private key is needed to consume these vectors."
+  },
+  "keys": {
+    "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot#key-1": {
+      "publicKeyMultibase": "z6MkfdXdwBJ9doGVytWTBq1ePLwmVxmYPjavRAqtSNWQHigy",
+      "publicKeyHex": "117d200659902a2079b2107eca354e51837e4994b015d7b0a3a48387072216a2"
+    }
+  },
+  "cards": [
+    {
+      "name": "signed by APS 8.1.1, Agent-DID and APS identity extensions, tenant \"\" and required false",
+      "card": {
+        "name": "InteropBot",
+        "description": "APS and Agent-DID interop card",
+        "version": "1.0.0",
+        "supportedInterfaces": [
+          {
+            "url": "https://agent.example/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": ""
+          }
+        ],
+        "capabilities": {
+          "streaming": false,
+          "extensions": [
+            {
+              "uri": "https://agent-did.org/a2a/identity/v1",
+              "required": false,
+              "params": {
+                "did": "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot",
+                "keyIds": [
+                  "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot#key-1"
+                ]
+              }
+            },
+            {
+              "uri": "https://agent-passport.org/a2a/extensions/identity/v1",
+              "description": "APS verifiable agent identity and principal-binding references",
+              "params": {
+                "agent_id": "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot",
+                "passport_uri": "https://agent.example/.well-known/aps-passport.json",
+                "passport_sha256": "76897509a220b5ca1c944e2741db13b370301222b5f514ed35f76094d5c43712",
+                "issued_at": "2026-11-16T00:00:00.000Z",
+                "expires_at": "2026-11-19T00:00:00.000Z"
+              }
+            }
+          ]
+        },
+        "defaultInputModes": [
+          "application/json"
+        ],
+        "defaultOutputModes": [
+          "application/json"
+        ],
+        "skills": [
+          {
+            "id": "s1",
+            "name": "echo",
+            "description": "echo",
+            "tags": [
+              "t"
+            ]
+          }
+        ],
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWZEelhMSDlvNWpFeVM0QUFZcTJTWktOVlRKWWsxdVg5Z1NCeTRGSHZUUWRNOmFnZW50cy5sb2NhbDphZ2VudHM6aW50ZXJvcGJvdCNrZXktMSIsInR5cCI6IkpPU0UifQ",
+            "signature": "tSmZ1-gOIAxMiK74UMfAHMjPCu4wNrHZblnye9kj69nUWpHowmQE85eSHvWeyI_e1hX-gn4pUoDJ6xvOWQrjBw"
+          }
+        ]
+      },
+      "expected": "ok",
+      "did": "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot",
+      "publishedKeyIds": [
+        "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot#key-1"
+      ]
+    },
+    {
+      "name": "signed by APS 8.1.1, name changed after signing",
+      "card": {
+        "name": "InteropBot changed",
+        "description": "APS and Agent-DID interop card",
+        "version": "1.0.0",
+        "supportedInterfaces": [
+          {
+            "url": "https://agent.example/a2a",
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": ""
+          }
+        ],
+        "capabilities": {
+          "streaming": false,
+          "extensions": [
+            {
+              "uri": "https://agent-did.org/a2a/identity/v1",
+              "required": false,
+              "params": {
+                "did": "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot",
+                "keyIds": [
+                  "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot#key-1"
+                ]
+              }
+            },
+            {
+              "uri": "https://agent-passport.org/a2a/extensions/identity/v1",
+              "description": "APS verifiable agent identity and principal-binding references",
+              "params": {
+                "agent_id": "did:webvh:QmfDzXLH9o5jEyS4AAYq2SZKNVTJYk1uX9gSBy4FHvTQdM:agents.local:agents:interopbot",
+                "passport_uri": "https://agent.example/.well-known/aps-passport.json",
+                "passport_sha256": "76897509a220b5ca1c944e2741db13b370301222b5f514ed35f76094d5c43712",
+                "issued_at": "2026-11-16T00:00:00.000Z",
+                "expires_at": "2026-11-19T00:00:00.000Z"
+              }
+            }
+          ]
+        },
+        "defaultInputModes": [
+          "application/json"
+        ],
+        "defaultOutputModes": [
+          "application/json"
+        ],
+        "skills": [
+          {
+            "id": "s1",
+            "name": "echo",
+            "description": "echo",
+            "tags": [
+              "t"
+            ]
+          }
+        ],
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJ2aDpRbWZEelhMSDlvNWpFeVM0QUFZcTJTWktOVlRKWWsxdVg5Z1NCeTRGSHZUUWRNOmFnZW50cy5sb2NhbDphZ2VudHM6aW50ZXJvcGJvdCNrZXktMSIsInR5cCI6IkpPU0UifQ",
+            "signature": "tSmZ1-gOIAxMiK74UMfAHMjPCu4wNrHZblnye9kj69nUWpHowmQE85eSHvWeyI_e1hX-gn4pUoDJ6xvOWQrjBw"
+          }
+        ]
+      },
+      "expected": "tampered"
+    }
+  ]
+}
