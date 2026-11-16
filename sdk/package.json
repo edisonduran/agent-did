@@ -64,7 +64,7 @@
   "dependencies": {
     "@noble/curves": "^1.4.0",
     "@noble/hashes": "^1.4.0",
-    "asn1js": "3.0.10",
+    "asn1js": "3.1.0",
     "bs58": "^6.0.0",
     "didwebvh-ts": "3.1.0",
     "pkijs": "3.4.3",
