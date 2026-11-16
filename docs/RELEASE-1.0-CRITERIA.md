@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Audience:** Contributors, Reviewers, Maintainers
-**Last updated:** 2026-11-04
+**Last updated:** 2026-11-16
 **Owner:** Maintainers (`edison.munoz` + team)
 **Governed by:** [Documentation-Governance.md](Documentation-Governance.md)
 
@@ -124,13 +124,13 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 - [x] **C-QA-5** — E2E tests for **key rotation** (≥3 cycles) + working verification of rotated-out keys at a stated time (`verifySignatureAtTime`, RFC-001 §6.2.2; the earlier `verifyHistoricalSignature` was removed in `1.0.0-rc.5`).
 - [x] **C-QA-6** — E2E tests for **revocation** in the canonical `did:webvh` path and explicit compatibility paths included in the release.
 - [x] **C-QA-7** — **SSRF** tests covering loopback, link-local, AWS/GCP/Azure metadata, IPv6 mapped.
-- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`. _Window restarted: last failure on `main` was `2026-11-01T14:42:04Z` (`f99d35b6`); earliest closure `2026-12-01T15:41:59Z`. The 10 workflows are `ci`, `ci-python`, `ci-langchain-js`, `ci-langchain-python`, `ci-langchain-didwba-smoke`, `ci-crewai`, `ci-semantic-kernel`, `ci-microsoft-agent-framework`, `ci-a2a` and `ci-cross-sdk-interop`; each runs daily on `main` (`cron: '17 6 * * *'`), so the window is backed by actual runs._
+- [ ] **C-QA-8** — All 10 core release-critical GitHub Actions validation workflows green for **≥30 consecutive days** prior to tagging stable `v1.0.0`. _Window restarted: the last failure on `main` was `CI - Semantic Kernel Integration` at `2026-11-14T19:42:43Z` (`b2982da5`, a runtime smoke test not updated with the change), green again from `2026-11-14T19:59:25Z` (`ad35137b`); earliest closure `2026-12-14T19:59:25Z`. Runs cancelled by a newer push on the same branch (workflow `concurrency`) are not failures and do not restart the window. The 10 workflows are `ci`, `ci-python`, `ci-langchain-js`, `ci-langchain-python`, `ci-langchain-didwba-smoke`, `ci-crewai`, `ci-semantic-kernel`, `ci-microsoft-agent-framework`, `ci-a2a` and `ci-cross-sdk-interop`; each runs daily on `main` (`cron: '17 6 * * *'`), so the window is backed by actual runs._
 - [x] **C-QA-9** — Clean-machine smoke install from npm/PyPI validated for the core RC packages. _Evidence: `registry-install-smoke.yml` run `41388055764` (2026-11-02, PR #109) green on ephemeral runners without a repository checkout: npm on Ubuntu/Windows × Node 22/24 runs the QUICKSTART flow; each of the 6 PyPI packages on Python 3.10/3.12 imports and resolves `agent-did-sdk==1.0.0rc1`. The same result was reproduced locally on 2026-11-01. Re-run via `workflow_dispatch` for each new RC or stable cut._
 - [x] **C-QA-10** — Adversarial review (BMad core task `adversarial-review`) completed over crypto and signing code.
 
 ### 2.6 Operations and Resolver
 
-- [x] **C-OPS-1** — Resolver HA drill scheduled in GitHub Actions (`schedule:` weekly), green for ≥4 documented runs. _Evidence: 14 green runs of `resolver-ha-drill.yml` (2026-05-11 → 2026-07-20); the schedule paused after 2026-07-20 and must be watched for resumption._
+- [x] **C-OPS-1** — Resolver HA drill scheduled in GitHub Actions (`schedule:` weekly), green for ≥4 documented runs. _Evidence: 14 green runs of `resolver-ha-drill.yml` (2026-05-11 → 2026-07-20); after a pause the weekly schedule resumed on 2026-11-02 and is green on 2026-11-02, 2026-11-09 and 2026-11-16._
 - [ ] **C-OPS-2** — `RFC-001-Resolver-HA-Runbook.md` validated by a recent dry run.
 
 ### 2.7 Supply Chain
@@ -187,6 +187,8 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 > Release candidate (2026-11-04): tag `v1.0.0-rc.4` (`a4fbe778`) publishes `1.0.0-rc.4` / `1.0.0rc4` for the eight core packages. It changes the SDK API (Ed25519 `AgentSigner` controller, `AgentDidClient`, EVM adapter moved to the optional `@agentdid/evm`) but not the wire format, so rc.3 and rc.4 interoperate; see the rc.3 → rc.4 migration guides. `registry-install-smoke.yml` is green against `1.0.0-rc.4` / `1.0.0rc4` on every npm and PyPI combination ([run 41775433323](https://github.com/edisonduran/agent-did/actions/runs/41775433323)), so `C-QA-9` stays closed. The first run (41775231212) failed because the workflow's inline quickstart still used the removed `ethers` signer API; the workflow was fixed, not the SDK.
 
 > Release candidate (2026-11-16): tag `v1.0.0-rc.5` (`76b4f736`) publishes `1.0.0-rc.5` / `1.0.0rc5` for the eight core packages and the new `agent-did-mcp` ([publish run 43951258789](https://github.com/edisonduran/agent-did/actions/runs/43951258789)). It is a breaking RC (payload signature prefix, controller binding, Multikey documents, the `Agent-DID` request header, A2A 1.0 cards; see the rc.4 → rc.5 migration guides) and freezes the wire until `v1.0.0` ([DEPRECATION-POLICY.md](DEPRECATION-POLICY.md)). It fixes [GHSA-jrfh-2gph-x8hf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-jrfh-2gph-x8hf), [GHSA-mw8q-f77r-qhrr](https://github.com/edisonduran/agent-did/security/advisories/GHSA-mw8q-f77r-qhrr) and [GHSA-54mg-ghhc-7r3j](https://github.com/edisonduran/agent-did/security/advisories/GHSA-54mg-ghhc-7r3j); earlier npm releases are deprecated. `registry-install-smoke.yml` is green against `1.0.0-rc.5` / `1.0.0rc5` on every npm and PyPI combination, `agent-did-mcp` included ([run 43952980346](https://github.com/edisonduran/agent-did/actions/runs/43952980346)), so `C-QA-9` stays closed. The first run (43952571853) failed because the workflow's inline quickstarts did not pass the `verificationMethodId` that rc.5 requires; the workflow was fixed, not the packages.
+
+> Gate audit (2026-11-16, after the `1.0.0-rc.5` publication): `C-QA-8` restarted again. `CI — LangChain Python Integration`, `CI — CrewAI Integration`, `CI - Semantic Kernel Integration` and `CI - Microsoft Agent Framework Integration` failed on `main` on 2026-11-12, and `CI - Semantic Kernel Integration` failed on `main` at `2026-11-14T19:42:43Z` (`b2982da5`); all 10 core workflows are green on their latest `main` runs. If `main` stays green, `C-QA-8` closes no earlier than `2026-12-14T19:59:25Z`. `C-OPS-1` evidence refreshed (weekly drill resumed 2026-11-02). Still open for stable: `C-SPEC-3`, `C-API-3`, `C-QA-2`, `C-QA-8`, `C-OPS-2`, `C-SUPPLY-1`, `C-DOC-1`, `C-DOC-4`, `C-DOC-6`, `C-DEMO-1`, `C-DEMO-2` and `C-REL-2`..`C-REL-5`.
 
 > Gate audit (2026-11-01): section 2 checkboxes reconciled against repository and GitHub Actions evidence. `C-QA-8` restarted: `CI — Python SDK & RFC-001 Conformance`, `CI — LangChain Python Integration` and `CI - Microsoft Agent Framework Integration` failed on `main` at `2026-11-01T14:42:04Z` (`f99d35b6`) and are green since `2026-11-01T15:41:59Z` (`d86b54d0`); every other CI workflow is green on its latest `main` run. If `main` stays green, `C-QA-8` closes no earlier than `2026-12-01T15:41:59Z`. Because the CI workflows run only on push/PR, there were no `main` runs between 2026-05-16 and 2026-11-01. Still open for stable: `C-SPEC-3`, `C-API-3`, `C-QA-2`, `C-QA-8`, `C-OPS-2`, `C-SUPPLY-1`, `C-DOC-1`, `C-DOC-4`, `C-DOC-6`, `C-DEMO-*` and `C-REL-2`..`C-REL-4`.
 
@@ -268,4 +270,4 @@ From `1.0.0` onward **strict SemVer** applies, per [DEPRECATION-POLICY.md](DEPRE
 
 This document is updated at the close of each Sprint. The *Criteria covered* column traces every task back to a checkbox in section 2.
 
-**Next expected revision:** after S2-3/S2-4 land, and again when `C-QA-8` can close (no earlier than `2026-12-01T15:41:59Z`).
+**Next expected revision:** after S2-4 (demo) and S2-5 (feedback window) land, and again when `C-QA-8` can close (no earlier than `2026-12-14T19:59:25Z`).
