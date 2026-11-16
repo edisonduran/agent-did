@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -13,12 +14,25 @@ from typing import Any, Concatenate, Literal, ParamSpec, TypeVar
 import httpx
 from nacl.signing import SigningKey
 
-from ..crypto.data_integrity import create_eddsa_jcs_2022_proof, verify_eddsa_jcs_2022_proof
+from ..crypto.data_integrity import (
+    DATA_INTEGRITY_PROOF_TYPE,
+    EDDSA_JCS_2022_CRYPTOSUITE,
+    create_eddsa_jcs_2022_proof,
+    eddsa_jcs_2022_hash_data,
+    encode_eddsa_proof_value,
+    verify_eddsa_jcs_2022_proof,
+)
 from ..crypto.ed25519 import decode_signature_hex
 from ..crypto.hash import create_metadata_commitment, generate_commitment_salt
 from ..crypto.multibase import did_key_from_public_key
 from ..crypto.timestamp import verify_timestamp_token
-from ..http_signatures.verify_request import SignatureCheck, SignatureCheckOutcome, verify_agent_did_http_request
+from ..http_signatures.verify_request import (
+    ExtensionRejection,
+    SignatureCheck,
+    SignatureCheckOutcome,
+    verify_agent_did_http_request,
+    verify_agent_did_http_request_with,
+)
 from ..lifecycle.documents import (
     assert_update_patch,
     build_added_key_document,
@@ -68,14 +82,32 @@ from ..webvh.documents import (
     history_from_did_webvh_log,
     normalize_did_path_segment,
 )
-from .agent_card import parse_signed_agent_card
+from .agent_card import did_of_key_id, parse_signed_agent_card
 from .agent_metadata_credential import (
     agent_metadata_problem,
     build_unsigned_agent_metadata_credential,
     check_agent_metadata_credential_form,
 )
+from .capability import (
+    AGENT_DID_CAPABILITY_HTTP_HEADER,
+    CAPABILITY_DELEGATION_PURPOSE,
+    CAPABILITY_HEADER_MISSING,
+    DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH,
+    MAX_CAPABILITY_HEADER_BYTES,
+    CapabilityChainRejection,
+    action_allowed,
+    build_unsigned_capability,
+    capability_form_problem,
+    check_capability_chain,
+    child_capability_chain,
+    invocation_target_problem,
+    parse_capability_header,
+    root_capability_id,
+    target_within,
+)
 from .controller_binding import ControllerBindingError, assert_bound_to_controller
 from .http_security import HttpTargetValidationOptions
+from .http_signatures import KeyedComponent, SignatureInput
 from .identity_composition import (
     DID_VERIFICATION_RELATIONSHIPS,
     REQUIRED_RELATIONSHIP_BY_ARTIFACT,
@@ -84,6 +116,7 @@ from .identity_composition import (
 )
 from .message_signing import message_signing_input
 from .nonce_store import InMemoryNonceStore, NonceStore
+from .oauth_client import parse_client_assertion
 from .signer import AgentSigner, LocalKeySigner
 from .time_utils import normalize_timestamp_to_iso
 from .types import (
@@ -92,6 +125,8 @@ from .types import (
     AgentDocumentHistoryAction,
     AgentDocumentHistoryEntry,
     AnyDidDocument,
+    CapabilityRejection,
+    ClientAssertionRejection,
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
@@ -106,6 +141,10 @@ from .types import (
     VerificationRelationship,
     VerifyAgentCardResult,
     VerifyAgentMetadataCredentialResult,
+    VerifyCapabilityChainResult,
+    VerifyClientAssertionResult,
+    VerifyHttpCapabilityInvocationParams,
+    VerifyHttpCapabilityInvocationResult,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
     VerifyIdentityCompositionParams,
@@ -1017,6 +1056,310 @@ class AgentDidClient:
             controllers=[document.id for document in controllers],
         )
 
+    async def create_capability(
+        self,
+        *,
+        invocation_target: str,
+        controller: str,
+        expires: str,
+        verification_method_id: str,
+        signer: AgentSigner,
+        allowed_action: Sequence[str] | None = None,
+        parent_capability: dict[str, Any] | None = None,
+        root_target: str | None = None,
+        capability_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Delegate a capability (RFC-001 §6.7).
+
+        Grants *controller* the authority to act on *invocation_target* until *expires*, signed with an
+        ``eddsa-jcs-2022`` proof by a ``capabilityDelegation`` key of the delegator. Without *parent_capability* the
+        delegator is a root controller of *root_target* (whether it is one is the verifier's configuration); with it,
+        the delegator must be the parent's ``controller``, and the new capability may only narrow the parent's target,
+        actions and expiry.
+        """
+        delegator = did_of_key_id(verification_method_id)
+        if delegator is None:
+            raise TypeError(f"verification_method_id must be a DID URL with a fragment: {verification_method_id!r}")
+        target_problem = invocation_target_problem(invocation_target)
+        if target_problem is not None:
+            raise TypeError(target_problem)
+        expires_millis = parse_rfc3339_millis(expires)
+        if expires_millis is None:
+            raise TypeError("expires must be an RFC 3339 date-time")
+        if allowed_action is not None:
+            actions = list(allowed_action)
+            distinct = len(set(actions)) == len(actions)
+            if not actions or any(not isinstance(a, str) or not a for a in actions) or not distinct:
+                raise TypeError("allowed_action must be a non-empty list of distinct non-empty strings")
+        new_id = capability_id if capability_id is not None else f"urn:uuid:{uuid.uuid4()}"
+        parent_for_chain: dict[str, Any] | str
+        if parent_capability is not None:
+            parent = parent_capability
+            if parent.get("controller") != delegator:
+                raise ValueError(f"Only the parent's controller {parent.get('controller')} can delegate it")
+            parent_expires = parse_rfc3339_millis(parent.get("expires"))
+            parent_actions = parent.get("allowedAction")
+            if (
+                not target_within(invocation_target, str(parent.get("invocationTarget")))
+                or (
+                    parent_actions is not None
+                    and allowed_action is not None
+                    and not all(action in parent_actions for action in allowed_action)
+                )
+                or parent_expires is None
+                or expires_millis > parent_expires
+            ):
+                raise ValueError("The capability must not widen the parent's target, actions or expiry")
+            parent_id = str(parent["id"])
+            parent_for_chain = parent
+        else:
+            root = root_target if root_target is not None else invocation_target
+            root_problem = invocation_target_problem(root)
+            if root_problem is not None:
+                raise TypeError(root_problem)
+            if not target_within(invocation_target, root):
+                raise ValueError("invocation_target must be the root target or within it")
+            parent_id = root_capability_id(root)
+            parent_for_chain = parent_id
+        delegator_document = await self.resolve_document(delegator)
+        public_key = _active_key_under(delegator_document, verification_method_id, "capabilityDelegation")
+        if public_key is None:
+            raise ValueError(
+                f"{verification_method_id} is not an active Ed25519 capabilityDelegation key of {delegator}"
+            )
+        if await signer.get_public_key() != public_key:
+            raise ValueError(f"The signer does not hold {verification_method_id}")
+        unsigned = build_unsigned_capability(
+            capability_id=new_id,
+            parent_capability=parent_id,
+            invocation_target=invocation_target,
+            controller=controller,
+            expires=expires,
+            allowed_action=allowed_action,
+        )
+        config: dict[str, Any] = {
+            "type": DATA_INTEGRITY_PROOF_TYPE,
+            "cryptosuite": EDDSA_JCS_2022_CRYPTOSUITE,
+            "created": self._now_iso_timestamp(),
+            "verificationMethod": verification_method_id,
+            "proofPurpose": CAPABILITY_DELEGATION_PURPOSE,
+            "capabilityChain": child_capability_chain(parent_for_chain),
+            "@context": list(unsigned["@context"]),
+        }
+        signature = bytes.fromhex(await signer.sign(eddsa_jcs_2022_hash_data(unsigned, config)))
+        capability = {**unsigned, "proof": {**config, "proofValue": encode_eddsa_proof_value(signature)}}
+        if capability_form_problem(capability) is not None or not verify_eddsa_jcs_2022_proof(capability, public_key):
+            raise ValueError("The signer produced a capability that does not verify")
+        return capability
+
+    async def verify_capability_chain(
+        self,
+        capability: object,
+        *,
+        root_controllers: dict[str, list[str]],
+        max_chain_length: int | None = None,
+    ) -> VerifyCapabilityChainResult:
+        """Verify a delegated capability and its chain (RFC-001 §6.7).
+
+        Form, chain structure, the root controller the verifier configured for the root target, attenuation at every
+        link, validity period, and each proof by an active Ed25519 ``capabilityDelegation`` key of its delegator,
+        resolved now. Never raises for a bad capability: test ``result.ok``.
+        """
+        checked = check_capability_chain(
+            capability,
+            root_controllers,
+            int(self._clock().timestamp() * 1000),
+            max_chain_length if max_chain_length is not None else DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH,
+        )
+        if isinstance(checked, CapabilityChainRejection):
+            return VerifyCapabilityChainResult(ok=False, reason=checked.reason, capability_id=checked.capability_id)
+        delegators: list[str] = []
+        for index, item in enumerate(checked.capabilities):
+            delegator = did_of_key_id(item["proof"]["verificationMethod"])
+            assert delegator is not None
+            allowed = (
+                delegator in checked.root_controllers
+                if index == 0
+                else checked.capabilities[index - 1]["controller"] == delegator
+            )
+            if not allowed:
+                return VerifyCapabilityChainResult(ok=False, reason="delegator_mismatch", capability_id=item["id"])
+            key_check = await self._delegation_key_check(delegator, item["proof"]["verificationMethod"])
+            if isinstance(key_check, str):
+                return VerifyCapabilityChainResult(ok=False, reason=key_check, capability_id=item["id"])
+            if not verify_eddsa_jcs_2022_proof(item, key_check):
+                return VerifyCapabilityChainResult(ok=False, reason="signature_invalid", capability_id=item["id"])
+            delegators.append(delegator)
+        leaf = checked.capabilities[-1]
+        return VerifyCapabilityChainResult(
+            ok=True,
+            capability=leaf,
+            controller=leaf["controller"],
+            invocation_target=leaf["invocationTarget"],
+            allowed_action=checked.allowed_action,
+            root_id=checked.root_id,
+            delegators=tuple(delegators),
+        )
+
+    async def _delegation_key_check(self, did: str, key_id: str) -> bytes | CapabilityRejection:
+        """The delegation key *key_id* of *did*, resolved now, or why it cannot sign a delegation."""
+        try:
+            if did.startswith("did:webvh:"):
+                state = await self.resolve_did_webvh_state(did)
+                if state is not None and state.deactivated:
+                    return "did_deactivated"
+            document = await self.resolve_document(did)
+        except Exception:  # noqa: BLE001 - a delegator that cannot be resolved fails closed
+            return "did_resolution_failed"
+        public_key = _active_key_under(document, key_id, "capabilityDelegation")
+        if public_key is not None:
+            return public_key
+        elsewhere = any(
+            relationship != "capabilityDelegation" and _active_key_under(document, key_id, relationship) is not None
+            for relationship in DID_VERIFICATION_RELATIONSHIPS
+        )
+        return "key_purpose_violation" if elsewhere else "key_not_authorized"
+
+    async def verify_http_capability_invocation(
+        self, params: VerifyHttpCapabilityInvocationParams
+    ) -> VerifyHttpCapabilityInvocationResult:
+        """Verify a request that invokes a capability (RFC-001 §6.5, §6.7).
+
+        The request profile of :meth:`verify_http_request_signature_detailed`, with the signing key under
+        ``capabilityInvocation`` instead of ``assertionMethod``; the signature must cover
+        ``"agent-did-capability";key="<label>"``; the request's agent DID must be the capability's ``controller``, its
+        URL within the target and its method allowed; then the capability chain (:meth:`verify_capability_chain`).
+        The nonce is recorded only when everything passes.
+        """
+        request = VerifyHttpRequestSignatureParams.model_validate(
+            {name: getattr(params, name) for name in VerifyHttpRequestSignatureParams.model_fields}
+        )
+        headers = {key.lower(): value for key, value in params.headers.items()}
+        field_value = headers.get(AGENT_DID_CAPABILITY_HTTP_HEADER.lower())
+        method = params.method.upper()
+        request_target = params.url.split("?", 1)[0]
+        client = self
+
+        class _Invocation:
+            relationship: VerificationRelationship = REQUIRED_RELATIONSHIP_BY_ARTIFACT["invocation"]
+
+            def before_signature(self, label: str, signature_input: SignatureInput, agent_did: str) -> object:
+                covered = any(
+                    isinstance(component, KeyedComponent)
+                    and component.name == "agent-did-capability"
+                    and component.key == label
+                    for component in signature_input.components
+                )
+                if not covered or field_value is None:
+                    return ExtensionRejection("capability_missing")
+                if len(field_value.encode("utf-8")) > MAX_CAPABILITY_HEADER_BYTES:
+                    return ExtensionRejection("capability_too_large")
+                parsed = parse_capability_header(field_value, label)
+                if parsed is CAPABILITY_HEADER_MISSING:
+                    return ExtensionRejection("capability_missing")
+                if not isinstance(parsed, dict):
+                    return ExtensionRejection("malformed_capability")
+                cap_id = parsed.get("id") if isinstance(parsed.get("id"), str) else None
+                if parsed.get("controller") != agent_did:
+                    return ExtensionRejection("invoker_not_controller", cap_id)
+                target = parsed.get("invocationTarget")
+                if not isinstance(target, str) or not target_within(request_target, target):
+                    return ExtensionRejection("target_mismatch", cap_id)
+                return parsed
+
+            async def after_signature(self, state: Any) -> object:
+                chain = await client.verify_capability_chain(
+                    state, root_controllers=params.root_controllers, max_chain_length=params.max_chain_length
+                )
+                if not chain.ok:
+                    return ExtensionRejection(str(chain.reason), chain.capability_id)
+                if not action_allowed(method, chain.allowed_action):
+                    assert chain.capability is not None
+                    return ExtensionRejection("action_not_allowed", chain.capability["id"])
+                return chain
+
+        result = await verify_agent_did_http_request_with(
+            request,
+            verify_signature=self._check_signature,
+            nonce_store=self._nonce_store,
+            now=self._clock(),
+            extension=_Invocation(),
+        )
+        if isinstance(result, ExtensionRejection):
+            return VerifyHttpCapabilityInvocationResult(
+                ok=False,
+                reason=result.reason,  # type: ignore[arg-type]
+                capability_id=result.capability_id,
+            )
+        chain = result.extra
+        assert isinstance(chain, VerifyCapabilityChainResult)
+        return VerifyHttpCapabilityInvocationResult(
+            ok=True,
+            did=result.did,
+            key_id=result.key_id,
+            controllers=result.controllers,
+            capability=chain.capability,
+            allowed_action=chain.allowed_action,
+            root_id=chain.root_id,
+            delegators=chain.delegators,
+        )
+
+    async def verify_client_assertion(
+        self,
+        assertion: str,
+        *,
+        issuer: str,
+        client_id: str,
+        did: str,
+        max_clock_skew_seconds: int = 30,
+        nonce_store: NonceStore | None = None,
+    ) -> VerifyClientAssertionResult:
+        """Verify a JWT client assertion (``private_key_jwt``) against the agent DID registered for the client
+        (RFC-001 §6.8).
+
+        JWS form, ``alg`` (``EdDSA`` or ``Ed25519``), ``typ`` (absent or ``client-authentication+jwt``), ``kid`` a DID
+        URL of *did*, ``iss`` = ``sub`` = *client_id*, ``aud`` exactly *issuer*, lifetime at most 300 s and times within
+        the clock skew, then the signature by an active Ed25519 ``authentication`` key of the resolved DID, and
+        finally ``jti`` in the nonce store. For an authorization server or MCP server that knows Agent-DID. Never
+        raises: test ``result.ok``.
+        """
+        parsed = parse_client_assertion(
+            assertion,
+            client_id=client_id,
+            issuer=issuer,
+            did=did,
+            now_seconds=int(self._clock().timestamp()),
+            max_clock_skew_seconds=max_clock_skew_seconds,
+        )
+        if isinstance(parsed, str):
+            return VerifyClientAssertionResult(ok=False, reason=parsed)
+        check = await self._check_signature(
+            did,
+            parsed.signing_input,
+            parsed.signature.hex(),
+            parsed.key_id,
+            REQUIRED_RELATIONSHIP_BY_ARTIFACT["authentication"],
+        )
+        if check.outcome != "valid":
+            reason: ClientAssertionRejection = (
+                "signature_invalid" if check.outcome == "invalid" else check.outcome
+            )
+            return VerifyClientAssertionResult(ok=False, reason=reason)
+        store = nonce_store if nonce_store is not None else self._nonce_store
+        if not await store.check_and_store(
+            f"client-assertion {client_id} {parsed.jti}", parsed.expires_at + max_clock_skew_seconds
+        ):
+            return VerifyClientAssertionResult(ok=False, reason="jti_replayed")
+        return VerifyClientAssertionResult(
+            ok=True,
+            did=did,
+            key_id=parsed.key_id,
+            client_id=client_id,
+            jti=parsed.jti,
+            expires_at=parsed.expires_at,
+            controllers=list(check.controllers),
+        )
+
     def evict_cached_resolution(self, did: str) -> None:
         """Drop the resolver's cached resolution of *did*, so the next verification fetches and verifies it again (for a
         check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
@@ -1498,8 +1841,13 @@ class AgentDidClient:
 
 def _active_assertion_key(document: AnyDidDocument, key_id: str) -> bytes | None:
     """The raw public key of *key_id* when it is an active Ed25519 ``assertionMethod`` key of *document*."""
+    return _active_key_under(document, key_id, "assertionMethod")
+
+
+def _active_key_under(document: AnyDidDocument, key_id: str, relationship: VerificationRelationship) -> bytes | None:
+    """The raw public key of *key_id* when it is an active Ed25519 key listed under *relationship* of *document*."""
     method = next(
-        (candidate for candidate in relationship_methods(document, "assertionMethod") if candidate.id == key_id), None
+        (candidate for candidate in relationship_methods(document, relationship) if candidate.id == key_id), None
     )
     return None if method is None else active_ed25519_public_key(method)
 

@@ -120,6 +120,8 @@ An agent's controller does not have to be an Agent-DID document: any DID Core `d
 | AWS SigV4 S3 adapter | `AwsSigV4S3DIDDocumentSource` | ✅ |
 | Universal resolver (HTTP/RPC/IPFS) | `UniversalResolverClient` | ✅ |
 | Agent metadata credential (VC 2.0, `eddsa-jcs-2022`, RFC-001 §4.4; the controller signs, verification checks issuer, binding and proof) | `client.issue_agent_metadata_credential(params)` / `client.verify_agent_metadata_credential(credential)` | ✅ |
+| Capabilities: delegation and HTTP invocation (RFC-001 §6.7; no per-capability revocation, keep `expires` short) | `client.create_capability(...)`, `client.verify_capability_chain(capability, root_controllers=...)`, `SignHttpRequestParams(capability=...)`, `client.verify_http_capability_invocation(params)` | ✅ |
+| OAuth client assertion with the DID key (`private_key_jwt`, RFC-001 §6.8; the SDK runs no OAuth flow) | `create_client_assertion(...)`, `build_client_jwks(document)`, `build_client_metadata_document(...)`, `client.verify_client_assertion(...)` | ✅ |
 
 By default, `verify_signature` and HTTP signature verification require the signing key to be listed under `assertionMethod` in the DID document. Passing a key that exists only under another relationship, including `keyAgreement`, raises `IdentityCompositionError` with reason `key_purpose_violation`.
 
@@ -133,6 +135,8 @@ By default, `verify_signature` and HTTP signature verification require the signi
 | `crypto.hash` | SHA-256 hashing with `hash://` URI format |
 | `crypto.data_integrity` | `eddsa-jcs-2022` Data Integrity proofs (W3C `vc-di-eddsa` vectors in CI) |
 | `core.agent_metadata_credential` | `AgentMetadataCredential` profile (RFC-001 §4.4) |
+| `core.capability` | Capabilities: form, chain and attenuation checks, `Agent-DID-Capability` field (RFC-001 §6.7) |
+| `core.oauth_client` | OAuth client assertion, JWKS and Client ID Metadata Document (RFC-001 §6.8) |
 | `registry.*` | Agent registry (in-memory) |
 | `resolver.*` | DID resolver (in-memory, filesystem source, HTTP source, bearer/authenticated HTTP source, presigned/object-storage source, S3-compatible source, AWS SigV4 S3 source, JSON-RPC source, universal) |
 

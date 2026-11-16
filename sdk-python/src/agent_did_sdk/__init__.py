@@ -12,6 +12,15 @@ from .core.agent_card import (
     sign_agent_card,
 )
 from .core.agent_metadata_credential import AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE
+from .core.capability import (
+    AGENT_DID_CAPABILITY_HTTP_HEADER,
+    DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH,
+    MAX_CAPABILITY_CHAIN_LENGTH,
+    MAX_CAPABILITY_HEADER_BYTES,
+    ZCAP_CONTEXT,
+    ZCAP_ROOT_PREFIX,
+    root_capability_id,
+)
 from .core.client import AgentDidClient, AgentDidClientOptions
 from .core.controller_binding import ControllerBindingError
 from .core.http_security import (
@@ -59,6 +68,15 @@ from .core.identity_composition import (
 )
 from .core.message_signing import AGENT_DID_MESSAGE_SIGNING_PREFIX, message_signing_input
 from .core.nonce_store import InMemoryNonceStore, NonceStore
+from .core.oauth_client import (
+    CLIENT_ASSERTION_TYPE,
+    CLIENT_ASSERTION_TYPE_JWT_BEARER,
+    DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS,
+    MAX_CLIENT_ASSERTION_LIFETIME_SECONDS,
+    build_client_jwks,
+    build_client_metadata_document,
+    create_client_assertion,
+)
 from .core.signer import AgentSigner, LocalKeySigner
 from .core.time_utils import (
     is_unix_timestamp_string,
@@ -75,6 +93,9 @@ from .core.types import (
     AgentMetadata,
     AgentMetadataCredentialRejection,
     AnyDidDocument,
+    CapabilityInvocationRejection,
+    CapabilityRejection,
+    ClientAssertionRejection,
     CreateAgentParams,
     CreateAgentResult,
     CreateDidWebvhOptions,
@@ -85,6 +106,7 @@ from .core.types import (
     IdentityCompositionErrorReason,
     IdentityCompositionRejection,
     IssueAgentMetadataCredentialParams,
+    JwsEd25519Alg,
     KeyAtTimeRejection,
     KeyAtTimeResult,
     KeyAtTimeUncertainty,
@@ -99,6 +121,10 @@ from .core.types import (
     VerificationRelationship,
     VerifyAgentCardResult,
     VerifyAgentMetadataCredentialResult,
+    VerifyCapabilityChainResult,
+    VerifyClientAssertionResult,
+    VerifyHttpCapabilityInvocationParams,
+    VerifyHttpCapabilityInvocationResult,
     VerifyHttpRequestSignatureParams,
     VerifyHttpRequestSignatureResult,
     VerifyIdentityCompositionParams,
@@ -184,6 +210,29 @@ __all__ = [
     "AgentMetadataCredentialRejection",
     "IssueAgentMetadataCredentialParams",
     "VerifyAgentMetadataCredentialResult",
+    # Capabilities and the OAuth bridge (RFC-001 §6.7, §6.8)
+    "AGENT_DID_CAPABILITY_HTTP_HEADER",
+    "DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH",
+    "MAX_CAPABILITY_CHAIN_LENGTH",
+    "MAX_CAPABILITY_HEADER_BYTES",
+    "ZCAP_CONTEXT",
+    "ZCAP_ROOT_PREFIX",
+    "root_capability_id",
+    "CapabilityRejection",
+    "CapabilityInvocationRejection",
+    "VerifyCapabilityChainResult",
+    "VerifyHttpCapabilityInvocationParams",
+    "VerifyHttpCapabilityInvocationResult",
+    "CLIENT_ASSERTION_TYPE",
+    "CLIENT_ASSERTION_TYPE_JWT_BEARER",
+    "DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS",
+    "MAX_CLIENT_ASSERTION_LIFETIME_SECONDS",
+    "ClientAssertionRejection",
+    "JwsEd25519Alg",
+    "VerifyClientAssertionResult",
+    "build_client_jwks",
+    "build_client_metadata_document",
+    "create_client_assertion",
     "VerifiableCredentialLink",
     "VerificationMethod",
     "AgentDIDDocument",

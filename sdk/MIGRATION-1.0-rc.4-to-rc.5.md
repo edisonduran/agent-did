@@ -352,6 +352,15 @@ RFC-001 §4.2.1. A did:webvh controller no longer has to be an Agent-DID documen
 - **Timestamps:** `verifyTimestampToken(token, signatureBytes, { trustAnchors })` and `createTimestampRequest(signatureBytes)`. `verifySignatureAtTime(..., { statedTime, timestampToken, tsaTrustAnchors })` verifies the token over the decoded signature and uses `genTime + accuracy` as `trustedTimeNotAfter`; `trustedTimeNotAfter` together with a token, or a token without anchors, throws `TypeError`. A new result member `{ status: 'invalid', reason: 'timestamp_invalid', timestampRejection }` is added to `VerifySignatureAtTimeResult`; exhaustive switches on `reason` need the new case.
 - **Dependencies:** `pkijs` and `asn1js` (pure JavaScript, WebCrypto) are new runtime dependencies.
 
+## 38. Capabilities and OAuth client assertions (new)
+
+[ADR-008](../docs/ADR-008-Delegation-OAuth-and-MCP.md), RFC-001 §6.7 and §6.8. Additive: no existing call or signature changes.
+
+- **Delegation:** create the delegator with `additionalVerificationRelationships: ['capabilityDelegation']` and the invoker with `['capabilityInvocation']` (the SDK lists the agent key there only on request). `client.createCapability({ invocationTarget, controller, expires, allowedAction?, parentCapability?, verificationMethodId, signer })` returns the capability; `client.verifyCapabilityChain(capability, { rootControllers: { [target]: [ownerDid] } })` returns `{ ok, reason }`. The resource server decides `rootControllers`.
+- **Invocation:** `identity.signHttpRequest({ ..., capability })` adds the `Agent-DID-Capability` field and covers it; the server calls `client.verifyHttpCapabilityInvocation({ ...request, rootControllers })`. `verifyHttpRequestSignatureDetailed` is unchanged and ignores the field.
+- **OAuth:** `createClientAssertion({ clientId, issuer, verificationMethodId, signer })` gives the `client_assertion` of a token request (`client_assertion_type` = `CLIENT_ASSERTION_TYPE_JWT_BEARER`); `issuer` is the authorization server's issuer identifier, not its token endpoint. Publish `buildClientMetadataDocument({ clientId, clientName, didDocument })` at `clientId` (or register `buildClientJwks(document)`), and republish it after a key rotation. A server that knows Agent-DID checks assertions with `client.verifyClientAssertion({ assertion, issuer, clientId, did })`.
+- **Changed (internal types):** `SignHttpRequestParams` gains `capability`. New exports are listed in `public-api.snapshot.txt`.
+
 ## Checklist
 
 - [ ] Resolver endpoints no longer rely on redirects.

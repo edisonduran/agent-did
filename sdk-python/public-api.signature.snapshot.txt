@@ -9,6 +9,9 @@ value AGENT_CARD_SIGNATURE_ALG = 'EdDSA'
 ## AGENT_DID_A2A_EXTENSION_URI
 value AGENT_DID_A2A_EXTENSION_URI = 'https://agent-did.org/a2a/identity/v1'
 
+## AGENT_DID_CAPABILITY_HTTP_HEADER
+value AGENT_DID_CAPABILITY_HTTP_HEADER = 'Agent-DID-Capability'
+
 ## AGENT_DID_HTTP_HEADER
 value AGENT_DID_HTTP_HEADER = 'Agent-DID'
 
@@ -63,6 +66,7 @@ class AgentDIDDocument(*, context: list[str | dict[str, typing.Any]], id: str, c
 class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def add_verification_method(self, did: 'str', *, controller_signer: 'AgentSigner | None' = None, signer: 'AgentSigner | None' = None, relationships: 'list[SigningVerificationPurpose] | None' = None) -> 'AddVerificationMethodResult'
   def create_agent(self, controller_signer: 'AgentSigner', params: 'CreateAgentParams') -> 'CreateAgentResult'
+  def create_capability(self, *, invocation_target: 'str', controller: 'str', expires: 'str', verification_method_id: 'str', signer: 'AgentSigner', allowed_action: 'Sequence[str] | None' = None, parent_capability: 'dict[str, Any] | None' = None, root_target: 'str | None' = None, capability_id: 'str | None' = None) -> 'dict[str, Any]'
   def evict_cached_resolution(self, did: 'str') -> 'None'
   def export_did_webvh_history(self, did: 'str') -> 'str'
   def export_did_webvh_witness_file(self, did: 'str') -> 'str | None'
@@ -91,6 +95,9 @@ class AgentDidClient(options: 'AgentDidClientOptions | None' = None) -> 'None'
   def use_production_resolver_from_json_rpc(self, config: 'ProductionJsonRpcResolverProfileConfig') -> 'None'
   def verify_agent_card(self, card: 'object') -> 'VerifyAgentCardResult'
   def verify_agent_metadata_credential(self, credential: 'object', *, expected_agent_did: 'str | None' = None) -> 'VerifyAgentMetadataCredentialResult'
+  def verify_capability_chain(self, capability: 'object', *, root_controllers: 'dict[str, list[str]]', max_chain_length: 'int | None' = None) -> 'VerifyCapabilityChainResult'
+  def verify_client_assertion(self, assertion: 'str', *, issuer: 'str', client_id: 'str', did: 'str', max_clock_skew_seconds: 'int' = 30, nonce_store: 'NonceStore | None' = None) -> 'VerifyClientAssertionResult'
+  def verify_http_capability_invocation(self, params: 'VerifyHttpCapabilityInvocationParams') -> 'VerifyHttpCapabilityInvocationResult'
   def verify_http_request_signature(self, params: 'VerifyHttpRequestSignatureParams') -> 'bool'
   def verify_http_request_signature_detailed(self, params: 'VerifyHttpRequestSignatureParams') -> 'VerifyHttpRequestSignatureResult'
   def verify_identity_composition(self, params: 'VerifyIdentityCompositionParams') -> 'VerifyIdentityCompositionResult'
@@ -244,6 +251,21 @@ class BearerTokenHttpDIDDocumentSourceConfig(allowed_origins: 'list[str] | None'
   attr store_method: str
   attr token: str | None
 
+## CLIENT_ASSERTION_TYPE
+value CLIENT_ASSERTION_TYPE = 'client-authentication+jwt'
+
+## CLIENT_ASSERTION_TYPE_JWT_BEARER
+value CLIENT_ASSERTION_TYPE_JWT_BEARER = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+
+## CapabilityInvocationRejection
+value CapabilityInvocationRejection = typing.Literal['missing_headers', 'url_not_normalized', 'malformed_headers', 'digest_mismatch', 'tag_mismatch', 'alg_unsupported', 'params_missing', 'keyid_not_bound', 'components_missing', 'components_order', 'created_skew', 'expires_before_created', 'lifetime_exceeded', 'expired', 'signed_component_missing', 'did_resolution_failed', 'controller_not_bound', 'keyid_not_authorized', 'signature_invalid', 'nonce_replayed', 'did_not_allowed', 'controller_not_allowed', 'malformed_capability', 'unsupported_proof', 'chain_too_long', 'root_controller_unknown', 'attenuation_violation', 'delegator_mismatch', 'did_deactivated', 'key_purpose_violation', 'key_not_authorized', 'capability_missing', 'capability_too_large', 'invoker_not_controller', 'target_mismatch', 'action_not_allowed']
+
+## CapabilityRejection
+value CapabilityRejection = typing.Literal['malformed_capability', 'unsupported_proof', 'chain_too_long', 'root_controller_unknown', 'attenuation_violation', 'expired', 'delegator_mismatch', 'did_resolution_failed', 'did_deactivated', 'key_purpose_violation', 'key_not_authorized', 'signature_invalid']
+
+## ClientAssertionRejection
+value ClientAssertionRejection = typing.Literal['malformed_assertion', 'alg_unsupported', 'type_invalid', 'kid_not_bound', 'client_id_mismatch', 'audience_invalid', 'lifetime_exceeded', 'not_yet_valid', 'expired', 'did_resolution_failed', 'controller_not_bound', 'key_not_authorized', 'signature_invalid', 'jti_replayed']
+
 ## ComponentIdentifier
 value ComponentIdentifier = str | agent_did_sdk.core.http_signatures.KeyedComponent
 
@@ -285,11 +307,17 @@ class CreateDidWebvhOptions(*, domain: str, controller_did: str, controller_sign
   attr witness: Any
   member model_config = {'arbitrary_types_allowed': True, 'extra': 'forbid'}
 
+## DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS
+value DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS = 60
+
 ## DEFAULT_FETCH_DEADLINE_MS
 value DEFAULT_FETCH_DEADLINE_MS = 15000
 
 ## DEFAULT_HTTP_TIMEOUT_MS
 value DEFAULT_HTTP_TIMEOUT_MS = 10000
+
+## DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH
+value DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH = 5
 
 ## DEFAULT_MAX_CONCURRENT_FETCHES
 value DEFAULT_MAX_CONCURRENT_FETCHES = 16
@@ -498,6 +526,9 @@ class JsonRpcDIDDocumentSourceConfig(endpoint: 'str | None' = None, endpoints: '
   attr http_security: HttpTargetValidationOptions | None
   attr method: str
 
+## JwsEd25519Alg
+value JwsEd25519Alg = typing.Literal['EdDSA', 'Ed25519']
+
 ## KeyAtTimeRejection
 value KeyAtTimeRejection = typing.Literal['invalid_stated_time', 'did_not_yet_created', 'did_deactivated', 'key_not_found', 'key_deactivated', 'key_purpose_violation', 'key_revoked']
 
@@ -529,6 +560,15 @@ class LocalKeySigner(private_key_hex: 'str') -> 'None'
 
 ## MAX_AGENT_CARD_SIGNATURES
 value MAX_AGENT_CARD_SIGNATURES = 16
+
+## MAX_CAPABILITY_CHAIN_LENGTH
+value MAX_CAPABILITY_CHAIN_LENGTH = 10
+
+## MAX_CAPABILITY_HEADER_BYTES
+value MAX_CAPABILITY_HEADER_BYTES = 8192
+
+## MAX_CLIENT_ASSERTION_LIFETIME_SECONDS
+value MAX_CLIENT_ASSERTION_LIFETIME_SECONDS = 300
 
 ## MetadataCommitmentSalts
 class MetadataCommitmentSalts(*, coreModel: str | None = None, systemPrompt: str | None = None) -> None
@@ -688,10 +728,11 @@ value SIGNED_ARTIFACT_KINDS = ('assertion', 'http_request', 'delegation', 'invoc
 value SIGNING_VERIFICATION_PURPOSES = ('authentication', 'assertionMethod', 'capabilityDelegation', 'capabilityInvocation')
 
 ## SignHttpRequestParams
-class SignHttpRequestParams(*, method: str, url: str, body: str | bytes | None = None, agent_private_key: str | None = None, signer: typing.Any | None = None, agent_did: str, verification_method_id: str, expires_in_seconds: int | None = None, http_security: typing.Any | None = None) -> None
+class SignHttpRequestParams(*, method: str, url: str, body: str | bytes | None = None, agent_private_key: str | None = None, signer: typing.Any | None = None, agent_did: str, verification_method_id: str, expires_in_seconds: int | None = None, http_security: typing.Any | None = None, capability: dict[str, typing.Any] | None = None) -> None
   attr agent_did: str
   attr agent_private_key: str | None
   attr body: str | bytes | None
+  attr capability: dict[str, Any] | None
   attr expires_in_seconds: int | None
   attr http_security: Any | None
   attr method: str
@@ -797,6 +838,48 @@ class VerifyAgentMetadataCredentialResult(ok: 'bool', reason: 'AgentMetadataCred
   attr reason: AgentMetadataCredentialRejection | None
   attr verification_method: str | None
 
+## VerifyCapabilityChainResult
+class VerifyCapabilityChainResult(ok: 'bool', reason: 'CapabilityRejection | None' = None, capability_id: 'str | None' = None, capability: 'dict[str, Any] | None' = None, controller: 'str | None' = None, invocation_target: 'str | None' = None, allowed_action: 'tuple[str, ...] | None' = None, root_id: 'str | None' = None, delegators: 'tuple[str, ...]' = ()) -> None
+  attr allowed_action: tuple[str, ...] | None
+  attr capability: dict[str, Any] | None
+  attr capability_id: str | None
+  attr controller: str | None
+  attr delegators: tuple[str, ...]
+  attr invocation_target: str | None
+  attr ok: bool
+  attr reason: CapabilityRejection | None
+  attr root_id: str | None
+
+## VerifyClientAssertionResult
+class VerifyClientAssertionResult(ok: 'bool', reason: 'ClientAssertionRejection | None' = None, did: 'str | None' = None, key_id: 'str | None' = None, client_id: 'str | None' = None, jti: 'str | None' = None, expires_at: 'int | None' = None, controllers: 'list[str]' = <factory>) -> None
+  attr client_id: str | None
+  attr controllers: list[str]
+  attr did: str | None
+  attr expires_at: int | None
+  attr jti: str | None
+  attr key_id: str | None
+  attr ok: bool
+  attr reason: ClientAssertionRejection | None
+
+## VerifyHttpCapabilityInvocationParams
+class VerifyHttpCapabilityInvocationParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None, allowed_dids: list[str] | None = None, allowed_controllers: list[str] | None = None, root_controllers: dict[str, list[str]], max_chain_length: int | None = None) -> None
+  attr max_chain_length: int | None
+  attr root_controllers: dict[str, list[str]]
+  member model_config = {'arbitrary_types_allowed': True}
+
+## VerifyHttpCapabilityInvocationResult
+class VerifyHttpCapabilityInvocationResult(ok: 'bool', reason: 'CapabilityInvocationRejection | None' = None, capability_id: 'str | None' = None, did: 'str | None' = None, key_id: 'str | None' = None, controllers: 'list[str]' = <factory>, capability: 'dict[str, Any] | None' = None, allowed_action: 'tuple[str, ...] | None' = None, root_id: 'str | None' = None, delegators: 'tuple[str, ...]' = ()) -> None
+  attr allowed_action: tuple[str, ...] | None
+  attr capability: dict[str, Any] | None
+  attr capability_id: str | None
+  attr controllers: list[str]
+  attr delegators: tuple[str, ...]
+  attr did: str | None
+  attr key_id: str | None
+  attr ok: bool
+  attr reason: CapabilityInvocationRejection | None
+  attr root_id: str | None
+
 ## VerifyHttpRequestSignatureParams
 class VerifyHttpRequestSignatureParams(*, method: str, url: str, body: str | bytes | None = None, headers: dict[str, str], max_created_skew_seconds: int | None = None, max_signature_lifetime_seconds: int | None = None, nonce_store: typing.Any | None = None, allowed_dids: list[str] | None = None, allowed_controllers: list[str] | None = None) -> None
   attr allowed_controllers: list[str] | None
@@ -866,6 +949,12 @@ class WebvhDIDDocumentSourceConfig(reference_to_url: 'Callable[[str], str] | Non
   attr reference_to_url: Callable[[str], str] | None
   attr reference_to_urls: Callable[[str], list[str]] | None
 
+## ZCAP_CONTEXT
+value ZCAP_CONTEXT = 'https://w3id.org/zcap/v1'
+
+## ZCAP_ROOT_PREFIX
+value ZCAP_ROOT_PREFIX = 'urn:zcap:root:'
+
 ## agent_did_http_signature_components
 def agent_did_http_signature_components(label: 'str') -> 'list[ComponentIdentifier]'
 
@@ -875,6 +964,12 @@ def assert_key_purpose(key_id: 'str', did_doc: 'AgentDIDDocument', required_purp
 ## assert_signing_purpose
 def assert_signing_purpose(required_purpose: 'VerificationRelationship', did_doc: 'AgentDIDDocument', key_id: 'str' = '') -> 'None'
 
+## build_client_jwks
+def build_client_jwks(document: 'AnyDidDocument', *, alg: 'JwsEd25519Alg | None' = None) -> 'dict[str, list[dict[str, str]]]'
+
+## build_client_metadata_document
+def build_client_metadata_document(*, client_id: 'str', client_name: 'str', did_document: 'AnyDidDocument', grant_types: 'Sequence[str]' = ('client_credentials',), redirect_uris: 'Sequence[str] | None' = None, client_uri: 'str | None' = None, jwks_uri: 'str | None' = None, jws_alg: 'JwsEd25519Alg' = 'EdDSA') -> 'dict[str, Any]'
+
 ## build_signature_base
 def build_signature_base(request: 'HttpRequestLike', signature_input: 'SignatureInput') -> 'str'
 
@@ -883,6 +978,9 @@ def canonicalize_json(value: 'object') -> 'str'
 
 ## check_did_webvh_key_at_time
 def check_did_webvh_key_at_time(log: 'str', *, key_id: 'str', stated_time: 'str', required_purpose: 'VerificationRelationship' = 'assertionMethod', did: 'str | None' = None, trusted_time_not_after: 'str | None' = None, witness_file: 'str | None' = None) -> 'KeyAtTimeResult'
+
+## create_client_assertion
+def create_client_assertion(*, client_id: 'str', issuer: 'str', verification_method_id: 'str', signer: 'AgentSigner | None' = None, agent_private_key: 'str | None' = None, lifetime_seconds: 'int' = 60, jws_alg: 'JwsEd25519Alg' = 'EdDSA', issued_at: 'int | None' = None, jti: 'str | None' = None) -> 'str'
 
 ## create_did_webvh_witness_proof
 def create_did_webvh_witness_proof(*, log: 'str', signer: 'AgentSigner', witness_file: 'str | None' = None) -> 'DidWebvhWitnessProofEntry'
@@ -961,6 +1059,9 @@ def request_url_form_problem(url: 'str') -> 'str | None'
 
 ## required_relationship_for
 def required_relationship_for(artifact: 'SignedArtifactKind') -> 'SigningVerificationPurpose'
+
+## root_capability_id
+def root_capability_id(invocation_target: 'str') -> 'str'
 
 ## sanitize_headers
 def sanitize_headers(headers: 'Mapping[Any, Any]') -> 'dict[str, Any]'

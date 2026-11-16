@@ -92,7 +92,7 @@ export declare function checkAgentMetadataCredentialForm(credential: unknown, no
 };
 
 ## core/AgentDidClient.d.ts
-import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, CreateAgentParams, CreateAgentResult, DidDocument, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
+import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, AgentCapability, CreateAgentParams, CreateCapabilityParams, CreateAgentResult, DidDocument, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyCapabilityChainOptions, VerifyCapabilityChainResult, VerifyClientAssertionParams, VerifyClientAssertionResult, VerifyHttpCapabilityInvocationParams, VerifyHttpCapabilityInvocationResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -347,6 +347,39 @@ export declare class AgentDidClient {
      */
     verifyAgentMetadataCredential(credential: unknown, options?: VerifyAgentMetadataCredentialOptions): Promise<VerifyAgentMetadataCredentialResult>;
     /**
+     * Delegates a capability (RFC-001 §6.7): grants `params.controller` the authority to act on `invocationTarget`
+     * until `expires`, signed with an `eddsa-jcs-2022` proof by a `capabilityDelegation` key of the delegator. Without
+     * `parentCapability` the delegator is a root controller of `rootTarget` (whether it is one is the verifier's
+     * configuration); with it, the delegator must be the parent's `controller`, and the new capability may only narrow
+     * the parent's target, actions and expiry.
+     */
+    createCapability(params: CreateCapabilityParams): Promise<AgentCapability>;
+    /**
+     * Verifies a delegated capability and its chain (RFC-001 §6.7): form, chain structure, the root controller the
+     * verifier configured for the root target, attenuation at every link, validity period, and each proof by an active
+     * Ed25519 `capabilityDelegation` key of its delegator, resolved now. Never throws for a bad capability: test
+     * `result.ok`.
+     */
+    verifyCapabilityChain(capability: unknown, options: VerifyCapabilityChainOptions): Promise<VerifyCapabilityChainResult>;
+    /** The delegation key `keyId` of `did`, resolved now, or why it cannot sign a delegation. */
+    private delegationKeyCheck;
+    /**
+     * Verifies a request that invokes a capability (RFC-001 §6.5, §6.7): the request profile of
+     * `verifyHttpRequestSignatureDetailed`, with the signing key under `capabilityInvocation` instead of
+     * `assertionMethod`; the signature must cover `"agent-did-capability";key="<label>"`; the request's agent DID must
+     * be the capability's `controller`, its URL within the target and its method allowed; then the capability chain
+     * (`verifyCapabilityChain`). The nonce is recorded only when everything passes.
+     */
+    verifyHttpCapabilityInvocation(params: VerifyHttpCapabilityInvocationParams): Promise<VerifyHttpCapabilityInvocationResult>;
+    /**
+     * Verifies a JWT client assertion (`private_key_jwt`) against the agent DID registered for the client (RFC-001
+     * §6.8): JWS form, `alg` (`EdDSA` or `Ed25519`), `typ` (absent or `client-authentication+jwt`), `kid` a DID URL of
+     * `did`, `iss` = `sub` = `clientId`, `aud` exactly `issuer`, lifetime at most 300 s and times within the clock
+     * skew, then the signature by an active Ed25519 `authentication` key of the resolved DID, and finally `jti` in the
+     * nonce store. For an authorization server or MCP server that knows Agent-DID. Never throws: test `result.ok`.
+     */
+    verifyClientAssertion(params: VerifyClientAssertionParams): Promise<VerifyClientAssertionResult>;
+    /**
      * Drops the resolver's cached resolution of `did`, so the next verification fetches and verifies it again (for a
      * check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
      * not cache (`DIDResolver.evict` not implemented).
@@ -570,6 +603,85 @@ export declare class AgentIdentity {
     /** @deprecated Use the same method on an `AgentDidClient`; removed in 2.0. */
     static useProductionResolverFromJsonRpc(config: ProductionJsonRpcResolverProfileConfig): void;
 }
+
+## core/capability.d.ts
+import { AgentCapability, CapabilityRejection } from './types';
+/** The only `@context` of a delegated capability. */
+export declare const ZCAP_CONTEXT = "https://w3id.org/zcap/v1";
+/** Prefix of a root capability `id`; the rest is the percent-encoded `invocationTarget`. */
+export declare const ZCAP_ROOT_PREFIX = "urn:zcap:root:";
+/** `proofPurpose` of a delegation proof. */
+export declare const CAPABILITY_DELEGATION_PURPOSE = "capabilityDelegation";
+/** Delegated capabilities after the root a verifier accepts by default. */
+export declare const DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH = 5;
+/** Upper bound on `maxChainLength`. */
+export declare const MAX_CAPABILITY_CHAIN_LENGTH = 10;
+/** Header field that carries an invoked capability, a Structured Field Dictionary keyed by signature label. */
+export declare const AGENT_DID_CAPABILITY_HTTP_HEADER = "Agent-DID-Capability";
+/** Upper bound, in bytes, on an `Agent-DID-Capability` field value a verifier parses. */
+export declare const MAX_CAPABILITY_HEADER_BYTES = 8192;
+/** The `id` of the root capability of `invocationTarget`: `urn:zcap:root:` + its percent-encoded form. */
+export declare function rootCapabilityId(invocationTarget: string): string;
+/**
+ * `undefined` when `target` is a valid `invocationTarget`: an `https` URL in the normalized form of RFC-001 §6.5
+ * item 4, with no query.
+ */
+export declare function invocationTargetProblem(target: unknown): string | undefined;
+/**
+ * True when `target` is `parentTarget` or extends its path after a `/` (`https://a.example/files` covers
+ * `https://a.example/files/reports`, not `https://a.example/filesystem`).
+ */
+export declare function targetWithin(target: string, parentTarget: string): boolean;
+/** True when `action` is allowed by a capability whose `allowedAction` is `allowed` (absent = every action). */
+export declare function actionAllowed(action: string, allowed: readonly string[] | undefined): boolean;
+/** The form checks of one delegated capability, without its chain (`undefined` when it has the form). */
+export declare function capabilityFormProblem(capability: unknown): CapabilityRejection | undefined;
+/** A capability chain that passed the checks needing no resolution. */
+export interface CheckedCapabilityChain {
+    /** The root capability `id`. */
+    rootId: string;
+    /** The target the root names. */
+    rootTarget: string;
+    /** The root controllers the verifier configured for `rootTarget`. */
+    rootControllers: readonly string[];
+    /** Delegated capabilities from the one under the root to the leaf. */
+    capabilities: AgentCapability[];
+    /** The actions the leaf allows: the last `allowedAction` in the chain (absent = every action). */
+    allowedAction?: string[];
+}
+/**
+ * The checks of RFC-001 §6.7 that need no resolution, in order: form of every capability in the chain
+ * (`malformed_capability`, `unsupported_proof`), chain length (`chain_too_long`), chain structure
+ * (`malformed_capability`), root controller configured (`root_controller_unknown`), attenuation at every link
+ * (`attenuation_violation`) and validity at `nowMillis` (`expired`). Never throws.
+ */
+export declare function checkCapabilityChain(capability: unknown, rootControllers: Readonly<Record<string, readonly string[]>>, nowMillis: number, maxChainLength?: number): {
+    ok: true;
+    value: CheckedCapabilityChain;
+} | {
+    ok: false;
+    reason: CapabilityRejection;
+    capabilityId?: string;
+};
+/** The capability without its proof, as `createCapability` signs it. */
+export declare function buildUnsignedCapability(params: {
+    id: string;
+    parentCapability: string;
+    invocationTarget: string;
+    controller: string;
+    expires: string;
+    allowedAction?: readonly string[];
+}): Omit<AgentCapability, 'proof'>;
+/** The `capabilityChain` of a capability delegated from `parent` (or from the root `rootId`). */
+export declare function childCapabilityChain(parent: AgentCapability | string): unknown[];
+/** The `Agent-DID-Capability` member value: the JCS bytes of `capability`, as a Structured Field Byte Sequence. */
+export declare function serializeCapabilityHeader(label: string, capability: AgentCapability): string;
+/**
+ * The capability in the `Agent-DID-Capability` member of `label`: `'missing'` when the field has no member for it,
+ * `undefined` when the field or the member is malformed (not a Dictionary, not a Byte Sequence without parameters,
+ * not the JCS form of a JSON object). The form of the capability itself is checked by `verifyCapabilityChain`.
+ */
+export declare function parseCapabilityHeader(value: string, label: string): AgentCapability | 'missing' | undefined;
 
 ## core/controller-binding.d.ts
 import { DidDocument } from './types';
@@ -846,6 +958,122 @@ export declare class InMemoryNonceStore implements NonceStore {
     get size(): number;
     private purge;
 }
+
+## core/oauth-client.d.ts
+import { AgentSigner } from './signer';
+import { ClientAssertionRejection, DidDocument, JwsEd25519Alg } from './types';
+/** `typ` of a client assertion (draft-ietf-oauth-rfc7523bis). */
+export declare const CLIENT_ASSERTION_TYPE = "client-authentication+jwt";
+/** `client_assertion_type` of a token request that carries a JWT client assertion (RFC 7523 §2.2). */
+export declare const CLIENT_ASSERTION_TYPE_JWT_BEARER = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+/** Default lifetime of a client assertion, in seconds. */
+export declare const DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS = 60;
+/** Longest lifetime (`exp - iat`) a client assertion may have, in seconds. */
+export declare const MAX_CLIENT_ASSERTION_LIFETIME_SECONDS = 300;
+/** Upper bound, in characters, on an assertion a verifier parses. */
+export declare const MAX_CLIENT_ASSERTION_LENGTH = 8192;
+/** Parameters of `createClientAssertion`. */
+export interface CreateClientAssertionParams {
+    /** The OAuth `client_id` (a Client ID Metadata Document URL or a pre-registered id). `iss` and `sub`. */
+    clientId: string;
+    /** The authorization server's issuer identifier (RFC 8414), never its token endpoint. The only `aud` value. */
+    issuer: string;
+    /** DID URL of an Ed25519 `authentication` key of the agent DID; the JWS `kid`. */
+    verificationMethodId: string;
+    /** Signer that holds the key. Either this or `agentPrivateKey`. */
+    signer?: AgentSigner;
+    /** Ed25519 private key hex. */
+    agentPrivateKey?: string;
+    /** Lifetime in seconds (default 60, at most 300). */
+    lifetimeSeconds?: number;
+    /** JWS `alg` (default `EdDSA`; `Ed25519` per RFC 9864). */
+    jwsAlg?: JwsEd25519Alg;
+    /** `iat` in seconds since the epoch (default: now). For tests and vectors. */
+    issuedAt?: number;
+    /** `jti` (default: 128 random bits, hex). For tests and vectors. */
+    jti?: string;
+}
+/**
+ * A JWT client assertion signed with the agent's DID key (RFC-001 §6.8). The caller checks that
+ * `verificationMethodId` is under the DID's `authentication`: `AgentDidClient.verifyClientAssertion` rejects any
+ * other key. Send it as `client_assertion` with `client_assertion_type` = `CLIENT_ASSERTION_TYPE_JWT_BEARER`.
+ */
+export declare function createClientAssertion(params: CreateClientAssertionParams): Promise<string>;
+/** A client assertion that passed the checks needing no resolution. */
+export interface ParsedClientAssertion {
+    alg: JwsEd25519Alg;
+    keyId: string;
+    did: string;
+    jti: string;
+    issuedAt: number;
+    expiresAt: number;
+    signingInput: string;
+    signature: Uint8Array;
+}
+/** What `parseClientAssertion` checks the claims against. */
+export interface ClientAssertionExpectations {
+    clientId: string;
+    issuer: string;
+    did: string;
+    nowSeconds: number;
+    maxClockSkewSeconds: number;
+}
+/**
+ * The checks of RFC-001 §6.8 that need no resolution, in order: compact JWS form (`malformed_assertion`), `alg`
+ * (`alg_unsupported`), `typ` (`type_invalid`), `kid` a DID URL of the expected DID (`kid_not_bound`), `iss` and
+ * `sub` (`client_id_mismatch`), `aud` (`audience_invalid`), times (`lifetime_exceeded`, `not_yet_valid`, `expired`).
+ * Never throws.
+ */
+export declare function parseClientAssertion(assertion: unknown, expected: ClientAssertionExpectations): {
+    ok: true;
+    value: ParsedClientAssertion;
+} | {
+    ok: false;
+    reason: ClientAssertionRejection;
+};
+/** A JSON Web Key of an Ed25519 public key (RFC 8037). */
+export interface Ed25519Jwk {
+    kty: 'OKP';
+    crv: 'Ed25519';
+    x: string;
+    kid: string;
+    use: 'sig';
+    alg?: JwsEd25519Alg;
+}
+/**
+ * The JWKS of the active Ed25519 `authentication` keys of `document`, `kid` = the key's DID URL, for a Client ID
+ * Metadata Document (`jwks` or `jwks_uri`) or a pre-registration. Republish it when the agent rotates a key: an
+ * authorization server caches it.
+ */
+export declare function buildClientJwks(document: DidDocument, options?: {
+    alg?: JwsEd25519Alg;
+}): {
+    keys: Ed25519Jwk[];
+};
+/** Parameters of `buildClientMetadataDocument`. */
+export interface ClientMetadataDocumentParams {
+    /** The `https` URL the document is served at; it is also the `client_id`. */
+    clientId: string;
+    clientName: string;
+    /** The agent's DID document: its `authentication` keys become `jwks`, its `id` the `agent_did` member. */
+    didDocument: DidDocument;
+    /** OAuth grant types (default `["client_credentials"]`). */
+    grantTypes?: readonly string[];
+    /** Redirect URIs, for an `authorization_code` client. */
+    redirectUris?: readonly string[];
+    /** `client_uri`, a page about the client. */
+    clientUri?: string;
+    /** `jwks_uri` instead of embedding `jwks`. */
+    jwksUri?: string;
+    /** `token_endpoint_auth_signing_alg` (default `EdDSA`). */
+    jwsAlg?: JwsEd25519Alg;
+}
+/**
+ * An OAuth Client ID Metadata Document (draft-ietf-oauth-client-id-metadata-document) for an agent that
+ * authenticates with `private_key_jwt` and its DID key. `agent_did` names the DID; an authorization server that does
+ * not know it ignores it.
+ */
+export declare function buildClientMetadataDocument(params: ClientMetadataDocumentParams): Record<string, unknown>;
 
 ## core/observability.d.ts
 /**
@@ -1331,6 +1559,12 @@ export interface SignHttpRequestParams {
     expiresInSeconds?: number;
     /** SSRF protection options. */
     httpSecurity?: import('./http-security').HttpTargetValidationOptions;
+    /**
+     * A capability to invoke (RFC-001 §6.7): sent in the `Agent-DID-Capability` field and covered as
+     * `"agent-did-capability";key="sig1"` after the required components. The signing key must then be a
+     * `capabilityInvocation` key of `agentDid`, which must be the capability's `controller`.
+     */
+    capability?: AgentCapability;
 }
 export interface VerifyHttpRequestSignatureParams {
     method: string;
@@ -1607,6 +1841,179 @@ export type VerifyAgentMetadataCredentialResult = {
     ok: false;
     reason: AgentMetadataCredentialRejection;
 };
+/** JWS `alg` of an Ed25519 signature: `EdDSA` (RFC 8037) or `Ed25519` (RFC 9864). Both mean an Ed25519 key only. */
+export type JwsEd25519Alg = 'EdDSA' | 'Ed25519';
+/** The `eddsa-jcs-2022` proof of a delegated capability (RFC-001 §6.7). */
+export interface CapabilityDelegationProof {
+    type: 'DataIntegrityProof';
+    cryptosuite: 'eddsa-jcs-2022';
+    /** When the delegation was signed (RFC 3339). Asserted by the delegator; keys are checked at verification time. */
+    created: string;
+    /** DID URL of a `capabilityDelegation` key of the delegator (the parent's `controller`, or a root controller). */
+    verificationMethod: string;
+    proofPurpose: 'capabilityDelegation';
+    /** Ancestor ids from the root; the last entry is the full parent capability when the parent is not the root. */
+    capabilityChain: Array<string | AgentCapability>;
+    proofValue: string;
+}
+/**
+ * A delegated capability (RFC-001 §6.7, ADR-008 D-12a), shaped as an Authorization Capability (ZCAP v0.4 data
+ * model): the delegator grants `controller` the authority to act on `invocationTarget` until `expires`.
+ */
+export interface AgentCapability {
+    '@context': string[];
+    /** `urn:uuid:` + a lowercase UUID. */
+    id: string;
+    /** The parent capability's `id` (`urn:zcap:root:…` for a delegation from the root). */
+    parentCapability: string;
+    /** An `https` URL in normalized form (RFC-001 §6.5 item 4), without a query. */
+    invocationTarget: string;
+    /** The delegate: the DID that may invoke the capability or delegate it further. */
+    controller: string;
+    /** Actions allowed (HTTP methods for an HTTP target). Absent: every action the parent allows. */
+    allowedAction?: string[];
+    /** RFC 3339; never later than the parent's. */
+    expires: string;
+    proof: CapabilityDelegationProof;
+}
+/**
+ * Why a capability chain was rejected (RFC-001 §6.7), in the order the checks run:
+ *
+ * - `malformed_capability`: a capability or the chain structure does not have the form of §6.7.
+ * - `unsupported_proof`: a proof is not one `eddsa-jcs-2022` `capabilityDelegation` proof of that form.
+ * - `chain_too_long`: more delegated capabilities than `maxChainLength`.
+ * - `root_controller_unknown`: the verifier configured no root controller for the root's target.
+ * - `attenuation_violation`: a capability widens its parent's target, actions or expiry.
+ * - `expired`: a capability in the chain is past its `expires`.
+ * - `delegator_mismatch`: a proof is not by the parent's `controller` (or a root controller).
+ * - `did_resolution_failed` / `did_deactivated`: a delegator DID does not resolve, or is deactivated.
+ * - `key_purpose_violation`: the proof key is an active key of the delegator, not under `capabilityDelegation`.
+ * - `key_not_authorized`: the proof key is not an active Ed25519 key of the delegator.
+ * - `signature_invalid`: a proof does not verify.
+ */
+export type CapabilityRejection = 'malformed_capability' | 'unsupported_proof' | 'chain_too_long' | 'root_controller_unknown' | 'attenuation_violation' | 'expired' | 'delegator_mismatch' | 'did_resolution_failed' | 'did_deactivated' | 'key_purpose_violation' | 'key_not_authorized' | 'signature_invalid';
+/** Options of `verifyCapabilityChain`. */
+export interface VerifyCapabilityChainOptions {
+    /**
+     * Who may delegate each target: root target URL (exact, normalized) -> DIDs. The resource server decides; a chain
+     * whose root target is not a key here is `root_controller_unknown`.
+     */
+    rootControllers: Readonly<Record<string, readonly string[]>>;
+    /** Delegated capabilities accepted after the root (default 5, at most 10). */
+    maxChainLength?: number;
+}
+/** Result of `verifyCapabilityChain`. Test `result.ok`. */
+export type VerifyCapabilityChainResult = {
+    ok: true;
+    /** The verified capability (the leaf). */
+    capability: AgentCapability;
+    /** The DID that may invoke it (`capability.controller`). */
+    controller: string;
+    invocationTarget: string;
+    /** The actions the chain allows (absent: every action). */
+    allowedAction?: string[];
+    /** The root capability `id`. */
+    rootId: string;
+    /** Who signed each link, from the root controller to the leaf's delegator. */
+    delegators: string[];
+} | {
+    ok: false;
+    reason: CapabilityRejection;
+    capabilityId?: string;
+};
+/** Parameters of `createCapability`. */
+export interface CreateCapabilityParams {
+    /** The target; within the parent's target (or the root target when there is no parent). */
+    invocationTarget: string;
+    /** The delegate DID. */
+    controller: string;
+    /** RFC 3339; not later than the parent's `expires`. */
+    expires: string;
+    /** Actions; a subset of the parent's. Absent: every action the parent allows. */
+    allowedAction?: readonly string[];
+    /**
+     * The capability being delegated further, held by the signer's DID (its `controller`). Absent: a delegation from
+     * the root of `rootTarget`, signed by a root controller.
+     */
+    parentCapability?: AgentCapability;
+    /** The root target, for a delegation from the root (default: `invocationTarget`). */
+    rootTarget?: string;
+    /** DID URL of an active Ed25519 `capabilityDelegation` key of the delegator, held by `signer`. */
+    verificationMethodId: string;
+    signer: import('./signer').AgentSigner;
+    /** `urn:uuid:…` (default: a random UUID). */
+    id?: string;
+}
+/**
+ * Why `verifyHttpCapabilityInvocation` rejected a request: the reasons of `verifyHttpRequestSignatureDetailed`, the
+ * reasons of `verifyCapabilityChain`, and:
+ *
+ * - `capability_missing`: the signature does not cover `"agent-did-capability";key="<label>"`, or the field has no
+ *   member for the label.
+ * - `capability_too_large`: the `Agent-DID-Capability` field is longer than 8192 bytes.
+ * - `invoker_not_controller`: the request's agent DID is not the capability's `controller`.
+ * - `target_mismatch`: the request URL (without its query) is not the target nor within it.
+ * - `action_not_allowed`: the request method is not in the chain's `allowedAction`.
+ */
+export type CapabilityInvocationRejection = HttpSignatureRejection | CapabilityRejection | 'capability_missing' | 'capability_too_large' | 'invoker_not_controller' | 'target_mismatch' | 'action_not_allowed';
+/** Parameters of `verifyHttpCapabilityInvocation`. */
+export interface VerifyHttpCapabilityInvocationParams extends VerifyHttpRequestSignatureParams, VerifyCapabilityChainOptions {
+}
+/** Result of `verifyHttpCapabilityInvocation`. Test `result.ok`. */
+export type VerifyHttpCapabilityInvocationResult = {
+    ok: true;
+    /** The invoking agent DID. */
+    did: string;
+    /** Its `capabilityInvocation` key that signed. */
+    keyId: string;
+    /** The controller chain of `did`, nearest first. */
+    controllers: string[];
+    /** The verified capability (the leaf). */
+    capability: AgentCapability;
+    /** The actions the chain allows (absent: every action). */
+    allowedAction?: string[];
+    rootId: string;
+    delegators: string[];
+} | {
+    ok: false;
+    reason: CapabilityInvocationRejection;
+    capabilityId?: string;
+};
+/**
+ * Why `verifyClientAssertion` rejected a JWT client assertion (RFC-001 §6.8), in the order the checks run:
+ * `malformed_assertion`, `alg_unsupported`, `type_invalid`, `kid_not_bound` (the `kid` is not a DID URL of the
+ * expected DID), `client_id_mismatch` (`iss` or `sub`), `audience_invalid` (`aud` is not exactly the issuer, as a
+ * single string), `lifetime_exceeded`, `not_yet_valid`, `expired`, `did_resolution_failed`, `controller_not_bound`,
+ * `key_not_authorized` (not an active Ed25519 `authentication` key), `signature_invalid`, `jti_replayed`.
+ */
+export type ClientAssertionRejection = 'malformed_assertion' | 'alg_unsupported' | 'type_invalid' | 'kid_not_bound' | 'client_id_mismatch' | 'audience_invalid' | 'lifetime_exceeded' | 'not_yet_valid' | 'expired' | 'did_resolution_failed' | 'controller_not_bound' | 'key_not_authorized' | 'signature_invalid' | 'jti_replayed';
+/** Parameters of `verifyClientAssertion`. */
+export interface VerifyClientAssertionParams {
+    assertion: string;
+    /** This authorization server's issuer identifier: the only `aud` value accepted. */
+    issuer: string;
+    /** The `client_id` of the token request: `iss` and `sub` must equal it. */
+    clientId: string;
+    /** The agent DID registered for `clientId` (for example a document's `agent_did`, after checking it). */
+    did: string;
+    /** Clock skew allowed on `iat`, `nbf` and `exp`, in seconds (default 30). */
+    maxClockSkewSeconds?: number;
+    /** Replay store for `jti` (default: the client's nonce store). */
+    nonceStore?: import('./nonce-store').NonceStore;
+}
+/** Result of `verifyClientAssertion`. Test `result.ok`. */
+export type VerifyClientAssertionResult = {
+    ok: true;
+    did: string;
+    keyId: string;
+    clientId: string;
+    jti: string;
+    expiresAt: number;
+    controllers: string[];
+} | {
+    ok: false;
+    reason: ClientAssertionRejection;
+};
 
 ## core/verification-method.d.ts
 import type { AgentDidContextEntry, DidDocument, RevokedContextTerm, VerificationMethod, VerificationRelationship } from './types';
@@ -1687,6 +2094,8 @@ export declare function eddsaJcs2022HashData(unsecuredDocument: JsonObject, proo
  * 64-byte Ed25519 signature of the bytes it is given.
  */
 export declare function createEddsaJcs2022Proof(unsecuredDocument: JsonObject, options: EddsaJcs2022ProofOptions, sign: (hashData: Uint8Array) => Promise<Uint8Array>): Promise<DataIntegrityProof>;
+/** The `proofValue` of a 64-byte Ed25519 signature: `z` + base58btc. */
+export declare function encodeEddsaProofValue(signature: Uint8Array): string;
 /** Decodes a `proofValue` (`z` + base58btc of 64 bytes). Returns `undefined` for anything else. */
 export declare function decodeEddsaProofValue(proofValue: unknown): Uint8Array | undefined;
 /**
@@ -1842,6 +2251,7 @@ export declare function createTimestampRequest(message: Uint8Array): Uint8Array;
 
 ## http-signatures/verify-request.d.ts
 import { VerificationRelationship, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult } from '../core/types';
+import { SignatureInput } from '../core/http-signatures';
 import { NonceStore } from '../core/nonce-store';
 /** What the injected cryptographic check found. */
 export type SignatureCheckOutcome = 'valid' | 'invalid' | 'key_not_authorized' | 'did_resolution_failed' | 'controller_not_bound';
@@ -1856,7 +2266,46 @@ export interface VerifyRequestDeps {
     nonceStore: NonceStore;
     now: Date;
 }
+/**
+ * Extra checks of a profile built on the §6.5 request profile (capability invocation, RFC-001 §6.7). `beforeSignature`
+ * runs once the profile checks pass and before any resolution; `afterSignature` after the signature verifies and
+ * before the nonce is recorded.
+ */
+export interface VerifyRequestExtension<State, Extra> {
+    /** The relationship the signing key must be listed under. */
+    relationship: VerificationRelationship;
+    beforeSignature(label: string, input: SignatureInput, agentDid: string): {
+        ok: true;
+        state: State;
+    } | {
+        ok: false;
+        reason: string;
+        capabilityId?: string;
+    };
+    afterSignature(state: State): Promise<{
+        ok: true;
+        extra: Extra;
+    } | {
+        ok: false;
+        reason: string;
+        capabilityId?: string;
+    }>;
+}
+type CoreResult<Extra> = {
+    ok: true;
+    did: string;
+    keyId: string;
+    controllers: string[];
+    extra?: Extra;
+} | {
+    ok: false;
+    reason: string;
+    capabilityId?: string;
+};
 export declare function verifyAgentDidHttpRequest(params: VerifyHttpRequestSignatureParams, deps: VerifyRequestDeps): Promise<VerifyHttpRequestSignatureResult>;
+/** `verifyAgentDidHttpRequest` with the checks of a profile built on it. */
+export declare function verifyAgentDidHttpRequestWith<State, Extra>(params: VerifyHttpRequestSignatureParams, deps: VerifyRequestDeps, extension?: VerifyRequestExtension<State, Extra>): Promise<CoreResult<Extra>>;
+export {};
 
 ## index.d.ts
 /**
@@ -1872,6 +2321,10 @@ export { AGENT_DID_A2A_EXTENSION_URI, AGENT_CARD_SIGNATURE_ALG, MAX_AGENT_CARD_S
 export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
 export { REVOKED_CONTEXT_TERM } from './core/verification-method';
 export { AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE } from './core/agent-metadata-credential';
+export type { AgentCapability, CapabilityDelegationProof, CapabilityInvocationRejection, CapabilityRejection, ClientAssertionRejection, CreateCapabilityParams, JwsEd25519Alg, VerifyCapabilityChainOptions, VerifyCapabilityChainResult, VerifyClientAssertionParams, VerifyClientAssertionResult, VerifyHttpCapabilityInvocationParams, VerifyHttpCapabilityInvocationResult } from './core/types';
+export { AGENT_DID_CAPABILITY_HTTP_HEADER, DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH, MAX_CAPABILITY_CHAIN_LENGTH, MAX_CAPABILITY_HEADER_BYTES, rootCapabilityId, ZCAP_CONTEXT, ZCAP_ROOT_PREFIX } from './core/capability';
+export { buildClientJwks, buildClientMetadataDocument, CLIENT_ASSERTION_TYPE, CLIENT_ASSERTION_TYPE_JWT_BEARER, createClientAssertion, DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS, MAX_CLIENT_ASSERTION_LIFETIME_SECONDS } from './core/oauth-client';
+export type { ClientMetadataDocumentParams, CreateClientAssertionParams, Ed25519Jwk } from './core/oauth-client';
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 export { IdentityCompositionError, IdentityCompositionErrorDetails, DID_VERIFICATION_RELATIONSHIPS, SIGNING_VERIFICATION_PURPOSES, SIGNED_ARTIFACT_KINDS, ADDITIONAL_VERIFICATION_RELATIONSHIPS, REQUIRED_RELATIONSHIP_BY_ARTIFACT, requiredRelationshipFor, assertKeyPurpose, assertSigningPurpose, getKeyRelationships, getRelationshipKeyIds } from './core/identity-composition';
 export { AGENT_DID_MESSAGE_SIGNING_PREFIX, messageSigningInput } from './core/message-signing';

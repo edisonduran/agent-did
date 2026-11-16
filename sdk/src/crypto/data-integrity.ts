@@ -93,7 +93,15 @@ export async function createEddsaJcs2022Proof(
   if (signature.length !== 64) {
     throw new Error('An Ed25519 signature is 64 bytes');
   }
-  return { ...config, proofValue: `z${bs58.encode(signature)}` } as DataIntegrityProof;
+  return { ...config, proofValue: encodeEddsaProofValue(signature) } as DataIntegrityProof;
+}
+
+/** The `proofValue` of a 64-byte Ed25519 signature: `z` + base58btc. */
+export function encodeEddsaProofValue(signature: Uint8Array): string {
+  if (signature.length !== 64) {
+    throw new Error('An Ed25519 signature is 64 bytes');
+  }
+  return `z${bs58.encode(signature)}`;
 }
 
 /** Decodes a `proofValue` (`z` + base58btc of 64 bytes). Returns `undefined` for anything else. */

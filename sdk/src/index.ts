@@ -70,6 +70,40 @@ export {
 export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
 export { REVOKED_CONTEXT_TERM } from './core/verification-method';
 export { AGENT_METADATA_CREDENTIAL_CONTEXT, AGENT_METADATA_CREDENTIAL_TYPE } from './core/agent-metadata-credential';
+export type {
+  AgentCapability,
+  CapabilityDelegationProof,
+  CapabilityInvocationRejection,
+  CapabilityRejection,
+  ClientAssertionRejection,
+  CreateCapabilityParams,
+  JwsEd25519Alg,
+  VerifyCapabilityChainOptions,
+  VerifyCapabilityChainResult,
+  VerifyClientAssertionParams,
+  VerifyClientAssertionResult,
+  VerifyHttpCapabilityInvocationParams,
+  VerifyHttpCapabilityInvocationResult
+} from './core/types';
+export {
+  AGENT_DID_CAPABILITY_HTTP_HEADER,
+  DEFAULT_MAX_CAPABILITY_CHAIN_LENGTH,
+  MAX_CAPABILITY_CHAIN_LENGTH,
+  MAX_CAPABILITY_HEADER_BYTES,
+  rootCapabilityId,
+  ZCAP_CONTEXT,
+  ZCAP_ROOT_PREFIX
+} from './core/capability';
+export {
+  buildClientJwks,
+  buildClientMetadataDocument,
+  CLIENT_ASSERTION_TYPE,
+  CLIENT_ASSERTION_TYPE_JWT_BEARER,
+  createClientAssertion,
+  DEFAULT_CLIENT_ASSERTION_LIFETIME_SECONDS,
+  MAX_CLIENT_ASSERTION_LIFETIME_SECONDS
+} from './core/oauth-client';
+export type { ClientMetadataDocumentParams, CreateClientAssertionParams, Ed25519Jwk } from './core/oauth-client';
 
 export { checkDidWebvhKeyAtTime } from './verification/key-at-time';
 

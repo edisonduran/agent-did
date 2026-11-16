@@ -78,6 +78,7 @@
     "fast-check": "^4.10.2",
     "http-message-signatures": "1.0.6",
     "jest": "^30.5.2",
+    "jose": "5.10.0",
     "ts-jest": "^29.4.6",
     "typescript": "^5.4.2"
   }

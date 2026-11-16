@@ -6,7 +6,11 @@ import {
   AgentDIDDocument,
   AgentMetadata,
   AgentMetadataCredential,
+  AgentCapability,
+  CapabilityInvocationRejection,
+  CapabilityRejection,
   CreateAgentParams,
+  CreateCapabilityParams,
   CreateAgentResult,
   DidDocument,
   DidWebvhControllerKeys,
@@ -22,6 +26,12 @@ import {
   VerifyAgentMetadataCredentialOptions,
   VerifyAgentCardResult,
   VerifyAgentMetadataCredentialResult,
+  VerifyCapabilityChainOptions,
+  VerifyCapabilityChainResult,
+  VerifyClientAssertionParams,
+  VerifyClientAssertionResult,
+  VerifyHttpCapabilityInvocationParams,
+  VerifyHttpCapabilityInvocationResult,
   VerifyHttpRequestSignatureParams,
   VerifyHttpRequestSignatureResult,
   VerifyIdentityCompositionParams,
@@ -75,7 +85,12 @@ import { verifyWithActiveKeys } from '../verification/signature';
 import { checkDidWebvhKeyAtTime, parseRfc3339Millis, signatureResultForKey } from '../verification/key-at-time';
 import { verifyTimestampToken } from '../crypto/timestamp';
 import { decodeSignatureHex } from '../crypto/ed25519-verify';
-import { SignatureCheck, SignatureCheckOutcome, verifyAgentDidHttpRequest } from '../http-signatures/verify-request';
+import {
+  SignatureCheck,
+  SignatureCheckOutcome,
+  verifyAgentDidHttpRequest,
+  verifyAgentDidHttpRequestWith
+} from '../http-signatures/verify-request';
 import {
   compositionReasonForKey,
   DID_VERIFICATION_RELATIONSHIPS,
@@ -88,9 +103,31 @@ import { messageSigningInput } from './message-signing';
 import { assertBoundToController, ControllerBindingError } from './controller-binding';
 import { agentDidDocumentProblem, assertAgentDidDocument, assertDidDocument } from './document-guard';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { createEddsaJcs2022Proof, verifyEddsaJcs2022Proof } from '../crypto/data-integrity';
+import {
+  createEddsaJcs2022Proof,
+  DATA_INTEGRITY_PROOF_TYPE,
+  EDDSA_JCS_2022_CRYPTOSUITE,
+  eddsaJcs2022HashData,
+  encodeEddsaProofValue,
+  verifyEddsaJcs2022Proof
+} from '../crypto/data-integrity';
 import { activeEd25519PublicKey, relationshipMethods } from './verification-method';
-import { parseSignedAgentCard } from './agent-card';
+import { didOfKeyId, parseSignedAgentCard } from './agent-card';
+import {
+  actionAllowed,
+  AGENT_DID_CAPABILITY_HTTP_HEADER,
+  buildUnsignedCapability,
+  CAPABILITY_DELEGATION_PURPOSE,
+  capabilityFormProblem,
+  checkCapabilityChain,
+  childCapabilityChain,
+  invocationTargetProblem,
+  MAX_CAPABILITY_HEADER_BYTES,
+  parseCapabilityHeader,
+  rootCapabilityId,
+  targetWithin
+} from './capability';
+import { parseClientAssertion } from './oauth-client';
 import {
   agentMetadataProblem,
   buildUnsignedAgentMetadataCredential,
@@ -1038,6 +1075,299 @@ export class AgentDidClient {
   }
 
   /**
+   * Delegates a capability (RFC-001 §6.7): grants `params.controller` the authority to act on `invocationTarget`
+   * until `expires`, signed with an `eddsa-jcs-2022` proof by a `capabilityDelegation` key of the delegator. Without
+   * `parentCapability` the delegator is a root controller of `rootTarget` (whether it is one is the verifier's
+   * configuration); with it, the delegator must be the parent's `controller`, and the new capability may only narrow
+   * the parent's target, actions and expiry.
+   */
+  public async createCapability(params: CreateCapabilityParams): Promise<AgentCapability> {
+    const delegator = didOfKeyId(params.verificationMethodId);
+    if (delegator === undefined) {
+      throw new TypeError(`verificationMethodId must be a DID URL with a fragment: ${String(params.verificationMethodId)}`);
+    }
+    const targetProblem = invocationTargetProblem(params.invocationTarget);
+    if (targetProblem !== undefined) {
+      throw new TypeError(targetProblem);
+    }
+    const expiresMillis = parseRfc3339Millis(params.expires);
+    if (expiresMillis === undefined) {
+      throw new TypeError('expires must be an RFC 3339 date-time');
+    }
+    if (params.allowedAction !== undefined) {
+      const actions = params.allowedAction;
+      if (actions.length === 0 || actions.some((action) => typeof action !== 'string' || action.length === 0) || new Set(actions).size !== actions.length) {
+        throw new TypeError('allowedAction must be a non-empty list of distinct non-empty strings');
+      }
+    }
+    const id = params.id ?? `urn:uuid:${globalThis.crypto.randomUUID()}`;
+    let parentId: string;
+    let parentForChain: AgentCapability | string;
+    if (params.parentCapability !== undefined) {
+      const parent = params.parentCapability;
+      if (parent.controller !== delegator) {
+        throw new Error(`Only the parent's controller ${parent.controller} can delegate it`);
+      }
+      const parentExpires = parseRfc3339Millis(parent.expires);
+      if (
+        !targetWithin(params.invocationTarget, parent.invocationTarget) ||
+        (parent.allowedAction !== undefined && params.allowedAction !== undefined &&
+          !params.allowedAction.every((action) => parent.allowedAction?.includes(action))) ||
+        parentExpires === undefined || expiresMillis > parentExpires
+      ) {
+        throw new Error("The capability must not widen the parent's target, actions or expiry");
+      }
+      parentId = parent.id;
+      parentForChain = parent;
+    } else {
+      const rootTarget = params.rootTarget ?? params.invocationTarget;
+      const rootProblem = invocationTargetProblem(rootTarget);
+      if (rootProblem !== undefined) {
+        throw new TypeError(rootProblem);
+      }
+      if (!targetWithin(params.invocationTarget, rootTarget)) {
+        throw new Error('invocationTarget must be the root target or within it');
+      }
+      parentId = rootCapabilityId(rootTarget);
+      parentForChain = parentId;
+    }
+    const delegatorDocument = await this.resolveDocument(delegator);
+    const publicKey = activeKeyUnder(delegatorDocument, params.verificationMethodId, 'capabilityDelegation');
+    if (publicKey === undefined) {
+      throw new Error(`${params.verificationMethodId} is not an active Ed25519 capabilityDelegation key of ${delegator}`);
+    }
+    if (bytesToHex(await params.signer.getPublicKey()) !== bytesToHex(publicKey)) {
+      throw new Error(`The signer does not hold ${params.verificationMethodId}`);
+    }
+    const unsigned = buildUnsignedCapability({
+      id,
+      parentCapability: parentId,
+      invocationTarget: params.invocationTarget,
+      controller: params.controller,
+      expires: params.expires,
+      ...(params.allowedAction !== undefined ? { allowedAction: params.allowedAction } : {})
+    });
+    const proofOptions = {
+      type: DATA_INTEGRITY_PROOF_TYPE,
+      cryptosuite: EDDSA_JCS_2022_CRYPTOSUITE,
+      created: this.nowIsoTimestamp(),
+      verificationMethod: params.verificationMethodId,
+      proofPurpose: CAPABILITY_DELEGATION_PURPOSE,
+      capabilityChain: childCapabilityChain(parentForChain)
+    };
+    const config = { ...proofOptions, '@context': unsigned['@context'] };
+    const signature = hexToBytes(await params.signer.sign(eddsaJcs2022HashData(unsigned, config)));
+    const capability = {
+      ...unsigned,
+      proof: { ...config, proofValue: encodeEddsaProofValue(signature) }
+    } as unknown as AgentCapability;
+    if (capabilityFormProblem(capability) !== undefined || !verifyEddsaJcs2022Proof(capability, publicKey)) {
+      throw new Error('The signer produced a capability that does not verify');
+    }
+    return capability;
+  }
+
+  /**
+   * Verifies a delegated capability and its chain (RFC-001 §6.7): form, chain structure, the root controller the
+   * verifier configured for the root target, attenuation at every link, validity period, and each proof by an active
+   * Ed25519 `capabilityDelegation` key of its delegator, resolved now. Never throws for a bad capability: test
+   * `result.ok`.
+   */
+  public async verifyCapabilityChain(
+    capability: unknown,
+    options: VerifyCapabilityChainOptions
+  ): Promise<VerifyCapabilityChainResult> {
+    const checked = checkCapabilityChain(capability, options.rootControllers ?? {}, this.clock().getTime(), options.maxChainLength);
+    if (!checked.ok) {
+      return checked;
+    }
+    const { capabilities, rootControllers, rootId } = checked.value;
+    const delegators: string[] = [];
+    for (const [index, item] of capabilities.entries()) {
+      const delegator = didOfKeyId(item.proof.verificationMethod) as string;
+      const allowed = index === 0 ? rootControllers.includes(delegator) : capabilities[index - 1].controller === delegator;
+      if (!allowed) {
+        return { ok: false, reason: 'delegator_mismatch', capabilityId: item.id };
+      }
+      const keyCheck = await this.delegationKeyCheck(delegator, item.proof.verificationMethod);
+      if (!keyCheck.ok) {
+        return { ok: false, reason: keyCheck.reason, capabilityId: item.id };
+      }
+      if (!verifyEddsaJcs2022Proof(item, keyCheck.publicKey)) {
+        return { ok: false, reason: 'signature_invalid', capabilityId: item.id };
+      }
+      delegators.push(delegator);
+    }
+    const leaf = capabilities[capabilities.length - 1];
+    return {
+      ok: true,
+      capability: leaf,
+      controller: leaf.controller,
+      invocationTarget: leaf.invocationTarget,
+      ...(checked.value.allowedAction !== undefined ? { allowedAction: checked.value.allowedAction } : {}),
+      rootId,
+      delegators
+    };
+  }
+
+  /** The delegation key `keyId` of `did`, resolved now, or why it cannot sign a delegation. */
+  private async delegationKeyCheck(
+    did: string,
+    keyId: string
+  ): Promise<{ ok: true; publicKey: Uint8Array } | { ok: false; reason: CapabilityRejection }> {
+    let document: DidDocument;
+    try {
+      if (did.startsWith('did:webvh:') && (await this.resolveDidWebvhState(did))?.deactivated) {
+        return { ok: false, reason: 'did_deactivated' };
+      }
+      document = await this.resolveDocument(did);
+    } catch {
+      return { ok: false, reason: 'did_resolution_failed' };
+    }
+    const publicKey = activeKeyUnder(document, keyId, 'capabilityDelegation');
+    if (publicKey !== undefined) {
+      return { ok: true, publicKey };
+    }
+    const elsewhere = DID_VERIFICATION_RELATIONSHIPS.some((relationship) =>
+      relationship !== 'capabilityDelegation' && activeKeyUnder(document, keyId, relationship) !== undefined);
+    return { ok: false, reason: elsewhere ? 'key_purpose_violation' : 'key_not_authorized' };
+  }
+
+  /**
+   * Verifies a request that invokes a capability (RFC-001 §6.5, §6.7): the request profile of
+   * `verifyHttpRequestSignatureDetailed`, with the signing key under `capabilityInvocation` instead of
+   * `assertionMethod`; the signature must cover `"agent-did-capability";key="<label>"`; the request's agent DID must
+   * be the capability's `controller`, its URL within the target and its method allowed; then the capability chain
+   * (`verifyCapabilityChain`). The nonce is recorded only when everything passes.
+   */
+  public async verifyHttpCapabilityInvocation(
+    params: VerifyHttpCapabilityInvocationParams
+  ): Promise<VerifyHttpCapabilityInvocationResult> {
+    const { rootControllers, maxChainLength, ...request } = params;
+    const headers = Object.fromEntries(Object.entries(request.headers).map(([key, value]) => [key.toLowerCase(), value]));
+    const field = headers[AGENT_DID_CAPABILITY_HTTP_HEADER.toLowerCase()];
+    const method = request.method.toUpperCase();
+    const requestTarget = request.url.split('?')[0];
+    const result = await verifyAgentDidHttpRequestWith<AgentCapability, VerifyCapabilityChainResult & { ok: true }>(
+      request,
+      {
+        verifySignature: (did, payload, signature, keyId, purpose) => this.checkSignature(did, payload, signature, keyId, purpose),
+        nonceStore: this.nonceStore,
+        now: this.clock()
+      },
+      {
+        relationship: REQUIRED_RELATIONSHIP_BY_ARTIFACT.invocation,
+        beforeSignature: (label, input, agentDid) => {
+          const covered = input.components.some((component) =>
+            typeof component !== 'string' && component.name === 'agent-did-capability' && component.key === label);
+          if (!covered || field === undefined) {
+            return { ok: false, reason: 'capability_missing' };
+          }
+          if (new TextEncoder().encode(field).length > MAX_CAPABILITY_HEADER_BYTES) {
+            return { ok: false, reason: 'capability_too_large' };
+          }
+          const parsed = parseCapabilityHeader(field, label);
+          if (parsed === 'missing') {
+            return { ok: false, reason: 'capability_missing' };
+          }
+          if (parsed === undefined) {
+            return { ok: false, reason: 'malformed_capability' };
+          }
+          if (parsed.controller !== agentDid) {
+            return { ok: false, reason: 'invoker_not_controller', capabilityId: parsed.id };
+          }
+          if (typeof parsed.invocationTarget !== 'string' || !targetWithin(requestTarget, parsed.invocationTarget)) {
+            return { ok: false, reason: 'target_mismatch', capabilityId: parsed.id };
+          }
+          return { ok: true, state: parsed };
+        },
+        afterSignature: async (capability) => {
+          const chain = await this.verifyCapabilityChain(capability, {
+            rootControllers,
+            ...(maxChainLength !== undefined ? { maxChainLength } : {})
+          });
+          if (!chain.ok) {
+            return chain;
+          }
+          if (!actionAllowed(method, chain.allowedAction)) {
+            return { ok: false, reason: 'action_not_allowed', capabilityId: chain.capability.id };
+          }
+          return { ok: true, extra: chain };
+        }
+      }
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        reason: result.reason as CapabilityInvocationRejection,
+        ...(result.capabilityId !== undefined ? { capabilityId: result.capabilityId } : {})
+      };
+    }
+    const chain = result.extra as VerifyCapabilityChainResult & { ok: true };
+    return {
+      ok: true,
+      did: result.did,
+      keyId: result.keyId,
+      controllers: result.controllers,
+      capability: chain.capability,
+      ...(chain.allowedAction !== undefined ? { allowedAction: chain.allowedAction } : {}),
+      rootId: chain.rootId,
+      delegators: chain.delegators
+    };
+  }
+
+  /**
+   * Verifies a JWT client assertion (`private_key_jwt`) against the agent DID registered for the client (RFC-001
+   * §6.8): JWS form, `alg` (`EdDSA` or `Ed25519`), `typ` (absent or `client-authentication+jwt`), `kid` a DID URL of
+   * `did`, `iss` = `sub` = `clientId`, `aud` exactly `issuer`, lifetime at most 300 s and times within the clock
+   * skew, then the signature by an active Ed25519 `authentication` key of the resolved DID, and finally `jti` in the
+   * nonce store. For an authorization server or MCP server that knows Agent-DID. Never throws: test `result.ok`.
+   */
+  public async verifyClientAssertion(params: VerifyClientAssertionParams): Promise<VerifyClientAssertionResult> {
+    const parsed = parseClientAssertion(params.assertion, {
+      clientId: params.clientId,
+      issuer: params.issuer,
+      did: params.did,
+      nowSeconds: Math.floor(this.clock().getTime() / 1000),
+      maxClockSkewSeconds: params.maxClockSkewSeconds ?? 30
+    });
+    if (!parsed.ok) {
+      return parsed;
+    }
+    const { keyId, signingInput, signature, jti, expiresAt } = parsed.value;
+    const check = await this.checkSignature(
+      params.did,
+      signingInput,
+      bytesToHex(signature),
+      keyId,
+      REQUIRED_RELATIONSHIP_BY_ARTIFACT.authentication
+    );
+    if (check.outcome !== 'valid') {
+      return {
+        ok: false,
+        reason:
+          check.outcome === 'invalid' ? 'signature_invalid'
+            : check.outcome === 'key_not_authorized' ? 'key_not_authorized'
+              : check.outcome
+      };
+    }
+    const store = params.nonceStore ?? this.nonceStore;
+    const skew = params.maxClockSkewSeconds ?? 30;
+    if (!(await store.checkAndStore(`client-assertion ${params.clientId} ${jti}`, expiresAt + skew))) {
+      return { ok: false, reason: 'jti_replayed' };
+    }
+    return {
+      ok: true,
+      did: params.did,
+      keyId,
+      clientId: params.clientId,
+      jti,
+      expiresAt,
+      controllers: check.controllers ?? []
+    };
+  }
+
+  /**
    * Drops the resolver's cached resolution of `did`, so the next verification fetches and verifies it again (for a
    * check that must not rely on a cached state, such as an irreversible action). A no-op with a resolver that does
    * not cache (`DIDResolver.evict` not implemented).
@@ -1673,6 +2003,11 @@ export class AgentDidClient {
 
 /** The raw public key of `keyId` when it is an active Ed25519 `assertionMethod` key of `document`. */
 function activeAssertionKey(document: DidDocument, keyId: string): Uint8Array | undefined {
-  const method = relationshipMethods(document, 'assertionMethod').find((candidate) => candidate.id === keyId);
+  return activeKeyUnder(document, keyId, 'assertionMethod');
+}
+
+/** The public key of `keyId` when it is an active Ed25519 key listed under `relationship` of `document`. */
+function activeKeyUnder(document: DidDocument, keyId: string, relationship: VerificationRelationship): Uint8Array | undefined {
+  const method = relationshipMethods(document, relationship).find((candidate) => candidate.id === keyId);
   return method === undefined ? undefined : activeEd25519PublicKey(method);
 }

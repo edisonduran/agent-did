@@ -65,7 +65,14 @@ async def create_eddsa_jcs_2022_proof(
     signature = await sign(eddsa_jcs_2022_hash_data(unsecured_document, config))
     if len(signature) != 64:
         raise ValueError("An Ed25519 signature is 64 bytes")
-    return {**config, "proofValue": "z" + _base58_encode(signature)}
+    return {**config, "proofValue": encode_eddsa_proof_value(signature)}
+
+
+def encode_eddsa_proof_value(signature: bytes) -> str:
+    """The ``proofValue`` of a 64-byte Ed25519 signature: ``z`` + base58btc."""
+    if len(signature) != 64:
+        raise ValueError("An Ed25519 signature is 64 bytes")
+    return "z" + _base58_encode(signature)
 
 
 def decode_eddsa_proof_value(proof_value: object) -> bytes | None:

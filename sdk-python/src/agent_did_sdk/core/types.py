@@ -332,6 +332,10 @@ class SignHttpRequestParams(BaseModel):
     a fixed guess names the wrong key once the agent has rotated."""
     expires_in_seconds: int | None = None
     http_security: Any | None = None  # HttpTargetValidationOptions
+    capability: dict[str, Any] | None = None
+    """A capability to invoke (RFC-001 §6.7): sent in the ``Agent-DID-Capability`` field and covered as
+    ``"agent-did-capability";key="sig1"`` after the required components. The signing key must then be a
+    ``capabilityInvocation`` key of ``agent_did``, which must be the capability's ``controller``."""
 
 
 class VerifyHttpRequestSignatureParams(BaseModel):
@@ -700,3 +704,152 @@ class AgentDocumentHistoryEntry(BaseModel):
     timestamp: str
     version: str | None = None
     document_ref: str | None = Field(default=None, alias="documentRef")
+
+
+# ---------------------------------------------------------------------------
+# Capabilities and the OAuth bridge (RFC-001 §6.7, §6.8; ADR-008)
+# ---------------------------------------------------------------------------
+
+JwsEd25519Alg = Literal["EdDSA", "Ed25519"]
+"""JWS ``alg`` of an Ed25519 signature: ``EdDSA`` (RFC 8037) or ``Ed25519`` (RFC 9864). Both mean an Ed25519 key
+only."""
+
+CapabilityRejection = Literal[
+    "malformed_capability",
+    "unsupported_proof",
+    "chain_too_long",
+    "root_controller_unknown",
+    "attenuation_violation",
+    "expired",
+    "delegator_mismatch",
+    "did_resolution_failed",
+    "did_deactivated",
+    "key_purpose_violation",
+    "key_not_authorized",
+    "signature_invalid",
+]
+"""Why a capability chain was rejected (RFC-001 §6.7), in the order the checks run.
+
+* ``malformed_capability``: a capability or the chain structure does not have the form of §6.7.
+* ``unsupported_proof``: a proof is not one ``eddsa-jcs-2022`` ``capabilityDelegation`` proof of that form.
+* ``chain_too_long``: more delegated capabilities than ``max_chain_length``.
+* ``root_controller_unknown``: the verifier configured no root controller for the root's target.
+* ``attenuation_violation``: a capability widens its parent's target, actions or expiry.
+* ``expired``: a capability in the chain is past its ``expires``.
+* ``delegator_mismatch``: a proof is not by the parent's ``controller`` (or a root controller).
+* ``did_resolution_failed`` / ``did_deactivated``: a delegator DID does not resolve, or is deactivated.
+* ``key_purpose_violation``: the proof key is an active key of the delegator, not under ``capabilityDelegation``.
+* ``key_not_authorized``: the proof key is not an active Ed25519 key of the delegator.
+* ``signature_invalid``: a proof does not verify.
+"""
+
+
+@dataclass(frozen=True)
+class VerifyCapabilityChainResult:
+    """Result of ``verify_capability_chain``. Test ``result.ok``: the object is truthy for a rejection too."""
+
+    ok: bool
+    reason: CapabilityRejection | None = None
+    capability_id: str | None = None
+    """For a rejection, the capability of the chain that failed, when one did."""
+    capability: dict[str, Any] | None = None
+    """For an accepted chain, the verified capability (the leaf)."""
+    controller: str | None = None
+    """For an accepted chain, the DID that may invoke it (``capability["controller"]``)."""
+    invocation_target: str | None = None
+    allowed_action: tuple[str, ...] | None = None
+    """For an accepted chain, the actions it allows (``None``: every action)."""
+    root_id: str | None = None
+    """For an accepted chain, the root capability ``id``."""
+    delegators: tuple[str, ...] = ()
+    """For an accepted chain, who signed each link, from the root controller to the leaf's delegator."""
+
+
+CapabilityInvocationRejection = Literal[
+    HttpSignatureRejection,
+    CapabilityRejection,
+    "capability_missing",
+    "capability_too_large",
+    "invoker_not_controller",
+    "target_mismatch",
+    "action_not_allowed",
+]
+"""Why ``verify_http_capability_invocation`` rejected a request: the reasons of
+``verify_http_request_signature_detailed``, the reasons of ``verify_capability_chain``, and:
+
+* ``capability_missing``: the signature does not cover ``"agent-did-capability";key="<label>"``, or the field has no
+  member for the label.
+* ``capability_too_large``: the ``Agent-DID-Capability`` field is longer than 8192 bytes.
+* ``invoker_not_controller``: the request's agent DID is not the capability's ``controller``.
+* ``target_mismatch``: the request URL (without its query) is not the target nor within it.
+* ``action_not_allowed``: the request method is not in the chain's ``allowedAction``.
+"""
+
+
+class VerifyHttpCapabilityInvocationParams(VerifyHttpRequestSignatureParams):
+    """Parameters of ``verify_http_capability_invocation``: the request, and the capability chain options."""
+
+    root_controllers: dict[str, list[str]]
+    """Who may delegate each target: root target URL (exact, normalized) -> DIDs. The resource server decides; a chain
+    whose root target is not a key here is ``root_controller_unknown``."""
+    max_chain_length: int | None = None
+    """Delegated capabilities accepted after the root (default 5, at most 10)."""
+
+
+@dataclass(frozen=True)
+class VerifyHttpCapabilityInvocationResult:
+    """Result of ``verify_http_capability_invocation``. Test ``result.ok``."""
+
+    ok: bool
+    reason: CapabilityInvocationRejection | None = None
+    capability_id: str | None = None
+    did: str | None = None
+    """For an accepted request, the invoking agent DID."""
+    key_id: str | None = None
+    """For an accepted request, its ``capabilityInvocation`` key that signed."""
+    controllers: list[str] = field(default_factory=list)
+    """For an accepted request, the controller chain of ``did``, nearest first."""
+    capability: dict[str, Any] | None = None
+    """For an accepted request, the verified capability (the leaf)."""
+    allowed_action: tuple[str, ...] | None = None
+    """For an accepted request, the actions the chain allows (``None``: every action)."""
+    root_id: str | None = None
+    delegators: tuple[str, ...] = ()
+
+
+ClientAssertionRejection = Literal[
+    "malformed_assertion",
+    "alg_unsupported",
+    "type_invalid",
+    "kid_not_bound",
+    "client_id_mismatch",
+    "audience_invalid",
+    "lifetime_exceeded",
+    "not_yet_valid",
+    "expired",
+    "did_resolution_failed",
+    "controller_not_bound",
+    "key_not_authorized",
+    "signature_invalid",
+    "jti_replayed",
+]
+"""Why ``verify_client_assertion`` rejected a JWT client assertion (RFC-001 §6.8), in the order the checks run:
+``malformed_assertion``, ``alg_unsupported``, ``type_invalid``, ``kid_not_bound`` (the ``kid`` is not a DID URL of
+the expected DID), ``client_id_mismatch`` (``iss`` or ``sub``), ``audience_invalid`` (``aud`` is not exactly the
+issuer, as a single string), ``lifetime_exceeded``, ``not_yet_valid``, ``expired``, ``did_resolution_failed``,
+``controller_not_bound``, ``key_not_authorized`` (not an active Ed25519 ``authentication`` key), ``signature_invalid``,
+``jti_replayed``."""
+
+
+@dataclass(frozen=True)
+class VerifyClientAssertionResult:
+    """Result of ``verify_client_assertion``. Test ``result.ok``."""
+
+    ok: bool
+    reason: ClientAssertionRejection | None = None
+    did: str | None = None
+    key_id: str | None = None
+    client_id: str | None = None
+    jti: str | None = None
+    expires_at: int | None = None
+    controllers: list[str] = field(default_factory=list)
