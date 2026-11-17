@@ -6,6 +6,7 @@ site-dist/
 .DS_Store
 coverage/
 .coverage
+coverage.json
 *.log
 .vscode/settings.json
 __pycache__/

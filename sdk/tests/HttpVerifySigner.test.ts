@@ -82,3 +82,20 @@ describe('verifyHttpRequestSignatureDetailed: who signed and whom to accept', ()
     expect(result).toEqual({ ok: false, reason: 'controller_not_allowed' });
   });
 });
+
+describe('verifyHttpRequestSignatureDetailed: Signature-Input without a matching Signature', () => {
+  it('rejects a label that has no signature as malformed_headers', async () => {
+    const { client, request } = await signedRequest();
+    const headers = { ...request.headers } as Record<string, string>;
+    const signatureName = Object.keys(headers).find((name) => name.toLowerCase() === 'signature') as string;
+    headers[signatureName] = headers[signatureName].replace(/^sig1=/u, 'sig2=');
+
+    const result = await client.verifyHttpRequestSignatureDetailed({
+      ...request,
+      headers,
+      nonceStore: new InMemoryNonceStore()
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: 'malformed_headers' });
+  });
+});

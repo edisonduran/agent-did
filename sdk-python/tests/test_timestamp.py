@@ -188,3 +188,84 @@ async def test_refuses_a_token_with_trusted_time_not_after_or_without_anchors() 
         await client.verify_signature_at_time(
             did, payload, signature, key_id, stated_time=stated_time, timestamp_token=token
         )
+
+
+# --- Malformed token structures (C-QA-2; TypeScript parity: Timestamp.test.ts "malformed token structures") ---
+
+from agent_did_sdk.crypto import timestamp as _ts  # noqa: E402
+
+
+def _tlv(tag: int, value: bytes) -> bytes:
+    return bytes([tag]) + _ts._der_length(len(value)) + value
+
+
+def _mutated_bare_token(mutate: Any) -> bytes:
+    """Re-encodes the bare test token after *mutate* changes the list of SignedData child TLVs."""
+    token = _token(_by_name("test-tsa-bare-token"))
+    _tag, content_info, _ = _ts._read_der(token, 0)
+    oid_end = _ts._children(content_info, 0, len(content_info))[0][1]
+    _tag, explicit, _ = _ts._read_der(content_info, oid_end)
+    _tag, signed_data, _ = _ts._read_der(explicit, 0)
+    children = [signed_data[a:b] for a, b, _ in _ts._children(signed_data, 0, len(signed_data))]
+    children = mutate(children)
+    return _tlv(0x30, content_info[:oid_end] + _tlv(0xA0, _tlv(0x30, b"".join(children))))
+
+
+_MALFORMED = {"status": "invalid", "reason": "token_malformed"}
+
+
+@pytest.mark.parametrize(
+    "der",
+    [
+        "30",  # one byte
+        "1f0100",  # high tag number
+        "3080",  # long form with no length bytes
+        "3005",  # length beyond the data
+        "020100",  # not a SEQUENCE
+        "3000",  # empty SEQUENCE
+        "300302010000",  # trailing bytes
+        "3003020100",  # neither ContentInfo nor TimeStampResp
+        "30053003040100",  # status that is not an INTEGER
+        "30053003020100",  # granted response without a token
+        "3003060100",  # ContentInfo without content
+        "300730030201000505",  # granted, then bytes that are not a TLV
+        "300f06092a864886f70d010702a0020400",  # ContentInfo whose content is not SignedData
+    ],
+)
+def test_rejects_malformed_der(der: str) -> None:
+    result = verify_timestamp_token(bytes.fromhex(der), _MESSAGE, trust_anchors=_anchors(["test-root"]))
+    assert _as_fixture(result) == _MALFORMED
+
+
+def test_rejects_a_token_with_two_signers_or_without_the_signer_certificate() -> None:
+    def two_signers(children: list[bytes]) -> list[bytes]:
+        _tag, signer_infos, _ = _ts._read_der(children[-1], 0)
+        return [*children[:-1], _tlv(0x31, signer_infos + signer_infos)]
+
+    def without_certificates(children: list[bytes]) -> list[bytes]:
+        return [child for child in children if child[0] != 0xA0]
+
+    for mutate in (two_signers, without_certificates):
+        result = verify_timestamp_token(_mutated_bare_token(mutate), _MESSAGE, trust_anchors=_anchors(["test-root"]))
+        assert _as_fixture(result) == _MALFORMED
+
+
+def test_rejects_an_anchor_of_another_type() -> None:
+    with pytest.raises(TypeError):
+        verify_timestamp_token(_token(_by_name("test-tsa-granted")), _MESSAGE, trust_anchors=[123])  # type: ignore[list-item]
+
+
+def test_a_certificate_without_extended_key_usage_is_not_a_timestamping_certificate() -> None:
+    import cryptography.x509
+
+    root = cryptography.x509.load_pem_x509_certificate(_FIXTURE["anchors"]["test-root"].encode())
+    assert _ts._is_timestamping_certificate(root) is False
+
+
+def test_accuracy_that_the_library_cannot_read_counts_as_zero() -> None:
+    class _NoAccuracy:
+        @property
+        def accuracy(self) -> Any:
+            raise ValueError("absent")
+
+    assert _ts._accuracy_millis(_NoAccuracy()) == 0

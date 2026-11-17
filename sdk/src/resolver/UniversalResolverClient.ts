@@ -120,8 +120,11 @@ function deriveDidWbaDocumentUrl(did: string): string {
   try {
     parsed = new URL(url);
   } catch {
+    /* istanbul ignore next -- the host grammar and segment encoding above only build URLs that parse */
     throw new Error(`Invalid did:wba DID: ${did}`);
   }
+  // Guards against a URL parser that would read the built URL differently from how it was built
+  /* istanbul ignore next -- no input reaches it with the grammar above (DidWbaUrlVectors.test.ts) */
   if (
     parsed.protocol !== 'https:' ||
     parsed.hostname !== host ||
@@ -504,7 +507,10 @@ export class UniversalResolverClient implements DIDResolver {
     try {
       loading = load();
     } catch (error) {
+      // load is async, so it rejects rather than throws; this releases the slot if that ever changes
+      /* istanbul ignore next */
       this.releaseFetchSlot(host);
+      /* istanbul ignore next */
       throw error;
     }
     loading.then(

@@ -148,10 +148,12 @@ function countParameterSeparators(value: string): number {
       if (char === '\\') index += 1;
       else if (char === '"') inString = false;
     } else if (inBytes) {
+      /* istanbul ignore next -- a Signature-Input that parses has no Byte Sequence (they are rejected as values) */
       if (char === ':') inBytes = false;
     } else if (char === '"') {
       inString = true;
     } else if (char === ':') {
+      /* istanbul ignore next -- as above; kept so the count stays right if Byte Sequences are ever accepted */
       inBytes = true;
     } else if (char === ';') {
       count += 1;
@@ -315,6 +317,7 @@ function dictionaryMemberValue(request: HttpRequestLike, component: KeyedCompone
   try {
     return Array.isArray(member[0]) ? serializeInnerList(member as InnerList) : serializeItem(member as Item);
   } catch (error) {
+    /* istanbul ignore next -- a member the strict parser accepted serializes; this only labels a library bug */
     throw new HttpSignatureError(`Dictionary member cannot be serialized: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

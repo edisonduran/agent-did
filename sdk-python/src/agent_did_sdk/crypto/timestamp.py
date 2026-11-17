@@ -157,7 +157,7 @@ def _verify(token: bytes, message: bytes, anchors: list[cryptography.x509.Certif
         raise _Rejected("verification_failed") from None
 
     gen_time = tst_info.gen_time
-    if gen_time.tzinfo is None:
+    if gen_time.tzinfo is None:  # pragma: no cover - rfc3161-client returns aware datetimes; kept for other versions
         gen_time = gen_time.replace(tzinfo=timezone.utc)
     not_after = gen_time + timedelta(milliseconds=_accuracy_millis(tst_info))
     return VerifyTimestampTokenResult(

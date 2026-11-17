@@ -50,7 +50,7 @@ def verify_with_active_keys(
 
     for vm in candidates:
         pk_raw = vm.public_key_multibase
-        if not pk_raw:
+        if not pk_raw:  # pragma: no cover - candidates keep only methods with a publicKeyMultibase
             continue
         try:
             if verify_ed25519(sig_bytes, message_bytes, decode_public_key_multibase(pk_raw)):

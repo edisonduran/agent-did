@@ -99,7 +99,8 @@ class _BearerAuthAsyncClient:
             if should_close:
                 await client.aclose()
 
-    async def aclose(self) -> None:
+    # Part of the client interface the inner source expects; it never closes a client it was given
+    async def aclose(self) -> None:  # pragma: no cover
         return None
 
     def _assert_allowed(self, url: str) -> None:

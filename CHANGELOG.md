@@ -10,6 +10,10 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Tests
+
+- Every line of the crypto, signing, verification and resolver modules is covered in both SDKs, and CI enforces it per module (`sdk/jest.config.js`, `sdk-python/scripts/check_critical_coverage.py`; release criterion C-QA-2). Tests only, plus coverage comments on defensive branches that no input reaches; no behavior change.
+
 ## [1.0.0-rc.5] - 2026-11-16
 
 ### Documentation

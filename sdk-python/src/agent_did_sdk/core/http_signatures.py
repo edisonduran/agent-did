@@ -163,11 +163,13 @@ def _count_parameter_separators(value: str) -> int:
                 skip = True
             elif char == '"':
                 in_string = False
-        elif in_bytes:
+        # A Signature-Input that parses has no Byte Sequence (they are rejected as values); the branch keeps the
+        # count right if they are ever accepted
+        elif in_bytes:  # pragma: no cover
             in_bytes = char != ":"
         elif char == '"':
             in_string = True
-        elif char == ":":
+        elif char == ":":  # pragma: no cover - as above
             in_bytes = True
         elif char == ";":
             count += 1
@@ -330,7 +332,7 @@ def _dictionary_member_value(request: HttpRequestLike, component: KeyedComponent
         raise HttpSignatureError(f"Covered dictionary member is missing: {component.name};key={component.key}")
     try:
         return ser_item_or_inner_list(member)
-    except (http_sf.StructuredFieldError, ValueError) as error:
+    except (http_sf.StructuredFieldError, ValueError) as error:  # pragma: no cover - a parsed member serializes
         raise HttpSignatureError(f"Dictionary member cannot be serialized: {error}") from None
 
 

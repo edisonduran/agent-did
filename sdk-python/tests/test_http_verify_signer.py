@@ -84,3 +84,33 @@ async def test_applies_both_lists_when_both_are_set() -> None:
 
     assert result.ok is False
     assert result.reason == "controller_not_allowed"
+
+
+async def test_rejects_a_signature_input_label_that_has_no_signature() -> None:
+    client, _document, request = await _signed_request()
+    headers = dict(request["headers"])
+    name = next(key for key in headers if key.lower() == "signature")
+    headers[name] = headers[name].replace("sig1=", "sig2=", 1)
+
+    result = await client.verify_http_request_signature_detailed(_params({**request, "headers": headers}))
+
+    assert (result.ok, result.reason) == (False, "malformed_headers")
+
+
+async def test_reports_did_resolution_failed_for_a_signer_the_verifier_cannot_resolve() -> None:
+    _client, _document, request = await _signed_request()
+
+    result = await AgentDidClient().verify_http_request_signature_detailed(_params(request))
+
+    assert (result.ok, result.reason) == (False, "did_resolution_failed")
+
+
+async def test_rejects_a_signature_input_with_no_members() -> None:
+    client, _document, request = await _signed_request()
+    headers = dict(request["headers"])
+    name = next(key for key in headers if key.lower() == "signature-input")
+    headers[name] = " "
+
+    result = await client.verify_http_request_signature_detailed(_params({**request, "headers": headers}))
+
+    assert (result.ok, result.reason) == (False, "malformed_headers")

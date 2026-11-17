@@ -121,6 +121,7 @@ export class JsonRpcDIDDocumentSource implements DIDDocumentSource {
       init: { method: string; headers: Record<string, string>; body: string }
     ) => Promise<JsonRpcResponse>;
 
+    /* istanbul ignore next -- createSafeFetch always returns a function */
     if (!fetchFn) {
       throw new Error('No fetch implementation available for JsonRpcDIDDocumentSource');
     }

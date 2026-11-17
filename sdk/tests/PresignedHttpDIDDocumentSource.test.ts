@@ -137,4 +137,23 @@ describe('PresignedHttpDIDDocumentSource', () => {
     expect(fetchFn).toHaveBeenNthCalledWith(1, 'https://cdn-docs.example/hash%3A%2F%2Fsha256%2Fpresigned-doc.json');
     expect(fetchFn).toHaveBeenNthCalledWith(2, 'https://cdn-logs.example/history%3A%2F%2Fpresigned%2Fbot.jsonl');
   });
+
+  it('uses the reference itself as the URL for every operation when no mapping is configured', async () => {
+    const fetchFn = jest.fn(async (url: string, init?: { method?: string }) => ({
+      ok: true,
+      status: init?.method === 'PUT' ? 204 : 200,
+      json: async () => sampleDocument,
+      text: async () => 'log'
+    }));
+    const source = new PresignedHttpDIDDocumentSource({ fetchFn });
+    const ref = 'https://cdn.example/doc.json';
+
+    await source.getByReference(ref);
+    await source.getDidLogByReference(ref);
+    await source.storeByReference(ref, sampleDocument as never);
+    await source.storeDidLogByReference(ref, 'log');
+
+    expect(fetchFn.mock.calls.every(([url]) => url === ref)).toBe(true);
+    expect(fetchFn).toHaveBeenCalledTimes(4);
+  });
 });

@@ -122,7 +122,7 @@ def _derive_did_wba_document_url(did: str) -> str:
         or parts.path != pathname
         or parts.query
         or parts.fragment
-    ):
+    ):  # pragma: no cover - guards against a URL parser disagreement; the grammar above leaves none
         raise ValueError(f"Invalid did:wba DID: {did}")
     return url
 
@@ -402,7 +402,8 @@ class UniversalResolverClient:
                         f"Resolution refused: no fetch slot freed up within {self._fetch_deadline_ms} ms"
                     ) from None
                 # The slot was handed over as the wait timed out: use it.
-            except asyncio.CancelledError:
+            # Callers await a shielded shared task, so only cancelling that task itself (loop shutdown) gets here
+            except asyncio.CancelledError:  # pragma: no cover
                 if waiter in self._fetch_queue:
                     self._fetch_queue.remove(waiter)
                 elif waiter[1].done():
@@ -416,7 +417,7 @@ class UniversalResolverClient:
         try:
             return await asyncio.wait_for(asyncio.shield(task), max(0.0, deadline - loop.time()))
         except asyncio.TimeoutError:
-            if task.done():
+            if task.done():  # pragma: no cover - the fetch settled in the same loop turn as the deadline
                 return task.result()
             raise ValueError(
                 f"DID fetch did not finish within {self._fetch_deadline_ms} ms (fetch_deadline_ms)"

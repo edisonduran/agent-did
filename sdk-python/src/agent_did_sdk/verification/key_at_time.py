@@ -160,8 +160,8 @@ async def check_did_webvh_key_at_time(
             continue
         entry = json.loads(line)
         version_millis = parse_rfc3339_millis(entry["versionTime"])
-        if version_millis is None:
-            # resolve_did_webvh_log already rejects such logs; this keeps the type honest.
+        # resolve_did_webvh_log already rejects such logs; this keeps the type honest.
+        if version_millis is None:  # pragma: no cover
             raise ValueError(f"did:webvh entry {entry['versionId']} has an unreadable versionTime")
         parameters = entry.get("parameters") or {}
         entries.append(

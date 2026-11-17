@@ -84,6 +84,7 @@ export async function verifyTimestampToken(
     if (error instanceof Rejected) {
       return { status: 'invalid', reason: error.reason };
     }
+    /* istanbul ignore next -- every parse step maps its failure to Rejected; anything else is a bug to surface */
     throw error;
   }
 }

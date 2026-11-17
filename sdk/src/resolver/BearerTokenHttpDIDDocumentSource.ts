@@ -96,6 +96,7 @@ export class BearerTokenHttpDIDDocumentSource implements DIDDocumentSource {
 
   private createAuthenticatedFetchFn(config: BearerTokenHttpDIDDocumentSourceConfig): FetchLike {
     const baseFetch = config.fetchFn || (createSafeFetch(config.httpSecurity) as unknown as FetchLike);
+    /* istanbul ignore next -- createSafeFetch always returns a function */
     if (!baseFetch) {
       throw new Error('No fetch implementation available for BearerTokenHttpDIDDocumentSource');
     }
