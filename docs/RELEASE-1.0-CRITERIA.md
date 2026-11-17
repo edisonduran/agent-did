@@ -131,7 +131,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 ### 2.6 Operations and Resolver
 
 - [x] **C-OPS-1** — Resolver HA drill scheduled in GitHub Actions (`schedule:` weekly), green for ≥4 documented runs. _Evidence: 14 green runs of `resolver-ha-drill.yml` (2026-05-11 → 2026-07-20); after a pause the weekly schedule resumed on 2026-11-02 and is green on 2026-11-02, 2026-11-09 and 2026-11-16._
-- [ ] **C-OPS-2** — `RFC-001-Resolver-HA-Runbook.md` validated by a recent dry run.
+- [x] **C-OPS-2** — `RFC-001-Resolver-HA-Runbook.md` validated by a recent dry run. _Evidence: dry run on 2026-11-17 against `1.0.0-rc.5` (`be7feee7`), following the runbook's procedure 4.4 in both SDKs (simulated drill, baseline, primary failure against the public target, negative control, restore); the results are recorded in section 7 of the runbook._
 
 ### 2.7 Supply Chain
 
