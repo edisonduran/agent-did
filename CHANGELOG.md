@@ -4,17 +4,50 @@ All notable changes to the **Agent-DID** ecosystem are documented here.
 
 The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and, starting with version `1.0.0`, this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) per [docs/DEPRECATION-POLICY.md](docs/DEPRECATION-POLICY.md).
 
-> **Scope:** this root CHANGELOG records the *release train* of the core ecosystem (RFC + SDKs + integrations co-versioned starting at 1.0.0). Per-package `CHANGELOG.md` files are still pending (`C-DOC-1` in [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md)).
+> **Scope:** this root CHANGELOG records the *release train* of the core ecosystem (RFC + SDKs + integrations co-versioned starting at 1.0.0). It is the only changelog: the packages do not ship one of their own. Each release entry opens with a **Packages** section that says what reaches each package; the sections after it (Added, Changed, Fixed…) hold the details.
+
+### Packages
+
+| Package | Registry | Source |
+|---|---|---|
+| `@agentdid/sdk` | npm | [`sdk/`](sdk/) |
+| `agent-did-sdk` | PyPI | [`sdk-python/`](sdk-python/) |
+| `@agentdid/langchain` | npm | [`integrations/langchain/`](integrations/langchain/) |
+| `agent-did-langchain` | PyPI | [`integrations/langchain-python/`](integrations/langchain-python/) |
+| `agent-did-crewai` | PyPI | [`integrations/crewai/`](integrations/crewai/) |
+| `agent-did-semantic-kernel` | PyPI | [`integrations/semantic-kernel/`](integrations/semantic-kernel/) |
+| `agent-did-microsoft-agent-framework` | PyPI | [`integrations/microsoft-agent-framework/`](integrations/microsoft-agent-framework/) |
+| `agent-did-a2a` | PyPI | [`integrations/a2a/`](integrations/a2a/) |
+| `agent-did-mcp` | PyPI | [`integrations/mcp/`](integrations/mcp/) (since `1.0.0-rc.5`) |
+
+All of them carry the release version (`1.0.0-rc.N` on npm, `1.0.0rcN` on PyPI). `@agentdid/evm` was part of the train in `1.0.0-rc.4` only; it now lives in [edisonduran/agent-did-evm](https://github.com/edisonduran/agent-did-evm).
 
 ---
 
 ## [Unreleased]
+
+### Packages
+
+- No package changes yet: the entries below change tests only.
 
 ### Tests
 
 - Every line of the crypto, signing, verification and resolver modules is covered in both SDKs, and CI enforces it per module (`sdk/jest.config.js`, `sdk-python/scripts/check_critical_coverage.py`; release criterion C-QA-2). Tests only, plus coverage comments on defensive branches that no input reaches; no behavior change.
 
 ## [1.0.0-rc.5] - 2026-11-16
+
+### Packages
+
+All nine packages are `1.0.0-rc.5` / `1.0.0rc5`; `@agentdid/evm` left the train (see Removed). Every integration depends on the SDK of the same release, so the SDK changes reach them too.
+
+- **`@agentdid/sdk`** and **`agent-did-sdk`** (the same changes in both). Breaking: domain-separated payload signatures, controller binding, `Multikey` verification methods, the `Agent-DID` request header, normalized request URLs, `allowedOrigins` on `BearerTokenHttpDIDDocumentSource`, and the removal of the `did:agent` profile and of `verifyHistoricalSignature`. New: capabilities (delegation and invocation), OAuth client assertions, did:webvh witnesses and pre-rotation, RFC 3161 timestamp tokens, controller documents, `AgentMetadataCredential`, Agent Card signing and the identity composition contract, key validity at a stated time, `verifyHttpRequestSignatureDetailed` with `allowedDids` / `allowedControllers`, resolution limits and the observability sanitizer. TypeScript only: `exports` map with an ES module entry; `multiformats` removed. Python only: `did-webvh` pinned to `1.0.1`, `jsoncanon` declared, Python 3.13 and 3.14 supported.
+- **`@agentdid/langchain`**: `zod` 4; `allowPrivateNetworkTargets` reaches the SDK target policy and IPv6 loopback and private literals are rejected; the `resolveDid` and `verifySignatures` tools are opt-in; signs with the agent's external signer when it has one, and with the first active `assertionMethod` key.
+- **`agent-did-langchain`**: the `resolve_did` and `verify_signatures` tools are opt-in; observability goes through the SDK sanitizer; external signer and `assertionMethod` key as above.
+- **`agent-did-crewai`**: the output guardrail works with CrewAI's `TaskOutput` (every task that used it failed); callbacks go through the SDK sanitizer (see Security); `allow_private_network_targets` reaches the signer; tools opt-in; external signer.
+- **`agent-did-semantic-kernel`**: tool arguments are validated with `args_schema`; `allow_private_network_targets` reaches the signer; tools opt-in; external signer.
+- **`agent-did-microsoft-agent-framework`**: the verified handoff signs a canonical envelope with destination, nonce and `signed_at`, checked by new gates (see Security); `add_verified_handoff` checks rotated keys with `verify_signature_at_time` (behavior change after a key rotation); nonce grammar and `<did> <nonce>` replay key; maximum message age per action class; `allow_private_network_targets` reaches the signer; tools opt-in; external signer.
+- **`agent-did-a2a`** (breaking): A2A 1.0 cards and methods (`send_message`, `build_send_message_request`, `build_get_task_request`), and the `expose` flags without an operation are removed; Agent Card signatures follow A2A 1.0 §8.4 and drop default values; `allowed_dids` / `allowed_controllers` and `verify_a2a_request_detailed`; `sign_a2a_request` takes `http_security`; external signer.
+- **`agent-did-mcp`** (new): OAuth client credentials with DID client assertions, `AgentDidMcpAuth`, `AgentDidSignatureMiddleware` and `client_metadata_routes`.
 
 ### Documentation
 
@@ -153,6 +186,13 @@ See [docs/RELEASE-1.0-CRITERIA.md](docs/RELEASE-1.0-CRITERIA.md). Remaining afte
 ## [1.0.0-rc.4] - 2026-11-04
 
 Breaking release candidate, tag `v1.0.0-rc.4`. All nine co-versioned packages move to `1.0.0-rc.4` (npm, dist-tag `next`) / `1.0.0rc4` (PyPI); `@agentdid/evm` is published for the first time. There are no wire-format changes for the canonical `did:webvh` profile, so rc.3 and rc.4 identities, logs and signatures interoperate; the breaking changes are in the SDK API. Follow [sdk/MIGRATION-1.0-rc.3-to-rc.4.md](sdk/MIGRATION-1.0-rc.3-to-rc.4.md) or [sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md](sdk-python/MIGRATION-1.0-rc.3-to-rc.4.md).
+
+### Packages
+
+- **`@agentdid/sdk`** and **`agent-did-sdk`**. Breaking: the EVM registry adapter left the core SDKs and the controller is an Ed25519 `AgentSigner`. New: `AgentDidClient`, with the static `AgentIdentity` API kept as a deprecated facade; Structured Fields parsing through maintained libraries; `decodePublicKeyMultibase` rejects an empty string. `ethers` / `eth_utils` are replaced by `@noble/hashes` / `hashlib`.
+- **`@agentdid/evm`** (new, optional): the EVM registry adapter. In Python it moved to `agent_did_sdk.evm`.
+- **`@agentdid/langchain`**, **`agent-did-langchain`**, **`agent-did-crewai`**, **`agent-did-semantic-kernel`**, **`agent-did-microsoft-agent-framework`**, **`agent-did-a2a`**: resolve, verify and rotate through `agentIdentity.client`; examples and tests use a `LocalKeySigner` controller.
+
 ### Documentation
 
 - **Historical documents moved to `docs/archive/`** (M-21). F1-/F2- design docs, plans and maturity-gap assessments, the strategic assessments, the outreach plan, the analysis reports and the 92 KB research report formerly at the repository root now live under `docs/archive/`, each with a historical banner. Documents still referenced by CI or governance (parity matrices, checklists) stay live. `docs/INDEX.md` lists the archive in its own section.
@@ -187,6 +227,11 @@ Breaking release candidate, tag `v1.0.0-rc.4`. All nine co-versioned packages mo
 ## [1.0.0-rc.3] - 2026-11-03
 
 Breaking release candidate, tagged `v1.0.0-rc.3`. All eight co-versioned packages move to `1.0.0-rc.3` (npm, dist-tag `next`) / `1.0.0rc3` (PyPI). Every user of `1.0.0-rc.2` / `1.0.0rc2` should upgrade: `did:webvh` DIDs, document references, metadata commitments and HTTP signatures change format, so rc.2 and rc.3 do not interoperate. Follow [sdk/MIGRATION-1.0-rc.2-to-rc.3.md](sdk/MIGRATION-1.0-rc.2-to-rc.3.md) or [sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md](sdk-python/MIGRATION-1.0-rc.2-to-rc.3.md).
+
+### Packages
+
+- **`@agentdid/sdk`** and **`agent-did-sdk`** (breaking): RFC 8785 `documentRef` canonicalization, verified registry resolution, salted metadata commitments, did:webvh v1.0 DIDs and RFC 9421 HTTP signatures. `@agentdid/sdk` requires Node.js `>=22.12.0` and no longer declares the monorepo root as a dependency; `agent-did-sdk` adds `rfc8785`.
+- The six integrations: version and SDK dependency only.
 
 ### Changed (breaking)
 
@@ -236,6 +281,11 @@ Breaking release candidate, tagged `v1.0.0-rc.3`. All eight co-versioned package
 
 Security release for the `1.0.0-rc.1` train. All eight co-versioned packages move to `1.0.0-rc.2` (npm, dist-tag `next`) / `1.0.0rc2` (PyPI). Every user of `1.0.0-rc.1` / `1.0.0rc1` should upgrade.
 
+### Packages
+
+- **`@agentdid/sdk`** and **`agent-did-sdk`**: bootstrap controller keys come from a CSPRNG (see Security); `controllerPrivateKey` / `controller_private_key` on `CreateAgentResult`.
+- The six integrations: version and SDK dependency only.
+
 ### Security
 
 - Fixes [GHSA-g97p-4qrw-9hvf](https://github.com/edisonduran/agent-did/security/advisories/GHSA-g97p-4qrw-9hvf): bootstrap controller keys in `@agentdid/sdk@1.0.0-rc.1` and `agent-did-sdk==1.0.0rc1` were derived from public data. See the advisory for impact and remediation.
@@ -254,6 +304,14 @@ Security release for the `1.0.0-rc.1` train. All eight co-versioned packages mov
 ## [1.0.0-rc.1] - 2026-11-01
 
 First co-versioned release candidate, tagged `v1.0.0-rc.1`. npm packages publish `1.0.0-rc.1` under dist-tag `next`; Python packages publish `1.0.0rc1` as PyPI prereleases.
+
+### Packages
+
+- **`@agentdid/sdk`** and **`agent-did-sdk`**: HTTP signatures cover `"@signature-params"` (see Security; signatures do not interoperate with `0.x`); `@agentdid/sdk` requires Node.js `>=22.0.0`.
+- **`@agentdid/langchain`**: requires Node.js `>=22.0.0`; declares `repository` metadata.
+- **`agent-did-langchain`**: no duplicate LangSmith child runs with `langsmith>=0.14`.
+- **`agent-did-microsoft-agent-framework`**: accepts `agent-framework>=1.0.1,<2`.
+- **`agent-did-crewai`**, **`agent-did-semantic-kernel`**, **`agent-did-a2a`**: first co-versioned release.
 
 ### Added
 
@@ -291,7 +349,7 @@ First co-versioned release candidate, tagged `v1.0.0-rc.1`. npm packages publish
 > For granular detail prior to the introduction of this CHANGELOG, see:
 > - [docs/RFC-001-Implementation-Backlog.md](docs/RFC-001-Implementation-Backlog.md) — full execution log of epics P1, P2 and P3 (16/16 ✅).
 > - [docs/RFC-001-Compliance-Checklist.md](docs/RFC-001-Compliance-Checklist.md) — MUST/SHOULD conformance status per release.
-> - Release history on [GitHub Releases](https://github.com/edisonduran/agent-did/releases) and per-package CHANGELOG.
+> - Release history on [GitHub Releases](https://github.com/edisonduran/agent-did/releases).
 
 ### Notable pre-1.0 milestones
 
@@ -303,6 +361,9 @@ First co-versioned release candidate, tagged `v1.0.0-rc.1`. npm packages publish
 
 ---
 
-[Unreleased]: https://github.com/edisonduran/agent-did/compare/v1.0.0-rc.2...HEAD
+[Unreleased]: https://github.com/edisonduran/agent-did/compare/v1.0.0-rc.5...HEAD
+[1.0.0-rc.5]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.5
+[1.0.0-rc.4]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.4
+[1.0.0-rc.3]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/edisonduran/agent-did/releases/tag/v1.0.0-rc.1

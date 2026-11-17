@@ -53,7 +53,7 @@ Mark each item before cutting or approving an SDK-affecting release.
 - [ ] If the Microsoft Agent Framework integration is affected, `docs/F2-09-Microsoft-Agent-Framework-Implementation-Checklist.md` and `docs/F2-09-Microsoft-Agent-Framework-Integration-Review-Checklist.md` were reviewed.
 - [ ] Shared fixtures in `fixtures/` still represent the intended cross-language contract.
 - [ ] Documentation does not describe existing Python SDK capabilities as future work.
-- [ ] CHANGELOG or release notes are prepared if the release is user-visible.
+- [ ] `CHANGELOG.md` has the release entry if the release is user-visible, opening with a **Packages** section that says what reaches each package (a package with no change of its own says so).
 
 ---
 

@@ -141,7 +141,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 ### 2.8 Documentation
 
-- [ ] **C-DOC-1** — Root `CHANGELOG.md` with per-package section and `1.0.0` entry. _Open: the root changelog has no per-package sections and no package ships its own `CHANGELOG.md`._
+- [ ] **C-DOC-1** — Root `CHANGELOG.md` with per-package section and `1.0.0` entry. _Open: only the `1.0.0` entry, written with the tag. The root changelog is the only one (no package ships its own); it lists the packages, and every entry since `1.0.0-rc.1` opens with a **Packages** section, which [SDK-Release-Checklist.md](SDK-Release-Checklist.md) requires for each release._
 - [x] **C-DOC-2** — `MIGRATION-0.x-to-1.0.md` per SDK.
 - [x] **C-DOC-3** — `DEPRECATION-POLICY.md` updated with strict SemVer post-1.0.
 - [ ] **C-DOC-4** — Quickstart validated by ≥1 external contributor on a clean machine.
@@ -199,7 +199,7 @@ Goal: align the post-ADR-001 release scope so Sprints 1 and 2 can execute withou
 | ID | Task | Suggested owner | Criteria covered |
 |---|---|---|---|
 | S0-1 | Publish this `RELEASE-1.0-CRITERIA.md` (✅ created) | tech-writer | C-DOC-* |
-| S0-2 | Create root `CHANGELOG.md` + per-package CHANGELOG (✅ root created) | tech-writer | C-DOC-1 |
+| S0-2 | Create root `CHANGELOG.md` with a per-package section (✅ root created; ✅ **Packages** section in every entry) | tech-writer | C-DOC-1 |
 | S0-3 | Audit release-critical CI pipelines: green ≥30 days? File an issue per failure | qa | C-QA-8 |
 | S0-4 | Inventory `TODO`/`FIXME`/`@deprecated`/`@internal` across SDKs and integrations | dev | C-API-3 |
 | S0-5 | Initial public API snapshot artifacts and verification commands for TS and Python — baseline | architect + dev | C-API-1, C-API-2 |
