@@ -135,7 +135,7 @@ If future user demand creates a concrete EVM/on-chain need, the project will eva
 
 ### 2.7 Supply Chain
 
-- [ ] **C-SUPPLY-1** — SBOM (CycloneDX) generated and published per package. _Partial: `ci-sbom.yml` generates per-package workflow artifacts; SBOMs are not yet attached to the GitHub Release or published by `publish-release-train.yml`._
+- [ ] **C-SUPPLY-1** — SBOM (CycloneDX) generated and published per package. _Partial: `publish-release-train.yml` calls `ci-sbom.yml` on release tags, which attaches one CycloneDX SBOM per package (2 npm + 7 Python) to the GitHub Release. Closes once a release carries them (backfill `v1.0.0-rc.5` with a manual run, or `v1.0.0` itself)._
 - [x] **C-SUPPLY-2** — SLSA L2 provenance via OIDC for npm/PyPI publication.
 - [x] **C-SUPPLY-3** — npm/PyPI publication uses short-lived tokens (no static PATs).
 
