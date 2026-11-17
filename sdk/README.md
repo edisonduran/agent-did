@@ -33,7 +33,7 @@ Agent-DID solves this with:
 npm install @agentdid/sdk@next
 ```
 
-Requires **Node.js 22.12+** (22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes).
+Requires **Node.js 22.12+** (22.23.4+, 24.22.1+ or 26.12.1+ recommended for the October 2026 Node.js security fixes). For browser bundles, see [Browser Usage](#browser-usage).
 
 ## Quick Start
 
@@ -232,6 +232,87 @@ The same DID key can authenticate the agent to an OAuth authorization server, in
 
 Since `1.0.0-rc.3`, HTTP signatures are RFC 9421 HTTP Message Signatures with the Agent-DID profile: the agent DID goes in an `Agent-DID` Dictionary header keyed by signature label (`Agent-DID: sig1="did:webvh:…"`; since `1.0.0-rc.5`, before it was a bare `Signature-Agent` header), the signature covers `@method`, `@authority`, `@path`, `@query`, `Content-Digest`, `Date` and `"agent-did";key="sig1"`, and carries `created`, `expires`, `nonce`, `keyid`, `alg="ed25519"` and `tag="agent-did"`. `verifyHttpRequestSignature` checks the window and the digest, verifies the signature, and then records the nonce in a `NonceStore`: a process-wide `InMemoryNonceStore` by default, or a shared store you pass as `nonceStore`. **The default store is per process: with more than one verifier instance (replicas, serverless, Kubernetes) a replayed request is accepted by any instance that has not seen it, so pass a shared `nonceStore`.** CI checks the signature base against RFC 9421 Appendix B.2.6 and cross-verifies with the independent `http-message-signatures` package. See [Anti-Replay-HTTP-Signatures.md](../docs/Anti-Replay-HTTP-Signatures.md).
 
+## Browser Usage
+
+The SDK targets Node.js, but its core (creating identities, signing, verifying and in-memory resolution) runs in a browser bundle. The [Agent-DID in Action](https://edisonduran.github.io/agent-did-in-action/) demo runs on the published package this way. A few APIs import Node.js built-ins lazily, on first use, and are not available in a browser:
+
+| Node.js built-in | Used by | In the browser |
+|---|---|---|
+| `node:fs/promises` | `FilesystemDIDDocumentSource`, `saveDidWebvhHistoryToFile`, `loadDidWebvhHistoryFromFile` | Not available. Keep DID logs in memory or store them through an HTTP source (`persistDidWebvhHistoryToSource`). |
+| `node:dns`, `node:http`, `node:https` | The default `fetch` of the HTTP sources (`HttpDIDDocumentSource`, `WebvhDIDDocumentSource`, the S3 and bearer-token sources, `useProductionResolverFromHttp`) and the default transport of `JsonRpcDIDDocumentSource` | Pass your own `fetchFn` (or `transport` for JSON-RPC). |
+| `node:path` | `FilesystemDIDDocumentSource` (imported statically, called only by that class) | Not available. |
+| `Buffer` global | `verifyTimestampToken` with PEM text in `trustAnchors` | Pass DER bytes (`Uint8Array`) instead, or provide a `Buffer` global. |
+
+Randomness and hashing come from `@noble/*` and the Web Crypto API, so they need no polyfill.
+
+**Bundler setup.** Vite 5 with no Node.js polyfills builds the SDK as it is: it replaces the built-ins with empty modules and prints a "has been externalized for browser compatibility" warning for each. If you add `vite-plugin-node-polyfills`, its stand-in for `fs` has no `fs/promises` and the build fails, so exclude those modules from the plugin and alias them to a stub that throws a clear error:
+
+```ts
+// vite.config.ts
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
+export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: /^(node:)?(fs\/promises|dns|http|https)$/,
+        replacement: fileURLToPath(new URL('./src/shims/node-unavailable.ts', import.meta.url))
+      }
+    ]
+  },
+  plugins: [nodePolyfills({ exclude: ['fs', 'dns', 'http', 'https'] })]
+});
+```
+
+```ts
+// src/shims/node-unavailable.ts
+function unavailable(): never {
+  throw new Error('This Node.js API is not available in the browser');
+}
+export const readFile = unavailable;
+export const writeFile = unavailable;
+export const mkdir = unavailable;
+export const rename = unavailable;
+export const rm = unavailable;
+export const lookup = unavailable;
+export const request = unavailable;
+export const promises = { lookup: unavailable };
+export default { readFile, writeFile, mkdir, rename, rm, lookup, request, promises };
+```
+
+The stub also helps without the plugin: an empty module fails with an unclear `... is not a function` error, the stub names the cause.
+
+**In-memory identities.** Give each identity a shared `AgentDidClient`, so that DIDs created in the page resolve for verification:
+
+```ts
+import { AgentDidClient, AgentIdentity, LocalKeySigner } from '@agentdid/sdk';
+
+const client = new AgentDidClient();
+const [controllerSigner] = LocalKeySigner.generate();
+const identity = new AgentIdentity({ controllerSigner, client });
+
+const { document, agentPrivateKey } = await identity.create({ name: 'BrowserBot', coreModel: 'gpt-4o-mini', systemPrompt: '...' });
+const signature = await identity.signMessage('hello', agentPrivateKey);
+await client.verifySignature(document.id, 'hello', signature); // true
+```
+
+**Remote resolution.** Pass the browser `fetch` as `fetchFn`:
+
+```ts
+import { HttpDIDDocumentSource, WebvhDIDDocumentSource } from '@agentdid/sdk';
+
+const browserFetch = (url: string, init?: RequestInit) => fetch(url, { ...init, redirect: 'error' });
+
+const webvhSource = new WebvhDIDDocumentSource({ fetchFn: browserFetch });
+const httpSource = new HttpDIDDocumentSource({ fetchFn: browserFetch });
+```
+
+A custom `fetchFn` replaces the SDK's SSRF-safe default, which refuses redirects and private or reserved addresses, pins the address it checked, and limits the time and size of each response. With your own `fetchFn`, those checks are yours to make. The target server must also allow the page's origin (CORS).
+
+The SDK's CI does not run a browser build; the demo above is what checks it, against each release it upgrades to. Checked with `1.0.0-rc.5`, Vite 5.4 and `vite-plugin-node-polyfills` 0.22 in Chromium.
+
 ## Specification
 
 This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edisonduran/agent-did/blob/main/docs/RFC-001-Agent-DID-Specification.md) — a standard for decentralized AI agent identity extending W3C DIDs with agent-specific metadata.
@@ -242,6 +323,7 @@ This SDK implements [RFC-001: Agent-DID Specification](https://github.com/edison
 
 - Default resolver is in-memory (not persistent) — use production resolver for real deployments
 - Default replay store (`InMemoryNonceStore`) is per process — use a shared `NonceStore` when more than one instance verifies HTTP signatures
+- Browsers: file-backed APIs are unavailable and HTTP sources need your own `fetchFn`; no browser build runs in CI (see [Browser Usage](#browser-usage))
 - did:webvh domains: every label must have at least two characters and start with a letter (`x.com` and `3m.com` are refused). The Python did:webvh library (`did-webvh`) refuses other labels, and both SDKs accept only what both libraries resolve
 - Optional EVM adapter assumes contract exposes `registerAgent`, `revokeAgent`, `getAgentRecord`, `isRevoked`
 - EVM timestamps consumed as Unix-string, SDK normalizes to ISO-8601
