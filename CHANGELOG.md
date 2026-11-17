@@ -28,7 +28,11 @@ All of them carry the release version (`1.0.0-rc.N` on npm, `1.0.0rcN` on PyPI).
 
 ### Packages
 
-- No package changes yet: the entries below change tests only.
+- No package changes yet: the entries below change tests and documentation only.
+
+### Documentation
+
+- `@agentdid/sdk` README: a Browser Usage section lists the APIs that need Node.js built-ins (file-backed stores, the SSRF-safe default `fetch`), the Vite setup that bundles the SDK, and how to resolve DIDs with your own `fetchFn`. No code change.
 
 ### Tests
 
