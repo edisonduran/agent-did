@@ -27,9 +27,22 @@ on:
       - 'integrations/**/package-lock.json'
       - 'integrations/**/pyproject.toml'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag (e.g. v1.0.0-rc.5) to build SBOMs from and attach them to; empty only uploads workflow artifacts"
+        required: false
+        default: ''
+        type: string
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Release tag to build SBOMs from and attach them to; empty only uploads workflow artifacts"
+        required: false
+        default: ''
+        type: string
 
 concurrency:
-  group: sbom-${{ github.workflow }}-${{ github.ref }}
+  group: sbom-${{ github.workflow }}-${{ github.ref }}-${{ inputs.release_tag }}
   cancel-in-progress: true
 
 permissions:
@@ -52,6 +65,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Empty on push/PR runs, so the triggering ref is checked out.
+          ref: ${{ inputs.release_tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -104,6 +120,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Empty on push/PR runs, so the triggering ref is checked out.
+          ref: ${{ inputs.release_tag }}
 
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -138,3 +157,53 @@ jobs:
           name: sbom-${{ matrix.artifact-name }}
           path: ${{ runner.temp }}/${{ matrix.artifact-name }}.cdx.json
           if-no-files-found: error
+
+  attach-to-release:
+    name: Attach SBOMs to GitHub Release
+    if: inputs.release_tag != ''
+    needs:
+      - npm-sbom
+      - python-sbom
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sbom-*
+          path: sbom
+          merge-multiple: true
+
+      - name: Attach SBOMs to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          # Passed as data, never interpolated into the script
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          count=$(find sbom -maxdepth 1 -name '*.cdx.json' | wc -l)
+          if [ "$count" -ne 9 ]; then
+            echo "Expected 9 SBOMs (2 npm + 7 Python), found $count" >&2
+            ls -l sbom >&2
+            exit 1
+          fi
+
+          # The tag push starts this run before the maintainer writes the release notes,
+          # so a missing release is created as a draft for the maintainer to complete.
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            prerelease=()
+            if [[ "$RELEASE_TAG" == *-* ]]; then
+              prerelease=(--prerelease)
+            fi
+            gh release create "$RELEASE_TAG" --verify-tag --draft "${prerelease[@]}"               --title "$RELEASE_TAG"               --notes "Draft created by the SBOM job; see CHANGELOG.md for release notes."
+          fi
+
+          gh release upload "$RELEASE_TAG" sbom/*.cdx.json --clobber

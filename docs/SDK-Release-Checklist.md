@@ -13,6 +13,7 @@ Release-train publication prerequisites:
 - npm Trusted Publishing for `@agentdid/sdk` and `@agentdid/langchain` points at `publish-release-train.yml`; the workflow runs on Node 24 and upgrades npm to `>=11.5.1`, which OIDC trusted publishing requires.
 - Each npm package declares `repository` metadata matching this GitHub repository, otherwise npm provenance is rejected.
 - Each PyPI package has its own GitHub environment (`pypi-agent-did-sdk`, `pypi-agent-did-langchain`, `pypi-agent-did-crewai`, `pypi-agent-did-semantic-kernel`, `pypi-agent-did-microsoft-agent-framework`, `pypi-agent-did-a2a`, `pypi-agent-did-mcp`) and a matching PyPI trusted publisher. A new package (`agent-did-mcp` in rc.5) needs its environment and a pending publisher on PyPI before its first release. PyPI rejects a pending publisher whose owner/repo/workflow/environment is already registered for another project.
+- On a tag push the train calls `ci-sbom.yml`, which builds one CycloneDX SBOM per package (`*.cdx.json`, 2 npm + 7 Python) from the tagged commit and attaches them to the GitHub Release for that tag. If the release does not exist yet, the job creates it as a draft; the maintainer then writes the notes and publishes that draft (`gh release edit <tag> --draft=false --notes-file …`) instead of running `gh release create`. To attach SBOMs to an existing release, run `CI — CycloneDX SBOM` by hand with `release_tag` set.
 
 This checklist is intended for:
 

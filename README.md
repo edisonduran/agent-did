@@ -325,7 +325,7 @@ Current CI split in GitHub Actions:
 - `CI — Google A2A Integration`: dedicated validation for `integrations/a2a/` with A2A 1.0 Agent Cards, JSON-RPC signing, verification against signed cards and the `a2a-sdk` cross-check.
 - `CI — MCP Integration`: dedicated validation for `integrations/mcp/` with the official `mcp` client and server over Streamable HTTP.
 - `CI — Integration Governance`: validates the required parity/checklist artifacts that must stay aligned with supported integrations.
-- `CI — CycloneDX SBOM`: generates per-package SBOM artifacts for the core SDKs and shipped integrations, uploaded on each run as `sbom-*` workflow artifacts.
+- `CI — CycloneDX SBOM`: generates per-package SBOM artifacts for the core SDKs and shipped integrations, uploaded on each run as `sbom-*` workflow artifacts. On a release tag, `publish-release-train.yml` runs it from the tagged commit and attaches the SBOMs to the GitHub Release.
 
 Python quality gates run in the dedicated workflow at `.github/workflows/ci-python.yml`, exposed in Actions as `CI — Python SDK & RFC-001 Conformance`, which executes the Python SDK matrix, linting, strict type-checking, coverage, build, conformance, and Python smoke tests.
 
