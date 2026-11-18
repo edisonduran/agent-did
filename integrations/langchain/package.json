@@ -58,7 +58,7 @@
     "langchain": "^1.2.35",
     "langsmith": "^0.12.0",
     "ts-jest": "^29.4.15",
-    "typescript": "^5.4.2"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=22.0.0"
