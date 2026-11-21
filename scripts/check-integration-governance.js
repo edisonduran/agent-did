@@ -27,6 +27,17 @@ const RULES = [
   },
 ];
 
+// A dependency bump (for example from Dependabot) does not change what an integration does, so it
+// does not require its parity/review documents. Lockfiles are always exempt; a package.json is exempt
+// only when nothing outside these sections changed.
+const DEPENDENCY_SECTIONS = new Set([
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "overrides",
+]);
+
 function main() {
   const baseRef = normalizeRef(process.argv[2]);
   const headRef = normalizeRef(process.argv[3]) || "HEAD";
@@ -37,11 +48,14 @@ function main() {
     return;
   }
 
+  const parentRef = baseRef || `${headRef}^`;
   const failures = [];
 
   for (const rule of RULES) {
-    const touchedIntegration = changedFiles.some((filePath) =>
-      rule.watchedPrefixes.some((prefix) => filePath.startsWith(prefix))
+    const touchedIntegration = changedFiles.some(
+      (filePath) =>
+        rule.watchedPrefixes.some((prefix) => filePath.startsWith(prefix)) &&
+        !isDependencyOnlyChange(filePath, parentRef, headRef)
     );
 
     if (!touchedIntegration) {
@@ -72,6 +86,34 @@ function main() {
   }
 
   console.log("Integration governance check passed.");
+}
+
+function isDependencyOnlyChange(filePath, baseRef, headRef) {
+  const fileName = filePath.split("/").pop();
+  if (fileName === "package-lock.json") {
+    return true;
+  }
+  if (fileName !== "package.json") {
+    return false;
+  }
+
+  try {
+    const before = JSON.parse(runGit(["show", `${baseRef}:${filePath}`]));
+    const after = JSON.parse(runGit(["show", `${headRef}:${filePath}`]));
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const key of keys) {
+      if (DEPENDENCY_SECTIONS.has(key)) {
+        continue;
+      }
+      if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    // Added, removed or unparsable manifest: treat it as a real change.
+    return false;
+  }
 }
 
 function getChangedFiles(baseRef, headRef) {
