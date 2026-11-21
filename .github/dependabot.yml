@@ -72,6 +72,9 @@ updates:
     ignore:
       - dependency-name: "zod"
         update-types: ["version-update:semver-major"]
+      # ts-jest 29 declares peer typescript ">=4.3 <7"; revisit when ts-jest supports TypeScript 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "pip"
     directory: "/sdk-python"
     schedule:
