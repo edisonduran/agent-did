@@ -475,7 +475,9 @@ export interface VerifyHttpRequestSignatureParams {
  * - `alg_unsupported`: the `alg` parameter is not `ed25519`.
  * - `params_missing`: `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type, or `nonce` is not 1 to
  *   256 characters of `A-Z a-z 0-9 . _ ~ + / = -` (RFC-001 §6.5 item 3).
- * - `keyid_not_bound`: `keyid` is not a key of the agent DID (the `Agent-DID` member of the signature's label).
+ * - `keyid_not_bound`: `keyid` is not a DID URL of the agent DID (the `Agent-DID` member of the signature's label):
+ *   it does not start with that DID followed by `#`. A `keyid` of the agent DID that the document does not list is
+ *   `keyid_not_authorized`.
  * - `components_missing`: a required covered component is absent.
  * - `components_order`: the required components are all covered but not first and in order.
  * - `created_skew`: `created` is further from now than `maxCreatedSkewSeconds`.

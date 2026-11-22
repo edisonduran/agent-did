@@ -108,12 +108,13 @@ function componentValue(component, request, headers) {
     return dictionaryMember(componentValue(component.name, request, headers), component.key);
   }
   const name = component;
-  const u = new URL(request.url);
+  // `request.components` overrides the derived components: the "-literal" vectors sign the URL as written
+  if (request.components && request.components[name] !== undefined) return request.components[name];
   switch (name) {
     case '@method': return request.method;
     case '@authority': return authorityOf(request.url);
-    case '@path': return u.pathname || '/';
-    case '@query': return u.search || '?';
+    case '@path': return new URL(request.url).pathname || '/';
+    case '@query': return new URL(request.url).search || '?';
     default: {
       const key = Object.keys(headers).find((k) => k.toLowerCase() === name);
       if (key === undefined) throw new Error(`missing header for component ${name}`);
@@ -172,7 +173,7 @@ function buildHeaders({ signedRequest = REQUEST, agent = DID, seed = KEY1_SEED, 
 // --- Vectors ------------------------------------------------------------------------------
 const vectors = [];
 
-function add(id, rule, description, { request = REQUEST, expected, now, maxCreatedSkewSeconds, maxSignatureLifetimeSeconds, build, headersTransform, expectedSequence }) {
+function add(id, rule, description, { request = REQUEST, expected, now, maxCreatedSkewSeconds, maxSignatureLifetimeSeconds, build, headersTransform, expectedSequence, steps }) {
   const built = build ? build : buildHeaders({});
   const headers = headersTransform ? headersTransform({ ...built.headers }) : built.headers;
   const vector = { id, rule, description, request };
@@ -181,9 +182,17 @@ function add(id, rule, description, { request = REQUEST, expected, now, maxCreat
   if (maxSignatureLifetimeSeconds !== undefined) vector.maxSignatureLifetimeSeconds = maxSignatureLifetimeSeconds;
   vector.headers = headers;
   if (built.signatureBase !== undefined) vector.signatureBase = built.signatureBase;
-  if (expectedSequence !== undefined) vector.expectedSequence = expectedSequence;
+  if (steps !== undefined) vector.steps = steps;
+  else if (expectedSequence !== undefined) vector.expectedSequence = expectedSequence;
   else vector.expected = expected;
   vectors.push(vector);
+}
+
+/** Splits a URL as written with the RFC 3986 Appendix B expression, without any normalization. */
+function literalComponents(url) {
+  const m = /^(([^:/?#]+):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/u.exec(url);
+  const authority = m[4].replace(/^[^@]*@/u, '');
+  return { '@authority': authority, '@path': m[5] || '/', '@query': m[6] ?? '?' };
 }
 
 const dropHeader = (name) => (h) => {
@@ -480,10 +489,52 @@ for (const [id, url, description] of URL_FORM_CASES) {
     expected: false
   });
 }
+// The same URLs signed over their components as written (RFC 3986 Appendix B split, no normalization). A verifier
+// that reads the URL as written and skips the URL form rule finds a valid signature here, so only the rule rejects.
+// Left out: cases whose components as written equal the normalized ones (user info, fragment, scheme case, empty
+// query, bad percent-encoding: the vectors above already cover them), `backslash` (RFC 3986 reads the whole rest as
+// the authority) and `uppercase-host` (RFC 9421 §2.2.3 lowercases `@authority` before any rule applies).
+const LITERAL_EXCLUDED = new Set(['backslash', 'uppercase-host']);
+const LITERAL_URL_CASES = [];
+for (const [id, url, description] of URL_FORM_CASES) {
+  if (LITERAL_EXCLUDED.has(id)) continue;
+  const components = literalComponents(url);
+  const derived = { ...REQUEST, url: new URL(url).href.replace(/#.*$/u, '') };
+  const same = ['@authority', '@path', '@query'].every((name) => components[name] === componentValue(name, derived, {}));
+  if (same) continue;
+  LITERAL_URL_CASES.push(id);
+  add(`reject-url-${id}-literal`, '§6.5 item 4 (URL form)', `${description} Signed over the components as written (\`@authority\` ${components['@authority']}, \`@path\` ${components['@path']}, \`@query\` ${components['@query']}), so only the URL form rule can reject it.`, {
+    request: { ...REQUEST, url },
+    build: buildHeaders({ signedRequest: { ...REQUEST, url, components } }),
+    expected: false
+  });
+}
 
 // Replay
 add('reject-replayed-nonce', '§6.5 item 6', 'The same request is verified twice with one nonce store: the second `(keyid, nonce)` is a replay.', {
   expectedSequence: [true, false]
+});
+{
+  // A forged request (valid in every other respect) carries the nonce of the valid one and arrives first
+  const valid = buildHeaders({});
+  const forged = { ...valid.headers };
+  const sig = Buffer.from(/^sig1=:(.+):$/u.exec(forged['Signature'])[1], 'base64');
+  sig[sig.length - 1] ^= 0x01;
+  forged['Signature'] = `sig1=:${sig.toString('base64')}:`;
+  add('accept-valid-after-forged-same-nonce', '§6.5 item 6 (record only after verification)', 'One nonce store: a forged request with the nonce of the valid one is rejected, then the valid request is accepted (the forged one did not record the pair), then the valid request again is a replay.', {
+    build: valid,
+    steps: [
+      { headers: forged, expected: false, reason: 'signature_invalid' },
+      { expected: true },
+      { expected: false, reason: 'nonce_replayed' }
+    ]
+  });
+}
+add('reject-replayed-at-expires', '§6.5 item 6 (record until expires)', 'One nonce store: the request is accepted at `clock`, and the same request at `now == expires`, still within its validity (see `accept-at-expires`), is a replay: the pair is kept through `expires`.', {
+  steps: [
+    { expected: true },
+    { now: EXPIRES, expected: false, reason: 'nonce_replayed' }
+  ]
 });
 
 // --- Output -------------------------------------------------------------------------------
@@ -542,8 +593,13 @@ for (const component of FULL_COMPONENTS) {
 for (const [id] of URL_FORM_CASES) {
   REASONS[`reject-url-${id}`] = 'url_not_normalized';
 }
+for (const id of LITERAL_URL_CASES) {
+  REASONS[`reject-url-${id}-literal`] = 'url_not_normalized';
+}
 for (const vector of vectors) {
-  if (vector.expectedSequence) {
+  if (vector.steps) {
+    continue; // each step states its own verdict and reason
+  } else if (vector.expectedSequence) {
     vector.expectedReasons = vector.expectedSequence.map((ok) => (ok ? null : 'nonce_replayed'));
   } else if (vector.expected === false) {
     if (!REASONS[vector.id]) throw new Error(`no reason for ${vector.id}`);
@@ -554,7 +610,7 @@ for (const vector of vectors) {
 const fixture = {
   formatVersion: 1,
   description: 'Agent-DID HTTP verification vectors (RFC-001 §6.5): accepted and rejected requests. Each rejected vector differs from the valid one by a single change and is re-signed when that change touches signed material. Generated by scripts/regenerate-http-verification-vectors.js.',
-  usage: 'For each vector: build the agent DID document from `keys` (every key is a verification method listed under its `relationships`), register it in a resolver, create a client whose clock returns `now` (the vector\'s own, else `clock`), and verify `request` with `headers` and a fresh nonce store whose own clock returns the same time.`expected` is the verdict and, for a rejection, `reason` is the `HttpSignatureRejection` a detailed verifier reports; `expectedSequence` is the sequence of verdicts (and `expectedReasons` the reasons, null for an accepted one) when the same request is verified repeatedly with ONE nonce store. Unless a vector gives its own, use the default verifier policy (skew 300 s, lifetime 300 s).',
+  usage: 'For each vector: build the agent DID document from `keys` (every key is a verification method listed under its `relationships`), register it in a resolver, create a client whose clock returns `now` (the vector\'s own, else `clock`), and verify `request` with `headers` and a fresh nonce store whose own clock returns the same time.`expected` is the verdict and, for a rejection, `reason` is the `HttpSignatureRejection` a detailed verifier reports; `expectedSequence` is the sequence of verdicts (and `expectedReasons` the reasons, null for an accepted one) when the same request is verified repeatedly with ONE nonce store. `steps` is a sequence of verifications with ONE nonce store: each step verifies `request` with its own `headers` (else the vector\'s) at its own `now` (else the vector\'s, else `clock`), moving the clock of the client and of the store to that time, and states its own `expected` and, for a rejection, `reason`. Unless a vector gives its own, use the default verifier policy (skew 300 s, lifetime 300 s).',
   keysNote: 'TEST-ONLY Ed25519 keys. The seeds are public on purpose; they sign nothing real.',
   clock: NOW,
   did: DID,

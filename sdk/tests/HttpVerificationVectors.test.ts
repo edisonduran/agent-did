@@ -20,6 +20,7 @@ interface HttpVector {
   reason?: string;
   expectedSequence?: boolean[];
   expectedReasons?: Array<string | null>;
+  steps?: Array<{ headers?: Record<string, string>; now?: number; expected: boolean; reason?: string }>;
 }
 
 interface HttpVectorSet {
@@ -89,9 +90,10 @@ function buildController(): AgentDIDDocument {
 }
 
 async function clientAt(
-  now: number,
+  now: number | (() => number),
   withStore = true
 ): Promise<{ client: AgentDidClient; nonceStore: InMemoryNonceStore }> {
+  const clock = typeof now === 'number' ? () => now : now;
   const document = buildDocument();
   const resolver = new InMemoryDIDResolver();
   resolver.registerDocument(document);
@@ -99,12 +101,12 @@ async function clientAt(
   const registry = new InMemoryAgentRegistry();
   await registry.register(document.id, document.controller, 'hash://sha256/http-verification-fixture');
   // The store's own clock must match the vector clock, or its entries expire at once.
-  const nonceStore = new InMemoryNonceStore({ now: () => now });
+  const nonceStore = new InMemoryNonceStore({ now: clock });
   const client = new AgentDidClient({
     resolver,
     registry,
     ...(withStore ? { nonceStore } : {}),
-    clock: () => new Date(now * 1000)
+    clock: () => new Date(clock() * 1000)
   });
   return { client, nonceStore };
 }
@@ -119,15 +121,27 @@ describe('HTTP verification vectors (RFC-001 §6.5)', () => {
 
   it.each(fixture.vectors.map((vector) => [vector.id, vector] as const))('%s', async (_id, vector) => {
     const now = vector.now ?? fixture.clock;
-    const { client, nonceStore } = await clientAt(now);
-    const verify = () =>
+    let current = now;
+    const { client, nonceStore } = await clientAt(() => current);
+    const verify = (headers = vector.headers) =>
       client.verifyHttpRequestSignatureDetailed({
         ...vector.request,
-        headers: vector.headers,
+        headers,
         maxCreatedSkewSeconds: vector.maxCreatedSkewSeconds,
         maxSignatureLifetimeSeconds: vector.maxSignatureLifetimeSeconds,
         nonceStore
       });
+
+    if (vector.steps) {
+      const outcomes = [];
+      for (const step of vector.steps) {
+        current = step.now ?? now;
+        const result = await verify(step.headers);
+        outcomes.push({ ok: result.ok, reason: result.ok ? undefined : result.reason });
+      }
+      expect(outcomes).toEqual(vector.steps.map((step) => ({ ok: step.expected, reason: step.reason })));
+      return;
+    }
 
     if (vector.expectedSequence) {
       const results = [];

@@ -32,10 +32,12 @@ All of them carry the release version (`1.0.0-rc.N` on npm, `1.0.0rcN` on PyPI).
 
 ### Documentation
 
+- RFC-001 §6.5 item 4 states that a host whose last label is a number (decimal or `0x` hexadecimal) is an IPv4 address and is in normalized form only as a canonical dotted-decimal address; the SDKs already rejected `0x5d.0xb8.0xd8.0x22`. The anti-replay guide and the `HttpSignatureRejection` docs say that `keyid_not_bound` means the `keyid` is not a DID URL of the agent DID, while a `keyid` the document does not list is `keyid_not_authorized`. Clarifications from `[RFC]` #127; no behavior change.
 - `@agentdid/sdk` README: a Browser Usage section lists the APIs that need Node.js built-ins (file-backed stores, the SSRF-safe default `fetch`), the Vite setup that bundles the SDK, and how to resolve DIDs with your own `fetchFn`. No code change.
 
 ### Tests
 
+- **HTTP verification vectors** (`fixtures/http-verification-vectors.json`, 84 → 95), from a third-party rerun on rc.5 (`[RFC]` #127): `accept-valid-after-forged-same-nonce` (a forged request does not consume the nonce of the valid one) and `reject-replayed-at-expires` (the pair is kept through `expires` inclusive) use a new `steps` field, a sequence of verifications with one nonce store, each with its own headers, time, verdict and reason. Nine `reject-url-*-literal` vectors sign the URL as written instead of its normalized components, so only the URL form rule can reject them. Both SDKs already passed them; the existing 84 vectors are unchanged. The fixture digest in `fixtures/wire-freeze.json` is re-pinned for this additive change: no signed or hashed bytes and no verifier behavior change.
 - Every line of the crypto, signing, verification and resolver modules is covered in both SDKs, and CI enforces it per module (`sdk/jest.config.js`, `sdk-python/scripts/check_critical_coverage.py`; release criterion C-QA-2). Tests only, plus coverage comments on defensive branches that no input reaches; no behavior change.
 
 ## [1.0.0-rc.5] - 2026-11-16

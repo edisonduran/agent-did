@@ -88,7 +88,7 @@ if (!result.ok) {
 | `tag_mismatch` | `tag` is not `agent-did` (for example another profile's signature) |
 | `alg_unsupported` | `alg` is not `ed25519` |
 | `params_missing` | `created`, `expires`, `nonce` or `keyid` is absent or has the wrong type, or `nonce` is not 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -` |
-| `keyid_not_bound` | `keyid` is not a key of the agent DID |
+| `keyid_not_bound` | `keyid` is not a DID URL of the agent DID (it does not start with the agent DID followed by `#`). A `keyid` of the agent DID that its document does not list is `keyid_not_authorized` |
 | `components_missing` / `components_order` | a required covered component is absent / the required components are not first and in order |
 | `created_skew` | `created` is further from now than the allowed skew |
 | `expires_before_created` | `expires` is earlier than `created` |

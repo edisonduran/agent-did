@@ -6,6 +6,16 @@ This document tracks normative and materially relevant editorial changes to RFC-
 
 ---
 
+## [Unreleased] (editorial, after 1.0.0-rc.5)
+
+### Result
+
+- §6.5 item 4, clarification: a host whose last label is a number (decimal, or `0x` hexadecimal) is read as an IPv4 address and is in normalized form only as a canonical dotted-decimal address. The text required a canonical IPv4 address but also allowed any lowercase ASCII host, so `0x5d.0xb8.0xd8.0x22` could be read as allowed; the reference SDKs and the `reject-url-non-canonical-ipv4` vector already rejected it. No change in what the reference SDKs accept or reject.
+- §6.5 item 6: new vectors pin that the `(keyid, nonce)` pair is recorded only after verification (`accept-valid-after-forged-same-nonce`) and kept through `expires` inclusive (`reject-replayed-at-expires`). They use a new `steps` field of `fixtures/http-verification-vectors.json`. Nine `reject-url-*-literal` vectors sign the URL as written, so a verifier that skips the URL form rule finds a valid signature and only the rule rejects them. Reported by a third-party reader in `[RFC]` #127.
+- The anti-replay guide states that `keyid_not_bound` means the `keyid` is not a DID URL of the agent DID; a `keyid` of the agent DID that the document does not list is `keyid_not_authorized`.
+
+---
+
 ## [1.0-rc.5] - Unreleased (1.0.0-rc.5)
 
 ### Result
