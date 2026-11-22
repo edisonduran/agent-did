@@ -372,7 +372,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to pick up roadmap ite
 
 ### Spec co-authors
 
-- **RFC-001 A2A Identity Composition Contract** ([`docs/RFC-001-A2A-Identity-Composition-Contract.md`](docs/RFC-001-A2A-Identity-Composition-Contract.md)) — co-drafted with [@aeoess](https://github.com/aeoess) (Tymofii Pidlisnyi, [Agent Passport System / APS](https://github.com/aeoess/agent-passport-system), IETF `draft-pidlisnyi-aps-00`). All five normative sections (§4.3, §4.4, §5, §6.3, §6.4) are APS-confirmed via direct pushes (`3fc38384`, `da473ee3`) and verified upstream-thread approval (`0e6a5d4c`). Landed on `main` via [PR #35](https://github.com/edisonduran/agent-did/pull/35) (`63bff720`).
+- **RFC-001 A2A Identity Composition Contract** ([`docs/RFC-001-A2A-Identity-Composition-Contract.md`](docs/RFC-001-A2A-Identity-Composition-Contract.md)) — co-drafted with [@aeoess](https://github.com/aeoess) (Tymofii Pidlisnyi, [Agent Passport System / APS](https://github.com/agent-passport-system/agent-passport-system), IETF `draft-pidlisnyi-aps-00`). All five normative sections (§4.3, §4.4, §5, §6.3, §6.4) are APS-confirmed via direct pushes (`3fc38384`, `da473ee3`) and verified upstream-thread approval (`0e6a5d4c`). Landed on `main` via [PR #35](https://github.com/edisonduran/agent-did/pull/35) (`63bff720`).
 
 ### Contributors
 
@@ -385,7 +385,7 @@ Thanks to everyone who has contributed code, reviews, or design input:
 
 ### Cross-ecosystem
 
-- [Agent Passport System (APS)](https://github.com/aeoess/agent-passport-system) — Agent-DID is represented in the [`agent-governance-vocabulary` crosswalk](https://github.com/aeoess/agent-governance-vocabulary/blob/main/crosswalk/agent-did.yaml) (merged via [PR #66](https://github.com/aeoess/agent-governance-vocabulary/pull/66), commit `69393c3`).
+- [Agent Passport System (APS)](https://github.com/agent-passport-system/agent-passport-system) — Agent-DID is represented in the [`agent-governance-vocabulary` crosswalk](https://github.com/NOSAI-Federation/agent-governance-vocabulary/blob/main/crosswalk/agent-did.yaml) (merged via [PR #66](https://github.com/NOSAI-Federation/agent-governance-vocabulary/pull/66), commit `69393c3`).
 
 ## License
 

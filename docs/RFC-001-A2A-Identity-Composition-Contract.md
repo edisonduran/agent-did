@@ -7,7 +7,7 @@
 > **Co-author push access**: `@aeoess` invited as repo collaborator (Write) 2026-04-30, scoped operationally to `spec/a2a-composition-contract` (`develop` and `main` are protected, require PR + 1 review).
 > **Sync state with APS**: All five sections (§4.3, §4.4, §5, §6.3, §6.4) are **APS-confirmed**. §4.3, §4.4, §6.3, §6.4 confirmed by `@aeoess` via direct push (commits `3fc38384` and `da473ee3`, 2026-04-30 / 2026-05-01). §5 (Error shape) confirmed by `@aeoess` via [a2aproject/A2A#1742 comment 2026-05-01 23:52 UTC](https://github.com/a2aproject/A2A/issues/1742#issuecomment-4362194636) under the explicit superset-with-aliases contract documented inline; flip applied by `@edisonduran` via commit `0e6a5d4c` on aeoess's behalf with text reflecting his 2026-05-01 23:52 UTC posture verbatim. When aeoess pushes commits directly against the spec branch, those commits are authoritative over the working baseline.
 >
-> **Implemented in `1.0.0-rc.5` (`[RFC]` [#257](https://github.com/edisonduran/agent-did/issues/257))**: both reference SDKs sign and verify Agent Cards and check requests against them. The text below changed with it: §1.1 and §3.1 follow the A2A 1.0 card signature (JWS) instead of the pre-pass shape, §3 defines the keys a card publishes, §4 and §4.3 say how the planned overlap and emergency revocation are expressed in the DID document, §4.1 scenario 3e and §5.2 record that the reference SDKs fail closed for a DID they cannot resolve, and §7 points to the published vectors. These changes were sent to `@aeoess` on [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6897760300) on 2026-11-15. `@aeoess` answered the same day ([agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS agrees with the A2A 1.0 card signature and with moving the overlap figures to controller guidance, and asked for the changes recorded in §3.1, §4, §4.3, §5.1, §5.4 and §6.1.
+> **Implemented in `1.0.0-rc.5` (`[RFC]` [#257](https://github.com/edisonduran/agent-did/issues/257))**: both reference SDKs sign and verify Agent Cards and check requests against them. The text below changed with it: §1.1 and §3.1 follow the A2A 1.0 card signature (JWS) instead of the pre-pass shape, §3 defines the keys a card publishes, §4 and §4.3 say how the planned overlap and emergency revocation are expressed in the DID document, §4.1 scenario 3e and §5.2 record that the reference SDKs fail closed for a DID they cannot resolve, and §7 points to the published vectors. These changes were sent to `@aeoess` on [agent-governance-vocabulary#177](https://github.com/NOSAI-Federation/agent-governance-vocabulary/issues/177#issuecomment-6897760300) on 2026-11-15. `@aeoess` answered the same day ([agent-governance-vocabulary#177](https://github.com/NOSAI-Federation/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS agrees with the A2A 1.0 card signature and with moving the overlap figures to controller guidance, and asked for the changes recorded in §3.1, §4, §4.3, §5.1, §5.4 and §6.1.
 >
 > **APS-aligned pre-pass (2026-04-30)**: §0 (threat model), §1.1 (canonicalization split), §4.1 scenario 3e (unknown DID method), §3.1 (wire shape reference), §8 (test vectors), §9 (vocabulary) below were added unilaterally by Agent-DID after analyzing publicly inspectable APS infrastructure (`agent-passport-system`, `aps-conformance-suite`, `a2a-compliance-harness`, `agent-governance-vocabulary`). Each carries `[APS-aligned pre-pass, open to revision in counter-draft]`. Counter-draft from `@aeoess` is authoritative over this pre-pass.
 
@@ -91,7 +91,7 @@ Agent Cards are signed as A2A 1.0 §8.4 specifies, with a fixed profile. Each en
 - **Verification.** A verifier MUST reject (`format_drift`) a card that is not a JSON object, has no `signatures` or an empty one, or has an entry that does not follow the two items above, and MUST verify every signature against the current DID document of the agent (reasons as in §5). A card without signatures is not a signed card: the contract needs one.
 - A signer SHOULD NOT put members A2A 1.0 does not define in a signed card: A2A verifiers that rebuild the card from its Protocol Buffer form drop them, and the signature then no longer matches.
 - Interoperability evidence: the reference SDKs' card signatures verify with the official A2A Python SDK (`a2a-sdk` 1.3), and cards it signs verify with the reference SDKs (`integrations/a2a/tests/test_a2a_sdk_interop.py`). `a2a-sdk` 1.3 also removes empty `REQUIRED` members and empty set messages before it verifies, which A2A 1.0 §8.4.1 does not ask for; cards that contain them do not verify there. The `[APS-aligned pre-pass]` shape of earlier drafts (`signature: {alg, kid, value}`) is retired.
-- **Recorded difference (APS).** APS's `a2a-compliance-harness` still signs cards with the pre-pass shape `signature: {alg, kid, value}` and removes that member before canonicalization. Such a card is not a signed card under this section, and the reference SDKs do not read the pre-pass shape: the difference is recorded, not bridged, as agreed with `@aeoess` ([agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)).
+- **Recorded difference (APS).** APS's `a2a-compliance-harness` still signs cards with the pre-pass shape `signature: {alg, kid, value}` and removes that member before canonicalization. Such a card is not a signed card under this section, and the reference SDKs do not read the pre-pass shape: the difference is recorded, not bridged, as agreed with `@aeoess` ([agent-governance-vocabulary#177](https://github.com/NOSAI-Federation/agent-governance-vocabulary/issues/177#issuecomment-6900183253)).
 
 ### 3.2 Canonical `did:webvh` controller-to-agent composition path
 
@@ -146,7 +146,7 @@ Working baseline carried from APS posture (`@aeoess` 2026-04-30 21:47 UTC):
 - A verifier **MAY** shorten the overlap below 24h via local configuration (private hardening; does not affect cross-implementation interop).
 - A verifier **MUST NOT** lengthen the overlap beyond a hard ceiling of **7 days**. Indefinite overlap defeats the rotation-state-machine semantics scenarios 3a–3d depend on.
 
-Revised reading `[rc.5, #257, APS-confirmed 2026-11-15, [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)]`:
+Revised reading `[rc.5, #257, APS-confirmed 2026-11-15, [agent-governance-vocabulary#177](https://github.com/NOSAI-Federation/agent-governance-vocabulary/issues/177#issuecomment-6900183253)]`:
 
 - A verifier is not required to impose an overlap window of its own. The 24 h default and the 7 d ceiling are guidance for controllers on when to retire the prior key.
 - A verifier MAY enforce a deadline that the DID document publishes for the prior key, and then rejects that key (`rotation_window_closed`) once the deadline passes, even while the key is still listed.
@@ -214,7 +214,7 @@ These map 1:1 to the typed APS subtypes:
 - `key_purpose_violation` ↔ `KeyPurposeViolation`
 - `tampered` ↔ `Tampered`
 
-Emission status (`@aeoess`, 2026-11-15, [agent-governance-vocabulary#177](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS defines all four reasons and exports `assertKeyPurpose`, a helper that throws `key_purpose_violation`; no integrated APS composition path calls it, so none of the four is emitted by APS itself (SDK source at `1284887`, [clarified 2026-11-16](https://github.com/aeoess/agent-governance-vocabulary/issues/177#issuecomment-6907812960)). The Agent-DID reference SDKs emit all four (`[rc.5, #257]`).
+Emission status (`@aeoess`, 2026-11-15, [agent-governance-vocabulary#177](https://github.com/NOSAI-Federation/agent-governance-vocabulary/issues/177#issuecomment-6900183253)): APS defines all four reasons and exports `assertKeyPurpose`, a helper that throws `key_purpose_violation`; no integrated APS composition path calls it, so none of the four is emitted by APS itself (SDK source at `1284887`, [clarified 2026-11-16](https://github.com/NOSAI-Federation/agent-governance-vocabulary/issues/177#issuecomment-6907812960)). The Agent-DID reference SDKs emit all four (`[rc.5, #257]`).
 
 Reference implementation: `IdentityCompositionError` in agent-passport-system v2.5.1-alpha (commit `f37f1cc` on `aeoess/agent-passport-system` `main`), `src/errors/identity-composition-error.ts`. Conformance: `tests/v2/identity-composition-error.test.ts` (9 tests).
 
@@ -347,7 +347,7 @@ The fixture file is self-describing (see its `description`); a resolution-backed
 
 ## 8. Vocabulary `[APS-aligned pre-pass, open to revision in counter-draft]`
 
-For primitive names, this spec defers to [`agent-governance-vocabulary`](https://github.com/aeoess/agent-governance-vocabulary) as the authoritative source where overlap exists. Primitives introduced by this composition contract that are not yet canonical in vocabulary v0.1 are mapped in [`crosswalk/agent-did.yaml`](https://github.com/aeoess/agent-governance-vocabulary/pull/66) under `out_of_vocabulary_primitives`:
+For primitive names, this spec defers to [`agent-governance-vocabulary`](https://github.com/NOSAI-Federation/agent-governance-vocabulary) as the authoritative source where overlap exists. Primitives introduced by this composition contract that are not yet canonical in vocabulary v0.1 are mapped in [`crosswalk/agent-did.yaml`](https://github.com/NOSAI-Federation/agent-governance-vocabulary/pull/66) under `out_of_vocabulary_primitives`:
 
 - `agent_card` (identity material at rest)
 - `per_request_signature` (identity material in motion)
@@ -365,10 +365,10 @@ When vocabulary v0.2 lands canonical names for any of these, this spec will adop
 - A2A upstream thread: https://github.com/a2aproject/A2A/issues/1742
 - APS posture source comment (2026-04-30 21:47 UTC): https://github.com/a2aproject/A2A/issues/1742#issuecomment-4355813752
 - APS test vectors directory: https://github.com/ScopeBlind/agent-governance-testvectors
-- APS conformance suite: https://github.com/aeoess/aps-conformance-suite
+- APS conformance suite: https://github.com/Agent-Authority-Conformance/aps-conformance-suite
 - A2A compliance harness: https://github.com/aeoess/a2a-compliance-harness
-- Agent governance vocabulary: https://github.com/aeoess/agent-governance-vocabulary
-- Vocabulary crosswalk for Agent-DID (PR pending merge): https://github.com/aeoess/agent-governance-vocabulary/pull/66
+- Agent governance vocabulary: https://github.com/NOSAI-Federation/agent-governance-vocabulary
+- Vocabulary crosswalk for Agent-DID (merged 2026-05-01): https://github.com/NOSAI-Federation/agent-governance-vocabulary/pull/66
 - OWASP AIVSS §3.6 Agent Authentication & Identity: referenced in §0 threat model
 - RFC 9421 HTTP Message Signatures: https://www.rfc-editor.org/rfc/rfc9421
 - RFC 8785 JSON Canonicalization Scheme: https://www.rfc-editor.org/rfc/rfc8785
