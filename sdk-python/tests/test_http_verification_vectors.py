@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -96,7 +97,10 @@ def _controller_document() -> AgentDIDDocument:
     )
 
 
-async def _client_at(now: int, with_store: bool = True) -> tuple[AgentDidClient, InMemoryNonceStore]:
+async def _client_at(
+    now: int | Callable[[], int], with_store: bool = True
+) -> tuple[AgentDidClient, InMemoryNonceStore]:
+    clock: Callable[[], int] = now if callable(now) else (lambda: now)
     document = _agent_document()
     resolver = InMemoryDIDResolver()
     resolver.register_document(document)
@@ -104,25 +108,27 @@ async def _client_at(now: int, with_store: bool = True) -> tuple[AgentDidClient,
     registry = InMemoryAgentRegistry()
     await registry.register(document.id, document.controller, "hash://sha256/http-verification-fixture")
     # The store's own clock must match the vector clock, or its entries expire at once.
-    nonce_store = InMemoryNonceStore(now=lambda: now)
+    nonce_store = InMemoryNonceStore(now=clock)
     client = AgentDidClient(
         AgentDidClientOptions(
             resolver=resolver,
             registry=registry,
             nonce_store=nonce_store if with_store else None,
-            clock=lambda: datetime.fromtimestamp(now, tz=timezone.utc),
+            clock=lambda: datetime.fromtimestamp(clock(), tz=timezone.utc),
         )
     )
     return client, nonce_store
 
 
-def _params(vector: dict[str, Any], nonce_store: InMemoryNonceStore) -> VerifyHttpRequestSignatureParams:
+def _params(
+    vector: dict[str, Any], nonce_store: InMemoryNonceStore, headers: dict[str, str] | None = None
+) -> VerifyHttpRequestSignatureParams:
     request = vector["request"]
     return VerifyHttpRequestSignatureParams(
         method=request["method"],
         url=request["url"],
         body=request["body"],
-        headers=vector["headers"],
+        headers=headers if headers is not None else vector["headers"],
         max_created_skew_seconds=vector.get("maxCreatedSkewSeconds"),
         max_signature_lifetime_seconds=vector.get("maxSignatureLifetimeSeconds"),
         nonce_store=nonce_store,
@@ -139,10 +145,20 @@ def test_fixture_format() -> None:
 @pytest.mark.parametrize("vector", FIXTURE["vectors"], ids=[vector["id"] for vector in FIXTURE["vectors"]])
 async def test_http_verification_vector(vector: dict[str, Any]) -> None:
     now = vector.get("now", FIXTURE["clock"])
-    client, nonce_store = await _client_at(now)
+    current = [now]
+    client, nonce_store = await _client_at(lambda: current[0])
 
-    async def verify() -> VerifyHttpRequestSignatureResult:
-        return await client.verify_http_request_signature_detailed(_params(vector, nonce_store))
+    async def verify(headers: dict[str, str] | None = None) -> VerifyHttpRequestSignatureResult:
+        return await client.verify_http_request_signature_detailed(_params(vector, nonce_store, headers))
+
+    if "steps" in vector:
+        outcomes = []
+        for step in vector["steps"]:
+            current[0] = step.get("now", now)
+            result = await verify(step.get("headers"))
+            outcomes.append((result.ok, result.reason))
+        assert outcomes == [(step["expected"], step.get("reason")) for step in vector["steps"]]
+        return
 
     if "expectedSequence" in vector:
         results = [await verify() for _ in vector["expectedSequence"]]
