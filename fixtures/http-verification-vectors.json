@@ -1371,6 +1371,25 @@
       "expected": true
     },
     {
+      "id": "accept-url-ipv6-host",
+      "rule": "§6.5 item 4 (URL form)",
+      "description": "An IPv6 host in its RFC 5952 canonical form. `@authority` keeps the brackets: `[2001:db8::1]` (RFC 9421 §2.2.3).",
+      "request": {
+        "method": "POST",
+        "url": "https://[2001:db8::1]/v1/verify?mode=fixture",
+        "body": "{\"fixture\":true}"
+      },
+      "headers": {
+        "Signature": "sig1=:MokoqWQH/bUh1VD1QuQImYS5xjHg7cidn01yXgmBXaA8I9/KzstSeth0zRNSjg9XwqegxAgj5e2jdwqnVrTfAw==:",
+        "Signature-Input": "sig1=(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"agent-did\";key=\"sig1\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+        "Agent-DID": "sig1=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\"",
+        "Date": "Mon, 01 Jan 2024 00:00:20 GMT",
+        "Content-Digest": "sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:"
+      },
+      "signatureBase": "\"@method\": POST\n\"@authority\": [2001:db8::1]\n\"@path\": /v1/verify\n\"@query\": ?mode=fixture\n\"content-digest\": sha-256=:/7wt/EAngjJdpxEyEA50/1EdFYXdgOTqGW7UvKzj/vI=:\n\"date\": Mon, 01 Jan 2024 00:00:20 GMT\n\"agent-did\";key=\"sig1\": \"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot\"\n\"@signature-params\": (\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"date\" \"agent-did\";key=\"sig1\");created=1704067220;expires=1704067280;nonce=\"a36ac89f07c664f989ce3dab9eeecb2b\";keyid=\"did:webvh:QmHttpVerifyFixtureScid:verify.example:agents:fixture-bot#key-1\";alg=\"ed25519\";tag=\"agent-did\"",
+      "expected": true
+    },
+    {
       "id": "reject-url-space-in-query",
       "rule": "§6.5 item 4 (URL form)",
       "description": "A space in the query (it must be sent as %20). The SDKs refuse to sign such a URL and reject it with `url_not_normalized`.",
