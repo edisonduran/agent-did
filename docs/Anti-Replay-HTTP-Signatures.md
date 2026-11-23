@@ -64,7 +64,7 @@ headers = await identity.sign_http_request(SignHttpRequestParams(
 2. `created` is within `maxCreatedSkewSeconds` of now (default 300 s), `expires >= created`, `expires - created` is at most `maxSignatureLifetimeSeconds` (default 300 s), and `now <= expires`.
 3. `Content-Digest` matches the body.
 4. The signature verifies over the base rebuilt from the received request, with `@signature-params` re-serialized from the parsed `Signature-Input`, using an active `assertionMethod` key of a DID whose controller chain is active.
-5. The `(keyid, nonce)` pair has not been seen before. It is then recorded until `expires`.
+5. The `(keyid, nonce)` pair has not been seen before. It is then recorded until `expires` inclusive.
 
 The nonce is recorded only after the signature verifies, so forged requests cannot consume other clients' nonces.
 
@@ -112,7 +112,7 @@ The in-memory store refuses new nonces when full rather than evicting live ones.
 
 The key passed to a store is `<keyid> <nonce>`. A nonce never contains a space (RFC-001 §6.5 item 3: 1 to 256 characters of `A-Z a-z 0-9 . _ ~ + / = -`, checked before the store is called), so the text before the last space is always the `keyid`: a shared store that wants per-signer quotas can scope by it. The Microsoft Agent Framework handoff verifier uses `<did> <nonce>` with the same nonce grammar.
 
-When several instances verify requests for the same agents, pass a shared store. Tested reference implementations for Redis are in [`sdk/examples/redis-nonce-store.js`](../sdk/examples/redis-nonce-store.js) and [`sdk-python/examples/redis_nonce_store.py`](../sdk-python/examples/redis_nonce_store.py). Copy them into your service; they are not part of the SDK packages, so the SDKs have no Redis dependency.
+When several instances verify requests for the same agents, pass a shared store: RFC-001 §6.5 item 6 requires them to share the record. Tested reference implementations for Redis are in [`sdk/examples/redis-nonce-store.js`](../sdk/examples/redis-nonce-store.js) and [`sdk-python/examples/redis_nonce_store.py`](../sdk-python/examples/redis_nonce_store.py). Copy them into your service; they are not part of the SDK packages, so the SDKs have no Redis dependency.
 
 ```typescript
 const { createClient } = require('redis');
