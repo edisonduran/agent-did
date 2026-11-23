@@ -462,6 +462,15 @@ add('reject-query-differs', '§6.5 item 4', 'The request query differs from the 
     expected: true
   });
 }
+{
+  // Every other IPv6 vector is a rejection, so a verifier that drops the brackets from `@authority` would pass them all
+  const req = { ...REQUEST, url: 'https://[2001:db8::1]/v1/verify?mode=fixture' };
+  add('accept-url-ipv6-host', '§6.5 item 4 (URL form)', 'An IPv6 host in its RFC 5952 canonical form. `@authority` keeps the brackets: `[2001:db8::1]` (RFC 9421 §2.2.3).', {
+    request: req,
+    build: buildHeaders({ signedRequest: req }),
+    expected: true
+  });
+}
 const URL_FORM_CASES = [
   ['space-in-query', 'https://api.example.com/v1/verify?mode=hello world', 'A space in the query (it must be sent as %20).'],
   ['dot-segment', 'https://api.example.com/v1/../v1/verify?mode=fixture', 'A `..` path segment.'],
