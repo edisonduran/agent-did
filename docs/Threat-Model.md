@@ -117,7 +117,7 @@ An agent presents an Agent Card whose key material is a member of its DID docume
 | **I** | Card exposes more metadata than intended. | Only commitments, not plaintext prompts, are published. | Card contents are the operator's choice. |
 | **D** | Peer withholds or delays a handoff. | Out of scope for identity. | Application-level timeouts. |
 | **E** | Key valid for the agent but not for the purpose (AIVSS 3.6.2). | `assertionMethod` purpose scoping. | Capability enforcement stays with the relying party (O3). |
-| **E** | Privilege escalation across delegation chains (AIVSS 3.6.3). | Not covered by the composition contract. | Open; belongs to the RFC-001 delegation model. |
+| **E** | Privilege escalation across delegation chains (AIVSS 3.6.3). | RFC-001 §6.7: every link of a capability chain can only narrow the target, actions and expiry it received, the chain starts at a root whose controllers the verifier configures, and both SDKs check it in the fixed order of §6.7 (`fixtures/delegation-vectors.json`). | No per-capability revocation in 1.0; issuers keep `expires` short and re-issue (RFC-001 §6.7). |
 
 ## 7. Flow 6: Rotation and revocation
 
@@ -141,7 +141,7 @@ These are the residual risks that matter most, in priority order.
 1. **Controller key compromise is recoverable only for DIDs that committed to pre-rotation keys in advance** (§7). The SDKs expose pre-rotation (`nextUpdateKeys`, `rotateControllerKey` / `rotate_controller_key`), but it is opt-in: DIDs created without it have no in-protocol recovery and rely on an operator control (HSM/KMS). Committed keys held on the same host as the active key add nothing.
 2. **Rollback and withholding by a log host** (§4). Operator mitigation only: bounded TTL, mirrors.
 3. **Signer-asserted time** (§5, §7). Without trusted time evidence (an RFC 3161 token, RFC-001 §6.2.2), post-compromise forgery of `created` cannot be excluded; such a signature by a later-retired key is indeterminate, not accepted.
-4. **Replay protection is per process by default** (§5). Shared `NonceStore` is mandatory for multi-instance verifiers.
+4. **Replay protection is per process by default** (§5). Shared `NonceStore` is mandatory for multi-instance verifiers (RFC-001 §6.5 item 6).
 5. **Valid signature is not trust** (§5). Verifiers must authorize DIDs; the SDK only authenticates.
 6. **Resolver cost is bounded per fetch, not per verifier** (§4). Each fetch has a deadline and a size cap and the cache is bounded, but a sender can name unknown DIDs to force fetches; rate-limiting is the verifier's. Log verification cost within the size cap remains a candidate for M-16.
 7. **Salt custody** (§2). Lost salt blocks metadata updates; leaked salt re-enables guessing.
