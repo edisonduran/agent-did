@@ -177,7 +177,7 @@ async def create_did_webvh_log(
         _validate_version_time(created, "created", timedelta(0))
 
     update_key = await did_webvh_update_key_for(signer)
-    next_key_hashes = _next_key_hashes_for(next_update_keys, [update_key]) or []
+    next_key_hashes = _next_key_hashes_for(next_update_keys, [update_key], [update_key]) or []
     domain_component = f"{host}%3A{port}" if port else host
     template_did = ":".join(["did:webvh", _SCID_PLACEHOLDER, domain_component, *segments])
     if not isinstance(document, dict):
@@ -225,8 +225,10 @@ async def update_did_webvh_log(
     *document* is the complete next DID document; when omitted the current
     document is carried over. *update_keys* replaces the active update keys; while pre-rotation is active
     they must all be committed in ``nextKeyHashes`` and default to the signer's key. *next_update_keys* are
-    the public keys for the pre-rotation commitment of the NEXT entry: omitted, the commitments in force stay
-    as they are; an empty list ends pre-rotation. They must not include any of the update keys this entry sets.
+    the public keys for the pre-rotation commitment of the NEXT entry; an empty list ends pre-rotation. Omitted,
+    the commitments in force stay as they are, which is only allowed while pre-rotation is not active: while it
+    is, every entry consumes a committed key and must commit to new ones. They must not include a key that is,
+    or has been, in the log's update keys.
     *witness* is the new witness rule for the entries after this one (ADR-007): :data:`REMOVE_WITNESSES` removes
     witnessing and ``None`` keeps the rule in force; the witnesses in force approve this entry. *witness_file* is the
     current ``did-witness.json`` (required when the log has witnessed entries) and *collect_witness_proofs* obtains
@@ -245,8 +247,16 @@ async def update_did_webvh_log(
         for key in update_keys:
             _validate_update_key(key)
     signer_key, effective_update_keys = await _authorize_signer(signer, current.metadata, update_keys)
+    if current.metadata.next_key_hashes and next_update_keys is None:
+        raise DidWebvhError(
+            "invalidInput",
+            "Pre-rotation is active: this entry is signed with a committed key, so it must commit to the next keys "
+            "(next_update_keys; an empty list ends pre-rotation)",
+        )
     next_key_hashes = _next_key_hashes_for(
-        next_update_keys, effective_update_keys if effective_update_keys is not None else current.metadata.update_keys
+        next_update_keys,
+        effective_update_keys if effective_update_keys is not None else current.metadata.update_keys,
+        _update_keys_used_in(entries),
     )
     if updated is not None:
         _validate_version_time(updated, "updated", _MAX_FUTURE_SKEW)
@@ -801,8 +811,22 @@ def _next_key_hash(multikey: str) -> str:
     return str(HashInfo.from_name(DEFAULT_HASH).formatted_hash(multikey.encode("utf-8")))
 
 
-def _next_key_hashes_for(next_update_keys: list[str] | None, active_keys: list[str]) -> list[str] | None:
-    """Hash pre-rotation keys. None means "no change"; the keys must be new, never an active one."""
+def _update_keys_used_in(entries: list[dict[str, Any]]) -> list[str]:
+    """Every key that any entry of the log sets in ``updateKeys``."""
+    used: list[str] = []
+    for entry in entries:
+        parameters = entry.get("parameters")
+        keys = parameters.get("updateKeys") if isinstance(parameters, dict) else None
+        if isinstance(keys, list):
+            used.extend(key for key in keys if isinstance(key, str) and key not in used)
+    return used
+
+
+def _next_key_hashes_for(
+    next_update_keys: list[str] | None, active_keys: list[str], used_keys: list[str]
+) -> list[str] | None:
+    """Hash pre-rotation keys. None means "no change". The keys must be new: never one active in the entry
+    being written, and never one the log has already set in ``updateKeys``."""
     if next_update_keys is None:
         return None
     for key in next_update_keys:
@@ -813,6 +837,12 @@ def _next_key_hashes_for(next_update_keys: list[str] | None, active_keys: list[s
         raise DidWebvhError(
             "invalidInput",
             "next_update_keys must not include a key that is active in the same entry: "
+            "pre-rotation commits to NEW keys",
+        )
+    if any(key in used_keys for key in next_update_keys):
+        raise DidWebvhError(
+            "invalidInput",
+            "next_update_keys must not include a key that the log has already used in updateKeys: "
             "pre-rotation commits to NEW keys",
         )
     return [_next_key_hash(key) for key in next_update_keys]

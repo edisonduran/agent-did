@@ -86,24 +86,54 @@ class TestPreRotation:
         await expect_code(update_did_webvh_log(log=created.log, signer=K0), "unauthorized")
         await expect_code(update_did_webvh_log(log=created.log, signer=K2), "unauthorized")
 
-        rotated = await update_did_webvh_log(log=created.log, signer=K1)
+        rotated = await update_did_webvh_log(log=created.log, signer=K1, next_update_keys=[await key(K2)])
         assert rotated.metadata.update_keys == [await key(K1)]
         assert rotated.version_number == 2
 
-    async def test_keeps_the_commitment_unless_the_entry_changes_it(self) -> None:
+    async def test_every_entry_under_pre_rotation_commits_to_new_keys(self) -> None:
         created = await create_committed()
-        kept = await update_did_webvh_log(log=created.log, signer=K1)
-        assert kept.metadata.next_key_hashes == created.metadata.next_key_hashes
+        # Keeping the commitment would leave K1 both active and committed.
+        await expect_code(update_did_webvh_log(log=created.log, signer=K1), "invalidInput")
+        await expect_code(
+            update_did_webvh_log(log=created.log, signer=K1, document=agent_document("x", did=created.did)),
+            "invalidInput",
+        )
 
-        chained = await update_did_webvh_log(log=kept.log, signer=K1, next_update_keys=[await key(K2)])
+        chained = await update_did_webvh_log(log=created.log, signer=K1, next_update_keys=[await key(K2)])
         assert len(chained.metadata.next_key_hashes) == 1
         assert chained.metadata.next_key_hashes != created.metadata.next_key_hashes
 
         # K1 is the active key but no longer committed: K2 must sign now.
-        await expect_code(update_did_webvh_log(log=chained.log, signer=K1), "unauthorized")
+        await expect_code(
+            update_did_webvh_log(log=chained.log, signer=K1, next_update_keys=[await key(K3)]), "unauthorized"
+        )
         nxt = await update_did_webvh_log(log=chained.log, signer=K2, next_update_keys=[await key(K3)])
         assert nxt.metadata.update_keys == [await key(K2)]
-        assert (await resolve_did_webvh_log(nxt.log)).version_number == 4
+        assert (await resolve_did_webvh_log(nxt.log)).version_number == 3
+
+    async def test_refuses_to_commit_again_to_a_key_the_log_has_used(self) -> None:
+        created = await create_committed()
+        rotated = await update_did_webvh_log(log=created.log, signer=K1, next_update_keys=[await key(K2)])
+        await expect_code(
+            update_did_webvh_log(log=rotated.log, signer=K2, next_update_keys=[await key(K0)]), "invalidInput"
+        )
+        await expect_code(
+            update_did_webvh_log(log=rotated.log, signer=K2, next_update_keys=[await key(K3), await key(K1)]),
+            "invalidInput",
+        )
+
+    async def test_commits_again_to_an_unused_recovery_key_and_recovers_with_it(self) -> None:
+        # K3 is a recovery key kept offline: committed in every entry, never used until recovery.
+        created = await create_committed([K1, K3])
+        first = await update_did_webvh_log(
+            log=created.log, signer=K1, next_update_keys=[await key(K2), await key(K3)]
+        )
+        assert len(first.metadata.next_key_hashes) == 2
+        # K2 is lost: K3 recovers and ends pre-rotation.
+        recovered = await update_did_webvh_log(log=first.log, signer=K3, next_update_keys=[])
+        assert recovered.metadata.update_keys == [await key(K3)]
+        await expect_code(update_did_webvh_log(log=recovered.log, signer=K2), "unauthorized")
+        assert (await resolve_did_webvh_log(recovered.log)).version_number == 3
 
     async def test_an_empty_commitment_ends_pre_rotation(self) -> None:
         created = await create_committed()
@@ -120,7 +150,7 @@ class TestPreRotation:
         started = await update_did_webvh_log(log=plain.log, signer=K0, next_update_keys=[await key(K1)])
         assert len(started.metadata.next_key_hashes) == 1
         await expect_code(update_did_webvh_log(log=started.log, signer=K0), "unauthorized")
-        assert await update_did_webvh_log(log=started.log, signer=K1) is not None
+        assert await update_did_webvh_log(log=started.log, signer=K1, next_update_keys=[await key(K2)]) is not None
 
     async def test_refuses_commitments_to_keys_that_are_not_new_malformed_or_repeated(self) -> None:
         common: dict[str, Any] = {"domain": "agents.example.com", "document": agent_document(), "signer": K0}
@@ -172,7 +202,7 @@ class TestPreRotation:
 
     async def test_rejects_on_resolution_updatekeys_swapped_for_the_old_key(self) -> None:
         created = await create_committed()
-        rotated = await update_did_webvh_log(log=created.log, signer=K1)
+        rotated = await update_did_webvh_log(log=created.log, signer=K1, next_update_keys=[await key(K2)])
         lines = rotated.log.rstrip().split("\n")
         last = json.loads(lines[-1])
         last["parameters"]["updateKeys"] = [await key(K0)]

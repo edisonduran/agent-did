@@ -97,7 +97,7 @@ export declare function checkAgentMetadataCredentialForm(credential: unknown, no
 };
 
 ## core/AgentDidClient.d.ts
-import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, AgentCapability, CreateAgentParams, CreateCapabilityParams, CreateAgentResult, DidDocument, DidWebvhControllerKeys, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyCapabilityChainOptions, VerifyCapabilityChainResult, VerifyClientAssertionParams, VerifyClientAssertionResult, VerifyHttpCapabilityInvocationParams, VerifyHttpCapabilityInvocationResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
+import { AddVerificationMethodOptions, AddVerificationMethodResult, AgentDocumentHistoryEntry, AgentDIDDocument, AgentMetadataCredential, AgentCapability, CreateAgentParams, CreateCapabilityParams, CreateAgentResult, DidDocument, DidWebvhControllerKeys, DidWebvhEntryOptions, DidWebvhLifecycleOptions, IssueAgentMetadataCredentialParams, RotateControllerKeyOptions, RetireVerificationMethodOptions, RotateVerificationMethodOptions, RotateVerificationMethodResult, UpdateAgentDocumentParams, VerifyAgentMetadataCredentialOptions, VerifyAgentCardResult, VerifyAgentMetadataCredentialResult, VerifyCapabilityChainOptions, VerifyCapabilityChainResult, VerifyClientAssertionParams, VerifyClientAssertionResult, VerifyHttpCapabilityInvocationParams, VerifyHttpCapabilityInvocationResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, VerificationRelationship } from './types';
 import { AgentSigner } from './signer';
 import { NonceStore } from './nonce-store';
 import { DIDDocumentSource, DIDResolver, DidWebvhState, ResolutionLimits, ResolverResolutionEvent } from '../resolver/types';
@@ -248,8 +248,9 @@ export declare class AgentDidClient {
     private createOrReuseBootstrapController;
     /**
      * Appends a controller-signed entry with `document` to the DID's did:webvh log and
-     * returns the state as signed. The signer is `controllerSigner` when given, otherwise
-     * the controller signer retained when the DID was created in this process.
+     * returns the state as signed. The signer is `options.controllerSigner` when given, otherwise
+     * the controller signer retained when the DID was created in this process; `options.nextUpdateKeys` is the
+     * pre-rotation commitment for the entry after it (required while pre-rotation is active).
      */
     private appendDidWebvhEntry;
     private requireDidWebvhLifecycle;
@@ -421,7 +422,7 @@ export declare class AgentDidClient {
      */
     revokeDid(did: string, options?: DidWebvhLifecycleOptions): Promise<void>;
     private revokeDidLocked;
-    updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhLifecycleOptions): Promise<AgentDIDDocument>;
+    updateDidDocument(did: string, patch: UpdateAgentDocumentParams, options?: DidWebvhEntryOptions): Promise<AgentDIDDocument>;
     private updateDidDocumentLocked;
     rotateVerificationMethod(did: string, options?: RotateVerificationMethodOptions): Promise<RotateVerificationMethodResult>;
     private rotateVerificationMethodLocked;
@@ -456,7 +457,8 @@ export declare class AgentDidClient {
      * - Not active: the current controller signer (`options.controllerSigner`, or the one retained in this
      *   process) signs, and `nextUpdateKeys` may start pre-rotation.
      *
-     * Commit to the following key in `nextUpdateKeys`, or the key you rotate to stays the only valid next key.
+     * While pre-rotation is active, `nextUpdateKeys` is required: commit to the next key (and, if you keep them,
+     * recovery keys held offline), or pass an empty array to end pre-rotation.
      */
     rotateControllerKey(did: string, options: RotateControllerKeyOptions): Promise<DidWebvhControllerKeys>;
     private rotateControllerKeyLocked;
@@ -467,7 +469,7 @@ export declare class AgentDidClient {
      * witnesses in force approve that entry (through `AgentDidClientOptions.collectWitnessProofs`); the new rule
      * governs the entries after it. Returns the witness configuration now in force.
      */
-    setDidWebvhWitnesses(did: string, witness: DidWebvhWitnessConfig | null, options?: DidWebvhLifecycleOptions): Promise<{
+    setDidWebvhWitnesses(did: string, witness: DidWebvhWitnessConfig | null, options?: DidWebvhEntryOptions): Promise<{
         threshold: number;
         witnesses: string[];
     }>;
@@ -1252,6 +1254,11 @@ export interface CreateDidWebvhOptions {
      * hashes go into the log (`nextKeyHashes`). From then on the key in `controllerSigner` can no longer sign
      * log entries: a compromised controller key cannot rotate or deactivate the DID, and the holder of one of
      * these keys can. Keep their private keys offline. Rotate with `rotateControllerKey`.
+     *
+     * While pre-rotation is active, every later entry is signed with a committed key and must commit to new
+     * keys (`nextUpdateKeys` on each operation that writes to the log). A common pattern is the next operational
+     * key plus one or two recovery keys kept offline: an unused recovery key can be committed again in each entry,
+     * and a key that has been in `updateKeys` cannot.
      */
     nextUpdateKeys?: string[];
     /**
@@ -1265,9 +1272,10 @@ export interface RotateControllerKeyOptions {
     /** The key that becomes the DID's active `updateKeys` entry. With pre-rotation active it must be a committed key and it signs the entry. */
     newControllerSigner: import('./signer').AgentSigner;
     /**
-     * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Omitted: the
-     * commitments in force stay as they are, so the key you just rotated to stays the only valid next key.
-     * An empty array ends pre-rotation. Must not include `newControllerSigner`'s key.
+     * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Required while
+     * pre-rotation is active; when it is not, omitting it leaves pre-rotation off. An empty array ends
+     * pre-rotation. Must not include `newControllerSigner`'s key or any key the log has already used in
+     * `updateKeys`.
      */
     nextUpdateKeys?: string[];
     /** Signer of the current `updateKeys`, when pre-rotation is NOT active (otherwise `newControllerSigner` signs). Defaults to the signer retained in this process. */
@@ -1288,9 +1296,20 @@ export interface DidWebvhLifecycleOptions {
      */
     controllerSigner?: import('./signer').AgentSigner;
 }
+/** Options for operations that append a non-deactivating entry to a did:webvh log. */
+export interface DidWebvhEntryOptions extends DidWebvhLifecycleOptions {
+    /**
+     * Pre-rotation commitment for the entry after this one: public keys (Ed25519 multikeys) whose hashes go into
+     * `nextKeyHashes`. Required while pre-rotation is active: the entry is signed with a committed key, which
+     * becomes the active controller key, and it must commit to new keys so that key cannot sign again. An empty
+     * array ends pre-rotation. Keys the log has already used in `updateKeys` are refused. Ignored when pre-rotation
+     * is not active and it is omitted.
+     */
+    nextUpdateKeys?: string[];
+}
 /** A relationship a key added with `addVerificationMethod` can be listed under (never `keyAgreement`). */
 export type AddedKeyRelationship = SigningVerificationPurpose;
-export interface AddVerificationMethodOptions extends DidWebvhLifecycleOptions {
+export interface AddVerificationMethodOptions extends DidWebvhEntryOptions {
     /**
      * Signer that holds the new key (for example a KMS or HSM key). Its public key becomes the new verification
      * method and no private key reaches the SDK: `agentPrivateKey` in the result is an empty string. Without it the
@@ -1314,7 +1333,7 @@ export interface AddVerificationMethodResult {
      */
     signer?: import('./signer').AgentSigner;
 }
-export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOptions {
+export interface RotateVerificationMethodOptions extends DidWebvhEntryOptions {
     /**
      * Signer that holds the new agent key (for example a KMS or HSM key). Its public key becomes the new
      * verification method and the private key never reaches the SDK: `agentPrivateKey` in the result is an
@@ -1327,7 +1346,7 @@ export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOption
      */
     emergency?: boolean;
 }
-export interface RetireVerificationMethodOptions extends DidWebvhLifecycleOptions {
+export interface RetireVerificationMethodOptions extends DidWebvhEntryOptions {
     /**
      * Emergency revocation (the key may be compromised): the key also gets `revoked` and no signature under it is
      * accepted again, whatever time it states. An already retired key can still be revoked this way. Default
@@ -2322,7 +2341,7 @@ export {};
  * This SDK provides the core tools to create, sign, and verify Decentralized Identifiers
  * for autonomous AI agents, ensuring provenance, compliance, and secure delegation.
  */
-export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, DidDocument, VerificationRelationshipEntry, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, CheckDidWebvhKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
+export { AgentMetadata, AgentDocumentHistoryAction, AgentDocumentHistoryEntry, VerifiableCredentialLink, VerificationMethod, AgentDIDDocument, DidDocument, VerificationRelationshipEntry, VerificationRelationship, SigningVerificationPurpose, SignedArtifactKind, AdditionalVerificationRelationship, IdentityCompositionErrorReason, IdentityCompositionRejection, VerifyAgentCardResult, VerifyIdentityCompositionParams, VerifyIdentityCompositionResult, RetireVerificationMethodOptions, AgentDidContextEntry, RevokedContextTerm, CreateAgentParams, CreateAgentResult, CreateDidWebvhOptions, DidWebvhEntryOptions, DidWebvhLifecycleOptions, RotateVerificationMethodOptions, AddVerificationMethodOptions, AddVerificationMethodResult, AddedKeyRelationship, DidWebvhControllerKeys, RotateControllerKeyOptions, MetadataCommitmentSalts, SignHttpRequestParams, UpdateAgentDocumentParams, RotateVerificationMethodResult, VerifyHttpRequestSignatureParams, VerifyHttpRequestSignatureResult, HttpSignatureRejection, CheckKeyAtTimeOptions, CheckDidWebvhKeyAtTimeOptions, KeyAtTimeRejection, KeyAtTimeResult, KeyAtTimeUncertainty, VerifySignatureAtTimeOptions, VerifySignatureAtTimeResult, AgentMetadataCredential, AgentMetadataCredentialRejection, IssueAgentMetadataCredentialParams, VerifyAgentMetadataCredentialOptions, VerifyAgentMetadataCredentialResult } from './core/types';
 export type { DataIntegrityProof } from './crypto/data-integrity';
 export { AGENT_DID_A2A_EXTENSION_URI, AGENT_CARD_SIGNATURE_ALG, MAX_AGENT_CARD_SIGNATURES, signAgentCard, parseSignedAgentCard } from './core/agent-card';
 export type { AgentCard, AgentCardSignature, ParsedAgentCard } from './core/agent-card';
@@ -3166,9 +3185,10 @@ export interface UpdateDidWebvhLogParams {
      */
     updateKeys?: string[];
     /**
-     * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Omitted: the
-     * commitments in force stay as they are. An empty array ends pre-rotation. Must not include any of the
-     * `updateKeys` this entry sets.
+     * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. An empty array ends
+     * pre-rotation. Omitted: the commitments in force stay as they are, which is only allowed while pre-rotation
+     * is not active; while it is, every entry consumes a committed key and must commit to new ones. Must not
+     * include a key that is, or has been, in the log's `updateKeys`.
      */
     nextUpdateKeys?: string[];
     /** Optional `versionTime` for the new entry (UTC, second precision). Defaults to now. */

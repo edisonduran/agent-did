@@ -75,25 +75,54 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
     await expectCode(updateDidWebvhLog({ log: created.log, signer: K0, document: undefined }), 'unauthorized');
     await expectCode(updateDidWebvhLog({ log: created.log, signer: K2 }), 'unauthorized');
 
-    const rotated = await updateDidWebvhLog({ log: created.log, signer: K1 });
+    const rotated = await updateDidWebvhLog({ log: created.log, signer: K1, nextUpdateKeys: [await key(K2)] });
     expect(rotated.metadata.updateKeys).toEqual([await key(K1)]);
     expect(rotated.versionNumber).toBe(2);
   });
 
-  it('keeps the commitment when the entry does not change it, and commits to the next key when asked', async () => {
+  it('requires every entry under pre-rotation to commit to new keys, so the signing key cannot sign again', async () => {
     const created = await createCommitted();
-    const kept = await updateDidWebvhLog({ log: created.log, signer: K1 });
-    expect(kept.metadata.nextKeyHashes).toEqual(created.metadata.nextKeyHashes);
+    // Keeping the commitment would leave K1 both active and committed.
+    await expectCode(updateDidWebvhLog({ log: created.log, signer: K1 }), 'invalidInput');
+    await expectCode(
+      updateDidWebvhLog({ log: created.log, signer: K1, document: agentDocumentFor(created.did, 'x') }),
+      'invalidInput'
+    );
 
-    const chained = await updateDidWebvhLog({ log: kept.log, signer: K1, nextUpdateKeys: [await key(K2)] });
+    const chained = await updateDidWebvhLog({ log: created.log, signer: K1, nextUpdateKeys: [await key(K2)] });
     expect(chained.metadata.nextKeyHashes).toHaveLength(1);
     expect(chained.metadata.nextKeyHashes).not.toEqual(created.metadata.nextKeyHashes);
 
     // K1 is the active key but no longer committed: K2 must sign now.
-    await expectCode(updateDidWebvhLog({ log: chained.log, signer: K1 }), 'unauthorized');
+    await expectCode(updateDidWebvhLog({ log: chained.log, signer: K1, nextUpdateKeys: [await key(K3)] }), 'unauthorized');
     const next = await updateDidWebvhLog({ log: chained.log, signer: K2, nextUpdateKeys: [await key(K3)] });
     expect(next.metadata.updateKeys).toEqual([await key(K2)]);
-    expect((await resolveDidWebvhLog(next.log)).versionNumber).toBe(4);
+    expect((await resolveDidWebvhLog(next.log)).versionNumber).toBe(3);
+  });
+
+  it('refuses to commit again to a key the log has already used in updateKeys', async () => {
+    const created = await createCommitted();
+    const rotated = await updateDidWebvhLog({ log: created.log, signer: K1, nextUpdateKeys: [await key(K2)] });
+    await expectCode(
+      updateDidWebvhLog({ log: rotated.log, signer: K2, nextUpdateKeys: [await key(K0)] }),
+      'invalidInput'
+    );
+    await expectCode(
+      updateDidWebvhLog({ log: rotated.log, signer: K2, nextUpdateKeys: [await key(K3), await key(K1)] }),
+      'invalidInput'
+    );
+  });
+
+  it('commits again to an unused recovery key in each entry, and recovers with it', async () => {
+    // K3 is a recovery key kept offline: committed in every entry, never used until recovery.
+    const created = await createCommitted([K1, K3]);
+    const first = await updateDidWebvhLog({ log: created.log, signer: K1, nextUpdateKeys: [await key(K2), await key(K3)] });
+    expect(first.metadata.nextKeyHashes).toHaveLength(2);
+    // K2 is lost: K3 recovers and ends pre-rotation.
+    const recovered = await updateDidWebvhLog({ log: first.log, signer: K3, nextUpdateKeys: [] });
+    expect(recovered.metadata.updateKeys).toEqual([await key(K3)]);
+    await expectCode(updateDidWebvhLog({ log: recovered.log, signer: K2 }), 'unauthorized');
+    expect((await resolveDidWebvhLog(recovered.log)).versionNumber).toBe(3);
   });
 
   it('ends pre-rotation with an empty commitment, and the signing key is then an ordinary update key', async () => {
@@ -110,7 +139,9 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
     const started = await updateDidWebvhLog({ log: plain.log, signer: K0, nextUpdateKeys: [await key(K1)] });
     expect(started.metadata.nextKeyHashes).toHaveLength(1);
     await expectCode(updateDidWebvhLog({ log: started.log, signer: K0 }), 'unauthorized');
-    await expect(updateDidWebvhLog({ log: started.log, signer: K1 })).resolves.toBeDefined();
+    await expect(
+      updateDidWebvhLog({ log: started.log, signer: K1, nextUpdateKeys: [await key(K2)] })
+    ).resolves.toBeDefined();
   });
 
   it('refuses commitments to keys that are not new, malformed, or repeated', async () => {
@@ -172,7 +203,7 @@ describe('did:webvh pre-rotation (nextKeyHashes)', () => {
 
   it('rejects, on resolution, a pre-rotated entry whose updateKeys were swapped for the old key', async () => {
     const created = await createCommitted();
-    const rotated = await updateDidWebvhLog({ log: created.log, signer: K1 });
+    const rotated = await updateDidWebvhLog({ log: created.log, signer: K1, nextUpdateKeys: [await key(K2)] });
     const lines = rotated.log.trimEnd().split('\n');
     const last = JSON.parse(lines[lines.length - 1]);
     last.parameters.updateKeys = [await key(K0)];
