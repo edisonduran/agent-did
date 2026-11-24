@@ -84,7 +84,7 @@ Current recommendation for the normalized `v1.0.0` branch state:
 
 - [x] **C-SPEC-1** — RFC-001 marked as `Stable` in [docs/INDEX.md](INDEX.md) and on its own header.
 - [x] **C-SPEC-2** — `RFC-001-Compliance-Checklist.md` reports MUST `11/11 PASS` and SHOULD `5/5 PASS` (self-assessment; external evidence is the [External Conformance Matrix](External-Conformance-Matrix.md)).
-- [ ] **C-SPEC-3** — Security section of the RFC reviewed and signed off by ≥1 reviewer external to the lead maintainer.
+- [x] **C-SPEC-3** — Security section of the RFC reviewed and signed off by ≥1 reviewer external to the lead maintainer. _Evidence: Tetsurohhori reviewed RFC-001 §8 at `76015096` in [#310](https://github.com/edisonduran/agent-did/issues/310#issuecomment-7096220103) and signed off on condition that two requirements stated only in the informative §8.1 move into normative sections. [#311](https://github.com/edisonduran/agent-did/pull/311) (`70d12439`) did that and applied the other recommendations; the reviewer confirmed the sign-off as unconditional at `70d12439` on 2026-11-23 ([comment](https://github.com/edisonduran/agent-did/issues/310#issuecomment-7116920249))._
 - [x] **C-SPEC-4** — Public errata procedure documented in the RFC (how corrections are proposed and accepted post-1.0 without a major bump). _Evidence: RFC-001 §11.2._
 
 ### 2.2 SDKs and Public API
