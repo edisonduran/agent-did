@@ -469,14 +469,22 @@ class AgentDidClient:
         return log, signer
 
     async def _append_did_webvh_entry(
-        self, did: str, document: AgentDIDDocument, controller_signer: AgentSigner | None
+        self,
+        did: str,
+        document: AgentDIDDocument,
+        controller_signer: AgentSigner | None,
+        next_update_keys: list[str] | None,
     ) -> AgentDIDDocument:
-        """Append a controller-signed entry with *document* to the DID's log; return the signed state."""
+        """Append a controller-signed entry with *document* to the DID's log; return the signed state.
+
+        *next_update_keys* is the pre-rotation commitment for the entry after it (required while pre-rotation is
+        active)."""
         log, signer = self._require_did_webvh_lifecycle(did, controller_signer)
         updated = await update_did_webvh_log(
             log=log,
             signer=signer,
             document=document.model_dump(by_alias=True, exclude_none=True),
+            next_update_keys=next_update_keys,
             witness_file=self._did_webvh_witness_store.get(did),
             collect_witness_proofs=self._collect_witness_proofs,
         )
@@ -507,8 +515,9 @@ class AgentDidClient:
         * Not active: the current controller signer (*controller_signer*, or the one retained in this process)
           signs, and *next_update_keys* may start pre-rotation.
 
-        Commit to the following key in *next_update_keys*, or the key you rotate to stays the only valid next key.
-        An empty list ends pre-rotation.
+        While pre-rotation is active, *next_update_keys* is required: commit to the next key (and, if you keep them,
+        recovery keys held offline), or pass an empty list to end pre-rotation. Keys the log has already used in
+        ``updateKeys`` are refused.
         """
         if not did.startswith("did:webvh:"):
             raise ValueError(f"did:webvh DID is required to rotate the controller key: {did}")
@@ -560,12 +569,14 @@ class AgentDidClient:
         witness: DidWebvhWitnessConfig | None,
         *,
         controller_signer: AgentSigner | None = None,
+        next_update_keys: list[str] | None = None,
     ) -> DidWebvhWitnessConfig:
         """Set, change or (with ``None``) remove the witnesses of a did:webvh DID (ADR-007) by appending a log entry.
 
         The witnesses in force approve that entry (through ``AgentDidClientOptions.collect_witness_proofs``); the new
         rule governs the entries after it. Returns the witness configuration now in force (``threshold`` 0 and no
-        witnesses when removed).
+        witnesses when removed). *next_update_keys* is the pre-rotation commitment for the entry after this one,
+        required while pre-rotation is active (see :meth:`update_did_document`).
         """
         if not did.startswith("did:webvh:"):
             raise ValueError(f"did:webvh DID is required to set witnesses: {did}")
@@ -574,6 +585,7 @@ class AgentDidClient:
             log=log,
             signer=signer,
             witness=witness if witness is not None else REMOVE_WITNESSES,
+            next_update_keys=next_update_keys,
             witness_file=self._did_webvh_witness_store.get(did),
             collect_witness_proofs=self._collect_witness_proofs,
         )
@@ -1482,14 +1494,24 @@ class AgentDidClient:
         patch: UpdateAgentDocumentParams,
         *,
         controller_signer: AgentSigner | None = None,
+        next_update_keys: list[str] | None = None,
     ) -> AgentDIDDocument:
+        """Apply *patch* to the document of *did*. For a did:webvh DID this appends a controller-signed log entry.
+
+        *next_update_keys* is the pre-rotation commitment for the entry after this one. It is required while
+        pre-rotation is active: the entry is signed with a committed key, which becomes the active controller key,
+        and it must commit to new keys so that key cannot sign again; an empty list ends pre-rotation. Keys the log
+        has already used in ``updateKeys`` are refused. The other operations that append an entry
+        (:meth:`add_verification_method`, :meth:`rotate_verification_method`, :meth:`retire_verification_method`,
+        :meth:`set_did_webvh_witnesses`) take it too.
+        """
         assert_update_patch(did, patch)
 
         existing = await self.resolve(did)
         updated = build_updated_document(existing, patch, self._next_timestamp(existing.updated))
 
         if did.startswith("did:webvh:"):
-            updated = await self._append_did_webvh_entry(did, updated, controller_signer)
+            updated = await self._append_did_webvh_entry(did, updated, controller_signer, next_update_keys)
 
         self._resolver.register_document(updated)
         await self._registry.set_document_reference(did, compute_document_reference(updated))
@@ -1503,6 +1525,7 @@ class AgentDidClient:
         key_id: str,
         *,
         controller_signer: AgentSigner | None = None,
+        next_update_keys: list[str] | None = None,
         emergency: bool = False,
     ) -> AgentDIDDocument:
         """Retire one key of *did* and leave the others as they are (RFC-001 §6.6): the key gets a ``deactivated``
@@ -1519,7 +1542,7 @@ class AgentDidClient:
         updated = build_retired_key_document(existing, key_id, self._next_timestamp(existing.updated), emergency)
 
         if did.startswith("did:webvh:"):
-            updated = await self._append_did_webvh_entry(did, updated, controller_signer)
+            updated = await self._append_did_webvh_entry(did, updated, controller_signer, next_update_keys)
 
         self._resolver.register_document(updated)
         await self._registry.set_document_reference(did, compute_document_reference(updated))
@@ -1532,6 +1555,7 @@ class AgentDidClient:
         did: str,
         *,
         controller_signer: AgentSigner | None = None,
+        next_update_keys: list[str] | None = None,
         signer: AgentSigner | None = None,
         relationships: list[SigningVerificationPurpose] | None = None,
     ) -> AddVerificationMethodResult:
@@ -1550,7 +1574,7 @@ class AgentDidClient:
         )
 
         if did.startswith("did:webvh:"):
-            updated = await self._append_did_webvh_entry(did, updated, controller_signer)
+            updated = await self._append_did_webvh_entry(did, updated, controller_signer, next_update_keys)
 
         self._resolver.register_document(updated)
         await self._registry.set_document_reference(did, compute_document_reference(updated))
@@ -1565,6 +1589,7 @@ class AgentDidClient:
         did: str,
         *,
         controller_signer: AgentSigner | None = None,
+        next_update_keys: list[str] | None = None,
         signer: AgentSigner | None = None,
         emergency: bool = False,
     ) -> RotateVerificationMethodResult:
@@ -1582,7 +1607,7 @@ class AgentDidClient:
         )
 
         if did.startswith("did:webvh:"):
-            updated = await self._append_did_webvh_entry(did, updated, controller_signer)
+            updated = await self._append_did_webvh_entry(did, updated, controller_signer, next_update_keys)
 
         self._resolver.register_document(updated)
         await self._registry.set_document_reference(did, compute_document_reference(updated))

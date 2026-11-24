@@ -65,6 +65,11 @@ export interface CreateDidWebvhOptions {
    * hashes go into the log (`nextKeyHashes`). From then on the key in `controllerSigner` can no longer sign
    * log entries: a compromised controller key cannot rotate or deactivate the DID, and the holder of one of
    * these keys can. Keep their private keys offline. Rotate with `rotateControllerKey`.
+   *
+   * While pre-rotation is active, every later entry is signed with a committed key and must commit to new
+   * keys (`nextUpdateKeys` on each operation that writes to the log). A common pattern is the next operational
+   * key plus one or two recovery keys kept offline: an unused recovery key can be committed again in each entry,
+   * and a key that has been in `updateKeys` cannot.
    */
   nextUpdateKeys?: string[];
   /**
@@ -79,9 +84,10 @@ export interface RotateControllerKeyOptions {
   /** The key that becomes the DID's active `updateKeys` entry. With pre-rotation active it must be a committed key and it signs the entry. */
   newControllerSigner: import('./signer').AgentSigner;
   /**
-   * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Omitted: the
-   * commitments in force stay as they are, so the key you just rotated to stays the only valid next key.
-   * An empty array ends pre-rotation. Must not include `newControllerSigner`'s key.
+   * Public keys (Ed25519 multikeys) for the pre-rotation commitment of the NEXT entry. Required while
+   * pre-rotation is active; when it is not, omitting it leaves pre-rotation off. An empty array ends
+   * pre-rotation. Must not include `newControllerSigner`'s key or any key the log has already used in
+   * `updateKeys`.
    */
   nextUpdateKeys?: string[];
   /** Signer of the current `updateKeys`, when pre-rotation is NOT active (otherwise `newControllerSigner` signs). Defaults to the signer retained in this process. */
@@ -105,10 +111,22 @@ export interface DidWebvhLifecycleOptions {
   controllerSigner?: import('./signer').AgentSigner;
 }
 
+/** Options for operations that append a non-deactivating entry to a did:webvh log. */
+export interface DidWebvhEntryOptions extends DidWebvhLifecycleOptions {
+  /**
+   * Pre-rotation commitment for the entry after this one: public keys (Ed25519 multikeys) whose hashes go into
+   * `nextKeyHashes`. Required while pre-rotation is active: the entry is signed with a committed key, which
+   * becomes the active controller key, and it must commit to new keys so that key cannot sign again. An empty
+   * array ends pre-rotation. Keys the log has already used in `updateKeys` are refused. Ignored when pre-rotation
+   * is not active and it is omitted.
+   */
+  nextUpdateKeys?: string[];
+}
+
 /** A relationship a key added with `addVerificationMethod` can be listed under (never `keyAgreement`). */
 export type AddedKeyRelationship = SigningVerificationPurpose;
 
-export interface AddVerificationMethodOptions extends DidWebvhLifecycleOptions {
+export interface AddVerificationMethodOptions extends DidWebvhEntryOptions {
   /**
    * Signer that holds the new key (for example a KMS or HSM key). Its public key becomes the new verification
    * method and no private key reaches the SDK: `agentPrivateKey` in the result is an empty string. Without it the
@@ -134,7 +152,7 @@ export interface AddVerificationMethodResult {
   signer?: import('./signer').AgentSigner;
 }
 
-export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOptions {
+export interface RotateVerificationMethodOptions extends DidWebvhEntryOptions {
   /**
    * Signer that holds the new agent key (for example a KMS or HSM key). Its public key becomes the new
    * verification method and the private key never reaches the SDK: `agentPrivateKey` in the result is an
@@ -148,7 +166,7 @@ export interface RotateVerificationMethodOptions extends DidWebvhLifecycleOption
   emergency?: boolean;
 }
 
-export interface RetireVerificationMethodOptions extends DidWebvhLifecycleOptions {
+export interface RetireVerificationMethodOptions extends DidWebvhEntryOptions {
   /**
    * Emergency revocation (the key may be compromised): the key also gets `revoked` and no signature under it is
    * accepted again, whatever time it states. An already retired key can still be revoked this way. Default

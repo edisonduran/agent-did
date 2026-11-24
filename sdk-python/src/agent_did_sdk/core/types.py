@@ -83,7 +83,12 @@ class CreateDidWebvhOptions(BaseModel):
     """Pre-rotation: public keys (Ed25519 multikeys) that will sign the DID's NEXT log entry. Only their hashes
     go into the log (``nextKeyHashes``). From then on the key in ``controller_signer`` can no longer sign log
     entries: a compromised controller key cannot rotate or deactivate the DID, and the holder of one of these
-    keys can. Keep their private keys offline. Rotate with ``AgentDidClient.rotate_controller_key``."""
+    keys can. Keep their private keys offline. Rotate with ``AgentDidClient.rotate_controller_key``.
+
+    While pre-rotation is active, every later entry is signed with a committed key and must commit to new keys
+    (``next_update_keys`` on each operation that writes to the log). A common pattern is the next operational key
+    plus one or two recovery keys kept offline: an unused recovery key can be committed again in each entry, and a
+    key that has been in ``updateKeys`` cannot."""
     witness: Any = None  # DidWebvhWitnessConfig
     """Witnesses (ADR-007), a ``DidWebvhWitnessConfig``: ``threshold`` of these ``did:key`` DIDs must approve the
     genesis entry and every later entry before it is published. The client obtains the approvals with

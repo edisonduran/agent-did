@@ -67,7 +67,7 @@ describe('controller key recovery with did:webvh pre-rotation', () => {
     await expect(client.updateDidDocument(did, { description: 'with K1' }, { controllerSigner: K1 })).rejects.toMatchObject({
       code: 'unauthorized'
     });
-    await client.updateDidDocument(did, { description: 'recovered' }, { controllerSigner: K2 });
+    await client.updateDidDocument(did, { description: 'recovered' }, { controllerSigner: K2, nextUpdateKeys: [await key(K3)] });
     expect((await client.resolve(did)).agentMetadata.description).toBe('recovered');
     expect((await client.getDidWebvhControllerKeys(did)).updateKeys).toEqual([await key(K2)]);
   });
@@ -90,6 +90,47 @@ describe('controller key recovery with did:webvh pre-rotation', () => {
     });
     await client.rotateControllerKey(did, { newControllerSigner: K1, nextUpdateKeys: [await key(K3)] });
     expect((await client.getDidWebvhControllerKeys(did)).updateKeys).toEqual([await key(K1)]);
+  });
+
+  it('requires new commitments from every operation that writes to the log under pre-rotation', async () => {
+    const { client, did } = await createAgent([await key(K1)]);
+    // Without a new commitment K1 would stay both active and committed, and could sign again.
+    await expect(client.updateDidDocument(did, { description: 'x' }, { controllerSigner: K1 })).rejects.toMatchObject({
+      code: 'invalidInput'
+    });
+    await expect(client.rotateControllerKey(did, { newControllerSigner: K1 })).rejects.toMatchObject({ code: 'invalidInput' });
+    await expect(client.addVerificationMethod(did, { controllerSigner: K1 })).rejects.toMatchObject({ code: 'invalidInput' });
+    await expect(client.setDidWebvhWitnesses(did, null, { controllerSigner: K1 })).rejects.toMatchObject({
+      code: 'invalidInput'
+    });
+
+    await client.addVerificationMethod(did, { controllerSigner: K1, nextUpdateKeys: [await key(K2)] });
+    await expect(
+      client.updateDidDocument(did, { description: 'K1 again' }, { controllerSigner: K1, nextUpdateKeys: [await key(K3)] })
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    await client.updateDidDocument(did, { description: 'by K2' }, { controllerSigner: K2, nextUpdateKeys: [] });
+    expect((await client.getDidWebvhControllerKeys(did)).nextKeyHashes).toEqual([]);
+  });
+
+  it('keeps an unused recovery key committed across rotations and recovers with it', async () => {
+    const R = new LocalKeySigner('5'.repeat(64));
+    const { client, did } = await createAgent([await key(K1), await key(R)]);
+    await client.rotateControllerKey(did, { newControllerSigner: K1, nextUpdateKeys: [await key(K2), await key(R)] });
+    await client.rotateControllerKey(did, { newControllerSigner: K2, nextUpdateKeys: [await key(K3), await key(R)] });
+    // K2 and K3 are compromised: R recovers and commits to a fresh key.
+    const R2 = new LocalKeySigner('6'.repeat(64));
+    const recovered = await client.rotateControllerKey(did, { newControllerSigner: R, nextUpdateKeys: [await key(R2)] });
+    expect(recovered.updateKeys).toEqual([await key(R)]);
+    await expect(
+      client.updateDidDocument(did, { description: 'taken over' }, { controllerSigner: K3, nextUpdateKeys: [] })
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    // Keys the log has used cannot be committed again.
+    await expect(
+      client.rotateControllerKey(did, { newControllerSigner: R2, nextUpdateKeys: [await key(K1)] })
+    ).rejects.toMatchObject({ code: 'invalidInput' });
+    const fresh = new AgentDidClient();
+    await fresh.importDidWebvhHistory(client.exportDidWebvhHistory(did));
+    expect((await fresh.getDidWebvhControllerKeys(did)).updateKeys).toEqual([await key(R)]);
   });
 
   it('rejects non-webvh DIDs and DIDs with no log in this process', async () => {

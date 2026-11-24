@@ -28,7 +28,11 @@ All of them carry the release version (`1.0.0-rc.N` on npm, `1.0.0rcN` on PyPI).
 
 ### Packages
 
-- No package changes yet: the entries below change tests and documentation only.
+- **`@agentdid/sdk`** and **`agent-did-sdk`** (the same change in both): see Changed. The other packages change tests and documentation only.
+
+### Changed
+
+- did:webvh pre-rotation in both SDKs: while commitments are in force, every operation that writes a log entry must commit to the next keys. `updateDidDocument`, `addVerificationMethod`, `rotateVerificationMethod`, `retireVerificationMethod` and `setDidWebvhWitnesses` take `nextUpdateKeys` (new `DidWebvhEntryOptions` in TypeScript; `next_update_keys` in Python), and they, `rotateControllerKey` and the adapter's `updateDidWebvhLog` raise `invalidInput` when it is omitted under pre-rotation; an empty list ends pre-rotation. A key the log has already used in `updateKeys` can no longer be committed again; an unused recovery key can be committed in every entry. No wire change: the logs and what resolvers accept are unchanged. Migration: pass `nextUpdateKeys` to each of these calls on DIDs with pre-rotation.
 
 ### Documentation
 

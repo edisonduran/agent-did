@@ -80,6 +80,7 @@ DIDDocumentSource
 didKeyFromPublicKey
 DIDResolver
 DidWebvhControllerKeys
+DidWebvhEntryOptions
 DidWebvhError
 DidWebvhErrorCode
 DidWebvhLifecycleOptions

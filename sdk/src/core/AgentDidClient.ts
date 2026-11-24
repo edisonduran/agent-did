@@ -14,6 +14,7 @@ import {
   CreateAgentResult,
   DidDocument,
   DidWebvhControllerKeys,
+  DidWebvhEntryOptions,
   DidWebvhLifecycleOptions,
   IdentityCompositionRejection,
   IssueAgentMetadataCredentialParams,
@@ -540,19 +541,21 @@ export class AgentDidClient {
 
   /**
    * Appends a controller-signed entry with `document` to the DID's did:webvh log and
-   * returns the state as signed. The signer is `controllerSigner` when given, otherwise
-   * the controller signer retained when the DID was created in this process.
+   * returns the state as signed. The signer is `options.controllerSigner` when given, otherwise
+   * the controller signer retained when the DID was created in this process; `options.nextUpdateKeys` is the
+   * pre-rotation commitment for the entry after it (required while pre-rotation is active).
    */
   private async appendDidWebvhEntry(
     did: string,
     document: AgentDIDDocument,
-    controllerSigner?: AgentSigner
+    options: DidWebvhEntryOptions
   ): Promise<AgentDIDDocument> {
-    const { log, signer } = this.requireDidWebvhLifecycle(did, controllerSigner);
+    const { log, signer } = this.requireDidWebvhLifecycle(did, options.controllerSigner);
     const updated = await updateDidWebvhLog({
       log,
       signer,
       document: document as unknown as Record<string, unknown>,
+      ...(options.nextUpdateKeys !== undefined ? { nextUpdateKeys: options.nextUpdateKeys } : {}),
       ...this.didWebvhWitnessOptions(did)
     });
     this.storeDidWebvhLog(did, updated);
@@ -1515,7 +1518,7 @@ export class AgentDidClient {
   public async updateDidDocument(
     did: string,
     patch: UpdateAgentDocumentParams,
-    options: DidWebvhLifecycleOptions = {}
+    options: DidWebvhEntryOptions = {}
   ): Promise<AgentDIDDocument> {
     return this.withDidLock(did, () => this.updateDidDocumentLocked(did, patch, options));
   }
@@ -1523,7 +1526,7 @@ export class AgentDidClient {
   private async updateDidDocumentLocked(
     did: string,
     patch: UpdateAgentDocumentParams,
-    options: DidWebvhLifecycleOptions
+    options: DidWebvhEntryOptions
   ): Promise<AgentDIDDocument> {
     assertUpdatePatch(did, patch);
 
@@ -1531,7 +1534,7 @@ export class AgentDidClient {
     let updatedDocument = buildUpdatedDocument(existing, patch, this.nextTimestamp(existing.updated));
 
     if (did.startsWith('did:webvh:')) {
-      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
+      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options);
     }
 
     this.resolver.registerDocument(updatedDocument);
@@ -1562,7 +1565,7 @@ export class AgentDidClient {
     let updatedDocument = rotated.document;
 
     if (did.startsWith('did:webvh:')) {
-      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
+      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options);
     }
 
     this.resolver.registerDocument(updatedDocument);
@@ -1609,7 +1612,7 @@ export class AgentDidClient {
     );
 
     if (did.startsWith('did:webvh:')) {
-      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
+      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options);
     }
 
     this.resolver.registerDocument(updatedDocument);
@@ -1646,7 +1649,7 @@ export class AgentDidClient {
     let updatedDocument = added.document;
 
     if (did.startsWith('did:webvh:')) {
-      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options.controllerSigner);
+      updatedDocument = await this.appendDidWebvhEntry(did, updatedDocument, options);
     }
 
     this.resolver.registerDocument(updatedDocument);
@@ -1671,7 +1674,8 @@ export class AgentDidClient {
    * - Not active: the current controller signer (`options.controllerSigner`, or the one retained in this
    *   process) signs, and `nextUpdateKeys` may start pre-rotation.
    *
-   * Commit to the following key in `nextUpdateKeys`, or the key you rotate to stays the only valid next key.
+   * While pre-rotation is active, `nextUpdateKeys` is required: commit to the next key (and, if you keep them,
+   * recovery keys held offline), or pass an empty array to end pre-rotation.
    */
   public async rotateControllerKey(did: string, options: RotateControllerKeyOptions): Promise<DidWebvhControllerKeys> {
     return this.withDidLock(did, () => this.rotateControllerKeyLocked(did, options));
@@ -1723,14 +1727,20 @@ export class AgentDidClient {
   public async setDidWebvhWitnesses(
     did: string,
     witness: DidWebvhWitnessConfig | null,
-    options: DidWebvhLifecycleOptions = {}
+    options: DidWebvhEntryOptions = {}
   ): Promise<{ threshold: number; witnesses: string[] }> {
     return this.withDidLock(did, async () => {
       if (!did.startsWith('did:webvh:')) {
         throw new Error(`did:webvh DID is required to set witnesses: ${did}`);
       }
       const { log, signer } = this.requireDidWebvhLifecycle(did, options.controllerSigner);
-      const updated = await updateDidWebvhLog({ log, signer, witness, ...this.didWebvhWitnessOptions(did) });
+      const updated = await updateDidWebvhLog({
+        log,
+        signer,
+        witness,
+        ...(options.nextUpdateKeys !== undefined ? { nextUpdateKeys: options.nextUpdateKeys } : {}),
+        ...this.didWebvhWitnessOptions(did)
+      });
       this.storeDidWebvhLog(did, updated);
       return {
         threshold: Number(updated.metadata.witnessThreshold),

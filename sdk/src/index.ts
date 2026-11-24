@@ -31,6 +31,7 @@ export {
   CreateAgentParams,
   CreateAgentResult,
   CreateDidWebvhOptions,
+  DidWebvhEntryOptions,
   DidWebvhLifecycleOptions,
   RotateVerificationMethodOptions,
   AddVerificationMethodOptions,
