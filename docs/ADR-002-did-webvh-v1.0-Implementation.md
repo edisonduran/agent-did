@@ -125,10 +125,11 @@ A prototype exercised both libraries with Agent-DID documents: a custom `agentMe
 - **Breaking:** new `did:webvh` identifiers carry a spec-derived SCID, and existing Agent-DID `did.jsonl` histories cannot be upgraded in place. The `rc.2 → rc.3` migration guides must explain re-issuance. Integrations that only call `AgentIdentity` are unaffected at the API level.
 - **Lifecycle authority:** document changes on the `did:webvh` path require a controller signature by construction, which is the basis for M-03.
 - **Dependencies:** both SDKs gain new runtime dependencies, which the SBOM and dependency review must cover.
+- **Versioned resolution is stricter than the spec's reading (deliberate):** the adapters verify the whole log even when a `versionId`, `versionNumber` or `versionTime` selects an earlier entry, so one invalid entry makes every version of the DID unresolvable. The did:webvh editors read the spec as keeping entries before an invalid one valid ([didwebvh#315](https://github.com/decentralized-identity/didwebvh/issues/315)). We keep the stricter rule because an invalid entry signals tampering and RFC-001 §6.1 requires whole-log verification; we revisit it after `v1.0.0` if a later did:webvh version makes returning earlier versions a MUST.
 - **Follow-ups:**
   - the upstream PR for optional Askar and `aiohttp` in `did-webvh`;
   - the `@noble` v2 migration in TS;
-  - registering Agent-DID as an implementation in `didwebvh-test-suite` once it is conformant.
+  - contributing scenarios to `didwebvh-test-suite` (offered in [didwebvh#315](https://github.com/decentralized-identity/didwebvh/issues/315)). The SDKs are adapters over `didwebvh-ts` and `didwebvh-py`, so what they add is scenarios, not another independent implementation.
 
 ## Resolved questions
 
